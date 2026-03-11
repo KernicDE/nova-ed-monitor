@@ -768,7 +768,7 @@ class BodiesPanel(_Panel):
                 # The letter designation (parts[0]) is level 0, then we add levels.
                 level = len(parts) - 1
 
-            indent = "  " * max(0, level)
+            indent = " " * max(0, level)
             name   = indent + display_name
             btype  = _abbrev_type(b.planet_class, b.star_type)
 
@@ -1086,6 +1086,8 @@ def _render_overview(s: AppState) -> RenderableType:
     stars   = [b for b in all_bodies if b.star_type]
     planets = sorted([b for b in all_bodies if b.planet_class and b.dist_ls > 0],
                      key=lambda b: b.dist_ls)
+    moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2 and b.dist_ls > 0],
+                     key=lambda b: b.dist_ls)
     if stars or planets:
         diag = Text()
         diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
@@ -1097,21 +1099,21 @@ def _render_overview(s: AppState) -> RenderableType:
                 short = _short_name(b.name, s.system)
                 col   = _body_color(b.planet_class, b.star_type)
                 if i: diag.append("  ")
-                diag.append(f"★{short}", style=f"bold {col}")
+                diag.append(f"★{short or 'A'}", style=f"bold {col}")
             diag.append("\n")
 
         # Planet ruler — log scale with minimum spacing
         if planets:
-            WIDTH   = 50
-            MIN_GAP = 4
+            WIDTH   = 65
+            MIN_GAP = 3
             max_dist = planets[-1].dist_ls
 
             def log_pos(d: float) -> int:
                 if d <= 0 or max_dist <= 0: return 1
                 return 1 + int(math.log1p(d) / math.log1p(max_dist) * (WIDTH - 2))
 
-            # Assign positions with minimum gap enforcement
-            raw: list[tuple[int, BodyInfo]] = [(log_pos(b.dist_ls), b) for b in planets[:10]]
+            # Assign positions with minimum gap enforcement — ALL planets
+            raw: list[tuple[int, BodyInfo]] = [(log_pos(b.dist_ls), b) for b in planets]
             spread: list[tuple[int, BodyInfo]] = []
             for pos, b in raw:
                 if spread:
@@ -1149,6 +1151,22 @@ def _render_overview(s: AppState) -> RenderableType:
                         label[ap + ci] = ch
             diag.append("  " + "".join(label[2:]) + "\n", style="rgb(170,170,170)")
 
+            # Moon indicators row: show · or ·N below each planet that has moons
+            moon_row = [" "] * (WIDTH + 2)
+            for pos, b in spread:
+                short = _short_name(b.name, s.system)
+                # moons whose short name starts with this planet's short name + " "
+                body_moons = [m for m in moons
+                              if _short_name(m.name, s.system).startswith(short + " ")]
+                if body_moons:
+                    n  = len(body_moons)
+                    mk = f"·{n}" if n > 1 else "·"
+                    ap = pos + 2
+                    if ap + len(mk) <= len(moon_row) and all(moon_row[ap + ci] == " " for ci in range(len(mk))):
+                        for ci, ch in enumerate(mk):
+                            moon_row[ap + ci] = ch
+            diag.append("  " + "".join(moon_row[2:]) + "\n", style="rgb(110,110,110)")
+
             # Bio/flags row: bio count where > 0, mapped indicator, first-disc star
             bio_row = [" "] * (WIDTH + 2)
             bio_colors: dict[int, str] = {}
@@ -1184,6 +1202,20 @@ def _render_overview(s: AppState) -> RenderableType:
             # Distance labels for first 5
             dist_row = "  ".join(_fmt_ls_compact(b.dist_ls) for _, b in spread[:5])
             diag.append("  " + dist_row + "\n", style="rgb(90,90,90)")
+
+            # Summary: total body count vs shown
+            total_pl = len(planets)
+            total_mn = len(moons)
+            shown    = len(spread)
+            summary_parts = []
+            if total_pl > 0:
+                summary_parts.append(f"{total_pl} planet{'s' if total_pl != 1 else ''}")
+            if total_mn > 0:
+                summary_parts.append(f"{total_mn} moon{'s' if total_mn != 1 else ''}")
+            if shown < total_pl:
+                summary_parts.append(f"({shown} shown)")
+            if summary_parts:
+                diag.append("  " + "  ·  ".join(summary_parts) + "\n", style="rgb(90,90,90)")
 
         parts.append(diag)
 
