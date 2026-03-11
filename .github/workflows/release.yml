@@ -50,10 +50,31 @@ jobs:
             dist/*.tar.gz
             dist/*.whl
             dist/nova-linux-x86_64
+            nova.sh
+            nova.ps1
+            nova.bat
           body: |
             ## Installation
 
-            ### Option 1: pip from GitHub (recommended)
+            ### Option 1: Launcher scripts (recommended — installs everything automatically)
+
+            **Linux:**
+            ```bash
+            curl -O https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.sh
+            chmod +x nova.sh
+            ./nova.sh
+            ```
+
+            **Windows:**
+            Download `nova.ps1` and `nova.bat` from this release into the same folder,
+            then double-click **`nova.bat`**.
+
+            The scripts install Python and NOVA automatically, then launch NOVA.
+            Pass `--update` / `-Update` to check for updates.
+
+            ---
+
+            ### Option 2: pip from GitHub
             ```bash
             # Linux
             pip install git+https://github.com/KernicDE/nova-ed-monitor.git
@@ -62,25 +83,22 @@ jobs:
             py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
             ```
 
-            ### Option 2: Install the wheel from this release
-            Download the `.whl` file above, then:
+            ### Option 3: Install the wheel from this release
+            Download the `.whl` file, then:
             ```bash
-            # Linux
-            pip install nova_ed_monitor-*.whl
-
-            # Windows
-            py -m pip install nova_ed_monitor-*.whl
+            pip install nova_ed_monitor-*.whl       # Linux
+            py -m pip install nova_ed_monitor-*.whl  # Windows
             ```
 
-            ### Option 3: Standalone Linux binary (no Python needed)
-            Download `nova-linux-x86_64`, make it executable, run:
+            ### Option 4: Standalone Linux binary (no Python needed)
+            Download `nova-linux-x86_64`, then:
             ```bash
             chmod +x nova-linux-x86_64
             ./nova-linux-x86_64
             ```
 
-            ### Running NOVA
+            ### Running NOVA (after pip install)
             ```bash
-            nova          # Linux (after pip install)
-            py -m ed_monitor  # Windows
+            nova          # Linux
+            py -m ed_monitor  # Windows (or just: nova)
             ```

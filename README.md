@@ -17,23 +17,28 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 
 ## Quick Start (TL;DR)
 
-### Linux
+### Linux — Launcher script (easiest)
 ```bash
-pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-nova
+# Download once, then always use to launch NOVA:
+curl -O https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.sh
+chmod +x nova.sh
+./nova.sh
 ```
+The script installs Python and NOVA automatically if needed, then launches NOVA.
+Run `./nova.sh --update` to update NOVA.
 
-### Windows
-```
-py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-py -m ed_monitor
-```
+### Windows — Launcher script (easiest)
+1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) and [`nova.bat`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.bat) into the same folder
+2. Double-click **`nova.bat`** to launch
+
+The script installs Python and NOVA automatically if needed.
+Run `nova.bat -Update` (or open PowerShell: `.\nova.ps1 -Update`) to update NOVA.
 
 ---
 
 ## Installation
 
-NOVA is **not on PyPI**. Install directly from GitHub using one of the methods below.
+NOVA is **not on PyPI**. Use the launcher scripts above (recommended) or install directly from GitHub.
 
 ### Method 1: pip from GitHub (recommended)
 
