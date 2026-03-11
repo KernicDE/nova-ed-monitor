@@ -7,6 +7,7 @@ set -euo pipefail
 
 NOVA_URL="git+https://github.com/KernicDE/nova-ed-monitor.git"
 NOVA_PKG="nova-ed-monitor"
+VENV_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nova/venv"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -15,10 +16,10 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-info()    { echo -e "${CYAN}${*}${NC}"; }
-success() { echo -e "${GREEN}${*}${NC}"; }
-warn()    { echo -e "${YELLOW}${*}${NC}"; }
-error()   { echo -e "${RED}${*}${NC}"; }
+info()    { echo -e "${CYAN}  ${*}${NC}"; }
+success() { echo -e "${GREEN}  ${*}${NC}"; }
+warn()    { echo -e "${YELLOW}  ${*}${NC}"; }
+error()   { echo -e "${RED}  ${*}${NC}"; }
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ if ! PYTHON=$(find_python); then
         sudo pacman -S --noconfirm python
     elif command -v apt-get &>/dev/null; then
         info "Detected Debian / Ubuntu / Mint — installing Python via apt..."
-        sudo apt-get update -qq && sudo apt-get install -y python3 python3-pip
+        sudo apt-get update -qq && sudo apt-get install -y python3 python3-pip python3-venv
     elif command -v dnf &>/dev/null; then
         info "Detected Fedora / RHEL — installing Python via dnf..."
         sudo dnf install -y python3 python3-pip
@@ -88,31 +89,35 @@ fi
 
 success "Python: $($PYTHON --version)"
 
-# ── Ensure pip is available ───────────────────────────────────────────────────
+# ── Set up virtual environment ────────────────────────────────────────────────
+# Using a dedicated venv avoids PEP 668 "externally managed environment" errors
+# on modern distros (Arch, Ubuntu 23.04+, etc.)
 
-if ! $PYTHON -m pip --version &>/dev/null 2>&1; then
-    warn "pip not available — installing via get-pip.py..."
-    curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON
+VENV_PIP="$VENV_DIR/bin/pip"
+VENV_NOVA="$VENV_DIR/bin/nova"
+
+if [ ! -d "$VENV_DIR" ]; then
+    info "Creating NOVA virtual environment at $VENV_DIR ..."
+    $PYTHON -m venv "$VENV_DIR"
+    success "Virtual environment created."
 fi
 
-# ── Install or update NOVA ────────────────────────────────────────────────────
+# ── Install or update NOVA inside the venv ────────────────────────────────────
 
-if ! $PYTHON -m pip show "$NOVA_PKG" &>/dev/null 2>&1; then
-    info "NOVA not installed — installing now..."
-    $PYTHON -m pip install --user "$NOVA_URL"
-    # Add ~/.local/bin to PATH for this session if needed
-    export PATH="$HOME/.local/bin:$PATH"
+if ! "$VENV_PIP" show "$NOVA_PKG" &>/dev/null 2>&1; then
+    info "Installing NOVA..."
+    "$VENV_PIP" install --quiet --upgrade pip
+    "$VENV_PIP" install "$NOVA_URL"
     success "NOVA installed successfully!"
     echo ""
 elif [ "$DO_UPDATE" -eq 1 ]; then
     info "Updating NOVA..."
-    $PYTHON -m pip install --user --upgrade "$NOVA_URL"
-    export PATH="$HOME/.local/bin:$PATH"
+    "$VENV_PIP" install --upgrade "$NOVA_URL"
     success "NOVA updated."
     echo ""
 else
-    success "NOVA is installed."
-    info "  Tip: run with --update to check for updates."
+    success "NOVA is ready."
+    info "Tip: run with --update to check for updates."
     echo ""
 fi
 
@@ -121,10 +126,4 @@ fi
 info "Starting NOVA..."
 echo ""
 
-export PATH="$HOME/.local/bin:$PATH"
-
-if command -v nova &>/dev/null 2>&1; then
-    exec nova
-else
-    exec $PYTHON -m ed_monitor
-fi
+exec "$VENV_NOVA"

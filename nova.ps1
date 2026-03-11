@@ -22,10 +22,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$NOVA_URL = "git+https://github.com/KernicDE/nova-ed-monitor.git"
-$NOVA_PKG = "nova-ed-monitor"
+$NOVA_URL  = "git+https://github.com/KernicDE/nova-ed-monitor.git"
+$NOVA_PKG  = "nova-ed-monitor"
 $PYTHON_INSTALLER_URL = "https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe"
 $PYTHON_VERSION_LABEL = "3.12.7"
+$VENV_DIR  = Join-Path $env:LOCALAPPDATA "nova\venv"
 
 function Write-Info    { param($Msg) Write-Host "  $Msg" -ForegroundColor Cyan }
 function Write-Success { param($Msg) Write-Host "  $Msg" -ForegroundColor Green }
@@ -118,14 +119,27 @@ if (-not $Python) {
 $pyver = & $Python --version 2>&1
 Write-Success "Python: $pyver"
 
-# ── Install or update NOVA ────────────────────────────────────────────────────
+# ── Set up virtual environment ────────────────────────────────────────────────
+# Using a dedicated venv avoids any "externally managed environment" issues.
 
-$installed = & $Python -m pip show $NOVA_PKG 2>$null
+$VenvPip  = Join-Path $VENV_DIR "Scripts\pip.exe"
+$VenvNova = Join-Path $VENV_DIR "Scripts\nova.exe"
+
+if (-not (Test-Path $VENV_DIR)) {
+    Write-Info "Creating NOVA virtual environment at $VENV_DIR ..."
+    & $Python -m venv $VENV_DIR
+    Write-Success "Virtual environment created."
+}
+
+# ── Install or update NOVA inside the venv ───────────────────────────────────
+
+$installed = & $VenvPip show $NOVA_PKG 2>$null
 $isInstalled = ($LASTEXITCODE -eq 0)
 
 if (-not $isInstalled) {
     Write-Warn "NOVA not installed — installing now..."
-    & $Python -m pip install $NOVA_URL
+    & $VenvPip install --quiet --upgrade pip
+    & $VenvPip install $NOVA_URL
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Installation failed. Check your internet connection."
         Read-Host "Press Enter to exit"
@@ -135,11 +149,11 @@ if (-not $isInstalled) {
     Write-Host ""
 } elseif ($Update) {
     Write-Info "Checking for NOVA updates..."
-    & $Python -m pip install --upgrade $NOVA_URL
+    & $VenvPip install --upgrade $NOVA_URL
     Write-Success "NOVA updated."
     Write-Host ""
 } else {
-    Write-Success "NOVA is installed."
+    Write-Success "NOVA is ready."
     Write-Info "Tip: run with -Update to check for updates."
     Write-Host ""
 }
@@ -149,12 +163,4 @@ if (-not $isInstalled) {
 Write-Info "Starting NOVA..."
 Write-Host ""
 
-# Refresh PATH in case nova was just installed
-Refresh-Path
-
-$novaCmd = Get-Command nova -ErrorAction SilentlyContinue
-if ($novaCmd) {
-    & nova
-} else {
-    & $Python -m ed_monitor
-}
+& $VenvNova
