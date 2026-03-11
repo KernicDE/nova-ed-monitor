@@ -138,3 +138,18 @@ def _play_audio(path: str, volume: int) -> None:
         return
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         pass
+
+    # Fallback: Windows — MediaPlayer via PowerShell (supports MP3)
+    import sys
+    if sys.platform == "win32":
+        try:
+            ps = (
+                f"$mp = [System.Windows.Media.MediaPlayer]::new(); "
+                f"$mp.Open([uri]'{path}'); $mp.Play(); Start-Sleep -Seconds 60"
+            )
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps],
+                timeout=90,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
