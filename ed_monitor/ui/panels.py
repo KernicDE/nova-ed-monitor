@@ -115,6 +115,20 @@ def _abbrev_type(planet: str, star: str) -> str:
     }.get(planet, planet)
 
 
+def _planet_char(planet: str) -> str:
+    """Single-char type indicator for SYSTEM ruler."""
+    if planet == "Earthlike body":           return "E"
+    if planet == "Water world":              return "W"
+    if planet == "Ammonia world":            return "A"
+    if planet == "High metal content body":  return "H"
+    if planet == "Metal rich body":          return "M"
+    if planet == "Rocky body":               return "R"
+    if planet == "Rocky ice body":           return "r"
+    if planet == "Icy body":                 return "I"
+    if "gas" in planet.lower():              return "G"
+    return "●"
+
+
 def _body_color(planet: str, star: str) -> str:
     if star:
         if star == "N":                return P.HUD_CYAN
@@ -1105,21 +1119,21 @@ def _render_overview(s: AppState) -> RenderableType:
                 pos = min(pos, WIDTH - 1)
                 spread.append((pos, b))
 
-            # Draw ruler line
+            # Draw ruler line with type chars instead of plain dots
             line = list("─" * WIDTH)
             line[0] = "★"
             pos_map: dict[int, BodyInfo] = {pos: b for pos, b in spread}
-            for pos in pos_map:
-                line[pos] = "●"
+            for pos, b in spread:
+                line[pos] = _planet_char(b.planet_class)
 
             ruler = Text()
             ruler.append("  ")
             for i, ch in enumerate(line):
                 if ch == "★":
                     ruler.append(ch, style="bold rgb(235,185,60)")
-                elif ch == "●":
+                elif i in pos_map:
                     b = pos_map[i]
-                    ruler.append(ch, style=_body_color(b.planet_class, b.star_type))
+                    ruler.append(ch, style=f"bold {_body_color(b.planet_class, b.star_type)}")
                 else:
                     ruler.append(ch, style="rgb(50,50,50)")
             ruler.append("\n")
@@ -1128,12 +1142,44 @@ def _render_overview(s: AppState) -> RenderableType:
             # Name labels row (only write where space allows)
             label = [" "] * (WIDTH + 2)
             for pos, b in spread:
-                short = _short_name(b.name, s.system)[:4]
+                short = _short_name(b.name, s.system)[:5]
                 ap = pos + 2
                 if ap + len(short) <= len(label) and all(label[ap + ci] == " " for ci in range(len(short))):
                     for ci, ch in enumerate(short):
                         label[ap + ci] = ch
             diag.append("  " + "".join(label[2:]) + "\n", style="rgb(170,170,170)")
+
+            # Bio/flags row: bio count where > 0, mapped indicator, first-disc star
+            bio_row = [" "] * (WIDTH + 2)
+            bio_colors: dict[int, str] = {}
+            for pos, b in spread:
+                marker = ""
+                col    = "rgb(90,90,90)"
+                if b.bio_signals > 0 and b.mapped:
+                    marker = f"×{b.bio_signals}⊛"
+                    col    = "rgb(0,170,60)"
+                elif b.bio_signals > 0:
+                    marker = f"×{b.bio_signals}"
+                    col    = "rgb(0,170,60)"
+                elif b.mapped:
+                    marker = "⊛"
+                    col    = "rgb(70,130,200)"
+                if b.first_discovered:
+                    marker = marker + "★" if marker else "★"
+                    col    = "rgb(195,160,55)"
+                if marker:
+                    ap = pos + 2
+                    if ap + len(marker) <= len(bio_row) and all(bio_row[ap + ci] == " " for ci in range(len(marker))):
+                        for ci, ch in enumerate(marker):
+                            bio_row[ap + ci] = ch
+                            bio_colors[ap + ci] = col
+            bio_text = Text()
+            bio_text.append("  ")
+            for i, ch in enumerate(bio_row[2:], start=2):
+                style = bio_colors.get(i, "rgb(90,90,90)")
+                bio_text.append(ch, style=style)
+            bio_text.append("\n")
+            diag.append_text(bio_text)
 
             # Distance labels for first 5
             dist_row = "  ".join(_fmt_ls_compact(b.dist_ls) for _, b in spread[:5])

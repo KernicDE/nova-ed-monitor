@@ -165,6 +165,13 @@ class NOVAApp(App):
     def on_mount(self) -> None:
         # Refresh every 0.5s is plenty for ED data and saves massive CPU
         self.set_interval(0.5, self._refresh_all)
+        # Force-hide the terminal cursor (Textual hides it in the driver, but
+        # some terminals / focus events can restore it; belt-and-suspenders fix)
+        try:
+            self._driver.write("\x1b[?25l")
+            self._driver.flush()
+        except Exception:
+            pass
 
     def _snapshot(self) -> AppState:
         with self._lock:
@@ -179,6 +186,12 @@ class NOVAApp(App):
         return snap
 
     def _refresh_all(self) -> None:
+        # Re-hide cursor every cycle (terminals may restore it on focus/resize)
+        try:
+            self._driver.write("\x1b[?25l")
+            self._driver.flush()
+        except Exception:
+            pass
         snap = self._snapshot()
         self._max_scroll = max(0, len(snap.events) - 1)
         self._scroll     = min(self._scroll, self._max_scroll)

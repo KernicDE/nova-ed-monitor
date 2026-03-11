@@ -1176,9 +1176,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             return LogEvent.new(EventCategory.System, msg)
 
         case "Shutdown":
+            if state.client_online:  # Guard: only announce once per session
+                msg = "Systems powering down. Farewell, Commander."
+                _speak(tts_q, msg, False)
             state.client_online = False
-            msg = "Systems powering down. Farewell, Commander."
-            _speak(tts_q, msg, False)
             return LogEvent.new(EventCategory.System, "Game shutdown detected.")
 
         case "Loadout":
