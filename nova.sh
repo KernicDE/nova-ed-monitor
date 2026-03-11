@@ -162,23 +162,51 @@ except Exception:
     fi
 fi
 
-# ── Install global 'nova' command ─────────────────────────────────────────────
+# ── Install global 'nova' command (wrapper with auto-update) ──────────────────
 
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
-if [ ! -L "$BIN_DIR/nova" ] || [ "$(readlink "$BIN_DIR/nova")" != "$VENV_NOVA" ]; then
-    ln -sf "$VENV_NOVA" "$BIN_DIR/nova"
-    success "Installed 'nova' command to $BIN_DIR/nova"
-    case ":$PATH:" in
-        *":$BIN_DIR:"*) ;;
-        *)
-            warn "Note: $BIN_DIR is not in your PATH."
-            warn "Add this to ~/.bashrc or ~/.zshrc:"
-            warn "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-            echo ""
-            ;;
-    esac
+
+_NOVA_WRAPPER="$BIN_DIR/nova"
+_VENV_PY="$VENV_DIR/bin/python"
+
+# Always (re)write the wrapper so it stays in sync with nova.sh variables.
+cat > "$_NOVA_WRAPPER" <<WRAPPER
+#!/usr/bin/env bash
+# nova-ed-monitor-wrapper — auto-update launcher
+VENV_PIP="$VENV_DIR/bin/pip"
+VENV_PY="$VENV_DIR/bin/python"
+VENV_NOVA="$VENV_NOVA"
+NOVA_PKG="$NOVA_PKG"
+NOVA_URL="$NOVA_URL"
+GH_API_URL="$GH_API_URL"
+
+if command -v curl &>/dev/null; then
+    installed_ver=\$("\$VENV_PIP" show "\$NOVA_PKG" 2>/dev/null | awk '/^Version:/{print \$2}')
+    latest_ver=\$(curl -fsSL --max-time 5 "\$GH_API_URL" 2>/dev/null \
+        | "\$VENV_PY" -c "import sys,json; print(json.load(sys.stdin).get('tag_name','').lstrip('v'))" \
+        2>/dev/null || true)
+    if [ -n "\$latest_ver" ] && [ -n "\$installed_ver" ] && [ "\$installed_ver" != "\$latest_ver" ]; then
+        echo "  NOVA update: \$installed_ver → \$latest_ver — updating..."
+        "\$VENV_PIP" install --quiet --upgrade "\$NOVA_URL"
+        echo "  Updated. Starting NOVA..."
+        echo ""
+    fi
 fi
+
+exec "\$VENV_NOVA"
+WRAPPER
+chmod +x "$_NOVA_WRAPPER"
+
+case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *)
+        warn "Note: $BIN_DIR is not in your PATH."
+        warn "Add this to ~/.bashrc or ~/.zshrc:"
+        warn "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        echo ""
+        ;;
+esac
 
 # ── Launch NOVA ───────────────────────────────────────────────────────────────
 
