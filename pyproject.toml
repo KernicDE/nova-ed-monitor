@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nova-ed-monitor"
-version = "1.4.1"
+version = "1.4.2"
 description = "NOVA — Navigation, Operations, and Vessel Assistance for Elite Dangerous"
 readme = "README.md"
 license = { text = "MIT" }

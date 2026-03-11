@@ -106,6 +106,18 @@ class NOVAApp(App):
         border-title-color: rgb(175,85,220) !important;
     }
 
+    /* Offline mode overrides */
+    Screen.offline-mode SystemPanel,
+    Screen.offline-mode ShipPanel,
+    Screen.offline-mode RoutePanel,
+    Screen.offline-mode BodiesPanel,
+    Screen.offline-mode SituationalPanel,
+    Screen.offline-mode EventLogPanel,
+    Screen.offline-mode ChatLogPanel {
+        border: solid rgb(70,70,70) !important;
+        border-title-color: rgb(90,90,90) !important;
+    }
+
     Screen.alert-flash {
         background: rgb(80, 0, 0);
     }
@@ -115,7 +127,8 @@ class NOVAApp(App):
     }
     """
 
-    TITLE = "NOVA (Navigation, Operations, and Vessel Assistance)"
+    TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"
+    CURSOR_BLINK = False
 
     def __init__(
         self,
@@ -171,8 +184,10 @@ class NOVAApp(App):
         self._scroll     = min(self._scroll, self._max_scroll)
 
         # Apply mode border class to the main screen
-        on_foot = not snap.in_main_ship and not snap.in_srv
-        self.screen.set_class(not snap.analysis_mode and snap.in_main_ship, "combat-mode")
+        offline = not snap.client_online
+        on_foot = not snap.in_main_ship and not snap.in_srv and not offline
+        self.screen.set_class(offline, "offline-mode")
+        self.screen.set_class(not snap.analysis_mode and snap.in_main_ship and not offline, "combat-mode")
         self.screen.set_class(on_foot, "on-foot-mode")
         
         # Apply alert flash for critical heat or hull

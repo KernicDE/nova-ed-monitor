@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import textwrap
 from datetime import datetime, timezone
 from importlib.metadata import version as _pkg_version
 from typing import Optional
@@ -1359,16 +1360,22 @@ class EventLogPanel(_Panel):
         events  = [ev for ev in s.events if ev.category != EventCategory.Chat]
         visible = events[self._scroll:]
 
+        prefix_w  = 11  # "HH:MM:SS " (9) + "◈ " (2)
+        content_w = max(prefix_w + 10, self.size.width - 2)
+        msg_w     = content_w - prefix_w
+
         for ev in visible:
-            col  = ev.category.rich_color()
-            warn = ev.category == EventCategory.Warn
-            t.append(f"{ev.time} ", style="rgb(120,120,120)")
-            t.append(f"{ev.category.icon()} ", style=col)
+            col       = ev.category.rich_color()
+            warn      = ev.category == EventCategory.Warn
             msg_style = f"bold {P.HUD_CRIT}" if warn else "white"
-            
-            # Use Text with overflow="fold" to prevent cutting off long lines
-            msg_text = Text(ev.message + "\n", style=msg_style, overflow="fold")
-            t.append_text(msg_text)
+            lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
+            for i, line in enumerate(lines):
+                if i == 0:
+                    t.append(f"{ev.time} ", style="rgb(120,120,120)")
+                    t.append(f"{ev.category.icon()} ", style=col)
+                else:
+                    t.append(" " * prefix_w)
+                t.append(line + "\n", style=msg_style)
 
         return t
 
@@ -1395,10 +1402,18 @@ class ChatLogPanel(_Panel):
             t = Text()
             t.append("No chat messages.", style=P.LABEL)
             return t
+        prefix_w  = 9  # "HH:MM:SS " (9)
+        content_w = max(prefix_w + 10, self.size.width - 2)
+        msg_w     = content_w - prefix_w
         t = Text()
         for ev in chats:
-            t.append(f"{ev.time} ", style="rgb(120,120,120)")
-            t.append(ev.message + "\n", style="white")
+            lines = textwrap.wrap(ev.message, width=msg_w) or [""]
+            for i, line in enumerate(lines):
+                if i == 0:
+                    t.append(f"{ev.time} ", style="rgb(120,120,120)")
+                else:
+                    t.append(" " * prefix_w)
+                t.append(line + "\n", style="white")
         return t
 
 
