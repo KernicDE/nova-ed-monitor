@@ -32,14 +32,16 @@ jobs:
 
       - name: Build Linux standalone binary
         run: |
+          # Install SDL2 for pygame headless build
+          sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev
           pyinstaller \
             --onefile \
             --name nova \
+            --collect-all textual \
+            --collect-all edge_tts \
             --hidden-import pygame \
-            --hidden-import textual \
             --hidden-import httpx \
-            --hidden-import edge_tts \
-            -m ed_monitor
+            ed_monitor/__main__.py
           mv dist/nova dist/nova-linux-x86_64
 
       - name: Create release
