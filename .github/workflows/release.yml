@@ -78,9 +78,11 @@ jobs:
   publish-pypi:
     runs-on: ubuntu-latest
     needs: build-and-release
+    # Only runs when the 'pypi' environment + PYPI_API_TOKEN secret are configured
     environment: pypi
     permissions:
       id-token: write
+    if: vars.PUBLISH_PYPI == 'true'
 
     steps:
       - uses: actions/checkout@v4
