@@ -373,7 +373,6 @@ class ShipPanel(_Panel):
             ("DOCKED",      s.docked,                                                                      P.HUD_GREEN),
             ("LANDED",      s.landed and not s.docked and s.in_main_ship,                                  P.HUD_WARN),
             ("SRV",         s.in_srv,                                                                      P.HUD_WARN),
-            ("ON FOOT",     on_foot,                                                                       P.PURPLE),
             ("NORMAL SPC",  s.in_main_ship and not s.supercruise and not s.docked and not s.landed,        P.LABEL),
         ]
         _append_buttons(modes_txt, modes)

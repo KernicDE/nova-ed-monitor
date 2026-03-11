@@ -94,6 +94,18 @@ class NOVAApp(App):
         border-title-color: rgb(185,40,40) !important;
     }
 
+    /* On-foot mode overrides */
+    Screen.on-foot-mode SystemPanel,
+    Screen.on-foot-mode ShipPanel,
+    Screen.on-foot-mode RoutePanel,
+    Screen.on-foot-mode BodiesPanel,
+    Screen.on-foot-mode SituationalPanel,
+    Screen.on-foot-mode EventLogPanel,
+    Screen.on-foot-mode ChatLogPanel {
+        border: solid rgb(175,85,220) !important;
+        border-title-color: rgb(175,85,220) !important;
+    }
+
     Screen.alert-flash {
         background: rgb(80, 0, 0);
     }
@@ -158,8 +170,10 @@ class NOVAApp(App):
         self._max_scroll = max(0, len(snap.events) - 1)
         self._scroll     = min(self._scroll, self._max_scroll)
 
-        # Apply combat mode class to the main screen
-        self.screen.set_class(not snap.analysis_mode, "combat-mode")
+        # Apply mode border class to the main screen
+        on_foot = not snap.in_main_ship and not snap.in_srv
+        self.screen.set_class(not snap.analysis_mode and snap.in_main_ship, "combat-mode")
+        self.screen.set_class(on_foot, "on-foot-mode")
         
         # Apply alert flash for critical heat or hull
         has_hazard = snap.overheating or (0 < snap.hull < 0.25)
