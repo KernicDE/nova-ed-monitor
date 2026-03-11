@@ -106,42 +106,25 @@ def _play(text: str, voice: str, rate: str, volume: int) -> None:
 
 
 def _play_audio(path: str, volume: int) -> None:
-    """Play MP3 via pygame if available, otherwise fall back to mpg123."""
-    # Try pygame first
-    try:
-        import pygame
-        pygame.mixer.init()
-        pygame.mixer.music.load(path)
-        pygame.mixer.music.set_volume(volume / 100.0)
-        pygame.mixer.music.play()
-        import time
-        while pygame.mixer.music.get_busy():
-            time.sleep(0.05)
-        return
-    except Exception:
-        pass
-
-    # Fallback: mpg123 (Linux/macOS) — scale 0–100 → mpg123 factor 0–32768
-    try:
-        factor = str(int(volume * 327))  # 100 → 32700 ≈ full volume
-        subprocess.run(
-            ["mpg123", "--quiet", "-f", factor, path],
-            timeout=60,
-        )
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
-
-    # Fallback: afplay (macOS)
-    try:
-        subprocess.run(["afplay", path], timeout=60)
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
-
-    # Fallback: Windows — MediaPlayer via PowerShell (supports MP3)
+    """Play MP3. Platform-aware fallback chain."""
     import sys
+    import time
+
+    # ── Windows ────────────────────────────────────────────────────────────────
+    # pygame from pip bundles SDL2+SDL_mixer on Windows — always works.
     if sys.platform == "win32":
+        try:
+            import pygame
+            pygame.mixer.init()
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(volume / 100.0)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.05)
+            return
+        except Exception:
+            pass
+        # Windows fallback: PowerShell Windows.Media.MediaPlayer
         try:
             ps = (
                 f"$mp = [System.Windows.Media.MediaPlayer]::new(); "
@@ -153,3 +136,60 @@ def _play_audio(path: str, volume: int) -> None:
             )
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             pass
+        return
+
+    # ── Linux / macOS ──────────────────────────────────────────────────────────
+    # mpg123 factor: 32768 = 100 %, so volume * 327 ≈ correct scale
+    factor = str(int(volume * 327))
+
+    # 1. mpg123 via PulseAudio — reliable on PipeWire + pipewire-pulse (Linux)
+    try:
+        subprocess.run(
+            ["mpg123", "-o", "pulse", "--quiet", "-f", factor, path],
+            timeout=60,
+        )
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError, subprocess.CalledProcessError):
+        pass
+
+    # 2. mpg123 via default output (ALSA or whatever is configured)
+    try:
+        subprocess.run(
+            ["mpg123", "--quiet", "-f", factor, path],
+            timeout=60,
+        )
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # 3. ffplay (FFmpeg) — widely available, uses SDL2 audio
+    try:
+        subprocess.run(
+            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+             "-volume", str(volume), path],
+            timeout=60,
+        )
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # 4. afplay (macOS)
+    try:
+        subprocess.run(["afplay", path], timeout=60)
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # 5. System python3 pygame — avoids the venv's potentially broken pygame
+    try:
+        script = (
+            "import pygame, sys, time\n"
+            "pygame.mixer.init()\n"
+            "pygame.mixer.music.load(sys.argv[1])\n"
+            f"pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
+            "pygame.mixer.music.play()\n"
+            "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+        )
+        subprocess.run(["python3", "-c", script, path], timeout=60)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
