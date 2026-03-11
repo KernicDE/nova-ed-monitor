@@ -232,6 +232,8 @@ _ES_WORDS = frozenset({
     "hola", "gracias", "que", "los", "una", "como", "para", "del",
     "con", "por", "pero", "este", "ese", "hay", "está", "son",
     "buenas", "sí", "adios", "tengo", "quiero",
+    "esto", "eso", "esa", "ellos", "ella", "nosotros", "prueba",
+    "es", "una", "también", "todo", "muy", "bien",
 })
 _PT_WORDS = frozenset({
     "obrigado", "obrigada", "sim", "não", "para", "como", "uma",
@@ -268,8 +270,9 @@ def _detect_lang(text: str) -> str:
     if any(c in _DE_CHARS for c in text):
         return "de"
 
-    # Score by word list matches
-    words = frozenset(re.sub(r"[^\w\s]", "", text.lower()).split())
+    # Score by word list matches — split on non-word chars so contractions
+    # like "c'est" yield both "c" and "est" rather than collapsing to "cest"
+    words = frozenset(w for w in re.split(r"[^\w]+", text.lower()) if w)
     scores = {
         "de": len(words & _DE_WORDS),
         "fr": len(words & _FR_WORDS),
