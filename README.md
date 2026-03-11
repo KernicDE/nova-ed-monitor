@@ -19,56 +19,91 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 
 ### Linux
 ```bash
-pip install nova-ed-monitor
+pip install git+https://github.com/KernicDE/nova-ed-monitor.git
 nova
 ```
 
 ### Windows
 ```
-py -m pip install nova-ed-monitor
+py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
 py -m ed_monitor
 ```
 
 ---
 
-## Full Installation Guide
+## Installation
 
-### Linux — Step by Step
+NOVA is **not on PyPI**. Install directly from GitHub using one of the methods below.
 
-**Step 1: Check if Python is installed**
+### Method 1: pip from GitHub (recommended)
 
-Open a terminal and type:
+Installs the latest version directly from the repository.
+
+**Linux:**
+```bash
+pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+```
+
+**Windows:**
+```
+py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+```
+
+> If you get a permissions error, add `--user`:
+> `pip install --user git+https://github.com/KernicDE/nova-ed-monitor.git`
+
+---
+
+### Method 2: Download wheel from releases
+
+1. Go to the [Releases page](https://github.com/KernicDE/nova-ed-monitor/releases)
+2. Download the `.whl` file (e.g. `nova_ed_monitor-1.1.0-py3-none-any.whl`)
+3. Install it:
+
+```bash
+# Linux
+pip install nova_ed_monitor-*.whl
+
+# Windows
+py -m pip install nova_ed_monitor-*.whl
+```
+
+---
+
+### Method 3: Clone and install
+
+```bash
+git clone https://github.com/KernicDE/nova-ed-monitor.git
+cd nova-ed-monitor
+pip install .
+```
+
+---
+
+### Full Linux Setup — Step by Step
+
+**Step 1: Check Python version**
 ```bash
 python --version
 ```
-If you see `Python 3.11` or higher, skip to Step 3.
-If not (or if the command doesn't exist), install Python:
+Need Python 3.11 or higher. If not installed:
 
 - **Arch Linux / Manjaro:** `sudo pacman -S python`
 - **Ubuntu / Debian / Mint:** `sudo apt install python3 python3-pip`
 - **Fedora:** `sudo dnf install python3 python3-pip`
-- **Other:** Download from [python.org](https://www.python.org/downloads/)
 
-**Step 2: Check if pip is working**
+**Step 2: Install NOVA**
 ```bash
-pip --version
+pip install git+https://github.com/KernicDE/nova-ed-monitor.git
 ```
-If it's not found, try `pip3` instead of `pip`.
 
-**Step 3: Install NOVA**
-```bash
-pip install nova-ed-monitor
-```
-> If you get a "user permissions" error, add `--user` flag:
-> `pip install --user nova-ed-monitor`
+**Step 3: Audio support** (needed for TTS playback)
 
-**Step 4: Install pipewire/pulseaudio audio support** (needed for TTS playback)
-
-Most Linux desktops have this already. If NOVA starts but you hear no voice:
+Most Linux desktops have this already. If you hear no voice:
 - Arch: `yay -S python-pygame` or `pip install pygame --upgrade`
 - Ubuntu: `sudo apt install python3-pygame` or `pip install pygame --upgrade`
 
-**Step 5: Run NOVA**
+**Step 4: Run NOVA**
 ```bash
 nova
 ```
@@ -77,41 +112,31 @@ If it can't find them, see **Configuration** below.
 
 ---
 
-### Windows — Step by Step
+### Full Windows Setup — Step by Step
 
 **Step 1: Install Python**
 
 1. Go to [python.org/downloads](https://www.python.org/downloads/)
-2. Download the latest Python 3.x installer
-3. Run the installer
-4. **IMPORTANT:** Check the box that says **"Add Python to PATH"** before clicking Install
+2. Download and run the installer
+3. **IMPORTANT:** Check **"Add Python to PATH"** before clicking Install
 
-**Step 2: Open a Command Prompt or PowerShell**
+**Step 2: Open Command Prompt** — press `Win + R`, type `cmd`, press Enter
 
-Press `Win + R`, type `cmd`, press Enter.
-Or press `Win + X` and choose **Windows PowerShell** or **Terminal**.
-
-**Step 3: Verify Python works**
+**Step 3: Install NOVA**
 ```
-py --version
-```
-You should see something like `Python 3.12.x`
-
-**Step 4: Install NOVA**
-```
-py -m pip install nova-ed-monitor
+py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
 ```
 
-**Step 5: Run NOVA**
+**Step 4: Run NOVA**
 ```
 py -m ed_monitor
 ```
 
-> **Note:** On Windows, the `nova` command should also work if Python's Scripts folder is in your PATH. If not, use `py -m ed_monitor` as shown above.
+> The `nova` command also works if Python's Scripts folder is in PATH.
 
-**Step 6 (optional): Create a desktop shortcut**
+**Step 5 (optional): Desktop shortcut**
 
-1. Right-click your desktop → New → Shortcut
+1. Right-click desktop → New → Shortcut
 2. Enter: `cmd /k "py -m ed_monitor"`
 3. Name it "NOVA"
 
@@ -121,10 +146,10 @@ py -m ed_monitor
 
 ```bash
 # Linux
-pip install --upgrade nova-ed-monitor
+pip install --upgrade git+https://github.com/KernicDE/nova-ed-monitor.git
 
 # Windows
-py -m pip install --upgrade nova-ed-monitor
+py -m pip install --upgrade git+https://github.com/KernicDE/nova-ed-monitor.git
 ```
 
 ---

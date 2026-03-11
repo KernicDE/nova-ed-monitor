@@ -14,6 +14,72 @@ from .state import AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 
 
+_BODY_EVENTS = frozenset({
+    "FSDJump", "CarrierJump", "Location",
+    "Scan", "SAAScanComplete", "FSSBodySignals", "SAASignalsFound",
+})
+
+
+def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
+    """Scan all journal files and persist body data to DB.
+
+    Runs on every startup so bodies scanned before NOVA was running are
+    always available via _load_system_bodies.
+    """
+    try:
+        candidates = sorted(
+            [p for p in journal_dir.iterdir()
+             if p.name.startswith("Journal.") and p.name.endswith(".log")],
+            key=lambda p: p.stat().st_mtime,
+        )
+    except OSError:
+        return
+
+    if not candidates:
+        return
+
+    tmp      = AppState()
+    tmp_lock = threading.RLock()
+    silent_q: queue.Queue = queue.Queue()
+
+    for file_path in candidates:
+        try:
+            with open(file_path, "rb") as f:
+                raw = f.read()
+        except OSError:
+            continue
+
+        for line in raw.decode("utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            ev_name = ev.get("event", "")
+            if ev_name not in _BODY_EVENTS:
+                continue
+
+            # Save current bodies before FSDJump/CarrierJump clears them
+            if ev_name in ("FSDJump", "CarrierJump"):
+                _save_current_bodies(tmp, tmp_lock, db)
+
+            try:
+                with tmp_lock:
+                    handle(ev, tmp, silent_q)
+            except Exception:
+                continue
+
+            if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
+                           "SAAScanComplete", "Location"):
+                _save_current_bodies(tmp, tmp_lock, db)
+
+    # Final save for the last system processed
+    _save_current_bodies(tmp, tmp_lock, db)
+
+
 def monitor(
     state:       AppState,
     lock:        threading.RLock,
@@ -27,8 +93,12 @@ def monitor(
     last_offset_str = db.get_config("last_journal_offset")
     last_offset = int(last_offset_str) if last_offset_str else 0
 
+    # Scan all journal files to rebuild the body DB from scratch.
+    # This covers bodies scanned before NOVA was ever running.
+    _rebuild_body_db(journal_dir, db)
+
     _process_backlog(
-        state, lock, tts_q, db, journal_dir, 
+        state, lock, tts_q, db, journal_dir,
         edsm_q, last_file, last_offset
     )
 
