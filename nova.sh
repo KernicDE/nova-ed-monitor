@@ -121,6 +121,26 @@ else
     echo ""
 fi
 
+# ── Install global 'nova' command ─────────────────────────────────────────────
+# Symlink the venv binary into ~/.local/bin so 'nova' works from anywhere.
+
+BIN_DIR="$HOME/.local/bin"
+mkdir -p "$BIN_DIR"
+if [ ! -L "$BIN_DIR/nova" ] || [ "$(readlink "$BIN_DIR/nova")" != "$VENV_NOVA" ]; then
+    ln -sf "$VENV_NOVA" "$BIN_DIR/nova"
+    success "Installed 'nova' command to $BIN_DIR/nova"
+    # Warn if ~/.local/bin is not in PATH
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *)
+            warn "Note: $BIN_DIR is not in your PATH."
+            warn "Add this to ~/.bashrc or ~/.zshrc to fix it:"
+            warn "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            echo ""
+            ;;
+    esac
+fi
+
 # ── Launch NOVA ───────────────────────────────────────────────────────────────
 
 info "Starting NOVA..."
