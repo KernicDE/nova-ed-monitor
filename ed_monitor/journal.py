@@ -142,16 +142,23 @@ def _process_backlog(
             except Exception as exc:
                 continue
 
+            # After entering a system, restore saved bodies from DB
+            if ev_name in ("FSDJump", "CarrierJump", "Location"):
+                _load_system_bodies(state, lock, db)
+
             if log_ev is not None:
                 db.insert(log_ev, sys_name)
-                
+
                 if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
                     with lock:
                         hull = state.hull
                     db.set_hull(hull)
-                    
+
                 with lock:
                     state.push_event(log_ev)
+
+    # Persist whatever bodies we built during backlog replay
+    _save_current_bodies(state, lock, db)
 
 
 # ── Startup scan ───────────────────────────────────────────────────────────────
@@ -193,7 +200,7 @@ def _init_scan(
         if ev_name == "NavRoute":
             effective = _read_navroute_json(journal_dir) or ev
 
-        if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
+        if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump", "CarrierJump"):
             found_hull_event = True
             with lock:
                 handle(effective, state, silent_q)

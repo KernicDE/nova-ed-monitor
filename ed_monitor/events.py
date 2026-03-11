@@ -546,6 +546,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.government = _loc(ev, "SystemGovernment")
             state.allegiance = _s(ev, "SystemAllegiance")
             state.hull       = _f(ev, "Health") if "Health" in ev else state.hull
+            star_pos = ev.get("StarPos")
+            if isinstance(star_pos, list) and len(star_pos) == 3:
+                state.star_pos = tuple(star_pos)
             _parse_factions(ev, state)
             return LogEvent.new(EventCategory.System, f"Location: {state.system}.")
 
@@ -753,7 +756,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     dist_ls=dist_ls, value=value,
                     first_discovered=not _b(ev, "WasDiscovered"),
                     first_mapped=not _b(ev, "WasMapped"),
-                    mapped=False, fss_scanned=scan_type == "Detailed",
+                    mapped=False, fss_scanned=scan_type in ("Detailed", "AutoScan"),
                     radius=radius,
                 ))
 

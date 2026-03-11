@@ -285,8 +285,12 @@ class AppState:
                 fss    = existing.fss_scanned
                 first  = existing.first_discovered
                 dist   = existing.dist_ls
+                pc     = existing.planet_class
+                st     = existing.star_type
                 self.bodies[i] = info
                 b = self.bodies[i]
+                if not b.planet_class and pc:        b.planet_class = pc
+                if not b.star_type and st:           b.star_type    = st
                 if b.bio_signals == 0:               b.bio_signals  = bio
                 if b.geo_signals == 0:               b.geo_signals  = geo
                 if not b.bio_genuses:                b.bio_genuses  = gen
