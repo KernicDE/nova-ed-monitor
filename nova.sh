@@ -8,6 +8,8 @@ set -euo pipefail
 NOVA_URL="git+https://github.com/KernicDE/nova-ed-monitor.git"
 NOVA_PKG="nova-ed-monitor"
 VENV_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nova/venv"
+SCRIPT_URL="https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.sh"
+GH_API_URL="https://api.github.com/repos/KernicDE/nova-ed-monitor/releases/latest"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,12 +25,14 @@ error()   { echo -e "${RED}  ${*}${NC}"; }
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 
-DO_UPDATE=0
+SELF_UPDATE=1   # set to 0 after self-update to avoid loop
 for arg in "$@"; do
     case "$arg" in
-        --update|-u) DO_UPDATE=1 ;;
+        --no-self-update) SELF_UPDATE=0 ;;
     esac
 done
+
+# ── Banner ────────────────────────────────────────────────────────────────────
 
 echo -e "${BOLD}${CYAN}"
 echo "  ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗ "
@@ -41,6 +45,30 @@ echo -e "${NC}"
 echo "  Navigation, Operations, and Vessel Assistance"
 echo "  ─────────────────────────────────────────────"
 echo ""
+
+SCRIPT_SELF="$(realpath "$0")"
+VENV_PIP="$VENV_DIR/bin/pip"
+VENV_NOVA="$VENV_DIR/bin/nova"
+
+# ── Self-update ───────────────────────────────────────────────────────────────
+# Download the latest nova.sh from GitHub; replace self and re-exec if changed.
+
+if [ "$SELF_UPDATE" -eq 1 ] && command -v curl &>/dev/null; then
+    tmp=$(mktemp)
+    if curl -fsSL --max-time 8 "$SCRIPT_URL" -o "$tmp" 2>/dev/null; then
+        old_hash=$(sha256sum "$SCRIPT_SELF" | cut -d' ' -f1)
+        new_hash=$(sha256sum "$tmp"         | cut -d' ' -f1)
+        if [ "$old_hash" != "$new_hash" ]; then
+            info "Script update found — applying..."
+            chmod +x "$tmp"
+            mv "$tmp" "$SCRIPT_SELF"
+            success "Script updated. Restarting..."
+            echo ""
+            exec "$SCRIPT_SELF" --no-self-update "$@"
+        fi
+    fi
+    rm -f "$tmp" 2>/dev/null || true
+fi
 
 # ── Find Python 3.11+ ─────────────────────────────────────────────────────────
 
@@ -67,10 +95,10 @@ if ! PYTHON=$(find_python); then
         sudo pacman -S --noconfirm python
     elif command -v apt-get &>/dev/null; then
         info "Detected Debian / Ubuntu / Mint — installing Python via apt..."
-        sudo apt-get update -qq && sudo apt-get install -y python3 python3-pip python3-venv
+        sudo apt-get update -qq && sudo apt-get install -y python3 python3-venv
     elif command -v dnf &>/dev/null; then
         info "Detected Fedora / RHEL — installing Python via dnf..."
-        sudo dnf install -y python3 python3-pip
+        sudo dnf install -y python3
     elif command -v brew &>/dev/null; then
         info "Detected macOS / Homebrew — installing Python via brew..."
         brew install python3
@@ -90,11 +118,6 @@ fi
 success "Python: $($PYTHON --version)"
 
 # ── Set up virtual environment ────────────────────────────────────────────────
-# Using a dedicated venv avoids PEP 668 "externally managed environment" errors
-# on modern distros (Arch, Ubuntu 23.04+, etc.)
-
-VENV_PIP="$VENV_DIR/bin/pip"
-VENV_NOVA="$VENV_DIR/bin/nova"
 
 if [ ! -d "$VENV_DIR" ]; then
     info "Creating NOVA virtual environment at $VENV_DIR ..."
@@ -102,7 +125,7 @@ if [ ! -d "$VENV_DIR" ]; then
     success "Virtual environment created."
 fi
 
-# ── Install or update NOVA inside the venv ────────────────────────────────────
+# ── Install or auto-update NOVA ───────────────────────────────────────────────
 
 if ! "$VENV_PIP" show "$NOVA_PKG" &>/dev/null 2>&1; then
     info "Installing NOVA..."
@@ -110,31 +133,47 @@ if ! "$VENV_PIP" show "$NOVA_PKG" &>/dev/null 2>&1; then
     "$VENV_PIP" install "$NOVA_URL"
     success "NOVA installed successfully!"
     echo ""
-elif [ "$DO_UPDATE" -eq 1 ]; then
-    info "Updating NOVA..."
-    "$VENV_PIP" install --upgrade "$NOVA_URL"
-    success "NOVA updated."
-    echo ""
 else
-    success "NOVA is ready."
-    info "Tip: run with --update to check for updates."
-    echo ""
+    # Compare installed version against latest GitHub release
+    installed_ver=$("$VENV_PIP" show "$NOVA_PKG" 2>/dev/null \
+        | grep '^Version:' | awk '{print $2}')
+
+    latest_ver=""
+    if command -v curl &>/dev/null; then
+        latest_ver=$(curl -fsSL --max-time 8 "$GH_API_URL" 2>/dev/null \
+            | $PYTHON -c "
+import sys, json
+try:
+    tag = json.load(sys.stdin).get('tag_name', '')
+    print(tag.lstrip('v'))
+except Exception:
+    pass
+" 2>/dev/null || true)
+    fi
+
+    if [ -n "$latest_ver" ] && [ "$installed_ver" != "$latest_ver" ]; then
+        info "Update available: $installed_ver → $latest_ver — updating..."
+        "$VENV_PIP" install --upgrade "$NOVA_URL"
+        success "NOVA updated to $latest_ver."
+        echo ""
+    else
+        success "NOVA $installed_ver is up to date."
+        echo ""
+    fi
 fi
 
 # ── Install global 'nova' command ─────────────────────────────────────────────
-# Symlink the venv binary into ~/.local/bin so 'nova' works from anywhere.
 
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 if [ ! -L "$BIN_DIR/nova" ] || [ "$(readlink "$BIN_DIR/nova")" != "$VENV_NOVA" ]; then
     ln -sf "$VENV_NOVA" "$BIN_DIR/nova"
     success "Installed 'nova' command to $BIN_DIR/nova"
-    # Warn if ~/.local/bin is not in PATH
     case ":$PATH:" in
         *":$BIN_DIR:"*) ;;
         *)
             warn "Note: $BIN_DIR is not in your PATH."
-            warn "Add this to ~/.bashrc or ~/.zshrc to fix it:"
+            warn "Add this to ~/.bashrc or ~/.zshrc:"
             warn "  export PATH=\"\$HOME/.local/bin:\$PATH\""
             echo ""
             ;;
