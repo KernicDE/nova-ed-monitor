@@ -334,6 +334,10 @@ def _follow(
         while True:
             chunk = fd.read(65536)
             if not chunk:
+                # Return if a newer journal file has appeared
+                latest = _get_latest(journal_dir)
+                if latest is not None and latest != path:
+                    return
                 try:
                     cur_ino = os.stat(path).st_ino
                 except OSError:

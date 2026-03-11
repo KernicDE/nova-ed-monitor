@@ -95,7 +95,7 @@ def _play(text: str, voice: str, rate: str, volume: int) -> None:
             timeout=30,
         )
         if result.returncode == 0 and os.path.exists(tmp):
-            _play_pygame(tmp, volume)
+            _play_audio(tmp, volume)
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
     finally:
@@ -105,7 +105,9 @@ def _play(text: str, voice: str, rate: str, volume: int) -> None:
             pass
 
 
-def _play_pygame(path: str, volume: int) -> None:
+def _play_audio(path: str, volume: int) -> None:
+    """Play MP3 via pygame if available, otherwise fall back to mpg123."""
+    # Try pygame first
     try:
         import pygame
         pygame.mixer.init()
@@ -115,5 +117,24 @@ def _play_pygame(path: str, volume: int) -> None:
         import time
         while pygame.mixer.music.get_busy():
             time.sleep(0.05)
+        return
     except Exception:
+        pass
+
+    # Fallback: mpg123 (Linux/macOS) — scale 0–100 → mpg123 factor 0–32768
+    try:
+        factor = str(int(volume * 327))  # 100 → 32700 ≈ full volume
+        subprocess.run(
+            ["mpg123", "--quiet", "-f", factor, path],
+            timeout=60,
+        )
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # Fallback: afplay (macOS)
+    try:
+        subprocess.run(["afplay", path], timeout=60)
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         pass
