@@ -4,157 +4,142 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 
 ## Features
 
-- **Live TTS** via edge-tts — speaks events, chat, bio distances, fuel warnings
-- **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically
-- **Twitch integration** — reads your chat anonymously, announces messages with "Twitch" prefix
+- **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
+- **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically per message
+- **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
 - **EDSM enrichment** — fetches body data in the background (no API key needed)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
-- **Bio-scan assistant** — tracks distances, bearings, completion, and first-footfall detection
-- **Stream overlay** — writes a fully configurable text file for OBS/Streamlabs marquees
-- **Event log** — persists journal events to SQLite across sessions
+- **Bio-scan assistant** — tracks sample distances, bearings, and scan completion per species
+- **Stream overlay** — writes a configurable text file for OBS/Streamlabs marquees
+- **Persistent event log** — replays journal history from SQLite across sessions, including bodies scanned in previous sessions
+- **Auto-installing launcher** — installs Python, NOVA, and all dependencies automatically; auto-updates on every launch
 
 ---
 
-## Quick Start (TL;DR)
+## Quick Start
 
-### Linux — Launcher script (easiest)
+### Linux
+
 ```bash
-# Download once, then always use to launch NOVA:
 curl -O https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.sh
 chmod +x nova.sh
 ./nova.sh
 ```
-The script installs Python and NOVA automatically if needed, then launches NOVA.
-Run `./nova.sh --update` to update NOVA.
 
-### Windows — Launcher script (easiest)
+The script installs Python (if missing), creates an isolated virtual environment, installs NOVA, and launches it. On every subsequent launch it checks for updates automatically. A `nova` command is also installed to `~/.local/bin/nova`.
+
+### Windows
+
 1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) and [`nova.bat`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.bat) into the same folder
 2. Double-click **`nova.bat`** to launch
 
-The script installs Python and NOVA automatically if needed.
-Run `nova.bat -Update` (or open PowerShell: `.\nova.ps1 -Update`) to update NOVA.
+The script installs Python 3.12 (if missing), creates a virtual environment, installs NOVA, and launches it. On every launch it checks for updates automatically.
 
 ---
 
-## Installation
+## Running NOVA
 
-NOVA is **not on PyPI**. Use the launcher scripts above (recommended) or install directly from GitHub.
+| Platform | Command |
+|----------|---------|
+| Linux — launcher | `./nova.sh` |
+| Linux — direct | `nova` |
+| Windows — launcher | double-click `nova.bat` or run `.\nova.ps1` |
 
-### Method 1: pip from GitHub (recommended)
-
-Installs the latest version directly from the repository.
-
-**Linux:**
-```bash
-pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-```
-
-**Windows:**
-```
-py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-```
-
-> If you get a permissions error, add `--user`:
-> `pip install --user git+https://github.com/KernicDE/nova-ed-monitor.git`
+Both the launcher scripts and the `nova` command check for updates on every launch and upgrade automatically if a newer version is available on GitHub.
 
 ---
 
-### Method 2: Download wheel from releases
+## Updating NOVA
 
-1. Go to the [Releases page](https://github.com/KernicDE/nova-ed-monitor/releases)
-2. Download the `.whl` file (e.g. `nova_ed_monitor-1.1.0-py3-none-any.whl`)
-3. Install it:
+Updates happen **automatically** on every launch — no manual action needed.
+
+To force an immediate update run the launcher script:
 
 ```bash
 # Linux
-pip install nova_ed_monitor-*.whl
+./nova.sh
 
 # Windows
-py -m pip install nova_ed_monitor-*.whl
+.\nova.ps1
 ```
 
 ---
 
-### Method 3: Clone and install
+## Uninstalling NOVA
+
+### Linux
+
+```bash
+nova --uninstall
+```
+
+Removes the virtual environment (`~/.local/share/nova/`), config (`~/.config/nova/`), and the `nova` command itself. Prompts for confirmation. Elite Dangerous journal files are **not touched**.
+
+After uninstalling, delete `nova.sh` manually if you no longer need it.
+
+### Windows
+
+```powershell
+.\nova.ps1 -Uninstall
+```
+
+Or via the bat file:
+
+```
+nova.bat -Uninstall
+```
+
+Removes the virtual environment (`%LOCALAPPDATA%\nova\`), and config (`%USERPROFILE%\.config\nova\`). Prompts for confirmation. Elite Dangerous journal files are **not touched**.
+
+After uninstalling, delete `nova.ps1` and `nova.bat` manually.
+
+---
+
+## Installation (alternative methods)
+
+The launcher scripts above are the recommended way. If you prefer to install manually:
+
+### pip from GitHub
+
+```bash
+# Linux (use a venv to avoid PEP 668 errors on modern distros)
+python -m venv ~/nova-venv
+~/nova-venv/bin/pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+~/nova-venv/bin/nova
+
+# Windows
+py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+nova
+```
+
+### Wheel from releases
+
+1. Go to the [Releases page](https://github.com/KernicDE/nova-ed-monitor/releases)
+2. Download the `.whl` file
+3. Install it:
+
+```bash
+pip install nova_ed_monitor-*.whl        # Linux (inside venv)
+py -m pip install nova_ed_monitor-*.whl  # Windows
+```
+
+### Standalone Linux binary (no Python needed)
+
+Download `nova-linux-x86_64` from the [latest release](https://github.com/KernicDE/nova-ed-monitor/releases/latest), then:
+
+```bash
+chmod +x nova-linux-x86_64
+./nova-linux-x86_64
+```
+
+### Clone and install
 
 ```bash
 git clone https://github.com/KernicDE/nova-ed-monitor.git
 cd nova-ed-monitor
-pip install .
-```
-
----
-
-### Full Linux Setup — Step by Step
-
-**Step 1: Check Python version**
-```bash
-python --version
-```
-Need Python 3.11 or higher. If not installed:
-
-- **Arch Linux / Manjaro:** `sudo pacman -S python`
-- **Ubuntu / Debian / Mint:** `sudo apt install python3 python3-pip`
-- **Fedora:** `sudo dnf install python3 python3-pip`
-
-**Step 2: Install NOVA**
-```bash
-pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-```
-
-**Step 3: Audio support** (needed for TTS playback)
-
-Most Linux desktops have this already. If you hear no voice:
-- Arch: `yay -S python-pygame` or `pip install pygame --upgrade`
-- Ubuntu: `sudo apt install python3-pygame` or `pip install pygame --upgrade`
-
-**Step 4: Run NOVA**
-```bash
-nova
-```
-NOVA will auto-detect your Elite Dangerous journal files (Steam/Proton).
-If it can't find them, see **Configuration** below.
-
----
-
-### Full Windows Setup — Step by Step
-
-**Step 1: Install Python**
-
-1. Go to [python.org/downloads](https://www.python.org/downloads/)
-2. Download and run the installer
-3. **IMPORTANT:** Check **"Add Python to PATH"** before clicking Install
-
-**Step 2: Open Command Prompt** — press `Win + R`, type `cmd`, press Enter
-
-**Step 3: Install NOVA**
-```
-py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-```
-
-**Step 4: Run NOVA**
-```
-py -m ed_monitor
-```
-
-> The `nova` command also works if Python's Scripts folder is in PATH.
-
-**Step 5 (optional): Desktop shortcut**
-
-1. Right-click desktop → New → Shortcut
-2. Enter: `cmd /k "py -m ed_monitor"`
-3. Name it "NOVA"
-
----
-
-### Updating NOVA
-
-```bash
-# Linux
-pip install --upgrade git+https://github.com/KernicDE/nova-ed-monitor.git
-
-# Windows
-py -m pip install --upgrade git+https://github.com/KernicDE/nova-ed-monitor.git
+python -m venv .venv
+.venv/bin/pip install .
+.venv/bin/nova
 ```
 
 ---
@@ -162,8 +147,11 @@ py -m pip install --upgrade git+https://github.com/KernicDE/nova-ed-monitor.git
 ## Configuration
 
 The config file is created automatically on first launch at:
-- **Linux:** `~/.config/nova/config.toml`
-- **Windows:** `%APPDATA%\nova\config.toml` (or `C:\Users\YourName\.config\nova\config.toml`)
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/nova/config.toml` |
+| Windows | `%USERPROFILE%\.config\nova\config.toml` |
 
 Open it with any text editor to adjust settings:
 
@@ -186,14 +174,14 @@ Open it with any text editor to adjust settings:
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
 
-# Stream overlay (custom format):
+# Stream overlay output file and format:
+# overlay_path = stream_info.txt
 # overlay_line_1 = MY STREAM NAME
 # overlay_line_2 = {ship_name} ({ship_type})
 # overlay_line_3 = {system} — {position}
 # overlay_line_4 = JUMPS: {jumps_left}
 # overlay_separator =      ////
 # overlay_uppercase = true
-# overlay_path = stream_info.txt
 ```
 
 ### Finding the Journal Directory Manually
@@ -202,11 +190,12 @@ Elite Dangerous journals are usually at:
 
 | Platform | Path |
 |----------|------|
-| Linux (Steam Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous` |
+| Linux (Steam / Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous` |
 | Windows | `C:\Users\YourName\Saved Games\Frontier Developments\Elite Dangerous` |
 | macOS | `~/Library/Application Support/Frontier Developments/Elite Dangerous` |
 
 Set it in config like this:
+
 ```toml
 journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous
 ```
@@ -230,9 +219,10 @@ journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/
 
 ## Stream Overlay for OBS/Streamlabs
 
-NOVA writes a text file (`stream_info.txt` by default) that you can add as a **Text (GDI+)** or **Text** source in OBS/Streamlabs with "Read from file" enabled.
+NOVA writes a text file (`stream_info.txt` by default, in the directory where NOVA is launched) that you can add as a **Text (GDI+)** or **Text** source in OBS/Streamlabs with "Read from file" enabled.
 
 **Custom format example** (in config.toml):
+
 ```toml
 overlay_line_1 = MY STREAM
 overlay_line_2 = {commander} in {ship_name}
@@ -273,7 +263,7 @@ Language is detected automatically per message:
 | Portuguese | pt-PT-RaquelNeural    | diz        |
 | Russian    | ru-RU-SvetlanaNeural  | говорит    |
 
-Twitch messages: **"Twitch {user} {verb}: {message}"**
+Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
 
 ---
 
@@ -291,9 +281,10 @@ Twitch messages: **"Twitch {user} {verb}: {message}"**
 └───────────────────────────────────────────────────────────────┘
 ```
 
+**Situational panel modes** (cycle with `Tab`): Overview · Bio scans · Missions · Inventory · Engineers
+
 **Bio scan indicators:**
-- `★` — first discovered species
-- `✦` — first footfall on this body
+- `★` — first discovered species in the galaxy
 
 ---
 
@@ -314,35 +305,38 @@ Twitch messages: **"Twitch {user} {verb}: {message}"**
 
 ---
 
+## Data Paths
+
+| Path | Platform | Contents |
+|------|----------|----------|
+| `~/.config/nova/config.toml` | Linux | Configuration |
+| `%USERPROFILE%\.config\nova\config.toml` | Windows | Configuration |
+| `~/.local/share/nova/events.db` | Linux | SQLite event log |
+| `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log |
+| `~/.local/share/nova/venv/` | Linux | Python virtual environment |
+| `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
+| `stream_info.txt` | both | OBS/Streamlabs overlay (launch dir, configurable) |
+
+---
+
 ## Troubleshooting
 
 **"No events are showing / journal not found"**
 → Set `journal_dir` manually in config.toml (see above)
 
 **"No TTS voice / audio"**
-→ Make sure `edge-tts` is installed: `pip install edge-tts`
-→ Make sure pygame works: `pip install --upgrade pygame`
+→ Make sure pygame works: on Arch try `yay -S python-pygame`; elsewhere `pip install --upgrade pygame` inside the NOVA venv
 
-**"nova command not found" (Linux)**
-→ Try `python -m ed_monitor` instead
-→ Or add `~/.local/bin` to your PATH: `export PATH="$HOME/.local/bin:$PATH"` (add to `~/.bashrc`)
+**"nova: command not found" (Linux)**
+→ Run `./nova.sh` once — it installs the `nova` command to `~/.local/bin/`
+→ Make sure `~/.local/bin` is in your PATH: add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` or `~/.zshrc`
 
-**"nova command not found" (Windows)**
-→ Use `py -m ed_monitor` instead
-→ Or re-install Python with "Add to PATH" checked
+**"Access denied" / execution policy error (Windows)**
+→ Right-click `nova.bat` and choose "Run as administrator" once, or open PowerShell and run:
+  `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 **TTS is too fast/slow**
-→ Change `tts_rate` in config.toml (e.g. `tts_rate = +0%` for normal, `tts_rate = +20%` for faster)
-
----
-
-## Data Paths
-
-| Path | Contents |
-|------|----------|
-| `~/.config/nova/config.toml` | Configuration |
-| `~/.local/share/nova/events.db` | SQLite event log |
-| `./stream_info.txt` | OBS/Streamlabs overlay (current dir, configurable) |
+→ Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal speed, `tts_rate = +20%` for faster
 
 ---
 

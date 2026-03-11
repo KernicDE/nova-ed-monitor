@@ -56,7 +56,7 @@ jobs:
           body: |
             ## Installation
 
-            ### Option 1: Launcher scripts (recommended — installs everything automatically)
+            ### Option 1: Launcher scripts — recommended
 
             **Linux:**
             ```bash
@@ -69,36 +69,44 @@ jobs:
             Download `nova.ps1` and `nova.bat` from this release into the same folder,
             then double-click **`nova.bat`**.
 
-            The scripts install Python and NOVA automatically, then launch NOVA.
-            Pass `--update` / `-Update` to check for updates.
+            The scripts install Python and NOVA automatically if needed, and check for
+            updates on every launch. On Linux a `nova` command is also installed to
+            `~/.local/bin/nova` which auto-updates on every invocation as well.
 
             ---
 
-            ### Option 2: pip from GitHub
-            ```bash
-            # Linux
-            pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-
-            # Windows
-            py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-            ```
-
-            ### Option 3: Install the wheel from this release
-            Download the `.whl` file, then:
-            ```bash
-            pip install nova_ed_monitor-*.whl       # Linux
-            py -m pip install nova_ed_monitor-*.whl  # Windows
-            ```
-
-            ### Option 4: Standalone Linux binary (no Python needed)
+            ### Option 2: Standalone Linux binary (no Python needed)
             Download `nova-linux-x86_64`, then:
             ```bash
             chmod +x nova-linux-x86_64
             ./nova-linux-x86_64
             ```
 
-            ### Running NOVA (after pip install)
+            ### Option 3: pip from GitHub (manual, use a venv)
             ```bash
-            nova          # Linux
-            py -m ed_monitor  # Windows (or just: nova)
+            # Linux
+            python -m venv ~/nova-venv
+            ~/nova-venv/bin/pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+            ~/nova-venv/bin/nova
+
+            # Windows
+            py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
+            nova
             ```
+
+            ### Option 4: Install the wheel from this release
+            Download the `.whl` file, then:
+            ```bash
+            pip install nova_ed_monitor-*.whl        # Linux (inside venv)
+            py -m pip install nova_ed_monitor-*.whl  # Windows
+            ```
+
+            ---
+
+            ## Uninstalling
+
+            **Linux:** `nova --uninstall`
+
+            **Windows:** `.\nova.ps1 -Uninstall` (or `nova.bat -Uninstall`)
+
+            Elite Dangerous journal files are never touched.

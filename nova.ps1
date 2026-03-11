@@ -11,12 +11,18 @@
 .PARAMETER NoSelfUpdate
     Skip the self-update check (used internally after auto-update).
 
+.PARAMETER Uninstall
+    Completely remove NOVA (venv, config, event log). Does not touch
+    Elite Dangerous journal files.
+
 .EXAMPLE
     .\nova.ps1
+    .\nova.ps1 -Uninstall
 #>
 
 param(
-    [switch]$NoSelfUpdate
+    [switch]$NoSelfUpdate,
+    [switch]$Uninstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +53,31 @@ Write-Host "  ──────────────────────
 Write-Host ""
 
 $ScriptPath = $MyInvocation.MyCommand.Path
+$NovaCfgDir = Join-Path $env:USERPROFILE ".config\nova"
+
+# ── Uninstall ─────────────────────────────────────────────────────────────────
+
+if ($Uninstall) {
+    Write-Host ""
+    Write-Host "  This will permanently remove:" -ForegroundColor Yellow
+    Write-Host "    $VENV_DIR\.." -ForegroundColor Yellow
+    Write-Host "    $NovaCfgDir" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Elite Dangerous journal files will NOT be touched." -ForegroundColor Green
+    Write-Host ""
+    $answer = Read-Host "  Confirm uninstall? [y/N]"
+    if ($answer -eq "y" -or $answer -eq "Y") {
+        $novaDataDir = Split-Path $VENV_DIR -Parent
+        if (Test-Path $novaDataDir)  { Remove-Item $novaDataDir  -Recurse -Force }
+        if (Test-Path $NovaCfgDir)   { Remove-Item $NovaCfgDir   -Recurse -Force }
+        Write-Success "NOVA uninstalled."
+        Write-Host ""
+        Write-Host "  nova.ps1 and nova.bat can be deleted manually." -ForegroundColor DarkGray
+    } else {
+        Write-Host "  Cancelled." -ForegroundColor DarkGray
+    }
+    exit 0
+}
 
 # ── Self-update ───────────────────────────────────────────────────────────────
 
