@@ -367,20 +367,29 @@ class ShipPanel(_Panel):
             parts.append(Align.center(cargo_txt))
 
         modes_txt = Text()
+        on_foot = not s.in_main_ship and not s.in_srv
         modes = [
-            ("SUPERCRUISE", s.supercruise,                                                        P.HUD_CYAN),
-            ("DOCKED",      s.docked,                                                             P.HUD_GREEN),
-            ("LANDED",      s.landed and not s.docked,                                            P.HUD_WARN),
-            ("SRV",         s.in_srv,                                                             P.HUD_WARN),
-            ("NORMAL SPC",  not s.supercruise and not s.docked and not s.landed and not s.in_srv, P.LABEL),
+            ("SUPERCRUISE", s.supercruise and s.in_main_ship,                                              P.HUD_CYAN),
+            ("DOCKED",      s.docked,                                                                      P.HUD_GREEN),
+            ("LANDED",      s.landed and not s.docked and s.in_main_ship,                                  P.HUD_WARN),
+            ("SRV",         s.in_srv,                                                                      P.HUD_WARN),
+            ("ON FOOT",     on_foot,                                                                       P.PURPLE),
+            ("NORMAL SPC",  s.in_main_ship and not s.supercruise and not s.docked and not s.landed,        P.LABEL),
         ]
         _append_buttons(modes_txt, modes)
         parts.append(Align.center(modes_txt))
         parts.append(Text(""))
 
         toggles_txt = Text()
-        mode_label = "ANALYSIS" if s.analysis_mode else "COMBAT"
-        mode_col   = P.ANALYSIS if s.analysis_mode else P.HUD_CRIT
+        if on_foot:
+            mode_label = "ON FOOT"
+            mode_col   = P.PURPLE
+        elif s.analysis_mode:
+            mode_label = "ANALYSIS"
+            mode_col   = P.ANALYSIS
+        else:
+            mode_label = "COMBAT"
+            mode_col   = P.HUD_CRIT
         toggles = [
             (mode_label, True, mode_col),
             ("GEAR↓",    s.landing_gear,      P.AMBER),

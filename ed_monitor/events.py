@@ -86,6 +86,7 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     "Bacterium Omentum":        4_638_000,
     "Bacterium Verrata":        3_897_000,
     "Bacterium Caulini":        1_000_600,
+    "Bacterium Cerbrus":        1_689_800,
     # Cactoida
     "Cactoida Cortexum":        3_667_600,
     "Cactoida Lapis":           2_483_600,
