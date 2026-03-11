@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from importlib.metadata import version as _pkg_version
 from typing import Optional
+
+try:
+    _NOVA_VERSION = _pkg_version("nova-ed-monitor")
+except Exception:
+    _NOVA_VERSION = "?"
 
 from rich.align import Align
 from rich.columns import Columns
@@ -1421,6 +1427,7 @@ class FooterBar(_Panel):
                 if parts:
                     right.append("· " + " ".join(parts) + "   ", style="rgb(90,90,90)")
             _append_edsm(right, s.edsm_status)
+        right.append(f"  v{_NOVA_VERSION}", style="rgb(70,70,70)")
 
         tbl = Table.grid(expand=True)
         tbl.add_column("left", no_wrap=True)
