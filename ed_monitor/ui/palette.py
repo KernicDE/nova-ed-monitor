@@ -1,0 +1,16 @@
+# Elite Dangerous HUD colour palette
+
+AMBER     = "rgb(210,115,0)"
+AMBER_DIM = "rgb(120,68,0)"
+LABEL     = "rgb(145,145,145)"
+HUD_GREEN = "rgb(0,170,60)"
+HUD_WARN  = "rgb(195,150,0)"
+HUD_CRIT  = "rgb(185,40,40)"
+BG_DARK   = "rgb(18,18,18)"
+HUD_CYAN  = "rgb(0,175,185)"
+DIM       = "rgb(60,60,60)"
+WHITE     = "white"
+GOLD      = "rgb(230,185,0)"
+BLUE_SH   = "rgb(50,130,210)"
+PURPLE    = "rgb(175,85,220)"
+ANALYSIS  = "rgb(90,160,230)"
