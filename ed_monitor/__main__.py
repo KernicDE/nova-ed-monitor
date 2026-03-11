@@ -76,7 +76,7 @@ def main() -> None:
     # Stream overlay thread
     threading.Thread(
         target=overlay.monitor,
-        args=(state, lock),
+        args=(state, lock, cfg),
         daemon=True,
     ).start()
 

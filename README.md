@@ -9,53 +9,133 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Twitch integration** — reads your chat anonymously, announces messages with "Twitch" prefix
 - **EDSM enrichment** — fetches body data in the background (no API key needed)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
-- **Bio-scan assistant** — tracks distances, bearings, and completion state
-- **Stream overlay** — writes `stream_info.txt` for OBS/Streamlabs marquees
+- **Bio-scan assistant** — tracks distances, bearings, completion, and first-footfall detection
+- **Stream overlay** — writes a fully configurable text file for OBS/Streamlabs marquees
 - **Event log** — persists journal events to SQLite across sessions
 
 ---
 
-## Installation
+## Quick Start (TL;DR)
 
-### Via pipx (recommended)
-
-```bash
-pipx install nova-ed-monitor
-nova
-```
-
-### Via pip
-
+### Linux
 ```bash
 pip install nova-ed-monitor
 nova
 ```
 
-### From source
-
-```bash
-git clone https://github.com/KernicDE/nova-ed-monitor
-cd nova-ed-monitor
-pip install -e .
-nova
+### Windows
 ```
-
-NOVA auto-detects your Elite Dangerous journal directory for Steam/Proton installs.
+py -m pip install nova-ed-monitor
+py -m ed_monitor
+```
 
 ---
 
-## Requirements
+## Full Installation Guide
 
-- Python 3.11+
-- `edge-tts` CLI (installed automatically with `pip install nova-ed-monitor`)
-- `pygame` for audio (installed automatically)
-- Elite Dangerous with journal files enabled
+### Linux — Step by Step
+
+**Step 1: Check if Python is installed**
+
+Open a terminal and type:
+```bash
+python --version
+```
+If you see `Python 3.11` or higher, skip to Step 3.
+If not (or if the command doesn't exist), install Python:
+
+- **Arch Linux / Manjaro:** `sudo pacman -S python`
+- **Ubuntu / Debian / Mint:** `sudo apt install python3 python3-pip`
+- **Fedora:** `sudo dnf install python3 python3-pip`
+- **Other:** Download from [python.org](https://www.python.org/downloads/)
+
+**Step 2: Check if pip is working**
+```bash
+pip --version
+```
+If it's not found, try `pip3` instead of `pip`.
+
+**Step 3: Install NOVA**
+```bash
+pip install nova-ed-monitor
+```
+> If you get a "user permissions" error, add `--user` flag:
+> `pip install --user nova-ed-monitor`
+
+**Step 4: Install pipewire/pulseaudio audio support** (needed for TTS playback)
+
+Most Linux desktops have this already. If NOVA starts but you hear no voice:
+- Arch: `yay -S python-pygame` or `pip install pygame --upgrade`
+- Ubuntu: `sudo apt install python3-pygame` or `pip install pygame --upgrade`
+
+**Step 5: Run NOVA**
+```bash
+nova
+```
+NOVA will auto-detect your Elite Dangerous journal files (Steam/Proton).
+If it can't find them, see **Configuration** below.
+
+---
+
+### Windows — Step by Step
+
+**Step 1: Install Python**
+
+1. Go to [python.org/downloads](https://www.python.org/downloads/)
+2. Download the latest Python 3.x installer
+3. Run the installer
+4. **IMPORTANT:** Check the box that says **"Add Python to PATH"** before clicking Install
+
+**Step 2: Open a Command Prompt or PowerShell**
+
+Press `Win + R`, type `cmd`, press Enter.
+Or press `Win + X` and choose **Windows PowerShell** or **Terminal**.
+
+**Step 3: Verify Python works**
+```
+py --version
+```
+You should see something like `Python 3.12.x`
+
+**Step 4: Install NOVA**
+```
+py -m pip install nova-ed-monitor
+```
+
+**Step 5: Run NOVA**
+```
+py -m ed_monitor
+```
+
+> **Note:** On Windows, the `nova` command should also work if Python's Scripts folder is in your PATH. If not, use `py -m ed_monitor` as shown above.
+
+**Step 6 (optional): Create a desktop shortcut**
+
+1. Right-click your desktop → New → Shortcut
+2. Enter: `cmd /k "py -m ed_monitor"`
+3. Name it "NOVA"
+
+---
+
+### Updating NOVA
+
+```bash
+# Linux
+pip install --upgrade nova-ed-monitor
+
+# Windows
+py -m pip install --upgrade nova-ed-monitor
+```
 
 ---
 
 ## Configuration
 
-Config file created on first launch: **`~/.config/nova/config.toml`**
+The config file is created automatically on first launch at:
+- **Linux:** `~/.config/nova/config.toml`
+- **Windows:** `%APPDATA%\nova\config.toml` (or `C:\Users\YourName\.config\nova\config.toml`)
+
+Open it with any text editor to adjust settings:
 
 ```toml
 # Journal directory (auto-detected for Steam/Proton — override if needed):
@@ -67,7 +147,7 @@ Config file created on first launch: **`~/.config/nova/config.toml`**
 # TTS voice rate:
 # tts_rate = +10%
 
-# TTS voices per language (edge-tts voice names):
+# TTS voices per language:
 # tts_voice_en = en-GB-SoniaNeural
 # tts_voice_de = de-DE-KatjaNeural
 # tts_voice_fr = fr-FR-DeniseNeural
@@ -75,6 +155,30 @@ Config file created on first launch: **`~/.config/nova/config.toml`**
 # tts_voice_es = es-ES-ElviraNeural
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
+
+# Stream overlay (custom format):
+# overlay_line_1 = MY STREAM NAME
+# overlay_line_2 = {ship_name} ({ship_type})
+# overlay_line_3 = {system} — {position}
+# overlay_line_4 = JUMPS: {jumps_left}
+# overlay_separator =      ////
+# overlay_uppercase = true
+# overlay_path = stream_info.txt
+```
+
+### Finding the Journal Directory Manually
+
+Elite Dangerous journals are usually at:
+
+| Platform | Path |
+|----------|------|
+| Linux (Steam Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous` |
+| Windows | `C:\Users\YourName\Saved Games\Frontier Developments\Elite Dangerous` |
+| macOS | `~/Library/Application Support/Frontier Developments/Elite Dangerous` |
+
+Set it in config like this:
+```toml
+journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous
 ```
 
 ---
@@ -86,34 +190,48 @@ Config file created on first launch: **`~/.config/nova/config.toml`**
 | `q` / `Esc` | Quit |
 | `↑` / `k` | Scroll event log up |
 | `↓` / `j` | Scroll event log down |
-| `PgUp` / `PgDn` | Scroll by 20 |
-| `Home` / `g` | Jump to top |
+| `PgUp` / `PgDn` | Scroll by 20 lines |
+| `Home` / `g` | Jump to latest events |
 | `Tab` | Cycle situational panel mode |
 | `+` / `=` | Volume up |
 | `-` | Volume down |
 
 ---
 
-## Layout
+## Stream Overlay for OBS/Streamlabs
 
+NOVA writes a text file (`stream_info.txt` by default) that you can add as a **Text (GDI+)** or **Text** source in OBS/Streamlabs with "Read from file" enabled.
+
+**Custom format example** (in config.toml):
+```toml
+overlay_line_1 = MY STREAM
+overlay_line_2 = {commander} in {ship_name}
+overlay_line_3 = {system} / {position}
+overlay_line_4 = {jumps_left} jumps left
+overlay_separator =   |
+overlay_uppercase = false
 ```
-┌─ System ─────────┬─ Ship ───────────────────────┬─ Route ────┐
-│ System/faction   │ Hull/Shield/Fuel gauges      │ Nav route  │
-│ BGS/security     │ Status flags                 │ or body    │
-├─ Bodies ─────────┴─ Situational ────────────────┴─ Events ───┤
-│ Scanned bodies   │ Overview / Inventory /        │ Event log  │
-│ with FSS/DSS     │ Bio scans / Missions /        ├────────────┤
-│ values and dist  │ Engineers                     │ Chat log   │
-├──────────────────┴───────────────────────────────┴────────────┤
-│ Keybindings                                      Vol 50% ●   │
-└───────────────────────────────────────────────────────────────┘
-```
+
+**Available variables:**
+
+| Variable | Example output |
+|----------|---------------|
+| `{commander}` | `CMDR Hawk` |
+| `{ship_name}` | `Krait Phantom` |
+| `{ship_type}` | `KraitPhantom` |
+| `{system}` | `Sol` |
+| `{position}` | `Hutton Orbital` or `Deep Space` |
+| `{jumps_left}` | `4` (line skipped when 0) |
+| `{route_next}` | `Alpha Centauri` (line skipped when empty) |
+| `{hull_pct}` | `98%` |
+| `{fuel_t}` | `28.4t` |
+| `{fuel_max_t}` | `32t` |
 
 ---
 
 ## TTS Languages
 
-Language is detected per message. Character sets take priority (Cyrillic → ñ → ã/õ → umlauts), then common word lists.
+Language is detected automatically per message:
 
 | Language   | Default Voice         | Chat verb  |
 |------------|-----------------------|------------|
@@ -125,19 +243,27 @@ Language is detected per message. Character sets take priority (Cyrillic → ñ 
 | Portuguese | pt-PT-RaquelNeural    | diz        |
 | Russian    | ru-RU-SvetlanaNeural  | говорит    |
 
-Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
+Twitch messages: **"Twitch {user} {verb}: {message}"**
 
 ---
 
-## Journal Auto-Detection
+## UI Layout
 
-| Platform | Path |
-|----------|------|
-| Linux (Steam Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/.../Saved Games/...` |
-| Linux (Steam symlink) | `~/.steam/steam/steamapps/compatdata/359320/...` |
-| Linux (Flatpak Steam) | `~/.var/app/com.valvesoftware.Steam/...` |
-| Windows | `~/Saved Games/Frontier Developments/Elite Dangerous` |
-| macOS | `~/Library/Application Support/Frontier Developments/Elite Dangerous` |
+```
+┌─ System ─────────┬─ Ship ──────────────────────┬─ Route ────┐
+│ System/faction   │ Hull/Shield/Fuel gauges     │ Nav route  │
+├──────────────────┴─────────────────────────────┴────────────┤
+│ Scanned Bodies   │ Overview / Bio / Missions /  │ Events     │
+│ (FSS, DSS,       │ Inventory / Engineers        ├────────────┤
+│  values, dist)   │                              │ Chat log   │
+├──────────────────┴──────────────────────────────┴────────────┤
+│ Keybindings                                     Vol 50% ●   │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Bio scan indicators:**
+- `★` — first discovered species
+- `✦` — first footfall on this body
 
 ---
 
@@ -147,14 +273,36 @@ Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
 |--------|---------|
 | Body   | Short name, indented: planet / ↳ moon |
 | Type   | Abbreviated body type |
-| Value  | Actual value or `~est` |
+| Value  | Actual or `~est` estimated |
 | Dist   | Distance from arrival (ls) |
 | Bio/Geo| Signal counts |
 | Atm    | Atmosphere |
 | Lnd    | Landable |
 | ★      | First discovered |
 | T      | Terraformable |
-| Sc     | `F`=FSS scanned, `D`=DSS mapped, `FD`=both |
+| Sc     | `F`=FSS scanned, `D`=DSS mapped |
+
+---
+
+## Troubleshooting
+
+**"No events are showing / journal not found"**
+→ Set `journal_dir` manually in config.toml (see above)
+
+**"No TTS voice / audio"**
+→ Make sure `edge-tts` is installed: `pip install edge-tts`
+→ Make sure pygame works: `pip install --upgrade pygame`
+
+**"nova command not found" (Linux)**
+→ Try `python -m ed_monitor` instead
+→ Or add `~/.local/bin` to your PATH: `export PATH="$HOME/.local/bin:$PATH"` (add to `~/.bashrc`)
+
+**"nova command not found" (Windows)**
+→ Use `py -m ed_monitor` instead
+→ Or re-install Python with "Add to PATH" checked
+
+**TTS is too fast/slow**
+→ Change `tts_rate` in config.toml (e.g. `tts_rate = +0%` for normal, `tts_rate = +20%` for faster)
 
 ---
 
@@ -164,31 +312,7 @@ Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
 |------|----------|
 | `~/.config/nova/config.toml` | Configuration |
 | `~/.local/share/nova/events.db` | SQLite event log |
-| `./stream_info.txt` | OBS/Streamlabs overlay (written to current dir) |
-
----
-
-## Architecture
-
-```
-ed_monitor/
-  __main__.py    Entry point, thread launcher
-  config.py      Config (~/.config/nova/config.toml)
-  state.py       AppState + dataclasses (thread-safe shared state)
-  events.py      Journal event handlers, TTS, language detection
-  journal.py     Journal file tail + inode rotation + DB replay
-  status.py      Status.json / Cargo.json / Materials.json polling
-  edsm.py        EDSM body/station fetch (GET-only, no key needed)
-  db.py          SQLite persistence
-  tts.py         edge-tts subprocess + pygame playback
-  twitch.py      Twitch IRC anonymous reader
-  overlay.py     stream_info.txt writer
-  ui/app.py      NOVAApp (Textual TUI, 500ms refresh)
-  ui/panels.py   All panel widgets
-```
-
-Threads: `journal`, `status`, `tts`, `edsm`, `twitch` (optional), `overlay`
-State: `AppState` protected by `threading.RLock` — threads write, Textual reads via snapshot.
+| `./stream_info.txt` | OBS/Streamlabs overlay (current dir, configurable) |
 
 ---
 

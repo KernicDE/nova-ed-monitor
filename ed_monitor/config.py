@@ -15,13 +15,26 @@ _DEFAULT_VOICES: dict[str, str] = {
     "ru": "ru-RU-SvetlanaNeural",
 }
 
+# Default overlay segments — replicate original hardcoded output
+_DEFAULT_OVERLAY_SEGMENTS = [
+    "NOVA",
+    "SHIP: {ship_name} ({ship_type})",
+    "POSITION: {system} {position}",
+    "JUMPS LEFT: {jumps_left}",      # skipped automatically when jumps_left == 0
+]
+_DEFAULT_OVERLAY_SEPARATOR = "     ////     "
+
 
 @dataclass
 class Config:
-    journal_dir:    Path
-    twitch_channel: str  = ""
-    tts_rate:       str  = "+10%"
-    tts_voices:     dict = field(default_factory=lambda: dict(_DEFAULT_VOICES))
+    journal_dir:        Path
+    twitch_channel:     str  = ""
+    tts_rate:           str  = "+10%"
+    tts_voices:         dict = field(default_factory=lambda: dict(_DEFAULT_VOICES))
+    overlay_segments:   list = field(default_factory=lambda: list(_DEFAULT_OVERLAY_SEGMENTS))
+    overlay_separator:  str  = _DEFAULT_OVERLAY_SEPARATOR
+    overlay_uppercase:  bool = True
+    overlay_path:       str  = "stream_info.txt"
 
 
 DEFAULT_CONFIG = """\
@@ -46,6 +59,30 @@ DEFAULT_CONFIG = """\
 # tts_voice_es = es-ES-ElviraNeural
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
+
+# ── Stream Overlay ────────────────────────────────────────────────────────────
+# Each overlay_line_N defines one segment. Segments are joined by the separator.
+# Lines containing a variable that evaluates to empty/zero are skipped.
+#
+# Available variables:
+#   {commander}    — Commander name
+#   {ship_name}    — Ship name
+#   {ship_type}    — Ship type (e.g. "Krait Phantom")
+#   {system}       — Current star system
+#   {position}     — Station, approach body, or "Deep Space"
+#   {jumps_left}   — Remaining jumps in route (skipped when 0)
+#   {route_next}   — Next jump destination (skipped when empty)
+#   {hull_pct}     — Hull integrity percentage (e.g. "98%")
+#   {fuel_t}       — Current fuel in tonnes (e.g. "28.4t")
+#   {fuel_max_t}   — Max fuel capacity (e.g. "32t")
+#
+# overlay_line_1 = NOVA
+# overlay_line_2 = {ship_name} ({ship_type})
+# overlay_line_3 = {system} — {position}
+# overlay_line_4 = JUMPS: {jumps_left}
+# overlay_separator =      ////
+# overlay_uppercase = true
+# overlay_path = stream_info.txt
 """
 
 
@@ -70,10 +107,14 @@ def load() -> Config:
             config_dir.mkdir(parents=True, exist_ok=True)
             config_path.write_text(DEFAULT_CONFIG)
 
-    journal_dir    = None
-    twitch_channel = ""
-    tts_rate       = "+10%"
-    tts_voices     = dict(_DEFAULT_VOICES)
+    journal_dir       = None
+    twitch_channel    = ""
+    tts_rate          = "+10%"
+    tts_voices        = dict(_DEFAULT_VOICES)
+    overlay_lines: dict[int, str] = {}
+    overlay_separator = _DEFAULT_OVERLAY_SEPARATOR
+    overlay_uppercase = True
+    overlay_path      = "stream_info.txt"
 
     try:
         text = config_path.read_text()
@@ -96,21 +137,43 @@ def load() -> Config:
                             twitch_channel = channel
                     case "tts_rate":
                         tts_rate = v
+                    case "overlay_separator":
+                        overlay_separator = v
+                    case "overlay_uppercase":
+                        overlay_uppercase = v.lower() not in ("false", "0", "no")
+                    case "overlay_path":
+                        overlay_path = v
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
                             tts_voices[lang] = v
+                    case _ if k.startswith("overlay_line_"):
+                        try:
+                            idx = int(k[len("overlay_line_"):])
+                            overlay_lines[idx] = v
+                        except ValueError:
+                            pass
     except OSError:
         pass
 
     if journal_dir is None:
         journal_dir = discover_journal() or Path(".")
 
+    # Build overlay segments from numbered lines if any were specified
+    if overlay_lines:
+        overlay_segments = [overlay_lines[i] for i in sorted(overlay_lines)]
+    else:
+        overlay_segments = list(_DEFAULT_OVERLAY_SEGMENTS)
+
     return Config(
         journal_dir=journal_dir,
         twitch_channel=twitch_channel,
         tts_rate=tts_rate,
         tts_voices=tts_voices,
+        overlay_segments=overlay_segments,
+        overlay_separator=overlay_separator,
+        overlay_uppercase=overlay_uppercase,
+        overlay_path=overlay_path,
     )
 
 

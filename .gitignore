@@ -14,8 +14,9 @@ build/
 venv/
 env/
 
-# Development / IDE
+# Development / IDE / personal notes
 .claude/
+CLAUDE.md
 .vscode/
 *.sublime-project
 *.sublime-workspace

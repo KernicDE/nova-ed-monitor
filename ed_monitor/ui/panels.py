@@ -842,7 +842,12 @@ def _render_bio(s: AppState) -> RenderableType:
 
         for sc in by_body[body_name]:
             samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: "rgb(210,210,0)"}.get(sc.samples, P.LABEL)
-            species_str = f"★ {sc.species_localised}" if sc.first_discovered else sc.species_localised
+            if sc.first_footfall:
+                species_str = f"✦ {sc.species_localised}"
+            elif sc.first_discovered:
+                species_str = f"★ {sc.species_localised}"
+            else:
+                species_str = sc.species_localised
             samples_str = f"{sc.samples}/3"
             min_str     = _fmt_metres(sc.min_dist)
 
@@ -854,8 +859,9 @@ def _render_bio(s: AppState) -> RenderableType:
                 value_str = "?"
 
             name_style = (
-                f"bold {P.GOLD}" if sc.first_discovered
-                else (f"{P.DIM} strike" if sc.complete else "white")
+                f"bold rgb(80,240,160)" if sc.first_footfall
+                else (f"bold {P.GOLD}" if sc.first_discovered
+                else (f"{P.DIM} strike" if sc.complete else "white"))
             )
 
             if sc.current_dist is not None:

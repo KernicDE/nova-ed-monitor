@@ -200,6 +200,7 @@ class AppState:
     altitude:     Optional[float] = None
     nearest_body: str            = ""
     heading:      Optional[float] = None
+    first_footfall_body: str     = ""  # body name where player has first footfall
 
     # Route
     route_destination:    str  = ""

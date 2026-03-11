@@ -481,8 +481,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station    = ""
             state.bodies.clear()
             state.bio_scans.clear()
-            state.nearest_body   = ""
-            state.approach_body  = ""
+            state.nearest_body        = ""
+            state.approach_body       = ""
+            state.first_footfall_body = ""
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -635,11 +636,22 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Touchdown":
-            lat = _f(ev, "Latitude")
-            lon = _f(ev, "Longitude")
+            lat            = _f(ev, "Latitude")
+            lon            = _f(ev, "Longitude")
+            body           = _s(ev, "Body")
+            first_footfall = _b(ev, "FirstFootfall")
             state.lat    = lat
             state.lon    = lon
             state.landed = True
+            if first_footfall and body:
+                state.first_footfall_body = body
+                # Mark any bio scans already recorded on this body
+                for sc in state.bio_scans:
+                    if sc.body == body:
+                        sc.first_footfall = True
+                _speak(tts_q, "First footfall on this world!", True)
+                msg = f"FIRST FOOTFALL! Touchdown at {lat:.2f}, {lon:.2f}."
+                return LogEvent.new(EventCategory.Explore, msg)
             msg = f"Touchdown at {lat:.2f}, {lon:.2f}."
             _speak(tts_q, msg, False)
             return LogEvent.new(EventCategory.Nav, msg)
@@ -921,9 +933,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     
                     if not any(sc.species == species for sc in state.bio_scans):
                         base_val = _bio_value_lookup(species_loc)
-                        if first_logged:
+                        if first_disc or first_logged:
                             base_val *= 5
-                            
+
+                        is_first_footfall = (
+                            bool(state.first_footfall_body) and
+                            body_name == state.first_footfall_body
+                        )
                         state.bio_scans.append(BioScan(
                             species=species, species_localised=species_loc,
                             genus_localised=genus_loc, body=body_name,
@@ -932,7 +948,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             body_radius=body_radius, current_dist=None,
                             value=base_val,
                             alerted=False, complete=False,
-                            first_discovered=first_logged,
+                            first_discovered=first_disc or first_logged,
+                            first_footfall=is_first_footfall,
                         ))
                     tag     = " — new species!" if first_logged else ""
                     tts_tag = " New species!" if first_logged else ""
