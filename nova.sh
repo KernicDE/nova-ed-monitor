@@ -174,12 +174,40 @@ _VENV_PY="$VENV_DIR/bin/python"
 cat > "$_NOVA_WRAPPER" <<WRAPPER
 #!/usr/bin/env bash
 # nova-ed-monitor-wrapper — auto-update launcher
+NOVA_DATA_DIR="$VENV_DIR/.."
+NOVA_CFG_DIR="\${XDG_CONFIG_HOME:-\$HOME/.config}/nova"
 VENV_PIP="$VENV_DIR/bin/pip"
 VENV_PY="$VENV_DIR/bin/python"
 VENV_NOVA="$VENV_NOVA"
 NOVA_PKG="$NOVA_PKG"
 NOVA_URL="$NOVA_URL"
 GH_API_URL="$GH_API_URL"
+
+# ── Uninstall ─────────────────────────────────────────────────────────────────
+
+if [ "\${1:-}" = "--uninstall" ]; then
+    echo ""
+    echo "  This will permanently remove:"
+    echo "    \$(realpath \"\$NOVA_DATA_DIR\")   (venv + event log)"
+    echo "    \$NOVA_CFG_DIR   (config)"
+    echo "    \$0   (this command)"
+    echo ""
+    echo "  Elite Dangerous journal files will NOT be touched."
+    echo ""
+    printf "  Confirm uninstall? [y/N] "
+    read -r _answer
+    if [ "\$_answer" = "y" ] || [ "\$_answer" = "Y" ]; then
+        rm -rf "\$(realpath \"\$NOVA_DATA_DIR\")"
+        rm -rf "\$NOVA_CFG_DIR"
+        rm -f "\$0"
+        echo "  NOVA uninstalled."
+    else
+        echo "  Cancelled."
+    fi
+    exit 0
+fi
+
+# ── Auto-update ───────────────────────────────────────────────────────────────
 
 if command -v curl &>/dev/null; then
     installed_ver=\$("\$VENV_PIP" show "\$NOVA_PKG" 2>/dev/null | awk '/^Version:/{print \$2}')
