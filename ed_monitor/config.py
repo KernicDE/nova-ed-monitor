@@ -115,6 +115,7 @@ def load() -> Config:
     overlay_separator = _DEFAULT_OVERLAY_SEPARATOR
     overlay_uppercase = True
     overlay_path      = "stream_info.txt"
+    active_keys: set[str] = set()
 
     try:
         text = config_path.read_text()
@@ -126,6 +127,7 @@ def load() -> Config:
                 k, _, v = line.partition("=")
                 k = k.strip()
                 v = v.strip()
+                active_keys.add(k)
                 match k:
                     case "journal_dir":
                         p = Path(v)
@@ -153,6 +155,20 @@ def load() -> Config:
                             overlay_lines[idx] = v
                         except ValueError:
                             pass
+        # Rewrite the file if it is missing the full template (outdated format).
+        # Preserve any active settings by prepending them before the template.
+        if "# overlay_line_1" not in text:
+            active_lines = [
+                line.strip()
+                for line in text.splitlines()
+                if line.strip() and not line.strip().startswith("#") and "=" in line
+            ]
+            if active_lines:
+                prefix = "# Active settings (preserved from previous config):\n"
+                prefix += "\n".join(active_lines) + "\n\n"
+            else:
+                prefix = ""
+            config_path.write_text(prefix + DEFAULT_CONFIG)
     except OSError:
         pass
 
