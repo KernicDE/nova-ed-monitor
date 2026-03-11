@@ -486,7 +486,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.bio_scans.clear()
             state.nearest_body        = ""
             state.approach_body       = ""
-            state.first_footfall_body = ""
+            state.first_footfall_body    = ""
+            state.first_footfall_body_id = -1
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -644,16 +645,20 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
         case "Touchdown":
             lat            = _f(ev, "Latitude")
             lon            = _f(ev, "Longitude")
-            body           = _s(ev, "Body")
+            body           = _s(ev, "Body") or _s(ev, "BodyName")
+            body_td_id     = _u(ev, "BodyID")
             first_footfall = _b(ev, "FirstFootfall")
             state.lat    = lat
             state.lon    = lon
             state.landed = True
-            if first_footfall and body:
-                state.first_footfall_body = body
+            if first_footfall and (body or body_td_id > 0):
+                if body:
+                    state.first_footfall_body = body
+                if body_td_id > 0:
+                    state.first_footfall_body_id = body_td_id
                 # Mark any bio scans already recorded on this body
                 for sc in state.bio_scans:
-                    if sc.body == body:
+                    if (body and sc.body == body):
                         sc.first_footfall = True
                 _speak(tts_q, "First footfall on this world!", True)
                 msg = f"FIRST FOOTFALL! Touchdown at {lat:.2f}, {lon:.2f}."
@@ -666,6 +671,24 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.landed = False
             _speak(tts_q, "Liftoff.", False)
             return LogEvent.new(EventCategory.Nav, "Liftoff.")
+
+        case "Disembark":
+            # Odyssey: player leaves ship/SRV on foot.
+            # Handle FirstFootfall for Apex/Frontline arrivals (no Touchdown event).
+            first_footfall = _b(ev, "FirstFootfall")
+            if first_footfall:
+                body       = _s(ev, "Body") or _s(ev, "BodyName")
+                body_dis_id = _u(ev, "BodyID")
+                if body:
+                    state.first_footfall_body = body
+                if body_dis_id > 0:
+                    state.first_footfall_body_id = body_dis_id
+                for sc in state.bio_scans:
+                    if body and sc.body == body:
+                        sc.first_footfall = True
+                _speak(tts_q, "First footfall on this world!", True)
+                return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body or 'Unknown'}.")
+            return None
 
         # ── Combat ───────────────────────────────────────────────────────────
 
@@ -937,14 +960,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     first_disc = _b_absent_true(ev, "WasDiscovered") is False
                     first_logged = _b_absent_true(ev, "WasLogged") is False
                     
-                    if not any(sc.species == species for sc in state.bio_scans):
+                    if not any(sc.species == species and sc.body == body_name for sc in state.bio_scans):
                         base_val = _bio_value_lookup(species_loc)
                         if first_disc or first_logged:
                             base_val *= 5
 
                         is_first_footfall = (
-                            bool(state.first_footfall_body) and
-                            body_name == state.first_footfall_body
+                            (bool(state.first_footfall_body) and body_name == state.first_footfall_body)
+                            or (state.first_footfall_body_id > 0 and body_id == state.first_footfall_body_id)
                         )
                         state.bio_scans.append(BioScan(
                             species=species, species_localised=species_loc,
@@ -966,7 +989,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     lat, lon = state.lat, state.lon
                     count = 2
                     for sc in state.bio_scans:
-                        if sc.species == species:
+                        if sc.species == species and sc.body == body_name:
                             sc.samples = sc.samples + 1
                             if lat is not None and lon is not None:
                                 sc.sample_lats.append(lat)
@@ -986,16 +1009,19 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
 
                 case "Analyse":
                     value = _u(ev, "Value")
+                    matched_sc = None
                     for sc in state.bio_scans:
-                        if sc.species == species:
+                        if sc.species == species and sc.body == body_name:
                             sc.samples  = 3
                             if value > 0:
                                 sc.value = value   # keep lookup-table value if game gives 0
                             sc.complete = True
+                            matched_sc  = sc
                             break
-                    val_str = _tts_cr(value) if value > 0 else "unknown"
+                    final_val = matched_sc.value if matched_sc else value
+                    val_str   = _tts_cr(final_val) if final_val > 0 else "unknown"
                     msg_tts = f"Bio complete: {species_loc}. Value: {val_str}."
-                    msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(value) if value > 0 else '?'}."
+                    msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(final_val) if final_val > 0 else '?'}."
                     _speak(tts_q, msg_tts, False)
                     return LogEvent.new(EventCategory.Explore, msg_log)
 

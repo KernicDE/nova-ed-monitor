@@ -163,7 +163,7 @@ def _apply_status(
                 _q("Flight assist off." if new_fa_off else "Flight assist on.")
             if new_silent != prev_silent:
                 _q("Silent running enabled." if new_silent else "Silent running disabled.")
-            if new_analysis != prev_analysis:
+            if new_analysis != prev_analysis and prev_in_main_ship and new_in_main_ship:
                 _q("Analysis mode." if new_analysis else "Combat mode.")
             if new_srv != prev_srv:
                 _q("S R V deployed." if new_srv else "S R V secured.")

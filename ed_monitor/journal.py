@@ -279,7 +279,7 @@ def _init_scan(
             "ShieldState", "NavRoute",
             "Scan", "SAAScanComplete", "FSSDiscoveryScan",
             "FSSBodySignals", "SAASignalsFound", "ScanOrganic",
-            "Docked", "Undocked", "Touchdown", "Liftoff",
+            "Docked", "Undocked", "Touchdown", "Liftoff", "Disembark",
             "MissionAccepted", "MissionCompleted", "MissionFailed",
             "MissionAbandoned", "MissionRedirected",
             "EngineerProgress", "Materials",
