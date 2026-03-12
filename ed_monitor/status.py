@@ -44,13 +44,25 @@ def monitor(
     last_cargo   = 0.0
     last_mats    = 0.0
     tick         = 0
+    client_online_detected = False
 
     while True:
         try:
             mtime = os.stat(status_path).st_mtime
+            # Check if file was recently modified (client is active)
+            age = time.time() - mtime
+            is_recent = age < 300  # 5 minutes
+            
             if mtime != last_status:
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
+                client_online_detected = is_recent
+            elif not client_online_detected and not is_recent:
+                # File exists but hasn't been updated recently - client is offline
+                with lock:
+                    state.client_online = False
+                    state.in_main_ship = False
+                    state.in_srv = False
         except OSError:
             # Status.json not found - ensure we're in offline state
             with lock:
@@ -61,6 +73,7 @@ def monitor(
                 state.supercruise = False
                 state.analysis_mode = False
                 state.client_online = False
+            client_online_detected = False
             pass
 
         # Poll cargo and materials every ~5 s (every 10th tick at 0.5 s)
