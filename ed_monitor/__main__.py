@@ -46,6 +46,12 @@ def main() -> None:
         state.session_start = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True
         state.client_online = False  # Start offline until we see LoadGame/Location event
+        # Reset session statistics
+        state.session_jumps = 0
+        state.session_first_disc = 0
+        state.session_mapped = 0
+        state.session_value = 0
+        state.jump_dist_total = 0.0
         state.push_event(LogEvent.new(EventCategory.System, "NOVA (Navigation, Operations, and Vessel Assistance) active."))
 
     try:

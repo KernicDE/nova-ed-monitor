@@ -1170,51 +1170,67 @@ def _render_overview(s: AppState) -> RenderableType:
 
         W = len(ruler_chars)
         if W:
-            # ── Row 1: ruler ────────────────────────────────────────────────
-            row1 = Text("  ")
-            for ch, style in ruler_chars:
-                row1.append(ch, style=style)
-            row1.append("\n")
+            # Split wide diagrams into multiple parts (max width per part)
+            max_width = 60  # Maximum width before splitting
+            num_parts = max(1, (W + max_width - 1) // max_width)
+            
+            for part_idx in range(num_parts):
+                start = part_idx * max_width
+                end = min((part_idx + 1) * max_width, W)
+                
+                # ── Row 1: ruler (part) ──────────────────────────────────────
+                row1 = Text("  ")
+                for i in range(start, end):
+                    ch, style = ruler_chars[i]
+                    row1.append(ch, style=style)
+                row1.append("\n")
 
-            # ── Row 2: last label of each body ───────────────────────────────
-            def _last_label(b: BodyInfo) -> str:
-                short = _short_name(b.name, _sys).strip()
-                return short.split()[-1] if short else "A"
+                # ── Row 2: last label of each body (part) ────────────────────
+                def _last_label(b: BodyInfo) -> str:
+                    short = _short_name(b.name, _sys).strip()
+                    return short.split()[-1] if short else "A"
 
-            name_arr = [" "] * W
-            for pos, b in body_pos:
-                lbl = _last_label(b)
-                for i, ch in enumerate(lbl):
-                    if pos + i < W and name_arr[pos + i] == " ":
-                        name_arr[pos + i] = ch
-            row2 = Text("  ")
-            row2.append("".join(name_arr) + "\n", style="rgb(160,160,160)")
+                name_arr = [" "] * (end - start)
+                for pos, b in body_pos:
+                    if start <= pos < end:
+                        lbl = _last_label(b)
+                        rel_pos = pos - start
+                        for i, ch in enumerate(lbl):
+                            if rel_pos + i < len(name_arr) and name_arr[rel_pos + i] == " ":
+                                name_arr[rel_pos + i] = ch
+                row2 = Text("  ")
+                row2.append("".join(name_arr) + "\n", style="rgb(160,160,160)")
 
-            # ── Row 3: notable (+) ───────────────────────────────────────────
-            notable_arr = [" "] * W
-            for pos, b in body_pos:
-                if (b.planet_class in ("Earthlike body", "Water world", "Ammonia world")
-                        or b.terraform or b.value > 1_000_000):
-                    notable_arr[pos] = "+"
-            has_notable = any(c != " " for c in notable_arr)
+                # ── Row 3: notable (+) (part) ────────────────────────────────
+                notable_arr = [" "] * (end - start)
+                for pos, b in body_pos:
+                    if start <= pos < end:
+                        if (b.planet_class in ("Earthlike body", "Water world", "Ammonia world")
+                                or b.terraform or b.value > 1_000_000):
+                            notable_arr[pos - start] = "+"
+                has_notable = any(c != " " for c in notable_arr)
 
-            # ── Row 4: bio signal counts ─────────────────────────────────────
-            bio_arr = [" "] * W
-            for pos, b in body_pos:
-                if b.bio_signals > 0:
-                    bio_arr[pos] = str(b.bio_signals)
-            has_bio = any(c != " " for c in bio_arr)
+                # ── Row 4: bio signal counts (part) ────────────────────────
+                bio_arr = [" "] * (end - start)
+                for pos, b in body_pos:
+                    if start <= pos < end:
+                        if b.bio_signals > 0:
+                            bio_arr[pos - start] = str(b.bio_signals)
+                has_bio = any(c != " " for c in bio_arr)
 
-            diag.append_text(row1)
-            diag.append_text(row2)
-            if has_notable:
-                row3 = Text("  ")
-                row3.append("".join(notable_arr) + "\n", style=f"bold {P.GOLD}")
-                diag.append_text(row3)
-            if has_bio:
-                row4 = Text("  ")
-                row4.append("".join(bio_arr) + "\n", style="rgb(0,200,80)")
-                diag.append_text(row4)
+                diag.append_text(row1)
+                diag.append_text(row2)
+                if has_notable:
+                    row3 = Text("  ")
+                    row3.append("".join(notable_arr) + "\n", style=f"bold {P.GOLD}")
+                    diag.append_text(row3)
+                if has_bio:
+                    row4 = Text("  ")
+                    row4.append("".join(bio_arr) + "\n", style="rgb(0,200,80)")
+                    diag.append_text(row4)
+                
+                if part_idx < num_parts - 1:
+                    diag.append("\n")  # Add spacing between parts
 
         parts.append(diag)
 
