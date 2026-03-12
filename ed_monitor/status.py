@@ -52,6 +52,15 @@ def monitor(
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
         except OSError:
+            # Status.json not found - ensure we're in offline state
+            with lock:
+                state.in_main_ship = False
+                state.in_srv = False
+                state.docked = False
+                state.landed = False
+                state.supercruise = False
+                state.analysis_mode = False
+                state.client_online = False
             pass
 
         # Poll cargo and materials every ~5 s (every 10th tick at 0.5 s)
