@@ -106,6 +106,18 @@ class NOVAApp(App):
         border-title-color: rgb(175,85,220) !important;
     }
 
+    /* Analysis mode overrides */
+    Screen.analysis-mode SystemPanel,
+    Screen.analysis-mode ShipPanel,
+    Screen.analysis-mode RoutePanel,
+    Screen.analysis-mode BodiesPanel,
+    Screen.analysis-mode SituationalPanel,
+    Screen.analysis-mode EventLogPanel,
+    Screen.analysis-mode ChatLogPanel {
+        border: solid rgb(0,170,60) !important;
+        border-title-color: rgb(0,170,60) !important;
+    }
+
     /* Offline mode overrides */
     Screen.offline-mode SystemPanel,
     Screen.offline-mode ShipPanel,
@@ -200,6 +212,7 @@ class NOVAApp(App):
         offline = not snap.client_online
         on_foot = not snap.in_main_ship and not snap.in_srv and not offline
         self.screen.set_class(offline, "offline-mode")
+        self.screen.set_class(snap.analysis_mode and not offline, "analysis-mode")
         self.screen.set_class(not snap.analysis_mode and snap.in_main_ship and not offline, "combat-mode")
         self.screen.set_class(on_foot, "on-foot-mode")
         
