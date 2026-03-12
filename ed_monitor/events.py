@@ -358,7 +358,7 @@ def genus_min_dist(genus: str) -> float:
     if "clypeus"    in g: return 150.0
     if "concha"     in g: return 150.0
     if "electricae" in g: return 1000.0
-    if "fonticulua" in g: return 500.0
+    if "fonticulus" in g: return 500.0
     if "frutexa"    in g: return 150.0
     if "fumerola"   in g: return 100.0
     if "fungoida"   in g: return 300.0
