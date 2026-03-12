@@ -395,13 +395,12 @@ class ShipPanel(_Panel):
         parts.append(Text(""))
 
         toggles_txt = Text()
-        on_foot = not s.in_main_ship and not s.in_srv and s.client_online
-        if on_foot:
-            mode_label = "ON FOOT"
-            mode_col   = P.PURPLE
-        elif not s.client_online:
+        if not s.client_online:
             mode_label = "OFFLINE"
             mode_col   = P.DIM
+        elif not s.in_main_ship and not s.in_srv:
+            mode_label = "ON FOOT"
+            mode_col   = P.PURPLE
         elif s.analysis_mode:
             mode_label = "ANALYSIS"
             mode_col   = P.HUD_GREEN  # Changed from P.ANALYSIS to green tone
