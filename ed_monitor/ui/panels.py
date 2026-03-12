@@ -395,12 +395,13 @@ class ShipPanel(_Panel):
         parts.append(Text(""))
 
         toggles_txt = Text()
+        on_foot = not s.in_main_ship and not s.in_srv and s.client_online
         if on_foot:
             mode_label = "ON FOOT"
             mode_col   = P.PURPLE
         elif s.analysis_mode:
             mode_label = "ANALYSIS"
-            mode_col   = P.ANALYSIS
+            mode_col   = P.HUD_GREEN  # Changed from P.ANALYSIS to green tone
         else:
             mode_label = "COMBAT"
             mode_col   = P.HUD_CRIT
@@ -1081,141 +1082,136 @@ def _render_overview(s: AppState) -> RenderableType:
         gal.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
         parts.append(gal)
 
-    # System bodies diagram
-    all_bodies = [b for b in s.bodies if b.level <= 1]
-    stars   = [b for b in all_bodies if b.star_type]
-    planets = sorted([b for b in all_bodies if b.planet_class and b.dist_ls > 0],
-                     key=lambda b: b.dist_ls)
-    moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2 and b.dist_ls > 0],
-                     key=lambda b: b.dist_ls)
-    if stars or planets:
+    # System bodies diagram — hierarchical: *---O-o-o---O-o---O---*---O---
+    _sys     = s.system
+    _s_stars   = sorted([b for b in s.bodies if b.star_type],
+                        key=lambda b: (0 if not _short_name(b.name, _sys).strip() else 1,
+                                       _natural_key(_short_name(b.name, _sys))))
+    _s_planets = sorted([b for b in s.bodies if b.planet_class and b.level <= 1],
+                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+    _s_moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2],
+                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+
+    if _s_stars or _s_planets:
         diag = Text()
         diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
 
-        # Star row: list stars inline
-        if stars:
-            diag.append("  Stars: ", style=P.LABEL)
-            for i, b in enumerate(stars):
-                short = _short_name(b.name, s.system)
-                col   = _body_color(b.planet_class, b.star_type)
-                if i: diag.append("  ")
-                diag.append(f"★{short or 'A'}", style=f"bold {col}")
-            diag.append("\n")
+        # Map star short-name key → BodyInfo
+        star_index: dict[str, BodyInfo] = {
+            _short_name(b.name, _sys).strip(): b for b in _s_stars
+        }
+        # Primary star key is "" (system name == body name); sort primary first
+        sorted_star_keys = sorted(star_index.keys(),
+                                  key=lambda k: (1 if k else 0, _natural_key(k)))
 
-        # Planet ruler — log scale with minimum spacing
-        if planets:
-            WIDTH   = 65
-            MIN_GAP = 3
-            max_dist = planets[-1].dist_ls
+        # Which star does each planet belong to?  Match longest alpha prefix.
+        star_planets: dict[str, list[BodyInfo]] = {k: [] for k in star_index}
+        primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
+        for p in _s_planets:
+            p_short = _short_name(p.name, _sys).strip()
+            parts   = p_short.split()
+            assigned = False
+            for length in range(len(parts) - 1, 0, -1):
+                candidate = " ".join(parts[:length])
+                if candidate in star_index:
+                    star_planets[candidate].append(p)
+                    assigned = True
+                    break
+            if not assigned:
+                star_planets.setdefault(primary_key, []).append(p)
 
-            def log_pos(d: float) -> int:
-                if d <= 0 or max_dist <= 0: return 1
-                return 1 + int(math.log1p(d) / math.log1p(max_dist) * (WIDTH - 2))
+        # Which planet does each moon belong to?  Remove last token.
+        planet_moons: dict[str, list[BodyInfo]] = {}
+        for m in _s_moons:
+            m_short = _short_name(m.name, _sys).strip()
+            parts   = m_short.split()
+            pk      = " ".join(parts[:-1]) if len(parts) > 1 else primary_key
+            planet_moons.setdefault(pk, []).append(m)
 
-            # Assign positions with minimum gap enforcement — ALL planets
-            raw: list[tuple[int, BodyInfo]] = [(log_pos(b.dist_ls), b) for b in planets]
-            spread: list[tuple[int, BodyInfo]] = []
-            for pos, b in raw:
-                if spread:
-                    pos = max(pos, spread[-1][0] + MIN_GAP)
-                pos = min(pos, WIDTH - 1)
-                spread.append((pos, b))
+        # ── Build ruler ─────────────────────────────────────────────────────
+        # ruler_chars: list of (char, rich_style)
+        # body_pos:    list of (ruler_index, BodyInfo)
+        ruler_chars: list[tuple[str, str]] = []
+        body_pos:    list[tuple[int, BodyInfo]] = []
 
-            # Draw ruler line with type chars instead of plain dots
-            line = list("─" * WIDTH)
-            line[0] = "★"
-            pos_map: dict[int, BodyInfo] = {pos: b for pos, b in spread}
-            for pos, b in spread:
-                line[pos] = _planet_char(b.planet_class)
+        def _emit(ch: str, style: str, body: BodyInfo | None = None) -> None:
+            idx = len(ruler_chars)
+            ruler_chars.append((ch, style))
+            if body is not None:
+                body_pos.append((idx, body))
 
-            ruler = Text()
-            ruler.append("  ")
-            for i, ch in enumerate(line):
-                if ch == "★":
-                    ruler.append(ch, style="bold rgb(235,185,60)")
-                elif i in pos_map:
-                    b = pos_map[i]
-                    ruler.append(ch, style=f"bold {_body_color(b.planet_class, b.star_type)}")
-                else:
-                    ruler.append(ch, style="rgb(50,50,50)")
-            ruler.append("\n")
-            diag.append_text(ruler)
+        def _sep(n: int) -> None:
+            for _ in range(n):
+                _emit("-", "rgb(55,55,55)")
 
-            # Name labels row (only write where space allows)
-            label = [" "] * (WIDTH + 2)
-            for pos, b in spread:
-                short = _short_name(b.name, s.system)[:5]
-                ap = pos + 2
-                if ap + len(short) <= len(label) and all(label[ap + ci] == " " for ci in range(len(short))):
-                    for ci, ch in enumerate(short):
-                        label[ap + ci] = ch
-            diag.append("  " + "".join(label[2:]) + "\n", style="rgb(170,170,170)")
+        first_star = True
+        for sk in sorted_star_keys:
+            sb  = star_index[sk]
+            col = _body_color(sb.planet_class, sb.star_type)
+            if not first_star:
+                _sep(3)
+            first_star = False
+            _emit("*", f"bold {col}", sb)
 
-            # Moon indicators row: show · or ·N below each planet that has moons
-            moon_row = [" "] * (WIDTH + 2)
-            for pos, b in spread:
-                short = _short_name(b.name, s.system)
-                # moons whose short name starts with this planet's short name + " "
-                body_moons = [m for m in moons
-                              if _short_name(m.name, s.system).startswith(short + " ")]
-                if body_moons:
-                    n  = len(body_moons)
-                    mk = f"·{n}" if n > 1 else "·"
-                    ap = pos + 2
-                    if ap + len(mk) <= len(moon_row) and all(moon_row[ap + ci] == " " for ci in range(len(mk))):
-                        for ci, ch in enumerate(mk):
-                            moon_row[ap + ci] = ch
-            diag.append("  " + "".join(moon_row[2:]) + "\n", style="rgb(110,110,110)")
+            sp = sorted(star_planets.get(sk, []),
+                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+            for planet in sp:
+                _sep(3)
+                p_short = _short_name(planet.name, _sys).strip()
+                p_col   = _body_color(planet.planet_class, planet.star_type)
+                _emit("O", f"bold {p_col}", planet)
+                for moon in sorted(planet_moons.get(p_short, []),
+                                   key=lambda b: _natural_key(_short_name(b.name, _sys))):
+                    _sep(1)
+                    _emit("o", _body_color(moon.planet_class, moon.star_type), moon)
 
-            # Bio/flags row: bio count where > 0, mapped indicator, first-disc star
-            bio_row = [" "] * (WIDTH + 2)
-            bio_colors: dict[int, str] = {}
-            for pos, b in spread:
-                marker = ""
-                col    = "rgb(90,90,90)"
-                if b.bio_signals > 0 and b.mapped:
-                    marker = f"×{b.bio_signals}⊛"
-                    col    = "rgb(0,170,60)"
-                elif b.bio_signals > 0:
-                    marker = f"×{b.bio_signals}"
-                    col    = "rgb(0,170,60)"
-                elif b.mapped:
-                    marker = "⊛"
-                    col    = "rgb(70,130,200)"
-                if b.first_discovered:
-                    marker = marker + "★" if marker else "★"
-                    col    = "rgb(195,160,55)"
-                if marker:
-                    ap = pos + 2
-                    if ap + len(marker) <= len(bio_row) and all(bio_row[ap + ci] == " " for ci in range(len(marker))):
-                        for ci, ch in enumerate(marker):
-                            bio_row[ap + ci] = ch
-                            bio_colors[ap + ci] = col
-            bio_text = Text()
-            bio_text.append("  ")
-            for i, ch in enumerate(bio_row[2:], start=2):
-                style = bio_colors.get(i, "rgb(90,90,90)")
-                bio_text.append(ch, style=style)
-            bio_text.append("\n")
-            diag.append_text(bio_text)
+        W = len(ruler_chars)
+        if W:
+            # ── Row 1: ruler ────────────────────────────────────────────────
+            row1 = Text("  ")
+            for ch, style in ruler_chars:
+                row1.append(ch, style=style)
+            row1.append("\n")
 
-            # Distance labels for first 5
-            dist_row = "  ".join(_fmt_ls_compact(b.dist_ls) for _, b in spread[:5])
-            diag.append("  " + dist_row + "\n", style="rgb(90,90,90)")
+            # ── Row 2: last label of each body ───────────────────────────────
+            def _last_label(b: BodyInfo) -> str:
+                short = _short_name(b.name, _sys).strip()
+                return short.split()[-1] if short else "A"
 
-            # Summary: total body count vs shown
-            total_pl = len(planets)
-            total_mn = len(moons)
-            shown    = len(spread)
-            summary_parts = []
-            if total_pl > 0:
-                summary_parts.append(f"{total_pl} planet{'s' if total_pl != 1 else ''}")
-            if total_mn > 0:
-                summary_parts.append(f"{total_mn} moon{'s' if total_mn != 1 else ''}")
-            if shown < total_pl:
-                summary_parts.append(f"({shown} shown)")
-            if summary_parts:
-                diag.append("  " + "  ·  ".join(summary_parts) + "\n", style="rgb(90,90,90)")
+            name_arr = [" "] * W
+            for pos, b in body_pos:
+                lbl = _last_label(b)
+                for i, ch in enumerate(lbl):
+                    if pos + i < W and name_arr[pos + i] == " ":
+                        name_arr[pos + i] = ch
+            row2 = Text("  ")
+            row2.append("".join(name_arr) + "\n", style="rgb(160,160,160)")
+
+            # ── Row 3: notable (+) ───────────────────────────────────────────
+            notable_arr = [" "] * W
+            for pos, b in body_pos:
+                if (b.planet_class in ("Earthlike body", "Water world", "Ammonia world")
+                        or b.terraform or b.value > 1_000_000):
+                    notable_arr[pos] = "+"
+            has_notable = any(c != " " for c in notable_arr)
+
+            # ── Row 4: bio signal counts ─────────────────────────────────────
+            bio_arr = [" "] * W
+            for pos, b in body_pos:
+                if b.bio_signals > 0:
+                    bio_arr[pos] = str(b.bio_signals)
+            has_bio = any(c != " " for c in bio_arr)
+
+            diag.append_text(row1)
+            diag.append_text(row2)
+            if has_notable:
+                row3 = Text("  ")
+                row3.append("".join(notable_arr) + "\n", style=f"bold {P.GOLD}")
+                diag.append_text(row3)
+            if has_bio:
+                row4 = Text("  ")
+                row4.append("".join(bio_arr) + "\n", style="rgb(0,200,80)")
+                diag.append_text(row4)
 
         parts.append(diag)
 
