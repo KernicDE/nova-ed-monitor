@@ -57,8 +57,9 @@ def monitor(
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
                 client_online_detected = is_recent
-            elif not client_online_detected and not is_recent:
+            elif not client_online_detected and not is_recent and not first_run:
                 # File exists but hasn't been updated recently - client is offline
+                # Only reset if we haven't seen a recent LoadGame/Location event
                 with lock:
                     state.client_online = False
                     state.in_main_ship = False
