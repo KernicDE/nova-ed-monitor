@@ -45,6 +45,7 @@ def main() -> None:
         state.volume        = DEFAULT_VOLUME
         state.session_start = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True
+        state.client_online = False  # Start offline until we see LoadGame/Location event
         state.push_event(LogEvent.new(EventCategory.System, "NOVA (Navigation, Operations, and Vessel Assistance) active."))
 
     try:

@@ -240,7 +240,7 @@ class AppState:
     fss_body_count: int = 0  # total bodies in system (from FSSDiscoveryScan)
 
     # Client online state
-    client_online: bool = True  # False after Shutdown event, True after LoadGame/Location
+    client_online: bool = False  # True after LoadGame/Location, False after Shutdown
 
     # Session stats (since app launch, live events only)
     session_start:      str = ""
