@@ -399,6 +399,9 @@ class ShipPanel(_Panel):
         if on_foot:
             mode_label = "ON FOOT"
             mode_col   = P.PURPLE
+        elif not s.client_online:
+            mode_label = "OFFLINE"
+            mode_col   = P.DIM
         elif s.analysis_mode:
             mode_label = "ANALYSIS"
             mode_col   = P.HUD_GREEN  # Changed from P.ANALYSIS to green tone
