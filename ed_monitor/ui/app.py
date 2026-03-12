@@ -114,8 +114,8 @@ class NOVAApp(App):
     Screen.analysis-mode SituationalPanel,
     Screen.analysis-mode EventLogPanel,
     Screen.analysis-mode ChatLogPanel {
-        border: solid rgb(0,170,60) !important;
-        border-title-color: rgb(0,170,60) !important;
+        border: solid rgb(120,190,120) !important;
+        border-title-color: rgb(120,190,120) !important;
     }
 
     /* Offline mode overrides */

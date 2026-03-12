@@ -1049,25 +1049,25 @@ def _render_overview(s: AppState) -> RenderableType:
     """Travel overview: route + galaxy position + system diagram + notable bodies + session stats."""
     import math
     parts: list[RenderableType] = []
-    t = Text()
 
     # Route section
+    route_text = Text()
     if s.route_destination:
-        t.append("ROUTE  ", style=P.LABEL)
-        t.append(f"→ {s.route_destination}", style="bold white")
+        route_text.append("ROUTE  ", style=P.LABEL)
+        route_text.append(f"→ {s.route_destination}", style="bold white")
         hops = f"  {s.route_hops} jump{'s' if s.route_hops != 1 else ''} remaining"
-        t.append(hops + "\n", style=P.AMBER)
+        route_text.append(hops + "\n", style=P.AMBER)
         if s.route_next:
-            t.append("NEXT   ", style=P.LABEL)
-            t.append(s.route_next, style=P.HUD_CYAN)
+            route_text.append("NEXT   ", style=P.LABEL)
+            route_text.append(s.route_next, style=P.HUD_CYAN)
             if s.route_next_star:
                 mark     = "⛽" if s.route_next_scoopable else "✗"
                 star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
-                t.append(f"  {s.route_next_star} {mark}", style=f"bold {star_col}")
-            t.append("\n")
+                route_text.append(f"  {s.route_next_star} {mark}", style=f"bold {star_col}")
+            route_text.append("\n")
     else:
-        t.append("No route set.\n", style=P.AMBER_DIM)
-    parts.append(t)
+        route_text.append("No route set.\n", style=P.AMBER_DIM)
+    parts.append(route_text)
 
     # Galaxy position
     if s.star_pos:
@@ -1075,15 +1075,16 @@ def _render_overview(s: AppState) -> RenderableType:
         dist_sol  = math.sqrt(x**2 + y**2 + z**2)
         core_x, core_y, core_z = 25.21875, -20.90625, 25899.96875
         dist_core = math.sqrt((x - core_x)**2 + (y - core_y)**2 + (z - core_z)**2)
-        gal = Text()
-        gal.append("\nGALAXY POSITION\n", style="bold rgb(195,160,55)")
-        gal.append(f"  Sol   ", style=P.LABEL)
-        gal.append(f"{dist_sol:,.0f} ly\n".replace(",", _NNBSP), style="white")
-        gal.append(f"  Core  ", style=P.LABEL)
-        gal.append(f"{dist_core:,.0f} ly\n".replace(",", _NNBSP), style="white")
-        gal.append(f"  Pos   ", style=P.LABEL)
-        gal.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
-        parts.append(gal)
+        
+        gal_text = Text()
+        gal_text.append("\nGALAXY POSITION\n", style="bold rgb(195,160,55)")
+        gal_text.append(f"  Sol   ", style=P.LABEL)
+        gal_text.append(f"{dist_sol:,.0f} ly\n".replace(",", _NNBSP), style="white")
+        gal_text.append(f"  Core  ", style=P.LABEL)
+        gal_text.append(f"{dist_core:,.0f} ly\n".replace(",", _NNBSP), style="white")
+        gal_text.append(f"  Pos   ", style=P.LABEL)
+        gal_text.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
+        parts.append(gal_text)
 
     # System bodies diagram — hierarchical: *---O-o-o---O-o---O---*---O---
     _sys     = s.system
