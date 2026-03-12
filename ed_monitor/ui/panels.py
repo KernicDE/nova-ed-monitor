@@ -395,25 +395,26 @@ class ShipPanel(_Panel):
         parts.append(Text(""))
 
         toggles_txt = Text()
-        # Debug mode detection
-        print(f"DEBUG MODE: client_online={s.client_online}, in_main_ship={s.in_main_ship}, in_srv={s.in_srv}, analysis_mode={s.analysis_mode}")
+        # Debug mode detection - force flush to ensure output is visible
+        import sys
+        print(f"DEBUG MODE: client_online={s.client_online}, in_main_ship={s.in_main_ship}, in_srv={s.in_srv}, analysis_mode={s.analysis_mode}", flush=True)
         
         if not s.client_online:
             mode_label = "OFFLINE"
             mode_col   = P.DIM
-            print("DEBUG: Setting mode to OFFLINE")
+            print("DEBUG: Setting mode to OFFLINE", flush=True)
         elif not s.in_main_ship and not s.in_srv:
             mode_label = "ON FOOT"
             mode_col   = P.PURPLE
-            print("DEBUG: Setting mode to ON FOOT")
+            print("DEBUG: Setting mode to ON FOOT", flush=True)
         elif s.analysis_mode:
             mode_label = "ANALYSIS"
             mode_col   = P.HUD_GREEN  # Changed from P.ANALYSIS to green tone
-            print("DEBUG: Setting mode to ANALYSIS")
+            print("DEBUG: Setting mode to ANALYSIS", flush=True)
         else:
             mode_label = "COMBAT"
             mode_col   = P.HUD_CRIT
-            print("DEBUG: Setting mode to COMBAT")
+            print("DEBUG: Setting mode to COMBAT", flush=True)
         toggles = [
             (mode_label, True, mode_col),
             ("GEAR↓",    s.landing_gear,      P.AMBER),
