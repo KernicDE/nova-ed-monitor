@@ -105,13 +105,13 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     # Electricae
     "Electricae Pluma":         6_284_600,
     "Electricae Radialem":      6_284_600,
-    # Fonticulus
-    "Fonticulus Campestris":    1_000_600,
-    "Fonticulus Digitos":       1_804_900,
-    "Fonticulus Fluctus":      20_000_200,
-    "Fonticulus Lapida":        3_111_600,
-    "Fonticulus Segmentatus":  19_010_800,
-    "Fonticulus Upsilon":       5_727_600,
+    # Fonticulua
+    "Fonticulua Campestris":    1_000_600,
+    "Fonticulua Digitos":       1_804_900,
+    "Fonticulua Fluctus":      20_000_200,
+    "Fonticulua Lapida":        3_111_600,
+    "Fonticulua Segmentatus":  19_010_800,
+    "Fonticulua Upsilon":       5_727_600,
     # Frutexa
     "Frutexa Acus":             7_774_000,
     "Frutexa Collum":           1_639_800,
