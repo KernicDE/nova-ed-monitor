@@ -30,10 +30,17 @@ The script installs Python (if missing), creates an isolated virtual environment
 
 ### Windows
 
-1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) and [`nova.bat`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.bat) into the same folder
+⚠️ **Important:** Do NOT download files directly from the GitHub repository page — this will give you HTML content instead of the actual files. Always download from the **Releases** section.
+
+**Option 1: Use the installer (recommended)**
+1. Download [`install_windows.bat`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/install_windows.bat) from the latest release
+2. Double-click **`install_windows.bat`** to install and launch NOVA
+
+**Option 2: Manual installation**
+1. Download [`nova.ps1`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/nova.ps1) and [`nova.bat`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/nova.bat) from the latest release into the same folder
 2. Double-click **`nova.bat`** to launch
 
-The script installs Python 3.12 (if missing), creates a virtual environment, installs NOVA, and launches it. On every launch it checks for updates automatically.
+Both methods install Python 3.12 (if missing), create a virtual environment, install NOVA, and launch it. On every launch they check for updates automatically.
 
 ---
 
