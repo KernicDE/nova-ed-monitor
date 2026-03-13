@@ -53,6 +53,7 @@ jobs:
             nova.sh
             nova.ps1
             nova.bat
+            install_windows.bat
           body: |
             ## Installation
 
@@ -66,8 +67,8 @@ jobs:
             ```
 
             **Windows:**
-            Download `nova.ps1` and `nova.bat` from this release into the same folder,
-            then double-click **`nova.bat`**.
+            Download `install_windows.bat` from this release and run it, or download
+            `nova.ps1` and `nova.bat` into the same folder and double-click **`nova.bat`**.
 
             The scripts install Python and NOVA automatically if needed, and check for
             updates on every launch. On Linux a `nova` command is also installed to
@@ -108,5 +109,17 @@ jobs:
             **Linux:** `nova --uninstall`
 
             **Windows:** `.\nova.ps1 -Uninstall` (or `nova.bat -Uninstall`)
+
+            ## Important Notes
+
+            ⚠️ **Do NOT download files directly from the GitHub repository page** — this will give you
+            HTML content instead of the actual files. Always download from the **Releases** section.
+
+            ## Uninstalling
+
+            **Linux:** `nova --uninstall`
+
+            **Windows:** `.
+ova.ps1 -Uninstall` (or `nova.bat -Uninstall`)
 
             Elite Dangerous journal files are never touched.
