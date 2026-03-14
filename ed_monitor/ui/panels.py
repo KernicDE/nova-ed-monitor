@@ -1109,10 +1109,10 @@ def _render_overview(s: AppState) -> RenderableType:
         primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
         for p in _s_planets:
             p_short = _short_name(p.name, _sys).strip()
-            parts   = p_short.split()
+            tok     = p_short.split()
             assigned = False
-            for length in range(len(parts) - 1, 0, -1):
-                candidate = " ".join(parts[:length])
+            for length in range(len(tok) - 1, 0, -1):
+                candidate = " ".join(tok[:length])
                 if candidate in star_index:
                     star_planets[candidate].append(p)
                     assigned = True
@@ -1124,8 +1124,8 @@ def _render_overview(s: AppState) -> RenderableType:
         planet_moons: dict[str, list[BodyInfo]] = {}
         for m in _s_moons:
             m_short = _short_name(m.name, _sys).strip()
-            parts   = m_short.split()
-            pk      = " ".join(parts[:-1]) if len(parts) > 1 else primary_key
+            mtok    = m_short.split()
+            pk      = " ".join(mtok[:-1]) if len(mtok) > 1 else primary_key
             planet_moons.setdefault(pk, []).append(m)
 
         # ── Build ruler ─────────────────────────────────────────────────────

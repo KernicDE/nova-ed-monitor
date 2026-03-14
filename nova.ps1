@@ -49,7 +49,7 @@ Write-Host "  #  #  #   #   # #   #  # " -ForegroundColor Cyan
 Write-Host "  #  #   ###     #     ##  " -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Navigation, Operations, and Vessel Assistance" -ForegroundColor White
-Write-Host "  ─────────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host "  ---------------------------------------------" -ForegroundColor DarkGray
 Write-Host ""
 
 $ScriptPath = $MyInvocation.MyCommand.Path
@@ -194,7 +194,7 @@ if (-not $isInstalled) {
     } catch {}
 
     if ($latestVer -and $installedVer -ne $latestVer) {
-        Write-Info "Update available: $installedVer → $latestVer — updating..."
+        Write-Info "Update available: $installedVer -> $latestVer - updating..."
         & $VenvPip install --upgrade $NOVA_URL
         Write-Success "NOVA updated to $latestVer."
         Write-Host ""

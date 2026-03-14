@@ -30,17 +30,14 @@ The script installs Python (if missing), creates an isolated virtual environment
 
 ### Windows
 
-⚠️ **Important:** Do NOT download files directly from the GitHub repository page — this will give you HTML content instead of the actual files. Always download from the **Releases** section.
-
-**Option 1: Use the installer (recommended)**
 1. Download [`install_windows.bat`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/install_windows.bat) from the latest release
-2. Double-click **`install_windows.bat`** to install and launch NOVA
+2. Double-click **`install_windows.bat`**
 
-**Option 2: Manual installation**
-1. Download [`nova.ps1`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/nova.ps1) and [`nova.bat`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/nova.bat) from the latest release into the same folder
-2. Double-click **`nova.bat`** to launch
+That's it. The installer downloads the launcher files to `%USERPROFILE%\nova\`, installs Python 3.12 (if missing), creates an isolated virtual environment, installs NOVA, and launches it.
 
-Both methods install Python 3.12 (if missing), create a virtual environment, install NOVA, and launch it. On every launch they check for updates automatically.
+On every subsequent launch, double-click **`nova.bat`** in `%USERPROFILE%\nova\`. It checks for updates automatically each time.
+
+> ⚠️ Always download from the **Releases** section — downloading script files from the GitHub repository page gives you HTML, not the actual file.
 
 ---
 
@@ -50,7 +47,7 @@ Both methods install Python 3.12 (if missing), create a virtual environment, ins
 |----------|---------|
 | Linux — launcher | `./nova.sh` |
 | Linux — direct | `nova` |
-| Windows — launcher | double-click `nova.bat` or run `.\nova.ps1` |
+| Windows — launcher | double-click `nova.bat` in `%USERPROFILE%\nova\` |
 
 Both the launcher scripts and the `nova` command check for updates on every launch and upgrade automatically if a newer version is available on GitHub.
 
