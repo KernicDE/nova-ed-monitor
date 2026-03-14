@@ -171,8 +171,14 @@ if (-not (Test-Path $VENV_DIR)) {
 
 # ── Install or auto-update NOVA ───────────────────────────────────────────────
 
-$pipShow = & $VenvPip show $NOVA_PKG 2>&1
-$isInstalled = ($LASTEXITCODE -eq 0)
+$isInstalled = $false
+$pipShow = ""
+try {
+    $pipShow = & $VenvPip show $NOVA_PKG 2>&1
+    $isInstalled = ($LASTEXITCODE -eq 0)
+} catch {
+    $isInstalled = $false
+}
 
 if (-not $isInstalled) {
     Write-Warn "NOVA not installed - installing now..."
