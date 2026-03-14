@@ -32,7 +32,6 @@ jobs:
 
       - name: Build Linux standalone binary
         run: |
-          sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev
           printf 'from ed_monitor.__main__ import main\nmain()\n' > _nova_entry.py
           pyinstaller \
             --onefile \
