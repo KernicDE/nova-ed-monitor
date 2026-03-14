@@ -102,10 +102,10 @@ def load() -> Config:
         old_path = _old_config_path()
         if old_path and old_path.exists():
             config_dir.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(old_path.read_text())
+            config_path.write_text(old_path.read_text(encoding="utf-8"), encoding="utf-8")
         else:
             config_dir.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(DEFAULT_CONFIG)
+            config_path.write_text(DEFAULT_CONFIG, encoding="utf-8")
 
     journal_dir       = None
     twitch_channel    = ""
@@ -118,7 +118,7 @@ def load() -> Config:
     active_keys: set[str] = set()
 
     try:
-        text = config_path.read_text()
+        text = config_path.read_text(encoding="utf-8")
         for line in text.splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
@@ -168,7 +168,7 @@ def load() -> Config:
                 prefix += "\n".join(active_lines) + "\n\n"
             else:
                 prefix = ""
-            config_path.write_text(prefix + DEFAULT_CONFIG)
+            config_path.write_text(prefix + DEFAULT_CONFIG, encoding="utf-8")
     except OSError:
         pass
 
