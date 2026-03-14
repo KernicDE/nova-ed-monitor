@@ -90,7 +90,7 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
         $newHash = (Get-FileHash $tmp        -Algorithm SHA256).Hash
 
         if ($oldHash -ne $newHash) {
-            Write-Info "Script update found — applying..."
+            Write-Info "Script update found - applying..."
             Copy-Item $tmp $ScriptPath -Force
             Write-Success "Script updated. Restarting..."
             Write-Host ""
@@ -175,7 +175,7 @@ $pipShow = & $VenvPip show $NOVA_PKG 2>$null
 $isInstalled = ($LASTEXITCODE -eq 0)
 
 if (-not $isInstalled) {
-    Write-Warn "NOVA not installed — installing now..."
+    Write-Warn "NOVA not installed - installing now..."
     & $VenvPip install --quiet --upgrade pip
     & $VenvPip install $NOVA_URL
     if ($LASTEXITCODE -ne 0) {
