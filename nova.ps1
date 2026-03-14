@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    NOVA — Navigation, Operations, and Vessel Assistance
+    NOVA - Navigation, Operations, and Vessel Assistance
     Launcher script for Windows
 
 .DESCRIPTION
@@ -39,7 +39,7 @@ function Write-Success { param($Msg) Write-Host "  $Msg" -ForegroundColor Green 
 function Write-Warn    { param($Msg) Write-Host "  $Msg" -ForegroundColor Yellow }
 function Write-Err     { param($Msg) Write-Host "  $Msg" -ForegroundColor Red }
 
-# ── Banner ────────────────────────────────────────────────────────────────────
+# -- Banner --------------------------------------------------------------------
 
 Write-Host ""
 Write-Host "  #  #   ###   #   #   ##  " -ForegroundColor Cyan
@@ -55,7 +55,7 @@ Write-Host ""
 $ScriptPath = $MyInvocation.MyCommand.Path
 $NovaCfgDir = Join-Path $env:USERPROFILE ".config\nova"
 
-# ── Uninstall ─────────────────────────────────────────────────────────────────
+# -- Uninstall -----------------------------------------------------------------
 
 if ($Uninstall) {
     Write-Host ""
@@ -79,7 +79,7 @@ if ($Uninstall) {
     exit 0
 }
 
-# ── Self-update ───────────────────────────────────────────────────────────────
+# -- Self-update ---------------------------------------------------------------
 
 if (-not $NoSelfUpdate -and $ScriptPath) {
     try {
@@ -99,11 +99,11 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
         }
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
     } catch {
-        # No internet or download failed — continue without self-update
+        # No internet or download failed - continue without self-update
     }
 }
 
-# ── Find Python 3.11+ ─────────────────────────────────────────────────────────
+# -- Find Python 3.11+ ---------------------------------------------------------
 
 function Get-Python {
     foreach ($cmd in @("python", "python3", "py")) {
@@ -158,7 +158,7 @@ if (-not $Python) {
 
 Write-Success "Python: $(& $Python --version 2>&1)"
 
-# ── Set up virtual environment ────────────────────────────────────────────────
+# -- Set up virtual environment ------------------------------------------------
 
 $VenvPip    = Join-Path $VENV_DIR "Scripts\pip.exe"
 $VenvPython = Join-Path $VENV_DIR "Scripts\python.exe"
@@ -170,7 +170,7 @@ if (-not (Test-Path $VENV_DIR)) {
     Write-Success "Virtual environment created."
 }
 
-# ── Fetch latest release info from GitHub ─────────────────────────────────────
+# -- Fetch latest release info from GitHub -------------------------------------
 
 $latestVer = ""
 $whlUrl    = ""
@@ -181,7 +181,7 @@ try {
     if ($whlAsset) { $whlUrl = $whlAsset.browser_download_url }
 } catch {}
 
-# ── Install or auto-update NOVA ───────────────────────────────────────────────
+# -- Install or auto-update NOVA -----------------------------------------------
 
 # Upgrade pip via python -m pip (pip.exe cannot upgrade itself on Windows)
 & $VenvPython -m pip install --quiet --upgrade pip 2>&1 | Out-Null
@@ -226,7 +226,7 @@ if (-not $isInstalled) {
     }
 }
 
-# ── Copy scripts to permanent location & create Start Menu shortcut ───────────
+# -- Copy scripts to permanent location & create Start Menu shortcut -----------
 
 $NovaDir    = Split-Path $VENV_DIR -Parent          # %LOCALAPPDATA%\nova
 $PermScript = Join-Path $NovaDir "nova.ps1"
@@ -255,11 +255,11 @@ if (-not (Test-Path $StartMenu)) {
         $lnk.WorkingDirectory = $NovaDir
         $lnk.Description      = "NOVA - Navigation, Operations, and Vessel Assistance"
         $lnk.Save()
-        Write-Success "Start Menu shortcut created — search for NOVA to launch it."
+        Write-Success "Start Menu shortcut created - search for NOVA to launch it."
     } catch {}
 }
 
-# ── Launch NOVA ───────────────────────────────────────────────────────────────
+# -- Launch NOVA ---------------------------------------------------------------
 
 Write-Info "Starting NOVA..."
 Write-Host ""
