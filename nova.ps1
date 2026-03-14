@@ -160,8 +160,9 @@ Write-Success "Python: $(& $Python --version 2>&1)"
 
 # ── Set up virtual environment ────────────────────────────────────────────────
 
-$VenvPip  = Join-Path $VENV_DIR "Scripts\pip.exe"
-$VenvNova = Join-Path $VENV_DIR "Scripts\nova.exe"
+$VenvPip    = Join-Path $VENV_DIR "Scripts\pip.exe"
+$VenvPython = Join-Path $VENV_DIR "Scripts\python.exe"
+$VenvNova   = Join-Path $VENV_DIR "Scripts\nova.exe"
 
 if (-not (Test-Path $VENV_DIR)) {
     Write-Info "Creating NOVA virtual environment at $VENV_DIR ..."
@@ -169,7 +170,21 @@ if (-not (Test-Path $VENV_DIR)) {
     Write-Success "Virtual environment created."
 }
 
+# ── Fetch latest release info from GitHub ─────────────────────────────────────
+
+$latestVer = ""
+$whlUrl    = ""
+try {
+    $rel       = Invoke-RestMethod -Uri $GH_API_URL -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
+    $latestVer = $rel.tag_name.TrimStart("v")
+    $whlAsset  = $rel.assets | Where-Object { $_.name -like "*.whl" } | Select-Object -First 1
+    if ($whlAsset) { $whlUrl = $whlAsset.browser_download_url }
+} catch {}
+
 # ── Install or auto-update NOVA ───────────────────────────────────────────────
+
+# Upgrade pip via python -m pip (pip.exe cannot upgrade itself on Windows)
+& $VenvPython -m pip install --quiet --upgrade pip 2>&1 | Out-Null
 
 $isInstalled = $false
 $pipShow = ""
@@ -180,10 +195,18 @@ try {
     $isInstalled = $false
 }
 
+function Install-Nova {
+    if (-not $whlUrl) {
+        Write-Err "Could not reach GitHub to download NOVA."
+        Write-Err "Check your internet connection and try again."
+        Read-Host "Press Enter to exit"; exit 1
+    }
+    & $VenvPython -m pip install --quiet $whlUrl
+}
+
 if (-not $isInstalled) {
     Write-Warn "NOVA not installed - installing now..."
-    & $VenvPip install --quiet --upgrade pip
-    & $VenvPip install $NOVA_URL
+    Install-Nova
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Installation failed. Check your internet connection."
         Read-Host "Press Enter to exit"; exit 1
@@ -191,17 +214,10 @@ if (-not $isInstalled) {
     Write-Success "NOVA installed successfully!"
     Write-Host ""
 } else {
-    # Compare installed version with latest GitHub release
     $installedVer = ($pipShow | Select-String "^Version:").ToString().Split(" ")[1].Trim()
-    $latestVer    = ""
-    try {
-        $release  = Invoke-RestMethod -Uri $GH_API_URL -TimeoutSec 8 -ErrorAction Stop
-        $latestVer = $release.tag_name.TrimStart("v")
-    } catch {}
-
     if ($latestVer -and $installedVer -ne $latestVer) {
         Write-Info "Update available: $installedVer -> $latestVer - updating..."
-        & $VenvPip install --upgrade $NOVA_URL
+        Install-Nova
         Write-Success "NOVA updated to $latestVer."
         Write-Host ""
     } else {
