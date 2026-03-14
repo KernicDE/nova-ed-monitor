@@ -25,7 +25,7 @@ jobs:
           pip install build pyinstaller
 
       - name: Install project dependencies
-        run: pip install -e .
+        run: pip install -e ".[pygame]"
 
       - name: Build Python distribution (sdist + wheel)
         run: python -m build
@@ -33,6 +33,7 @@ jobs:
       - name: Build Linux standalone binary
         run: |
           sudo apt-get install -y libsdl2-dev libsdl2-mixer-dev
+          printf 'from ed_monitor.__main__ import main\nmain()\n' > _nova_entry.py
           pyinstaller \
             --onefile \
             --name nova \
@@ -40,7 +41,7 @@ jobs:
             --collect-all edge_tts \
             --hidden-import pygame \
             --hidden-import httpx \
-            ed_monitor/__main__.py
+            _nova_entry.py
           mv dist/nova dist/nova-linux-x86_64
 
       - name: Create release
@@ -110,16 +111,9 @@ jobs:
 
             **Windows:** `.\nova.ps1 -Uninstall` (or `nova.bat -Uninstall`)
 
+            Elite Dangerous journal files are never touched.
+
             ## Important Notes
 
-            ⚠️ **Do NOT download files directly from the GitHub repository page** — this will give you
+            Do NOT download files directly from the GitHub repository page — this will give you
             HTML content instead of the actual files. Always download from the **Releases** section.
-
-            ## Uninstalling
-
-            **Linux:** `nova --uninstall`
-
-            **Windows:** `.
-ova.ps1 -Uninstall` (or `nova.bat -Uninstall`)
-
-            Elite Dangerous journal files are never touched.
