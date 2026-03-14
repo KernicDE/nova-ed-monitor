@@ -236,6 +236,26 @@ case ":$PATH:" in
         ;;
 esac
 
+# ── Create .desktop launcher ──────────────────────────────────────────────────
+
+DESKTOP_DIR="$HOME/.local/share/applications"
+DESKTOP_FILE="$DESKTOP_DIR/nova-ed-monitor.desktop"
+mkdir -p "$DESKTOP_DIR"
+
+if [ ! -f "$DESKTOP_FILE" ]; then
+    cat > "$DESKTOP_FILE" <<DESKTOP
+[Desktop Entry]
+Name=NOVA
+GenericName=Elite Dangerous Monitor
+Comment=Navigation, Operations, and Vessel Assistance
+Exec=$_NOVA_WRAPPER
+Terminal=true
+Type=Application
+Categories=Game;Utility;
+DESKTOP
+    success "Desktop launcher created — search for NOVA in your app menu."
+fi
+
 # ── Launch NOVA ───────────────────────────────────────────────────────────────
 
 info "Starting NOVA..."

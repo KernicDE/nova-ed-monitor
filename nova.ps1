@@ -226,6 +226,39 @@ if (-not $isInstalled) {
     }
 }
 
+# ── Copy scripts to permanent location & create Start Menu shortcut ───────────
+
+$NovaDir    = Split-Path $VENV_DIR -Parent          # %LOCALAPPDATA%\nova
+$PermScript = Join-Path $NovaDir "nova.ps1"
+$PermBat    = Join-Path $NovaDir "nova.bat"
+$StartMenu  = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\NOVA.lnk"
+
+# Keep scripts in a permanent location so the Start Menu shortcut always works
+if ($ScriptPath -and (Test-Path $ScriptPath) -and ($ScriptPath -ne $PermScript)) {
+    try { Copy-Item $ScriptPath $PermScript -Force -ErrorAction SilentlyContinue } catch {}
+    $srcBat = Join-Path (Split-Path $ScriptPath -Parent) "nova.bat"
+    if (Test-Path $srcBat) {
+        try { Copy-Item $srcBat $PermBat -Force -ErrorAction SilentlyContinue } catch {}
+    } elseif (-not (Test-Path $PermBat)) {
+        "@echo off`r`npowershell.exe -ExecutionPolicy Bypass -File `"%~dp0nova.ps1`" %*`r`nif `"%~1`"==`"`" pause" |
+            Set-Content $PermBat -Encoding ASCII
+    }
+}
+
+# Create Start Menu shortcut once
+if (-not (Test-Path $StartMenu)) {
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        $lnk = $wsh.CreateShortcut($StartMenu)
+        $lnk.TargetPath       = "powershell.exe"
+        $lnk.Arguments        = "-ExecutionPolicy Bypass -File `"$PermScript`""
+        $lnk.WorkingDirectory = $NovaDir
+        $lnk.Description      = "NOVA - Navigation, Operations, and Vessel Assistance"
+        $lnk.Save()
+        Write-Success "Start Menu shortcut created — search for NOVA to launch it."
+    } catch {}
+}
+
 # ── Launch NOVA ───────────────────────────────────────────────────────────────
 
 Write-Info "Starting NOVA..."
