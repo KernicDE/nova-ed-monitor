@@ -166,7 +166,7 @@ def monitor(
                         log_msg = f"[YouTube] {author}: {text}"
                         with lock:
                             state.push_event(LogEvent.new(EventCategory.Chat, log_msg))
-                        events._speak_chat(tts_q, author, text, source="YouTube")
+                        events._speak_chat(tts_q, author.lstrip("@"), text, source="YouTube")
 
                     continuation = next_cont
                     time.sleep(timeout_ms / 1000)
