@@ -1004,7 +1004,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             break
                             
                     if count == 2:
-                        msg = f"Bio sample {count}/3: {species_loc}."
+                        msg = f"Bio sample {count} of 3: {species_loc}."
                         _speak(tts_q, msg, False)
                         return LogEvent.new(EventCategory.Explore, msg)
                     return None
