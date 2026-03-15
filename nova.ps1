@@ -42,11 +42,11 @@ function Write-Err     { param($Msg) Write-Host "  $Msg" -ForegroundColor Red }
 # -- Banner --------------------------------------------------------------------
 
 Write-Host ""
-Write-Host "  #  #   ###   #   #   ##  " -ForegroundColor Cyan
+Write-Host "  #  #   ###   #   #    ## " -ForegroundColor Cyan
 Write-Host "  ## #  #   #  #   #  #  # " -ForegroundColor Cyan
-Write-Host "  # ##  #   #  #   #  #  # " -ForegroundColor Cyan
+Write-Host "  # ##  #   #  #   #  #### " -ForegroundColor Cyan
 Write-Host "  #  #  #   #   # #   #  # " -ForegroundColor Cyan
-Write-Host "  #  #   ###     #     ##  " -ForegroundColor Cyan
+Write-Host "  #  #   ###     #     #  #" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Navigation, Operations, and Vessel Assistance" -ForegroundColor White
 Write-Host "  ---------------------------------------------" -ForegroundColor DarkGray

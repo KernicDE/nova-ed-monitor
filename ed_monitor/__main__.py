@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, events, journal, overlay, status, tts, twitch
+from . import config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -76,6 +76,13 @@ def main() -> None:
     # Twitch chat thread (no-op if twitch_channel not set in config)
     threading.Thread(
         target=twitch.monitor,
+        args=(state, lock, tts_q, cfg),
+        daemon=True,
+    ).start()
+
+    # YouTube live chat thread (no-op if youtube_channel not set in config)
+    threading.Thread(
+        target=youtube.monitor,
         args=(state, lock, tts_q, cfg),
         daemon=True,
     ).start()

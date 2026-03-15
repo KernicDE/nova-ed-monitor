@@ -29,6 +29,7 @@ _DEFAULT_OVERLAY_SEPARATOR = "     ////     "
 class Config:
     journal_dir:        Path
     twitch_channel:     str  = ""
+    youtube_channel:    str  = ""
     tts_rate:           str  = "+10%"
     tts_voices:         dict = field(default_factory=lambda: dict(_DEFAULT_VOICES))
     overlay_segments:   list = field(default_factory=lambda: list(_DEFAULT_OVERLAY_SEGMENTS))
@@ -47,6 +48,9 @@ DEFAULT_CONFIG = """\
 
 # Twitch integration — leave commented to disable:
 # twitch_channel = yourchannel
+
+# YouTube live chat — leave commented to disable:
+# youtube_channel = @yourchannel
 
 # TTS voice rate adjustment (e.g. +10%, -5%, +0%):
 # tts_rate = +10%
@@ -109,6 +113,7 @@ def load() -> Config:
 
     journal_dir       = None
     twitch_channel    = ""
+    youtube_channel   = ""
     tts_rate          = "+10%"
     tts_voices        = dict(_DEFAULT_VOICES)
     overlay_lines: dict[int, str] = {}
@@ -137,6 +142,10 @@ def load() -> Config:
                         channel = v.lstrip("#").strip()
                         if channel:
                             twitch_channel = channel
+                    case "youtube_channel":
+                        channel = v.lstrip("@").strip()
+                        if channel:
+                            youtube_channel = channel
                     case "tts_rate":
                         tts_rate = v
                     case "overlay_separator":
@@ -184,6 +193,7 @@ def load() -> Config:
     return Config(
         journal_dir=journal_dir,
         twitch_channel=twitch_channel,
+        youtube_channel=youtube_channel,
         tts_rate=tts_rate,
         tts_voices=tts_voices,
         overlay_segments=overlay_segments,

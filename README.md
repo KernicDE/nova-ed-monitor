@@ -7,6 +7,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
 - **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically per message
 - **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
+- **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed) and announces messages via TTS
 - **EDSM enrichment** — fetches body data in the background (no API key needed)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
 - **Bio-scan assistant** — tracks sample distances, bearings, and scan completion per species
@@ -166,6 +167,9 @@ Open it with any text editor to adjust settings:
 # Twitch integration (leave commented to disable):
 # twitch_channel = yourchannel
 
+# YouTube live chat (leave commented to disable):
+# youtube_channel = @yourchannel
+
 # TTS voice rate:
 # tts_rate = +10%
 
@@ -268,6 +272,8 @@ Language is detected automatically per message:
 | Russian    | ru-RU-SvetlanaNeural  | говорит    |
 
 Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
+
+YouTube messages are announced as: **"YouTube {user} {verb}: {message}"**
 
 ---
 
