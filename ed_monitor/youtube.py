@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import queue
 import re
 import threading
@@ -23,14 +22,42 @@ _CLIENT_CONTEXT = {
 }
 
 
+def _accept_consent_if_needed(resp: httpx.Response, client: httpx.Client) -> None:
+    """If redirected to YouTube's GDPR consent page, POST acceptance to get session cookie."""
+    if "consent.youtube.com" not in str(resp.url):
+        return
+    try:
+        fields = {}
+        for name in ("gl", "m", "pc", "continue", "x", "bl", "hl"):
+            m = re.search(rf'name="{name}" value="([^"]*)"', resp.text)
+            if m:
+                fields[name] = m.group(1)
+        fields["set_eom"] = "true"
+        client.post("https://consent.youtube.com/save", data=fields,
+                    follow_redirects=True, timeout=15)
+    except Exception:
+        pass
+
+
 def _get_live_video_id(channel: str, client: httpx.Client) -> str | None:
     """Fetch the channel's /live page and extract the video ID if live."""
     handle = channel.lstrip("@")
     url = f"https://www.youtube.com/@{handle}/live"
     try:
         resp = client.get(url, follow_redirects=True, timeout=15)
-        final_url = str(resp.url)
-        m = re.search(r"watch\?v=([\w-]{11})", final_url)
+        _accept_consent_if_needed(resp, client)
+        # Re-fetch if we just accepted consent
+        if "consent.youtube.com" in str(resp.url):
+            resp = client.get(url, follow_redirects=True, timeout=15)
+        # Check final URL (redirect case)
+        m = re.search(r"watch\?v=([\w-]{11})", str(resp.url))
+        if m:
+            return m.group(1)
+        # YouTube often serves HTML instead of redirecting — scan the body
+        m = re.search(r'<link rel="canonical"[^>]*href="[^"]*watch\?v=([\w-]{11})"', resp.text)
+        if m:
+            return m.group(1)
+        m = re.search(r'"videoId"\s*:\s*"([\w-]{11})"', resp.text)
         if m:
             return m.group(1)
     except Exception:
@@ -112,7 +139,13 @@ def monitor(
     while True:
         try:
             with httpx.Client(
-                headers={"User-Agent": "Mozilla/5.0 (compatible; NOVA/1.0)"}
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Accept-Language": "en-US,en;q=0.9",
+                }
             ) as client:
                 # Find the live stream
                 video_id = _get_live_video_id(channel, client)
