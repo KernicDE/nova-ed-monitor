@@ -1431,23 +1431,30 @@ _GALAXY_LANDMARKS = [
 ]
 
 
-def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
+def _render_galaxy(s: AppState, regional: bool = False,
+                   panel_w: int = 60, panel_h: int = 30) -> RenderableType:
     """Top-down galactic map rendered in Braille Unicode with per-cell coloring."""
     import math
     from rich.panel import Panel
 
-    W, H = 48, 26
+    # Reserve rows for: Panel title border (1) + bottom border (1) + legend (1) + route (1) = 4
+    # Panel border chars per side = 1 → canvas width = panel_w - 2
+    W = max(24, panel_w - 2)
+    H = max(10, panel_h - 4)
     DW, DH = W * 2, H * 4
     dots, cg = _bc_new(W, H)
 
     px_ly, _, pz_ly = s.star_pos if s.star_pos else (0.0, 0.0, 0.0)
+
+    # Galactic center (Sgr A*) — center the galactic view here so the full disk is visible
+    _GC_X, _GC_Z = 25.22, 25899.97
 
     if regional:
         half_range = 1_000.0
         cx, cz = px_ly, pz_ly
     else:
         half_range = 65_000.0
-        cx, cz = 0.0, 0.0
+        cx, cz = _GC_X, _GC_Z   # center on galactic core, not Sol
 
     def to_px(x_ly: float, z_ly: float) -> tuple[int, int]:
         nx = (x_ly - cx + half_range) / (2 * half_range)
@@ -1458,14 +1465,13 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
 
     # ── Galactic scale: galaxy disk outline + Sol + landmarks ─────────────────
     if not regional:
-        # Draw galactic disk outline (Milky Way, ~52,000 ly radius from Sgr A*)
-        gc_x, gc_z = 25.22, 25899.97
+        # Draw galactic disk outline (~52,000 ly radius from galactic center)
         gc_r = 52_000.0
-        steps = 300
+        steps = 400
         for i in range(steps):
             angle = 2 * math.pi * i / steps
-            lx = gc_x + gc_r * math.cos(angle)
-            lz = gc_z + gc_r * math.sin(angle)
+            lx = _GC_X + gc_r * math.cos(angle)
+            lz = _GC_Z + gc_r * math.sin(angle)
             dx, dz = to_px(lx, lz)
             if 0 <= dx < DW and 0 <= dz < DH:
                 _bc_set(dots, cg, dx, dz, P.DIM, 1)
@@ -1502,7 +1508,7 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
     title_str = f"GALAXY  {scale_str} ({mode_str})  [R]"
 
     framed = Panel(canvas_text, title=title_str, title_align="center",
-                   border_style=P.LABEL, padding=(0, 0), expand=False)
+                   border_style=P.LABEL, padding=(0, 0), expand=True)
 
     # ── Legend and route info ─────────────────────────────────────────────────
     leg_text = Text()
@@ -1511,21 +1517,18 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
             leg_text.append("  ")
         leg_text.append(lbl, style=col)
 
-    route_text = Text()
+    parts: list[RenderableType] = [framed]
+    if leg_text.plain:
+        parts.append(leg_text)
     if s.route_hops > 0:
+        route_text = Text()
         word = "jump" if s.route_hops == 1 else "jumps"
         route_text.append(f"{s.route_hops} {word} remaining", style=P.LABEL)
         if s.route_destination:
             route_text.append(f" → {s.route_destination}", style=P.HUD_GREEN)
-
-    parts: list[RenderableType] = [framed]
-    if leg_text.plain:
-        parts.append(leg_text)
-    if route_text.plain:
         parts.append(route_text)
 
-    from rich.align import Align
-    return Align.center(Group(*parts), vertical="top")
+    return Group(*parts)
 
 
 # ── System orrery renderer ─────────────────────────────────────────────────────
@@ -1798,7 +1801,8 @@ class SituationalPanel(_Panel):
         if self._active == "inventory":
             return _render_inventory(s)
         if self._active == "galaxy":
-            return _render_galaxy(s, regional=self._galaxy_regional)
+            return _render_galaxy(s, regional=self._galaxy_regional,
+                                  panel_w=self.size.width, panel_h=self.size.height)
         return _render_overview(s)
 
 
