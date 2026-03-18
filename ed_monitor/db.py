@@ -67,6 +67,7 @@ class Database:
             "ALTER TABLE bodies ADD COLUMN mean_anomaly REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN eccentricity REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN orbital_inclination REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN surface_gravity REAL NOT NULL DEFAULT 0",
             """CREATE TABLE IF NOT EXISTS bio_scans (
                 system            TEXT    NOT NULL,
                 body              TEXT    NOT NULL,
@@ -176,8 +177,9 @@ class Database:
                     terraform, landable, bio_signals, geo_signals, bio_genuses, dist_ls, value,
                     first_discovered, first_mapped, mapped, fss_scanned, radius,
                     bio_value_min, bio_value_max,
-                    semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,
+                    surface_gravity)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     system, body.name, body.body_id, body.level,
                     body.planet_class, body.star_type, body.atmosphere,
@@ -189,6 +191,7 @@ class Database:
                     body.bio_value_min, body.bio_value_max,
                     body.semi_major_axis, body.orbital_period,
                     body.mean_anomaly, body.eccentricity, body.orbital_inclination,
+                    body.surface_gravity,
                 ),
             )
             self._conn.commit()
@@ -247,7 +250,8 @@ class Database:
                           terraform, landable, bio_signals, geo_signals, bio_genuses,
                           dist_ls, value, first_discovered, first_mapped, mapped, fss_scanned, radius,
                           bio_value_min, bio_value_max,
-                          semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination
+                          semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,
+                          surface_gravity
                    FROM bodies WHERE system = ?""",
                 (system,),
             ).fetchall()
@@ -267,5 +271,6 @@ class Database:
                 semi_major_axis=float(row[20] or 0), orbital_period=float(row[21] or 0),
                 mean_anomaly=float(row[22] or 0), eccentricity=float(row[23] or 0),
                 orbital_inclination=float(row[24] or 0),
+                surface_gravity=float(row[25] or 0),
             ))
         return result

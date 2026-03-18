@@ -114,6 +114,7 @@ class BodyInfo:
     mean_anomaly:        float = 0.0   # degrees at scan time
     eccentricity:        float = 0.0
     orbital_inclination: float = 0.0   # degrees
+    surface_gravity:     float = 0.0   # m/s², from SurfaceGravity in Scan event
 
 
 @dataclass
@@ -172,7 +173,6 @@ class AppState:
 
     # Ship status
     hull:           float = 1.0
-    shield:         float = 1.0
     shields_up:     bool  = True
     fuel:           float = 0.0
     fuel_max:       float = 0.0
@@ -200,6 +200,7 @@ class AppState:
     analysis_mode:     bool = False
     mass_locked:       bool = False
     in_main_ship:      bool = False
+    orbital_cruise:    bool = False
 
     # Position
     station:      str            = ""

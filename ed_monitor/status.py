@@ -11,6 +11,9 @@ from .state import AppState
 from .tts import TtsMsg
 
 # Status.json flag bits
+# Flags2 bits (Odyssey / Horizons 4.0+)
+FLAG2_GLIDE = 1 << 12  # GlideMode = orbital cruise
+
 FLAG_DOCKED         = 1 << 0
 FLAG_LANDED         = 1 << 1
 FLAG_LANDING_GEAR   = 1 << 2
@@ -141,6 +144,13 @@ def _apply_status(
         state.analysis_mode     = bool(flags & FLAG_ANALYSIS_MODE)
         state.in_main_ship      = bool(flags & FLAG_IN_MAIN_SHIP)
 
+        flags2 = data.get("Flags2", 0)
+        if not isinstance(flags2, int):
+            flags2 = 0
+        prev_orbital_cruise    = state.orbital_cruise
+        state.orbital_cruise   = bool(flags2 & FLAG2_GLIDE)
+        new_orbital_cruise     = state.orbital_cruise
+
         new_mass_locked  = state.mass_locked
         new_in_main_ship = state.in_main_ship
         new_gear         = state.landing_gear
@@ -183,7 +193,9 @@ def _apply_status(
                 _q("Analysis mode." if new_analysis else "Combat mode.")
             if new_srv != prev_srv:
                 _q("S R V deployed." if new_srv else "S R V secured.")
-        
+            if new_orbital_cruise and not prev_orbital_cruise:
+                _q("Orbital cruise engaged.")
+
         v = data.get("Heat")
         if isinstance(v, (int, float)):
             # Normalize: some versions use 0-1, others 0-100
@@ -197,14 +209,6 @@ def _apply_status(
             state.heat = max(state.heat, 100.0)
         else:
             if state.heat > 99.0: state.heat = 99.0 # Clamp if flag cleared
-
-        v = data.get("ShieldHealth")
-        if isinstance(v, (int, float)):
-            state.shield = float(v) if v <= 1.0 else float(v) / 100.0
-        elif not state.shields_up:
-            state.shield = 0.0
-        elif state.shields_up and state.shield == 0.0:
-            state.shield = 1.0
 
         fuel = data.get("Fuel")
         if isinstance(fuel, dict):

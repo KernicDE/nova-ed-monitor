@@ -511,6 +511,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.first_footfall_body    = ""
             state.first_footfall_body_id = -1
             state.first_footfall_spoke   = ""
+            state.orbital_cruise         = False
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -836,6 +837,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     mean_anomaly=_f(ev, "MeanAnomaly"),
                     eccentricity=_f(ev, "Eccentricity"),
                     orbital_inclination=_f(ev, "OrbitalInclination"),
+                    surface_gravity=_f(ev, "SurfaceGravity"),
                 ))
 
             if scan_type not in ("Detailed", "AutoScan"):

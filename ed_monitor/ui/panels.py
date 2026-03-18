@@ -362,12 +362,11 @@ class ShipPanel(_Panel):
         hull_panel = Panel(Align.center(hull_txt), title="HULL",
                            border_style=hull_col, padding=(0, 1))
 
-        sh_pct   = s.shield if s.shields_up else 0.0
         sh_col   = P.BLUE_SH if s.shields_up else P.HUD_CRIT
-        sh_label = f"{round(sh_pct * 100)}%" if s.shields_up else "DOWN"
+        sh_label = "UP" if s.shields_up else "DOWN"
         sh_txt   = Text(justify="center")
         sh_txt.append(f"{sh_label}\n", style=f"bold {sh_col}")
-        sh_txt.append_text(_gauge_bar(sh_pct, bar_w, sh_col))
+        sh_txt.append_text(_gauge_bar(1.0 if s.shields_up else 0.0, bar_w, sh_col))
         sh_panel = Panel(Align.center(sh_txt), title="SHIELD",
                          border_style=sh_col, padding=(0, 1))
 
@@ -598,7 +597,11 @@ class RoutePanel(_Panel):
             row("Atm", atm)
 
         if body.landable:
-            row("Land", "Yes", P.HUD_GREEN)
+            if body.surface_gravity > 0.0:
+                g_val = body.surface_gravity / 9.80665
+                row("Land", f"Yes  ({g_val:.2f}g)", P.HUD_GREEN)
+            else:
+                row("Land", "Yes", P.HUD_GREEN)
 
         if body.bio_signals > 0:
             # Check how many are done
@@ -1259,9 +1262,10 @@ def _render_overview(s: AppState) -> RenderableType:
 
         tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
         tbl.add_column("name",  style="white", width=10)
-        tbl.add_column("type",  width=11)
-        tbl.add_column("val",   width=11, justify="right")
-        tbl.add_column("flags", width=8)
+        tbl.add_column("type",  width=10)
+        tbl.add_column("val",   width=9, justify="right")
+        tbl.add_column("bio",   width=12, justify="right")
+        tbl.add_column("flags", width=4)
 
         # Pre-compute which bodies have all bio scans complete
         from collections import defaultdict as _dd2
@@ -1274,26 +1278,51 @@ def _render_overview(s: AppState) -> RenderableType:
             short  = _short_name(b.name, s.system)
             btype  = _abbrev_type(b.planet_class, b.star_type)
             col    = _body_color(b.planet_class, b.star_type)
-            # Bio value estimate: show genus range when bio not fully scanned
-            bio_scanned_done = _bio_complete_by_body.get(b.name, 0) >= b.bio_signals if b.bio_signals > 0 else True
-            if b.bio_signals > 0 and b.bio_value_max > 0 and not bio_scanned_done:
-                if b.bio_value_min == b.bio_value_max:
-                    val_s = f"~{_fmt_cr_compact(b.bio_value_min)}"
+
+            # Body scan value column
+            v     = b.value if b.value > 0 else _estimated_value(b)
+            val_s = _fmt_value(v) if v > 0 else "—"
+            vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if v > 0 else P.DIM)
+
+            # Bio estimate column
+            if b.bio_signals > 0:
+                bio_done_cnt = _bio_complete_by_body.get(b.name, 0)
+                bio_all_done = bio_done_cnt >= b.bio_signals
+                if bio_all_done:
+                    # Show actual total from completed scans
+                    actual_bio = sum(sc.value for sc in s.bio_scans
+                                     if sc.body == b.name and sc.complete)
+                    if actual_bio > 0:
+                        bio_s  = _fmt_cr_compact(actual_bio)
+                        bio_c  = P.GOLD
+                    else:
+                        bio_s  = "done"
+                        bio_c  = P.HUD_GREEN
+                elif b.bio_value_max > 0:
+                    # Estimate from genus data
+                    n = b.bio_signals
+                    per_min = b.bio_value_min // n
+                    per_max = b.bio_value_max // n
+                    if n > 1:
+                        bio_s = f"~{_fmt_cr_compact(per_min)}–{_fmt_cr_compact(per_max)} ea"
+                    else:
+                        bio_s = f"~{_fmt_cr_compact(per_min)}–{_fmt_cr_compact(per_max)}"
+                    bio_c = P.AMBER
                 else:
-                    val_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
-                vcol = P.AMBER
+                    bio_s = f"{b.bio_signals}×"
+                    bio_c = P.HUD_GREEN
             else:
-                v     = b.value if b.value > 0 else _estimated_value(b)
-                val_s = _fmt_value(v) if v > 0 else "—"
-                vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if v > 0 else P.DIM)
-            flags  = ""
-            if b.bio_signals > 0:  flags += f"Bio:{b.bio_signals} "
+                bio_s = "—"
+                bio_c = P.DIM
+
+            flags = ""
             if b.terraform:        flags += "T "
             if b.first_discovered: flags += "★"
             tbl.add_row(
                 Text(short, style="white"),
                 Text(btype, style=f"bold {col}"),
                 Text(val_s, style=vcol),
+                Text(bio_s, style=bio_c),
                 Text(flags.strip(), style=P.HUD_GREEN),
             )
         parts.append(tbl)
@@ -1405,8 +1434,9 @@ _GALAXY_LANDMARKS = [
 def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
     """Top-down galactic map rendered in Braille Unicode with per-cell coloring."""
     import math
+    from rich.panel import Panel
 
-    W, H = 48, 18
+    W, H = 48, 26
     DW, DH = W * 2, H * 4
     dots, cg = _bc_new(W, H)
 
@@ -1426,8 +1456,20 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
 
     legend: list[tuple[str, str]] = []
 
-    # ── Galactic scale: Sol + landmarks ───────────────────────────────────────
+    # ── Galactic scale: galaxy disk outline + Sol + landmarks ─────────────────
     if not regional:
+        # Draw galactic disk outline (Milky Way, ~52,000 ly radius from Sgr A*)
+        gc_x, gc_z = 25.22, 25899.97
+        gc_r = 52_000.0
+        steps = 300
+        for i in range(steps):
+            angle = 2 * math.pi * i / steps
+            lx = gc_x + gc_r * math.cos(angle)
+            lz = gc_z + gc_r * math.sin(angle)
+            dx, dz = to_px(lx, lz)
+            if 0 <= dx < DW and 0 <= dz < DH:
+                _bc_set(dots, cg, dx, dz, P.DIM, 1)
+
         _bc_cross(dots, cg, *to_px(0.0, 0.0), P.HUD_CYAN, 4, size=2)
         legend.append((P.HUD_CYAN, "⊕ Sol"))
         for lx, lz, name, color, prio in _GALAXY_LANDMARKS:
@@ -1435,13 +1477,11 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
             legend.append((color, f"● {name}"))
 
     # ── Route waypoints ────────────────────────────────────────────────────────
-    prev_px: tuple[int, int] | None = None
     for wp in (s.route_list or []):
         sp = wp.get("StarPos")
         if isinstance(sp, list) and len(sp) >= 3:
             wp_px = to_px(sp[0], sp[2])
             _bc_set(dots, cg, wp_px[0], wp_px[1], P.HUD_CYAN, 3)
-            prev_px = wp_px
 
     # Destination (last waypoint highlighted)
     if s.route_destination and s.route_list:
@@ -1454,29 +1494,38 @@ def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
     _bc_cross(dots, cg, *to_px(px_ly, pz_ly), P.GOLD, 8, size=2)
     legend.append((P.GOLD, "◈ You"))
 
-    # ── Render ─────────────────────────────────────────────────────────────────
-    t = Text()
-    t.append_text(_bc_render(dots, cg, W, H))
-    t.append("\n")
+    # ── Build canvas text and wrap in Panel ────────────────────────────────────
+    canvas_text = _bc_render(dots, cg, W, H)
 
     scale_str = f"±{int(half_range/1000)}k ly" if half_range >= 1000 else f"±{int(half_range)} ly"
     mode_str  = "regional" if regional else "galactic"
-    t.append(f" {scale_str} ({mode_str})  [R] to toggle", style=P.LABEL)
+    title_str = f"GALAXY  {scale_str} ({mode_str})  [R]"
 
-    if legend:
-        t.append("   ")
-        for i, (col, lbl) in enumerate(legend):
-            if i:
-                t.append("  ")
-            t.append(lbl, style=col)
+    framed = Panel(canvas_text, title=title_str, title_align="center",
+                   border_style=P.LABEL, padding=(0, 0), expand=False)
 
+    # ── Legend and route info ─────────────────────────────────────────────────
+    leg_text = Text()
+    for i, (col, lbl) in enumerate(legend):
+        if i:
+            leg_text.append("  ")
+        leg_text.append(lbl, style=col)
+
+    route_text = Text()
     if s.route_hops > 0:
         word = "jump" if s.route_hops == 1 else "jumps"
-        t.append(f"\n {s.route_hops} {word} remaining", style=P.LABEL)
+        route_text.append(f"{s.route_hops} {word} remaining", style=P.LABEL)
         if s.route_destination:
-            t.append(f" → {s.route_destination}", style=P.HUD_GREEN)
+            route_text.append(f" → {s.route_destination}", style=P.HUD_GREEN)
 
-    return t
+    parts: list[RenderableType] = [framed]
+    if leg_text.plain:
+        parts.append(leg_text)
+    if route_text.plain:
+        parts.append(route_text)
+
+    from rich.align import Align
+    return Align.center(Group(*parts), vertical="top")
 
 
 # ── System orrery renderer ─────────────────────────────────────────────────────
@@ -1687,7 +1736,7 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy", "orrery")
+    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy")
     _mode:   str     = "auto"
     _active: str     = "overview"
     _galaxy_regional: bool = False
@@ -1750,8 +1799,6 @@ class SituationalPanel(_Panel):
             return _render_inventory(s)
         if self._active == "galaxy":
             return _render_galaxy(s, regional=self._galaxy_regional)
-        if self._active == "orrery":
-            return _render_orrery(s)
         return _render_overview(s)
 
 
