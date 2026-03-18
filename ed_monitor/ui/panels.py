@@ -296,10 +296,11 @@ class SystemPanel(_Panel):
             if moons:   parts.append(f"{moons} moon{_pl(moons)}")
             row("Bodies", ", ".join(parts))
 
-        # FSS progress (ignore stars as requested)
-        fss_done = sum(1 for b in s.bodies if b.fss_scanned and not b.star_type)
+        # FSS progress — only count classified bodies (planet_class set); belt clusters
+        # have no planet_class and inflate the count past FSSDiscoveryScan.BodyCount
+        fss_done    = sum(1 for b in s.bodies if b.fss_scanned and b.planet_class)
         stars_found = sum(1 for b in s.bodies if b.star_type)
-        fss_total = max(0, s.fss_body_count - stars_found)
+        fss_total   = max(0, s.fss_body_count - stars_found)
 
         if fss_total > 0:
             fss_col = P.HUD_GREEN if fss_done >= fss_total else P.AMBER
