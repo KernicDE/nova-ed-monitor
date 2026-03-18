@@ -1,5 +1,8 @@
 # NOVA — Navigation, Operations, and Vessel Assistance
 
+> [!NOTE]
+> This project is 100% vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development.
+
 A real-time TUI companion for **Elite Dangerous** — reads journal files, speaks events via TTS, and displays system / ship / route / bio-scan data in your terminal.
 
 ## Features
@@ -379,12 +382,6 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 
 **TTS is too fast/slow**
 → Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal speed, `tts_rate = +20%` for faster
-
----
-
-## AI Disclaimer
-
-NOVA is 100% vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development — no traditional hand-coding involved.
 
 ---
 
