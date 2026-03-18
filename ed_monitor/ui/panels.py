@@ -1121,11 +1121,16 @@ def _render_overview(s: AppState) -> RenderableType:
                                   key=lambda k: (1 if k else 0, _natural_key(k)))
 
         # Which star does each planet belong to?  Match longest alpha prefix.
+        # Barycentre planets (multi-letter prefix like AB) are collected separately.
         star_planets: dict[str, list[BodyInfo]] = {k: [] for k in star_index}
         primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
+        barycentre_planets: list[BodyInfo] = []
         for p in _s_planets:
             p_short = _short_name(p.name, _sys).strip()
             tok     = p_short.split()
+            if tok and tok[0].isalpha() and len(tok[0]) > 1:
+                barycentre_planets.append(p)
+                continue
             assigned = False
             for length in range(len(tok) - 1, 0, -1):
                 candidate = " ".join(tok[:length])
@@ -1135,6 +1140,7 @@ def _render_overview(s: AppState) -> RenderableType:
                     break
             if not assigned:
                 star_planets.setdefault(primary_key, []).append(p)
+        barycentre_planets.sort(key=lambda b: _natural_key(_short_name(b.name, _sys)))
 
         # Which planet does each moon belong to?  Remove last token.
         planet_moons: dict[str, list[BodyInfo]] = {}
@@ -1180,6 +1186,17 @@ def _render_overview(s: AppState) -> RenderableType:
                                    key=lambda b: _natural_key(_short_name(b.name, _sys))):
                     _sep(1)
                     _emit("o", _body_color(moon.planet_class, moon.star_type), moon)
+
+        # Barycentre planets at the end (orbit the binary, not a single star)
+        for planet in barycentre_planets:
+            _sep(3)
+            p_short = _short_name(planet.name, _sys).strip()
+            p_col   = _body_color(planet.planet_class, planet.star_type)
+            _emit("O", f"bold {p_col}", planet)
+            for moon in sorted(planet_moons.get(p_short, []),
+                               key=lambda b: _natural_key(_short_name(b.name, _sys))):
+                _sep(1)
+                _emit("o", _body_color(moon.planet_class, moon.star_type), moon)
 
         W = len(ruler_chars)
         if W:
