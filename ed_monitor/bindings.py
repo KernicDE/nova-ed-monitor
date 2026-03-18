@@ -46,7 +46,7 @@ def read_primary_fire(journal_dir: Path) -> tuple[str, str] | None:
     start_file = bindings_dir / "StartPreset.4.start"
     if start_file.exists():
         try:
-            preset_name = start_file.read_text(encoding="utf-8", errors="replace").strip()
+            preset_name = start_file.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip()
         except OSError:
             pass
 
