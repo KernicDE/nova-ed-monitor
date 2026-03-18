@@ -166,19 +166,19 @@ The config file is created automatically on first launch at:
 Open it with any text editor to adjust settings:
 
 ```toml
-# Journal directory (auto-detected for Steam/Proton — override if needed):
+# Journal directory (leave commented to auto-detect):
 # journal_dir = /path/to/Saved Games/Frontier Developments/Elite Dangerous
 
-# Twitch integration (leave commented to disable):
+# Twitch integration — leave commented to disable:
 # twitch_channel = yourchannel
 
-# YouTube live chat (leave commented to disable):
+# YouTube live chat — leave commented to disable:
 # youtube_channel = @yourchannel
 
-# TTS voice rate:
+# TTS voice rate adjustment (e.g. +10%, -5%, +0%):
 # tts_rate = +10%
 
-# TTS voices per language:
+# TTS voices per language (edge-tts voice names):
 # tts_voice_en = en-GB-SoniaNeural
 # tts_voice_de = de-DE-KatjaNeural
 # tts_voice_fr = fr-FR-DeniseNeural
@@ -187,18 +187,32 @@ Open it with any text editor to adjust settings:
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
 
-# Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
-# ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
-# notable_value_threshold = 500000
-
-# Stream overlay output file and format:
-# overlay_path = stream_info.txt
-# overlay_line_1 = MY STREAM NAME
+# Stream overlay — each overlay_line_N defines one segment, joined by the separator.
+# Lines whose variable evaluates to empty/zero are skipped automatically.
+#
+# Available variables:
+#   {commander}    — Commander name
+#   {ship_name}    — Ship name
+#   {ship_type}    — Ship type (e.g. "Krait Phantom")
+#   {system}       — Current star system
+#   {position}     — Station, approach body, or "Deep Space"
+#   {jumps_left}   — Remaining jumps in route (skipped when 0)
+#   {route_next}   — Next jump destination (skipped when empty)
+#   {hull_pct}     — Hull integrity percentage (e.g. "98%")
+#   {fuel_t}       — Current fuel in tonnes (e.g. "28.4t")
+#   {fuel_max_t}   — Max fuel capacity (e.g. "32t")
+#
+# overlay_line_1 = NOVA
 # overlay_line_2 = {ship_name} ({ship_type})
 # overlay_line_3 = {system} — {position}
 # overlay_line_4 = JUMPS: {jumps_left}
 # overlay_separator =      ////
 # overlay_uppercase = true
+# overlay_path = stream_info.txt
+
+# Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
+# ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
+# notable_value_threshold = 500000
 ```
 
 ### Finding the Journal Directory Manually
@@ -365,6 +379,12 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 
 **TTS is too fast/slow**
 → Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal speed, `tts_rate = +20%` for faster
+
+---
+
+## AI Disclaimer
+
+NOVA is 100% vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development — no traditional hand-coding involved.
 
 ---
 
