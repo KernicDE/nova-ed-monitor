@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
+from . import bindings, config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -42,8 +42,9 @@ def main() -> None:
     edsm_q = edsm.spawn(state, lock)
 
     with lock:
-        state.volume        = DEFAULT_VOLUME
-        state.session_start = datetime.now().strftime("%H:%M")
+        state.volume                    = DEFAULT_VOLUME
+        state.notable_value_threshold   = cfg.notable_value_threshold
+        state.session_start             = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True
         state.client_online = False  # Start offline until we see LoadGame/Location event
         # Reset session statistics
@@ -59,10 +60,16 @@ def main() -> None:
     except Exception:
         pass
 
+    # Read auto-honk binding if enabled
+    honk_binding = None
+    if cfg.auto_honk:
+        honk_binding = bindings.read_primary_fire(cfg.journal_dir)
+
     # Journal monitor thread
     threading.Thread(
         target=journal.monitor,
         args=(state, lock, tts_q, database, cfg.journal_dir, edsm_q),
+        kwargs={"honk_binding": honk_binding},
         daemon=True,
     ).start()
 

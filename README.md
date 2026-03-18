@@ -10,7 +10,13 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed) and announces messages via TTS
 - **EDSM enrichment** — fetches body data in the background (no API key needed)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
-- **Bio-scan assistant** — tracks sample distances, bearings, and scan completion per species
+- **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species
+- **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) in the Bodies panel before full scan
+- **Galaxy map** — Braille-rendered top-down map of the Milky Way with route waypoints (auto-activates on active route)
+- **System orrery** — orbital positions of scanned planets rendered in Braille Unicode
+- **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
+- **Auto-honk** — optionally holds the Discovery Scanner binding for 7 seconds on every FSD jump
+- **First footfall inference** — announces first footfall even when the journal flag is absent, based on first-discovery status
 - **Stream overlay** — writes a configurable text file for OBS/Streamlabs marquees
 - **Persistent event log** — replays journal history from SQLite across sessions, including bodies scanned in previous sessions
 - **Auto-installing launcher** — installs Python, NOVA, and all dependencies automatically; auto-updates on every launch
@@ -182,6 +188,13 @@ Open it with any text editor to adjust settings:
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
 
+# Auto-honk: hold PrimaryFire for 7s after every FSD jump to trigger Discovery Scanner:
+# auto_honk = false
+
+# Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
+# ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
+# notable_value_threshold = 500000
+
 # Stream overlay output file and format:
 # overlay_path = stream_info.txt
 # overlay_line_1 = MY STREAM NAME
@@ -220,6 +233,7 @@ journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/
 | `PgUp` / `PgDn` | Scroll by 20 lines |
 | `Home` / `g` | Jump to latest events |
 | `Tab` | Cycle situational panel mode |
+| `r` | Toggle galaxy map scale (galactic ↔ regional ±1000 ly) |
 | `+` / `=` | Volume up |
 | `-` | Volume down |
 
@@ -271,9 +285,7 @@ Language is detected automatically per message:
 | Portuguese | pt-PT-RaquelNeural    | diz        |
 | Russian    | ru-RU-SvetlanaNeural  | говорит    |
 
-Twitch messages are announced as: **"Twitch {user} {verb}: {message}"**
-
-YouTube messages are announced as: **"YouTube {user} {verb}: {message}"**
+Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / **"User {name} on YouTube {verb}: {message}"**
 
 ---
 
@@ -291,7 +303,18 @@ YouTube messages are announced as: **"YouTube {user} {verb}: {message}"**
 └───────────────────────────────────────────────────────────────┘
 ```
 
-**Situational panel modes** (cycle with `Tab`): Overview · Bio scans · Missions · Inventory · Engineers
+**Situational panel modes** (cycle with `Tab`):
+
+| Mode | Description |
+|------|-------------|
+| Auto | Switches automatically: Bio → Galaxy (active route) → Missions → Overview |
+| Overview | System diagram, notable bodies, session stats |
+| Bio | Active bio scans with distances and bearings |
+| Missions | Active mission list |
+| Inventory | Cargo and materials |
+| Engineers | Engineer unlock progress |
+| Galaxy | Braille top-down galaxy map — `r` toggles galactic (±65k ly) / regional (±1k ly) |
+| Orrery | Braille orbital chart of scanned planets at their scan-time positions |
 
 **Bio scan indicators:**
 - `★` — first discovered species in the galaxy
@@ -304,14 +327,13 @@ YouTube messages are announced as: **"YouTube {user} {verb}: {message}"**
 |--------|---------|
 | Body   | Short name, indented: planet / ↳ moon |
 | Type   | Abbreviated body type |
-| Value  | Actual or `~est` estimated |
+| Val    | Actual scan value (gold if >1M Cr), `~3.4M–12.9M` genus estimate in amber while bio unsolved, or `~est` for planet type estimate |
 | Dist   | Distance from arrival (ls) |
-| Bio/Geo| Signal counts |
-| Atm    | Atmosphere |
-| Lnd    | Landable |
-| ★      | First discovered |
-| T      | Terraformable |
-| Sc     | `F`=FSS scanned, `D`=DSS mapped |
+| B      | Bio signal count; `3✓` (gold) when all bio scans complete |
+| G      | Geological signal count |
+| LTA    | Flags: `L`=Landable, `T`=Terraformable, `A`=Atmosphere |
+| F      | `●` = FSS scanned |
+| D      | `●` = DSS mapped |
 
 ---
 

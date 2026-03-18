@@ -107,6 +107,13 @@ class BodyInfo:
     mapped:           bool   # True = DSS complete
     fss_scanned:      bool   # True = player FSS'd this body
     radius:           float
+    bio_value_min:    int    = 0  # estimated min bio value (from genus range)
+    bio_value_max:    int    = 0  # estimated max bio value (from genus range)
+    semi_major_axis:     float = 0.0   # metres
+    orbital_period:      float = 0.0   # seconds
+    mean_anomaly:        float = 0.0   # degrees at scan time
+    eccentricity:        float = 0.0
+    orbital_inclination: float = 0.0   # degrees
 
 
 @dataclass
@@ -276,6 +283,9 @@ class AppState:
     # subsequent game-triggered Scan event to suppress its duplicate message.
     dss_recently_completed: set = field(default_factory=set)
 
+    # Notable body value threshold (from config, controls Overview filter)
+    notable_value_threshold: int = 500_000
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 
@@ -291,6 +301,8 @@ class AppState:
                 dist   = existing.dist_ls
                 pc     = existing.planet_class
                 st     = existing.star_type
+                bvmin  = existing.bio_value_min
+                bvmax  = existing.bio_value_max
                 self.bodies[i] = info
                 b = self.bodies[i]
                 if not b.planet_class and pc:        b.planet_class = pc
@@ -302,6 +314,8 @@ class AppState:
                 b.mapped      = mapped or b.mapped
                 b.fss_scanned = fss    or b.fss_scanned
                 if first: b.first_discovered = True
+                if b.bio_value_min == 0: b.bio_value_min = bvmin
+                if b.bio_value_max == 0: b.bio_value_max = bvmax
                 return
         ids = [b.body_id for b in self.bodies]
         pos = bisect.bisect_left(ids, info.body_id)

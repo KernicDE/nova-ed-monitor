@@ -88,7 +88,7 @@ def monitor(
                 pass
 
         tick += 1
-        time.sleep(0.5)
+        time.sleep(0.2)
 
 
 def _apply_status(

@@ -81,12 +81,13 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
 
 
 def monitor(
-    state:       AppState,
-    lock:        threading.RLock,
-    tts_q:       queue.Queue,
-    db:          Database,
-    journal_dir: Path,
-    edsm_q:      Optional[queue.Queue],
+    state:        AppState,
+    lock:         threading.RLock,
+    tts_q:        queue.Queue,
+    db:           Database,
+    journal_dir:  Path,
+    edsm_q:       Optional[queue.Queue],
+    honk_binding: Optional[tuple] = None,
 ) -> None:
     current: Optional[Path] = None
     last_file = db.get_config("last_journal_file")
@@ -128,7 +129,7 @@ def monitor(
             continue
 
         _follow(current, state, lock, tts_q, db, journal_dir, edsm_q,
-                start_offset=start_offset)
+                start_offset=start_offset, honk_binding=honk_binding)
         current = None
 
 # ── Backlog scan ───────────────────────────────────────────────────────────────
@@ -307,6 +308,7 @@ def _follow(
     journal_dir:  Path,
     edsm_q:       Optional[queue.Queue],
     start_offset: int = 0,
+    honk_binding: Optional[tuple] = None,
 ) -> None:
     try:
         fd = open(path, "r", errors="replace")
@@ -387,6 +389,10 @@ def _follow(
                 if ev_name in ("FSDJump", "CarrierJump"):
                     with lock:
                         state.session_jumps += 1
+                    # Auto-honk: hold PrimaryFire binding to trigger discovery scanner
+                    if honk_binding is not None:
+                        from . import honk as _honk
+                        _honk.trigger(*honk_binding)
                 elif ev_name == "Scan":
                     if ev.get("ScanType") == "Detailed" and not ev.get("WasDiscovered"):
                         with lock:

@@ -63,6 +63,15 @@ def _fmt_value_short(v: int) -> str:
     return f"{v:,}".replace(",", _NNBSP)
 
 
+def _fmt_cr_compact(v: int) -> str:
+    """Abbreviated credit value for tight columns (e.g. '3.4M', '500K')."""
+    if v >= 1_000_000:
+        return f"{v/1_000_000:.1f}M"
+    if v >= 1_000:
+        return f"{v/1_000:.0f}K"
+    return str(v)
+
+
 def _fmt_ls_compact(ls: float) -> str:
     if ls <= 0: return "—"
     if ls >= 100:            return f"{int(ls):,}".replace(",", _NNBSP) + " ls"
@@ -701,11 +710,11 @@ class BodiesPanel(_Panel):
             row_styles=["", "on rgb(38,38,38)"],
         )
         HDR = "bold rgb(195,160,55)"
-        tbl.add_column("Body", style="white", width=11, header_style=HDR)
-        tbl.add_column("Type", width=10, header_style=HDR)
+        tbl.add_column("Body", style="white", width=10, header_style=HDR)
+        tbl.add_column("Type", width=9,  header_style=HDR)
         tbl.add_column("Val",  width=11, header_style=HDR, justify="right")
         tbl.add_column("Dist", width=11, header_style=HDR, justify="right")
-        tbl.add_column("B",    width=2,  header_style=HDR)
+        tbl.add_column("B",    width=4,  header_style=HDR)
         tbl.add_column("G",    width=2,  header_style=HDR)
         tbl.add_column("LTA",  width=5,  header_style=HDR)
         tbl.add_column("F",    width=2,  header_style=HDR)
@@ -775,10 +784,19 @@ class BodiesPanel(_Panel):
             name   = indent + display_name
             btype  = _abbrev_type(b.planet_class, b.star_type)
 
-            val     = _fmt_value_short(b.value if b.value > 0 else _estimated_value(b))
-            val_col = (P.GOLD if b.value > 1_000_000
-                       else ("white" if b.value > 0
-                             else (P.AMBER if _estimated_value(b) > 0 else P.DIM)))
+            is_bio_done = b.name in bio_done
+            if b.bio_signals > 0 and b.bio_value_max > 0 and not is_bio_done:
+                # Show genus-based estimate range before full scan
+                if b.bio_value_min == b.bio_value_max:
+                    val = f"~{_fmt_cr_compact(b.bio_value_min)}"
+                else:
+                    val = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
+                val_col = P.AMBER
+            else:
+                val     = _fmt_value_short(b.value if b.value > 0 else _estimated_value(b))
+                val_col = (P.GOLD if b.value > 1_000_000
+                           else ("white" if b.value > 0
+                                 else (P.AMBER if _estimated_value(b) > 0 else P.DIM)))
 
             dist     = _fmt_ls_compact(b.dist_ls)
             dist_col = "rgb(80,80,80)" if b.dist_ls == 0.0 else "white"
@@ -1239,7 +1257,7 @@ def _render_overview(s: AppState) -> RenderableType:
         b for b in s.bodies
         if b.planet_class in (
             "Earthlike body", "Water world", "Ammonia world",
-        ) or b.terraform or b.bio_signals > 0 or b.value > 500_000
+        ) or b.terraform or b.bio_signals > 0 or b.value > s.notable_value_threshold
     ]
     if notable:
         notable.sort(key=lambda b: _natural_key(_short_name(b.name, s.system)))
@@ -1276,6 +1294,231 @@ def _render_overview(s: AppState) -> RenderableType:
     if not parts:
         return Text("No data.", style=P.LABEL)
     return Group(*parts)
+
+
+# ── Braille canvas helper ──────────────────────────────────────────────────────
+
+# Bit values for each dot position in a 2×4 braille cell.
+# Index: [dot_row][dot_col]
+_BRAILLE_BIT = [
+    [1,   8],   # row 0: left=bit0, right=bit3
+    [2,   16],  # row 1: left=bit1, right=bit4
+    [4,   32],  # row 2: left=bit2, right=bit5
+    [64,  128], # row 3: left=bit6, right=bit7
+]
+
+
+def _braille_canvas(W: int, H: int) -> list[list[bool]]:
+    """Create a dot grid of size (H*4) rows × (W*2) cols, all False."""
+    return [[False] * (W * 2) for _ in range(H * 4)]
+
+
+def _braille_set(dots: list[list[bool]], px: int, py: int) -> None:
+    """Set a single dot at pixel position (px, py)."""
+    h4 = len(dots)
+    w2 = len(dots[0]) if dots else 0
+    if 0 <= py < h4 and 0 <= px < w2:
+        dots[py][px] = True
+
+
+def _braille_render(dots: list[list[bool]], W: int, H: int, color: str = "white") -> Text:
+    """Encode dot grid to Rich Text of braille characters."""
+    t = Text()
+    for row in range(H):
+        for col in range(W):
+            bits = 0
+            for dr in range(4):
+                for dc in range(2):
+                    if dots[row * 4 + dr][col * 2 + dc]:
+                        bits |= _BRAILLE_BIT[dr][dc]
+            t.append(chr(0x2800 + bits), style=color)
+        if row < H - 1:
+            t.append("\n")
+    return t
+
+
+def _braille_line(dots: list[list[bool]], x0: int, y0: int, x1: int, y1: int) -> None:
+    """Draw a line between two pixel positions using Bresenham."""
+    dx = abs(x1 - x0); sx = 1 if x0 < x1 else -1
+    dy = -abs(y1 - y0); sy = 1 if y0 < y1 else -1
+    err = dx + dy
+    x, y = x0, y0
+    for _ in range(max(abs(dx), abs(-dy)) + 1):
+        _braille_set(dots, x, y)
+        if x == x1 and y == y1:
+            break
+        e2 = 2 * err
+        if e2 >= dy: err += dy; x += sx
+        if e2 <= dx: err += dx; y += sy
+
+
+# ── Galaxy map renderer ────────────────────────────────────────────────────────
+
+def _render_galaxy(s: AppState, regional: bool = False) -> RenderableType:
+    """Top-down galactic map rendered in Braille Unicode."""
+    import math
+
+    W, H = 50, 22  # terminal chars (each = 2×4 dots)
+    dots = _braille_canvas(W, H)
+    DW, DH = W * 2, H * 4  # dot dimensions
+
+    # Scale
+    if regional:
+        half_range = 1_000.0  # ±1000 ly around player
+    else:
+        half_range = 65_000.0  # full galaxy (±65k ly)
+
+    # Player position in galaxy (x, z are galactic plane; y is up)
+    px_ly, _, pz_ly = s.star_pos if s.star_pos else (0.0, 0.0, 0.0)
+    if regional:
+        cx, cz = px_ly, pz_ly
+    else:
+        cx, cz = 0.0, 0.0  # galactic center view
+
+    def to_dot(x_ly: float, z_ly: float) -> tuple[int, int]:
+        nx = (x_ly - cx + half_range) / (2 * half_range)
+        nz = (z_ly - cz + half_range) / (2 * half_range)
+        # x → horizontal, z → vertical (inverted so "up" = positive z away from center)
+        dx = int(nx * (DW - 1))
+        dy = int((1.0 - nz) * (DH - 1))
+        return dx, dy
+
+    # Notable landmarks (galactic scale only)
+    if not regional:
+        landmarks = [
+            (25_899.0, -20_000.0, "Sgr A*"),
+            (-9_530.0,  -910.0,  "Colonia"),
+        ]
+        for lx, lz, _name in landmarks:
+            dx, dy = to_dot(lx, lz)
+            _braille_set(dots, dx, dy)
+
+    # Route waypoints
+    for wp in (s.route_list or []):
+        sp = wp.get("StarPos")
+        if isinstance(sp, list) and len(sp) == 3:
+            dx, dy = to_dot(sp[0], sp[2])
+            _braille_set(dots, dx, dy)
+
+    # Player position (mark with surrounding dots to make ⊕)
+    if s.star_pos:
+        pdx, pdy = to_dot(px_ly, pz_ly)
+        for ox, oy in ((0,0),(1,0),(-1,0),(0,1),(0,-1)):
+            _braille_set(dots, pdx + ox, pdy + oy)
+
+    canvas = _braille_render(dots, W, H, color=P.HUD_CYAN)
+
+    # Add legend below
+    t = Text()
+    t.append_text(canvas)
+    t.append("\n")
+    scale_str = f"±{int(half_range/1000)}k ly" if half_range >= 1000 else f"±{int(half_range)} ly"
+    mode_str = "regional [R]" if regional else "galactic [R]"
+    dest = f"  ★ {s.route_destination}" if s.route_destination else ""
+    t.append(f" Scale: {scale_str} ({mode_str}){dest}", style=P.LABEL)
+    return t
+
+
+# ── System orrery renderer ─────────────────────────────────────────────────────
+
+def _render_orrery(s: AppState) -> RenderableType:
+    """System orrery: orbital positions rendered in Braille Unicode."""
+    import math
+
+    bodies = [b for b in s.bodies if b.level in (0, 1) and (b.star_type or b.planet_class)]
+    if not bodies:
+        t = Text()
+        t.append("No body orbital data available.", style=P.LABEL)
+        return t
+
+    W, H = 50, 20
+    DW, DH = W * 2, H * 4
+    dots = _braille_canvas(W, H)
+
+    AU = 1.496e11  # metres per AU
+
+    # Collect (x_au, y_au) positions and max orbit radius
+    positions: list[tuple[float, float, BodyInfo]] = []
+    for b in bodies:
+        if b.star_type:
+            positions.append((0.0, 0.0, b))
+            continue
+        if b.semi_major_axis > 0 and b.orbital_period > 0:
+            # Solve Kepler's equation for eccentric anomaly E
+            M = math.radians(b.mean_anomaly)
+            e = b.eccentricity
+            E = M
+            for _ in range(10):
+                E -= (E - e * math.sin(E) - M) / (1.0 - e * math.cos(E))
+            a = b.semi_major_axis / AU
+            x = a * (math.cos(E) - e)
+            y = a * math.sqrt(max(0.0, 1.0 - e * e)) * math.sin(E)
+        elif b.dist_ls > 0:
+            # Fallback: circular at dist_ls (1 ls ≈ 300km, 1 AU ≈ 499 ls)
+            a = b.dist_ls / 499.0
+            x, y = a, 0.0
+        else:
+            continue
+        positions.append((x, y, b))
+
+    if len(positions) <= 1:
+        t = Text()
+        t.append("Insufficient orbital data.", style=P.LABEL)
+        return t
+
+    # Log-scale radius mapping
+    r_vals = [math.sqrt(x**2 + y**2) for x, y, _ in positions if math.sqrt(x**2 + y**2) > 0]
+    r_max = max(r_vals) if r_vals else 1.0
+    canvas_r = min(DW, DH) // 2 - 2
+
+    def log_r(r: float) -> float:
+        if r <= 0: return 0.0
+        return math.log(r + 1) / math.log(r_max + 1) * canvas_r
+
+    cx_dot, cy_dot = DW // 2, DH // 2
+
+    # Draw orbital ellipses for planets
+    for x, y, b in positions:
+        if b.star_type:
+            continue
+        r = math.sqrt(x**2 + y**2)
+        if r == 0:
+            continue
+        a = b.semi_major_axis / AU if b.semi_major_axis > 0 else (b.dist_ls / 499.0)
+        e = b.eccentricity
+        # Draw 100-step ellipse
+        for i in range(100):
+            angle = 2 * math.pi * i / 100
+            # Parametric ellipse (simplified, ignoring inclination for 2D)
+            ex = a * math.cos(angle)
+            ey = a * math.sqrt(max(0.0, 1.0 - e * e)) * math.sin(angle)
+            er = math.sqrt(ex**2 + ey**2)
+            er_s = log_r(er)
+            if er > 0:
+                ex_s = int(cx_dot + er_s * ex / er)
+                ey_s = int(cy_dot - er_s * ey / er)
+                _braille_set(dots, ex_s, ey_s)
+
+    # Draw bodies as dots
+    labels: list[tuple[int, int, str]] = []
+    for x, y, b in positions:
+        r = math.sqrt(x**2 + y**2)
+        r_s = log_r(r)
+        if r > 0:
+            bx = int(cx_dot + r_s * x / r)
+            by = int(cy_dot - r_s * y / r)
+        else:
+            bx, by = cx_dot, cy_dot
+        for ox, oy in ((0,0),(1,0),(-1,0),(0,1),(0,-1)):
+            _braille_set(dots, bx + ox, by + oy)
+        short = _short_name(b.name, s.system) or ("★" if b.star_type else "?")
+        labels.append((bx // 2, by // 4, short[:4]))
+
+    t = Text()
+    t.append_text(_braille_render(dots, W, H, color=P.HUD_CYAN))
+    t.append("\n", style=P.LABEL)
+    t.append(" (orbital positions at scan time)", style=P.LABEL)
+    return t
 
 
 # ── Bio panel (kept for standalone use) ───────────────────────────────────────
@@ -1367,9 +1610,10 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES  = ("auto", "overview", "inventory", "bio", "missions", "engineers")
-    _mode:   str = "auto"
-    _active: str = "overview"
+    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy", "orrery")
+    _mode:   str     = "auto"
+    _active: str     = "overview"
+    _galaxy_regional: bool = False
 
     DEFAULT_CSS = """
     SituationalPanel {
@@ -1388,12 +1632,20 @@ class SituationalPanel(_Panel):
         self.border_title = self._make_title()
         self.refresh()
 
+    def toggle_galaxy_scale(self) -> None:
+        """Toggle between galactic and regional scale in galaxy mode."""
+        self._galaxy_regional = not self._galaxy_regional
+        self.refresh()
+
     def _resolve(self, s: AppState) -> str:
         if self._mode != "auto":
             return self._mode
         # Incomplete bio scans only exist when player is actively scanning on a surface
         if any(not sc.complete for sc in s.bio_scans):
             return "bio"
+        # Active route → show galaxy map
+        if s.route_hops > 0:
+            return "galaxy"
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return "missions"
@@ -1422,6 +1674,10 @@ class SituationalPanel(_Panel):
             return _render_engineers(s)
         if self._active == "inventory":
             return _render_inventory(s)
+        if self._active == "galaxy":
+            return _render_galaxy(s, regional=self._galaxy_regional)
+        if self._active == "orrery":
+            return _render_orrery(s)
         return _render_overview(s)
 
 

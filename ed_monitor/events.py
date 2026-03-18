@@ -177,6 +177,25 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
 # Lowercase-keyed alias for case-insensitive fallback lookups
 _BIO_SPECIES_VALUES_LC: dict[str, int] = {k.lower(): v for k, v in _BIO_SPECIES_VALUES.items()}
 
+# Min/max value range per genus (first word of genus localised name, lowercase)
+_BIO_GENUS_VALUE_RANGE: dict[str, tuple[int, int]] = {
+    "aleoida":    (3_385_200,  12_934_900),
+    "bacterium":  (1_000_600,   8_418_000),
+    "cactoida":   (2_483_600,  16_202_800),
+    "clypeus":    (8_418_000,  16_202_800),
+    "concha":     (2_352_400,  19_010_800),
+    "electricae": (6_284_600,   6_284_600),
+    "fonticulua": (1_000_600,  20_000_200),
+    "frutexa":    (1_632_400,  10_326_000),
+    "fumerola":   (6_284_600,  16_202_800),
+    "fungoida":   (1_000_600,   3_703_200),
+    "osseus":     (1_483_000,  12_934_900),
+    "recepta":    (12_934_900, 16_202_800),
+    "stratum":    (1_362_000,  19_010_800),
+    "tubus":      (2_415_500,  11_873_200),
+    "tussock":    (1_000_600,  19_010_800),
+}
+
 
 def _bio_value_lookup(species_loc: str) -> int:
     """Return species value, tolerating case/whitespace mismatches and internal IDs."""
@@ -300,8 +319,10 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
         lang  = _detect_lang(msg)
         voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
         verb  = _LANG_VERBS.get(lang, "says")
-        prefix = f"{source} " if source else ""
-        text = f"{prefix}{user} {verb}: {msg}"
+        if source:
+            text = f"User {user} on {source} {verb}: {msg}"
+        else:
+            text = f"{user} {verb}: {msg}"
         tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=False, voice=voice))
     except Exception:
         pass
@@ -653,6 +674,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.lat    = lat
             state.lon    = lon
             state.landed = True
+            # Infer first footfall from first discovery when journal flag is absent
+            if not first_footfall and (body or body_td_id > 0):
+                for b in state.bodies:
+                    if (b.name == body or b.body_id == body_td_id) and b.first_discovered:
+                        first_footfall = True
+                        break
             if first_footfall and (body or body_td_id > 0):
                 if body:
                     state.first_footfall_body = body
@@ -678,18 +705,24 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             # Odyssey: player leaves ship/SRV on foot.
             # Handle FirstFootfall for Apex/Frontline arrivals (no Touchdown event).
             first_footfall = _b(ev, "FirstFootfall")
+            body_dis       = _s(ev, "Body") or _s(ev, "BodyName")
+            body_dis_id    = _u(ev, "BodyID")
+            # Infer first footfall from first discovery when journal flag is absent
+            if not first_footfall and (body_dis or body_dis_id > 0):
+                for b in state.bodies:
+                    if (b.name == body_dis or b.body_id == body_dis_id) and b.first_discovered:
+                        first_footfall = True
+                        break
             if first_footfall:
-                body       = _s(ev, "Body") or _s(ev, "BodyName")
-                body_dis_id = _u(ev, "BodyID")
-                if body:
-                    state.first_footfall_body = body
+                if body_dis:
+                    state.first_footfall_body = body_dis
                 if body_dis_id > 0:
                     state.first_footfall_body_id = body_dis_id
                 for sc in state.bio_scans:
-                    if body and sc.body == body:
+                    if body_dis and sc.body == body_dis:
                         sc.first_footfall = True
                 _speak(tts_q, "First footfall on this world!", True)
-                return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body or 'Unknown'}.")
+                return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None
 
         # ── Combat ───────────────────────────────────────────────────────────
@@ -786,6 +819,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     first_mapped=not _b(ev, "WasMapped"),
                     mapped=False, fss_scanned=scan_type in ("Detailed", "AutoScan"),
                     radius=radius,
+                    semi_major_axis=_f(ev, "SemiMajorAxis"),
+                    orbital_period=_f(ev, "OrbitalPeriod"),
+                    mean_anomaly=_f(ev, "MeanAnomaly"),
+                    eccentricity=_f(ev, "Eccentricity"),
+                    orbital_inclination=_f(ev, "OrbitalInclination"),
                 ))
 
             if scan_type not in ("Detailed", "AutoScan"):
@@ -839,8 +877,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 return None
 
         case "SAAScanComplete":
-            body_name = _s(ev, "BodyName")
-            short     = _short_body(body_name, state.system)
+            body_name         = _s(ev, "BodyName")
+            short             = _short_body(body_name, state.system)
+            probes_used       = _u(ev, "ProbesUsed")
+            efficiency_target = _u(ev, "EfficiencyTarget")
             bio_count = 0
             geo_count = 0
             for b in state.bodies:
@@ -859,6 +899,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             msg = f"Mapped: {short}."
             if sig_parts:
                 msg += f" Signals: {', '.join(sig_parts)}."
+            if efficiency_target > 0:
+                if probes_used <= efficiency_target:
+                    msg += " Efficiency target reached."
+                else:
+                    msg += f" Efficiency target missed: {probes_used} probes, target {efficiency_target}."
             _speak(tts_q, msg, False)
             return LogEvent.new(EventCategory.Explore, msg)
 
@@ -937,7 +982,18 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                         count    = _u(sig, "Count")
                         if "Biological"   in sig_type: b.bio_signals = count
                         elif "Geological" in sig_type: b.geo_signals = count
-                    b.bio_genuses = [n for n in (_loc(g, "Genus") for g in genuses) if n]
+                    genus_names = [n for n in (_loc(g, "Genus") for g in genuses) if n]
+                    b.bio_genuses = genus_names
+                    # Estimate bio value range from genus data
+                    if genus_names:
+                        bvmin = bvmax = 0
+                        for g in genus_names:
+                            key = g.lower().split()[0] if g else ""
+                            lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                            bvmin += lo
+                            bvmax += hi
+                        b.bio_value_min = bvmin
+                        b.bio_value_max = bvmax
                     break
             return None
 
@@ -1025,6 +1081,27 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     msg_tts = f"Bio complete: {species_loc}. Value: {val_str}."
                     msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(final_val) if final_val > 0 else '?'}."
                     _speak(tts_q, msg_tts, False)
+                    # Bio completion contextual announcement
+                    body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
+                    body_info  = next((b for b in state.bodies if b.name == body_name), None)
+                    body_total = body_info.bio_signals if body_info else body_done
+                    body_left  = body_total - body_done
+                    bodies_with_bio = [b for b in state.bodies if b.bio_signals > 0]
+                    remaining_by_body = {
+                        b.name: b.bio_signals - sum(1 for s in state.bio_scans if s.body == b.name and s.complete)
+                        for b in bodies_with_bio
+                    }
+                    remaining_by_body = {k: v for k, v in remaining_by_body.items() if v > 0}
+                    if body_left > 0:
+                        word = "bio" if body_left == 1 else "bios"
+                        verb = "is" if body_left == 1 else "are"
+                        suffix = f"There {verb} {body_left} more {word} on this body."
+                    elif remaining_by_body:
+                        parts_r = [f"{v} on {_short_body(k, state.system)}" for k, v in remaining_by_body.items()]
+                        suffix = f"More bio signals: {', '.join(parts_r)}."
+                    else:
+                        suffix = "All bio signals in this system are complete."
+                    _speak(tts_q, suffix, False)
                     return LogEvent.new(EventCategory.Explore, msg_log)
 
                 case _:

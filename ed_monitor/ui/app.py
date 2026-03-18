@@ -257,6 +257,9 @@ class NOVAApp(App):
         elif key == "tab":
             self.query_one(SituationalPanel).cycle()
 
+        elif key == "r":
+            self.query_one(SituationalPanel).toggle_galaxy_scale()
+
         elif key in ("plus", "equal", "+", "="):
             with self._vol_lock:
                 self._volume[0] = min(self._volume[0] + 5, 100)

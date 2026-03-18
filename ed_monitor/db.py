@@ -60,6 +60,13 @@ class Database:
         migrations = [
             "ALTER TABLE events ADD COLUMN event_date TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE bodies ADD COLUMN fss_scanned INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN bio_value_min INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN bio_value_max INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN semi_major_axis REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN orbital_period REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN mean_anomaly REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN eccentricity REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN orbital_inclination REAL NOT NULL DEFAULT 0",
             """CREATE TABLE IF NOT EXISTS bio_scans (
                 system            TEXT    NOT NULL,
                 body              TEXT    NOT NULL,
@@ -167,8 +174,10 @@ class Database:
                 """INSERT OR REPLACE INTO bodies
                    (system, body_name, body_id, level, planet_class, star_type, atmosphere,
                     terraform, landable, bio_signals, geo_signals, bio_genuses, dist_ls, value,
-                    first_discovered, first_mapped, mapped, fss_scanned, radius)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    first_discovered, first_mapped, mapped, fss_scanned, radius,
+                    bio_value_min, bio_value_max,
+                    semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     system, body.name, body.body_id, body.level,
                     body.planet_class, body.star_type, body.atmosphere,
@@ -177,6 +186,9 @@ class Database:
                     body.dist_ls, body.value,
                     int(body.first_discovered), int(body.first_mapped),
                     int(body.mapped), int(body.fss_scanned), body.radius,
+                    body.bio_value_min, body.bio_value_max,
+                    body.semi_major_axis, body.orbital_period,
+                    body.mean_anomaly, body.eccentricity, body.orbital_inclination,
                 ),
             )
             self._conn.commit()
@@ -233,7 +245,9 @@ class Database:
             rows = self._conn.execute(
                 """SELECT body_name, body_id, level, planet_class, star_type, atmosphere,
                           terraform, landable, bio_signals, geo_signals, bio_genuses,
-                          dist_ls, value, first_discovered, first_mapped, mapped, fss_scanned, radius
+                          dist_ls, value, first_discovered, first_mapped, mapped, fss_scanned, radius,
+                          bio_value_min, bio_value_max,
+                          semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination
                    FROM bodies WHERE system = ?""",
                 (system,),
             ).fetchall()
@@ -249,5 +263,9 @@ class Database:
                 dist_ls=float(row[11]), value=int(row[12]),
                 first_discovered=bool(row[13]), first_mapped=bool(row[14]),
                 mapped=bool(row[15]), fss_scanned=bool(row[16]), radius=float(row[17]),
+                bio_value_min=int(row[18] or 0), bio_value_max=int(row[19] or 0),
+                semi_major_axis=float(row[20] or 0), orbital_period=float(row[21] or 0),
+                mean_anomaly=float(row[22] or 0), eccentricity=float(row[23] or 0),
+                orbital_inclination=float(row[24] or 0),
             ))
         return result
