@@ -714,8 +714,8 @@ class BodiesPanel(_Panel):
             row_styles=["", "on rgb(38,38,38)"],
         )
         HDR = "bold rgb(195,160,55)"
-        tbl.add_column("Body", style="white", width=10, header_style=HDR)
-        tbl.add_column("Type", width=9,  header_style=HDR)
+        tbl.add_column("Body", style="white", width=11, header_style=HDR)
+        tbl.add_column("Type", width=8,  header_style=HDR)
         tbl.add_column("Val",  width=11, header_style=HDR, justify="right")
         tbl.add_column("Dist", width=11, header_style=HDR, justify="right")
         tbl.add_column("B",    width=4,  header_style=HDR)
