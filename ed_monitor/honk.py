@@ -118,12 +118,39 @@ def _hold_linux_joystick(
         pass
 
 
+# ED binding name → evdev key name (where they differ)
+_ED_TO_EVDEV: dict[str, str] = {
+    "NUMPAD_0":        "KP0",
+    "NUMPAD_1":        "KP1",
+    "NUMPAD_2":        "KP2",
+    "NUMPAD_3":        "KP3",
+    "NUMPAD_4":        "KP4",
+    "NUMPAD_5":        "KP5",
+    "NUMPAD_6":        "KP6",
+    "NUMPAD_7":        "KP7",
+    "NUMPAD_8":        "KP8",
+    "NUMPAD_9":        "KP9",
+    "NUMPAD_MULTIPLY": "KPASTERISK",
+    "NUMPAD_ADD":      "KPPLUS",
+    "NUMPAD_SUBTRACT": "KPMINUS",
+    "NUMPAD_DECIMAL":  "KPDOT",
+    "NUMPAD_DIVIDE":   "KPSLASH",
+    "NUMPAD_ENTER":    "KPENTER",
+    "RETURN":          "ENTER",
+    "LMENU":           "LEFTALT",
+    "RMENU":           "RIGHTALT",
+    "LCONTROL":        "LEFTCTRL",
+    "RCONTROL":        "RIGHTCTRL",
+    "LSHIFT":          "LEFTSHIFT",
+    "RSHIFT":          "RIGHTSHIFT",
+}
+
+
 def _hold_linux_keyboard(key_name: str, UInput, ecodes) -> None:
     """Hold a keyboard key via UInput."""
-    # Strip "Key_" prefix and map to evdev key code
-    bare = key_name.removeprefix("Key_")
-    # Try exact match first (e.g. KEY_SPACE), then constructed name
-    ecode = getattr(ecodes, f"KEY_{bare.upper()}", None)
+    bare = key_name.removeprefix("Key_").upper()
+    evdev_name = _ED_TO_EVDEV.get(bare, bare)
+    ecode = getattr(ecodes, f"KEY_{evdev_name}", None)
     if ecode is None:
         return
 

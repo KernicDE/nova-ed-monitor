@@ -5,7 +5,6 @@ the PrimaryFire binding from the active custom bindings file.
 """
 from __future__ import annotations
 
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -75,9 +74,8 @@ def read_primary_fire(journal_dir: Path) -> tuple[str, str] | None:
     if pf is None:
         return None
 
-    is_windows = sys.platform == "win32"
-
-    # Try Primary first, then Secondary
+    # Try Primary first, then Secondary — skip joystick devices on all platforms.
+    # Joystick UInput simulation is unreliable through Proton; keyboard keys work universally.
     for tag in ("Primary", "Secondary"):
         el = pf.find(tag)
         if el is None:
@@ -86,8 +84,7 @@ def read_primary_fire(journal_dir: Path) -> tuple[str, str] | None:
         key    = el.get("Key", "")
         if not device or not key or device == "{NoDevice}":
             continue
-        # On Windows skip joystick devices — only Keyboard/Mouse work without vJoy
-        if is_windows and device not in ("Keyboard", "Mouse"):
+        if device not in ("Keyboard", "Mouse"):
             continue
         return (device, key)
 
