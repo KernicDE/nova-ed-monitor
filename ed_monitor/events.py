@@ -510,6 +510,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.approach_body       = ""
             state.first_footfall_body    = ""
             state.first_footfall_body_id = -1
+            state.first_footfall_spoke   = ""
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -689,9 +690,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 for sc in state.bio_scans:
                     if (body and sc.body == body):
                         sc.first_footfall = True
-                _speak(tts_q, "First footfall on this world!", True)
-                msg = f"FIRST FOOTFALL! Touchdown at {lat:.2f}, {lon:.2f}."
-                return LogEvent.new(EventCategory.Explore, msg)
+                # Don't announce here — wait for Disembark (player actually stepping out)
             msg = f"Touchdown at {lat:.2f}, {lon:.2f}."
             _speak(tts_q, msg, False)
             return LogEvent.new(EventCategory.Nav, msg)
@@ -703,10 +702,16 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
 
         case "Disembark":
             # Odyssey: player leaves ship/SRV on foot.
-            # Handle FirstFootfall for Apex/Frontline arrivals (no Touchdown event).
+            # Handle FirstFootfall — announce here (not on Touchdown) so it fires
+            # exactly when the player steps onto the surface.
             first_footfall = _b(ev, "FirstFootfall")
             body_dis       = _s(ev, "Body") or _s(ev, "BodyName")
             body_dis_id    = _u(ev, "BodyID")
+            # Inherit first footfall flag set by Touchdown for this body
+            if not first_footfall and (body_dis or body_dis_id > 0):
+                if (body_dis and state.first_footfall_body == body_dis) or \
+                   (body_dis_id > 0 and state.first_footfall_body_id == body_dis_id):
+                    first_footfall = True
             # Infer first footfall from first discovery when journal flag is absent
             if not first_footfall and (body_dis or body_dis_id > 0):
                 for b in state.bodies:
@@ -721,8 +726,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 for sc in state.bio_scans:
                     if body_dis and sc.body == body_dis:
                         sc.first_footfall = True
-                _speak(tts_q, "First footfall on this world!", True)
-                return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
+                # Only announce once per body per system visit
+                already_spoke = (body_dis and state.first_footfall_spoke == body_dis) or \
+                                (not body_dis and body_dis_id > 0 and
+                                 state.first_footfall_body_id == body_dis_id and
+                                 state.first_footfall_spoke == state.first_footfall_body)
+                if not already_spoke:
+                    state.first_footfall_spoke = body_dis or state.first_footfall_body
+                    _speak(tts_q, "First footfall on this world!", True)
+                    return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None
 
         # ── Combat ───────────────────────────────────────────────────────────

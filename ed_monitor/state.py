@@ -172,6 +172,7 @@ class AppState:
 
     # Ship status
     hull:           float = 1.0
+    shield:         float = 1.0
     shields_up:     bool  = True
     fuel:           float = 0.0
     fuel_max:       float = 0.0
@@ -209,6 +210,7 @@ class AppState:
     heading:      Optional[float] = None
     first_footfall_body:    str = ""  # body name where player has first footfall
     first_footfall_body_id: int = -1  # body ID (more reliable than name matching)
+    first_footfall_spoke:   str = ""  # body name where announcement was already made
 
     # Route
     route_destination:    str  = ""

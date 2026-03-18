@@ -198,6 +198,14 @@ def _apply_status(
         else:
             if state.heat > 99.0: state.heat = 99.0 # Clamp if flag cleared
 
+        v = data.get("ShieldHealth")
+        if isinstance(v, (int, float)):
+            state.shield = float(v) if v <= 1.0 else float(v) / 100.0
+        elif not state.shields_up:
+            state.shield = 0.0
+        elif state.shields_up and state.shield == 0.0:
+            state.shield = 1.0
+
         fuel = data.get("Fuel")
         if isinstance(fuel, dict):
             v = fuel.get("FuelMain")
