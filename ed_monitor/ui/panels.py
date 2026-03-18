@@ -1757,7 +1757,7 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy")
+    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy", "stats")
     _mode:   str     = "auto"
     _active: str     = "overview"
     _galaxy_regional: bool = False
@@ -1821,7 +1821,87 @@ class SituationalPanel(_Panel):
         if self._active == "galaxy":
             return _render_galaxy(s, regional=self._galaxy_regional,
                                   panel_w=self.size.width, panel_h=self.size.height)
+        if self._active == "stats":
+            return _render_stats(s)
         return _render_overview(s)
+
+
+def _render_stats(s: AppState) -> RenderableType:
+    st = s.stats  # {stat_key: {today, week, month, year, total}}
+
+    def _g(key: str, period: str) -> float:
+        return st.get(key, {}).get(period, 0.0)
+
+    def _fmt_count(v: float) -> str:
+        n = int(v)
+        if n == 0:         return "—"
+        if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
+        if n >= 10_000:    return f"{n//1000}k"
+        if n >= 1_000:     return f"{n:,}"
+        return str(n)
+
+    def _fmt_ly(v: float) -> str:
+        if v == 0:          return "—"
+        if v >= 1_000_000:  return f"{v/1_000_000:.1f}Mly"
+        if v >= 1_000:      return f"{v/1_000:.1f}kly"
+        return f"{v:.0f}ly"
+
+    def _fmt_cr(v: float) -> str:
+        if v == 0: return "—"
+        return _fmt_value_short(int(v))
+
+    HDR  = "bold rgb(195,160,55)"
+    MAIN = "white"
+    SUB  = P.LABEL
+
+    tbl = Table(show_header=False, show_edge=False, show_lines=False,
+                padding=(0, 1), box=None)
+    tbl.add_column("label", width=11)
+    tbl.add_column("today", width=7,  justify="right")
+    tbl.add_column("week",  width=7,  justify="right")
+    tbl.add_column("month", width=7,  justify="right")
+    tbl.add_column("year",  width=8,  justify="right")
+    tbl.add_column("total", width=8,  justify="right")
+
+    # Header
+    tbl.add_row(
+        Text("",      style=HDR),
+        Text("Today", style=HDR),
+        Text("Week",  style=HDR),
+        Text("Month", style=HDR),
+        Text("Year",  style=HDR),
+        Text("Total", style=HDR),
+    )
+
+    PERIODS = ("today", "week", "month", "year", "total")
+
+    def row(label: str, key: str, fmt_fn, indent: bool = False) -> None:
+        lbl       = f" {label}" if indent else label
+        lbl_style = SUB if indent else MAIN
+        val_style = SUB if indent else MAIN
+        tbl.add_row(
+            Text(lbl, style=lbl_style),
+            *[Text(fmt_fn(_g(key, p)), style=val_style) for p in PERIODS],
+        )
+
+    row("Jumps",      "jump_count",         _fmt_count)
+    row("Distance",   "jump_dist_ly",        _fmt_ly,    indent=True)
+    row("Credits +",  "credits_earned",      _fmt_cr)
+    row("Credits −",  "credits_spent",       _fmt_cr)
+    row("FSS Bodies", "fss_count",           _fmt_count)
+    row("Undiscov.",  "fss_undiscovered",    _fmt_count, indent=True)
+    row("Value",      "fss_value",           _fmt_cr,    indent=True)
+    row("DSS Bodies", "dss_count",           _fmt_count)
+    row("Undiscov.",  "dss_undiscovered",    _fmt_count, indent=True)
+    row("Value",      "dss_value",           _fmt_cr,    indent=True)
+    row("Bio Scanned","bio_count",           _fmt_count)
+    row("1st Ffall.", "bio_first_footfall",  _fmt_count, indent=True)
+    row("Value",      "bio_value",           _fmt_cr,    indent=True)
+    row("Enemies",    "enemies_destroyed",   _fmt_count)
+    row("Ships Lost", "ships_lost",          _fmt_count)
+
+    return Panel(tbl, title="STATISTICS", title_align="left",
+                 border_style=P.LABEL, padding=(0, 0), expand=True)
 
 
 # ── Event log panel ───────────────────────────────────────────────────────────

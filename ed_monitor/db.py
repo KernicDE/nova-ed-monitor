@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .state import BioScan, BodyInfo, LogEvent
@@ -68,6 +68,12 @@ class Database:
             "ALTER TABLE bodies ADD COLUMN eccentricity REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN orbital_inclination REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN surface_gravity REAL NOT NULL DEFAULT 0",
+            """CREATE TABLE IF NOT EXISTS stats (
+                date  TEXT NOT NULL,
+                stat  TEXT NOT NULL,
+                value REAL NOT NULL DEFAULT 0,
+                PRIMARY KEY (date, stat)
+            )""",
             """CREATE TABLE IF NOT EXISTS bio_scans (
                 system            TEXT    NOT NULL,
                 body              TEXT    NOT NULL,
@@ -273,4 +279,34 @@ class Database:
                 orbital_inclination=float(row[24] or 0),
                 surface_gravity=float(row[25] or 0),
             ))
+        return result
+
+    def increment_stat(self, stat: str, value: float = 1.0) -> None:
+        today = date.today().isoformat()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO stats (date, stat, value) VALUES (?, ?, ?) "
+                "ON CONFLICT(date, stat) DO UPDATE SET value = value + excluded.value",
+                (today, stat, float(value)),
+            )
+            self._conn.commit()
+
+    def get_stats(self) -> dict:
+        today       = date.today()
+        week_ago    = (today - timedelta(days=6)).isoformat()
+        month_start = today.replace(day=1).isoformat()
+        year_start  = today.replace(month=1, day=1).isoformat()
+        today_s     = today.isoformat()
+        with self._lock:
+            rows = self._conn.execute("SELECT date, stat, value FROM stats").fetchall()
+        result: dict = {}
+        for date_s, stat, value in rows:
+            if stat not in result:
+                result[stat] = {"today": 0.0, "week": 0.0, "month": 0.0, "year": 0.0, "total": 0.0}
+            r = result[stat]
+            r["total"] += value
+            if date_s >= year_start:  r["year"]  += value
+            if date_s >= month_start: r["month"] += value
+            if date_s >= week_ago:    r["week"]  += value
+            if date_s == today_s:     r["today"] += value
         return result

@@ -103,6 +103,9 @@ def monitor(
         edsm_q, last_file, last_offset
     )
 
+    with lock:
+        state.stats = db.get_stats()
+
     while True:
         latest = _get_latest(journal_dir)
 
@@ -403,6 +406,82 @@ def _follow(
                 elif ev_name == "SAAScanComplete":
                     with lock:
                         state.session_mapped += 1
+
+                # Persistent statistics (live events only)
+                _stat_changed = False
+                if ev_name == "FSDJump":
+                    db.increment_stat("jump_count")
+                    dist_ly = float(effective.get("JumpDist") or 0.0)
+                    if dist_ly: db.increment_stat("jump_dist_ly", dist_ly)
+                    _stat_changed = True
+                elif ev_name == "Scan" and effective.get("ScanType") == "Detailed":
+                    if effective.get("PlanetClass") or effective.get("StarType"):
+                        db.increment_stat("fss_count")
+                        if not effective.get("WasDiscovered"):
+                            db.increment_stat("fss_undiscovered")
+                        val = int(effective.get("EstimatedValue") or 0)
+                        if val: db.increment_stat("fss_value", val)
+                        _stat_changed = True
+                elif ev_name == "SAAScanComplete":
+                    body_nm = effective.get("BodyName", "")
+                    db.increment_stat("dss_count")
+                    with lock:
+                        _b = next((b for b in state.bodies if b.name == body_nm), None)
+                    if _b:
+                        if _b.first_discovered: db.increment_stat("dss_undiscovered")
+                        if _b.value > 0:        db.increment_stat("dss_value", _b.value)
+                    _stat_changed = True
+                elif ev_name == "ScanOrganic" and effective.get("ScanType") == "Analyse":
+                    db.increment_stat("bio_count")
+                    _sp  = effective.get("Species", "")
+                    _bid = int(effective.get("Body") or 0)
+                    with lock:
+                        _bn = next((b.name for b in state.bodies if b.body_id == _bid), None)
+                        _sc = next((s for s in state.bio_scans
+                                    if s.species == _sp and (_bn is None or s.body == _bn) and s.complete), None)
+                    if _sc:
+                        if _sc.first_footfall:  db.increment_stat("bio_first_footfall")
+                        if _sc.value > 0:       db.increment_stat("bio_value", _sc.value)
+                    _stat_changed = True
+                elif ev_name in ("Bounty", "FactionKillBond"):
+                    db.increment_stat("enemies_destroyed")
+                    _stat_changed = True
+                elif ev_name == "Died":
+                    db.increment_stat("ships_lost")
+                    _stat_changed = True
+                elif ev_name in ("MultiSellExplorationData", "SellExplorationData"):
+                    _e = int((effective.get("BaseValue") or 0) + (effective.get("Bonus") or 0))
+                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                elif ev_name == "SellOrganicData":
+                    _e = int(effective.get("TotalEarnings") or 0)
+                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                elif ev_name == "RedeemVoucher":
+                    _e = int(effective.get("Amount") or 0)
+                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                elif ev_name == "MissionCompleted":
+                    _e = int(effective.get("Reward") or 0)
+                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                elif ev_name == "MarketSell":
+                    _e = int(effective.get("TotalSale") or 0)
+                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                elif ev_name == "MarketBuy":
+                    _s = int(effective.get("TotalCost") or 0)
+                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                elif ev_name == "ShipyardBuy":
+                    _s = int(effective.get("ShipPrice") or 0)
+                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                elif ev_name == "ModuleBuy":
+                    _s = int(effective.get("BuyPrice") or 0)
+                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                elif ev_name in ("BuyAmmo", "RepairAll", "Repair"):
+                    _s = int(effective.get("Cost") or 0)
+                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                elif ev_name == "BuyDrones":
+                    _s = int(effective.get("TotalCost") or 0)
+                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                if _stat_changed:
+                    with lock:
+                        state.stats = db.get_stats()
 
                 # After jump or start: load saved bodies, trigger EDSM fetch
                 if ev_name in ("FSDJump", "CarrierJump", "Location"):

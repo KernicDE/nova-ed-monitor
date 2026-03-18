@@ -259,6 +259,9 @@ class AppState:
     session_mapped:     int = 0
     session_value:      int = 0
 
+    # Persistent statistics (from DB, keyed by stat_name → {today,week,month,year,total})
+    stats: dict = field(default_factory=dict)
+
     # Cargo inventory (from Cargo.json)
     cargo_items: list = field(default_factory=list)  # list[dict] {name, count, stolen}
 
