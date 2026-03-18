@@ -411,8 +411,9 @@ def _follow(
                             except Exception:
                                 pass
 
-                # After scan events: save updated bodies
-                if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound", "SAAScanComplete"):
+                # After scan events: save updated bodies and bio scans
+                if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound", "SAAScanComplete",
+                               "ScanOrganic"):
                     _save_current_bodies(state, lock, db)
 
                 if log_ev is not None:
@@ -438,10 +439,12 @@ def _save_current_bodies(state: AppState, lock: threading.RLock, db: Database) -
     with lock:
         system = state.system
         bodies = list(state.bodies)
+        bio_scans = list(state.bio_scans)
     if not system or system == "—":
         return
     for body in bodies:
         db.save_body(system, body)
+    db.save_bio_scans(system, bio_scans)
 
 
 def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) -> None:
@@ -450,11 +453,17 @@ def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) ->
     if not system or system == "—":
         return
     saved = db.load_bodies(system)
-    if not saved:
-        return
-    with lock:
-        for body in saved:
-            state.upsert_body(body)
+    if saved:
+        with lock:
+            for body in saved:
+                state.upsert_body(body)
+    saved_scans = db.load_bio_scans(system)
+    if saved_scans:
+        with lock:
+            for sc in saved_scans:
+                if not any(s.species == sc.species and s.body == sc.body
+                           for s in state.bio_scans):
+                    state.bio_scans.append(sc)
 
 
 # ── File helpers ───────────────────────────────────────────────────────────────

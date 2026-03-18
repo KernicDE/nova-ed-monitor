@@ -5,7 +5,7 @@ import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .state import BodyInfo, LogEvent
+from .state import BioScan, BodyInfo, LogEvent
 
 
 class Database:
@@ -60,6 +60,25 @@ class Database:
         migrations = [
             "ALTER TABLE events ADD COLUMN event_date TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE bodies ADD COLUMN fss_scanned INTEGER NOT NULL DEFAULT 0",
+            """CREATE TABLE IF NOT EXISTS bio_scans (
+                system            TEXT    NOT NULL,
+                body              TEXT    NOT NULL,
+                species           TEXT    NOT NULL,
+                species_localised TEXT    NOT NULL DEFAULT '',
+                genus_localised   TEXT    NOT NULL DEFAULT '',
+                samples           INTEGER NOT NULL DEFAULT 1,
+                min_dist          REAL    NOT NULL DEFAULT 0,
+                body_radius       REAL    NOT NULL DEFAULT 0,
+                value             INTEGER NOT NULL DEFAULT 0,
+                complete          INTEGER NOT NULL DEFAULT 0,
+                first_discovered  INTEGER NOT NULL DEFAULT 0,
+                first_footfall    INTEGER NOT NULL DEFAULT 0,
+                sample_lats       TEXT    NOT NULL DEFAULT '',
+                sample_lons       TEXT    NOT NULL DEFAULT '',
+                last_lat          REAL,
+                last_lon          REAL,
+                PRIMARY KEY (system, body, species)
+            )""",
         ]
         with self._lock:
             for sql in migrations:
@@ -161,6 +180,53 @@ class Database:
                 ),
             )
             self._conn.commit()
+
+    def save_bio_scans(self, system: str, scans: list[BioScan]) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM bio_scans WHERE system = ?", (system,))
+            for sc in scans:
+                self._conn.execute(
+                    """INSERT INTO bio_scans
+                       (system, body, species, species_localised, genus_localised,
+                        samples, min_dist, body_radius, value, complete,
+                        first_discovered, first_footfall,
+                        sample_lats, sample_lons, last_lat, last_lon)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        system, sc.body, sc.species, sc.species_localised, sc.genus_localised,
+                        sc.samples, sc.min_dist, sc.body_radius, sc.value, int(sc.complete),
+                        int(sc.first_discovered), int(sc.first_footfall),
+                        "|".join(str(v) for v in sc.sample_lats),
+                        "|".join(str(v) for v in sc.sample_lons),
+                        sc.last_lat, sc.last_lon,
+                    ),
+                )
+            self._conn.commit()
+
+    def load_bio_scans(self, system: str) -> list[BioScan]:
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT body, species, species_localised, genus_localised,
+                          samples, min_dist, body_radius, value, complete,
+                          first_discovered, first_footfall,
+                          sample_lats, sample_lons, last_lat, last_lon
+                   FROM bio_scans WHERE system = ?""",
+                (system,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            lats = [float(v) for v in row[11].split("|") if v]
+            lons = [float(v) for v in row[12].split("|") if v]
+            result.append(BioScan(
+                body=row[0], species=row[1], species_localised=row[2], genus_localised=row[3],
+                samples=int(row[4]), min_dist=float(row[5]), body_radius=float(row[6]),
+                value=int(row[7]), complete=bool(row[8]),
+                first_discovered=bool(row[9]), first_footfall=bool(row[10]),
+                sample_lats=lats, sample_lons=lons,
+                last_lat=row[13], last_lon=row[14],
+                current_dist=None, alerted=False,
+            ))
+        return result
 
     def load_bodies(self, system: str) -> list[BodyInfo]:
         with self._lock:
