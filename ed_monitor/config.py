@@ -207,7 +207,10 @@ def load() -> Config:
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
-                if marker not in text:
+                # Strip "# " to get the bare key name so we match both
+                # the commented form ("# auto_honk") and active form ("auto_honk = true")
+                key = marker.lstrip("#").strip().split()[0]
+                if key not in text:
                     text += section
                     appended = True
             if appended:
