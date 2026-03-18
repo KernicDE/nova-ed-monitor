@@ -193,8 +193,6 @@ def _apply_status(
                 _q("Analysis mode." if new_analysis else "Combat mode.")
             if new_srv != prev_srv:
                 _q("S R V deployed." if new_srv else "S R V secured.")
-            if new_orbital_cruise and not prev_orbital_cruise:
-                _q("Orbital cruise engaged.")
 
         v = data.get("Heat")
         if isinstance(v, (int, float)):
