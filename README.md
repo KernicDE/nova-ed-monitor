@@ -12,11 +12,10 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
 - **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species
 - **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) in the Bodies panel before full scan
-- **Galaxy map** — Braille-rendered top-down map of the Milky Way with route waypoints (auto-activates on active route)
-- **System orrery** — orbital positions of scanned planets rendered in Braille Unicode
+- **Galaxy map** — Braille-rendered top-down map of the Milky Way with route waypoints
 - **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
-- **Auto-honk** — optionally holds the Discovery Scanner binding for 7 seconds on every FSD jump
 - **First footfall inference** — announces first footfall even when the journal flag is absent, based on first-discovery status
+- **Statistics** — persistent stats page: jumps, distance, credits, FSS/DSS/bio counts and values, enemies destroyed, ships lost — broken down by today / week / month / year / total
 - **Stream overlay** — writes a configurable text file for OBS/Streamlabs marquees
 - **Persistent event log** — replays journal history from SQLite across sessions, including bodies scanned in previous sessions
 - **Auto-installing launcher** — installs Python, NOVA, and all dependencies automatically; auto-updates on every launch
@@ -188,9 +187,6 @@ Open it with any text editor to adjust settings:
 # tts_voice_pt = pt-PT-RaquelNeural
 # tts_voice_ru = ru-RU-SvetlanaNeural
 
-# Auto-honk: hold PrimaryFire for 7s after every FSD jump to trigger Discovery Scanner:
-# auto_honk = false
-
 # Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
 # ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
 # notable_value_threshold = 500000
@@ -307,14 +303,14 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 
 | Mode | Description |
 |------|-------------|
-| Auto | Switches automatically: Bio → Galaxy (active route) → Missions → Overview |
+| Auto | Switches automatically: Bio → Missions → Overview |
 | Overview | System diagram, notable bodies, session stats |
 | Bio | Active bio scans with distances and bearings |
 | Missions | Active mission list |
 | Inventory | Cargo and materials |
 | Engineers | Engineer unlock progress |
 | Galaxy | Braille top-down galaxy map — `r` toggles galactic (±65k ly) / regional (±1k ly) |
-| Orrery | Braille orbital chart of scanned planets at their scan-time positions |
+| Stats | Persistent statistics: jumps, credits, FSS/DSS/bio, enemies, ships lost |
 
 **Bio scan indicators:**
 - `★` — first discovered species in the galaxy

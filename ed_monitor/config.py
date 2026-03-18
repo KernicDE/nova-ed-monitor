@@ -36,7 +36,6 @@ class Config:
     overlay_separator:        str  = _DEFAULT_OVERLAY_SEPARATOR
     overlay_uppercase:        bool = True
     overlay_path:             str  = "stream_info.txt"
-    auto_honk:                bool = False
     notable_value_threshold:  int  = 500_000
 
 
@@ -90,10 +89,6 @@ DEFAULT_CONFIG = """\
 # overlay_uppercase = true
 # overlay_path = stream_info.txt
 
-# ── Discovery Scanner ─────────────────────────────────────────────────────────
-# Auto-honk on FSD jump (holds PrimaryFire binding for 7s after each jump):
-# auto_honk = false
-
 # ── Notable Bodies ────────────────────────────────────────────────────────────
 # Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.
 # Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates
@@ -132,7 +127,6 @@ def load() -> Config:
     overlay_separator        = _DEFAULT_OVERLAY_SEPARATOR
     overlay_uppercase        = True
     overlay_path             = "stream_info.txt"
-    auto_honk                = False
     notable_value_threshold  = 500_000
     active_keys: set[str] = set()
 
@@ -168,8 +162,6 @@ def load() -> Config:
                         overlay_uppercase = v.lower() not in ("false", "0", "no")
                     case "overlay_path":
                         overlay_path = v
-                    case "auto_honk":
-                        auto_honk = v.lower() not in ("false", "0", "no")
                     case "notable_value_threshold":
                         try:
                             notable_value_threshold = int(v)
@@ -202,7 +194,6 @@ def load() -> Config:
         else:
             # Append new sections if missing from an existing config file
             _NEW_SECTIONS = [
-                ("# auto_honk", "\n# ── Discovery Scanner ────────────────────────────────────────────────────────\n# Auto-honk on FSD jump (holds PrimaryFire binding for 7s after each jump):\n# auto_honk = false\n"),
                 ("# notable_value_threshold", "\n# ── Notable Bodies ───────────────────────────────────────────────────────────\n# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.\n# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates\n# are always included regardless of this threshold.\n# notable_value_threshold = 500000\n"),
             ]
             appended = False
@@ -240,7 +231,6 @@ def load() -> Config:
         overlay_separator=overlay_separator,
         overlay_uppercase=overlay_uppercase,
         overlay_path=overlay_path,
-        auto_honk=auto_honk,
         notable_value_threshold=notable_value_threshold,
     )
 

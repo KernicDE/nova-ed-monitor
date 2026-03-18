@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import bindings, config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
+from . import config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -60,16 +60,10 @@ def main() -> None:
     except Exception:
         pass
 
-    # Read auto-honk binding if enabled
-    honk_binding = None
-    if cfg.auto_honk:
-        honk_binding = bindings.read_primary_fire(cfg.journal_dir)
-
     # Journal monitor thread
     threading.Thread(
         target=journal.monitor,
         args=(state, lock, tts_q, database, cfg.journal_dir, edsm_q),
-        kwargs={"honk_binding": honk_binding},
         daemon=True,
     ).start()
 
