@@ -228,7 +228,9 @@ def _process_backlog(
                 with lock:
                     state.push_event(log_ev)
 
-    # Persist whatever bodies we built during backlog replay
+    # Merge DB bio_scans (completed scans from prior sessions) into state,
+    # then persist — prevents overwriting completed entries with partial replay data
+    _load_system_bodies(state, lock, db)
     _save_current_bodies(state, lock, db)
 
 
