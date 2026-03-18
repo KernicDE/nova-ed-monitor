@@ -727,26 +727,24 @@ class BodiesPanel(_Panel):
         system  = s.system
         visible = [b for b in s.bodies if b.planet_class or b.star_type]
         
-        # Sort by actual name component. "A 1 a" -> ["A", 1, "a"]
-        def _body_sort_key(b: BodyInfo) -> list:
+        # Sort bodies: single-star children first (A, B...), barycentre bodies last (AB, BC...)
+        def _body_sort_key(b: BodyInfo) -> tuple:
             short = _short_name(b.name, system).strip()
-            # If short is empty but looks like it has a designation, extract it
             if not short and b.star_type and " " in b.name:
                 m = re.search(r"\s+([A-Z0-9]{1,2})$", b.name)
                 if m: short = m.group(1)
 
-            if not short: 
-                return [(-1, "")] # Primary star/body always first
-            
-            # Priority: Alpha (Stars) 0, then Digits (Planets) 1
-            parts = []
-            for part in short.split():
-                if part.isdigit():
-                    parts.append((1, int(part)))
-                else:
-                    parts.append((0, part.lower()))
-            return parts
-            
+            if not short:
+                return (0, "")  # Primary star always first
+
+            parts = short.split()
+            is_barycentre = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+            bucket = 1 if is_barycentre else 0
+
+            # Zero-pad numbers for correct lexicographic ordering
+            key_parts = [f"{int(p):04d}" if p.isdigit() else p.lower() for p in parts]
+            return (bucket, " ".join(key_parts))
+
         visible.sort(key=_body_sort_key)
 
         # Pre-compute bodies with all bio signals scanned
@@ -770,18 +768,20 @@ class BodiesPanel(_Panel):
             
             parts = display_name.split()
 
-            # Hierarchical Indentation Logic:
-            # - Level 0: Stars (Designations A, B or Primary star name)
-            # - Level 1: Planets (Orbital numbers 1, 2, 3 or A 1, AB 1)
-            # - Level 2+: Moons and sub-satellites (1 a, A 1 a, A 1 a 1)
+            # Hierarchical indentation:
+            # Stars / primary bodies:   level 0 (no indent)
+            # Single-star planets:      level 1  (A 1, B 2, 1...)
+            # Single-star moons:        level 2+ (A 1 a, 1 a...)
+            # Barycentre planets:       level 0  (AB 4 — orbits the binary, not A)
+            # Barycentre moons:         level 1  (AB 4 a)
+            is_barycentre_body = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
             if b.star_type:
                 level = 0
             elif parts[0][0].isdigit():
-                # Primary system planets/moons (1, 1 a, 2...)
                 level = len(parts)
+            elif is_barycentre_body:
+                level = max(0, len(parts) - 2)
             else:
-                # Secondary/Binary system planets/moons (A 1, AB 1 a...)
-                # The letter designation (parts[0]) is level 0, then we add levels.
                 level = len(parts) - 1
 
             indent = " " * max(0, level)
