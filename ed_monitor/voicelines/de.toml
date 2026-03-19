@@ -53,9 +53,9 @@ lines = [
 
 [SupercruiseEntry]
 lines = [
-    "Überlicht wird aktiviert.",
+    "Überlicht aktiviert.",
     "Überlicht eingeschaltet.",
-    "Frame-Shift-Antrieb — Überlichtstatus.",
+    "Frame-Shift-Antrieb auf Überlicht.",
     "Überlicht aktiv.",
 ]
 
@@ -91,7 +91,7 @@ lines = [
 lines = [
     "Angedockt an {station}.",
     "Andocken abgeschlossen. Willkommen bei {station}.",
-    "Landung bestätigt. {station}.",
+    "Andocken bestätigt. {station}.",
     "Sicher angedockt bei {station}.",
 ]
 
@@ -141,10 +141,11 @@ lines = [
 
 [Liftoff]
 lines = [
-    "Abheben.",
-    "Startfreigabe erteilt.",
-    "Oberfläche wird verlassen.",
-    "Abheben bestätigt.",
+    "Abgehoben.",
+    "Start abgeschlossen.",
+    "Oberfläche verlassen.",
+    "Wir heben ab.",
+    "Startvorgang abgeschlossen.",
 ]
 
 [FirstFootfall]
@@ -160,7 +161,7 @@ lines = [
     "Warnung! Wir werden angegriffen!",
     "Feindliches Feuer erkannt! Schilde hoch!",
     "Alarm! Wir stehen unter Beschuss!",
-    "Feuer erkannt! Schilde aktiviert!",
+    "Feuer erkannt! Ausweichen empfohlen!",
 ]
 
 [UnderAttack_target]
@@ -554,7 +555,7 @@ lines = [
 lines = [
     "Lichter aus.",
     "Außenbeleuchtung deaktiviert.",
-    "Lichter aus.",
+    "Navigationslichter aus.",
 ]
 
 [NightVision_On]
