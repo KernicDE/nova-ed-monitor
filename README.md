@@ -8,6 +8,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 ## Features
 
 - **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
+- **NOVA voiceovers** — NOVA's own callouts are fully translated into all 7 supported languages with multiple random variants per event; user-editable TOML files per language
 - **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically per message
 - **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
 - **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed) and announces messages via TTS
@@ -181,6 +182,9 @@ Open it with any text editor to adjust settings:
 # TTS voice rate adjustment (e.g. +10%, -5%, +0%):
 # tts_rate = +10%
 
+# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):
+# tts_lang = en
+
 # TTS voices per language (edge-tts voice names):
 # tts_voice_en = en-GB-SoniaNeural
 # tts_voice_de = de-DE-KatjaNeural
@@ -281,6 +285,43 @@ overlay_uppercase = false
 | `{hull_pct}` | `98%` |
 | `{fuel_t}` | `28.4t` |
 | `{fuel_max_t}` | `32t` |
+
+---
+
+## Voiceline Customisation
+
+NOVA ships with built-in voicelines for all 7 languages, stored in `ed_monitor/voicelines/{lang}.toml`. Each event key maps to a list of phrase variants — NOVA picks one at random each time.
+
+To customise voicelines, copy the file for your language to the user config directory:
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/nova/voicelines/{lang}.toml` |
+| Windows | `%USERPROFILE%\.config\nova\voicelines\{lang}.toml` |
+
+Example — `~/.config/nova/voicelines/en.toml`:
+
+```toml
+[FSDJump]
+# {system}  = destination star system name
+# {dist_ly} = jump distance formatted for speech
+# {suffix}  = optional extra info (star class, hops remaining, population)
+lines = [
+    "Arrived in {system}. Jump {dist_ly}.{suffix}",
+    "Hyperspace complete. Welcome to {system}.{suffix}",
+    "Jump complete. Now in {system}.{suffix}",
+]
+```
+
+The built-in files document all available `{variables}` above each event key. You only need to include the events you want to override — any key not present in your user file falls back to the built-in file.
+
+Set the voiceover language in config.toml:
+
+```toml
+tts_lang = de
+```
+
+Supported codes: `en`, `de`, `fr`, `it`, `es`, `pt`, `ru`
 
 ---
 
