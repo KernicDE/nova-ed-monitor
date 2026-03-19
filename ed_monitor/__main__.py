@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, events, journal, overlay, status, tts, twitch, youtube
+from . import config, db, edsm, events, journal, overlay, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -22,8 +22,10 @@ def _db_path() -> Path:
 def main() -> None:
     cfg = config.load()
 
-    # Apply voice config to events module
+    # Apply voice and language config to events / voicelines modules
     events.set_voices(cfg.tts_voices)
+    events.set_tts_lang(cfg.tts_lang)
+    voicelines._load(cfg.tts_lang)  # pre-warm cache
 
     database = db.Database(_db_path())
     state    = AppState()
@@ -56,7 +58,12 @@ def main() -> None:
         state.push_event(LogEvent.new(EventCategory.System, "NOVA (Navigation, Operations, and Vessel Assistance) active."))
 
     try:
-        tts_q.put_nowait(TtsMsg(text="NOVA active.", priority=False, volume=20))
+        startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."
+        voice = None  # use worker default
+        if cfg.tts_lang != "en":
+            from . import events as _ev_mod
+            voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
+        tts_q.put_nowait(TtsMsg(text=startup_text, priority=False, volume=20, voice=voice))
     except Exception:
         pass
 

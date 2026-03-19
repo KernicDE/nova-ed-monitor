@@ -6,6 +6,7 @@ from typing import Optional
 
 from .state import AppState, BioScan, BodyInfo, EventCategory, LogEvent, MissionInfo
 from .tts import TtsMsg
+from . import voicelines as _vl
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -262,9 +263,18 @@ _PT_WORDS = frozenset({
 })
 
 
+_TTS_LANG: str = "en"
+
+
 def set_voices(voices: dict[str, str]) -> None:
     """Override default TTS voices from config."""
     _LANG_VOICES.update(voices)
+
+
+def set_tts_lang(lang: str) -> None:
+    """Set NOVA's own voiceover language (used for voiceline lookup and voice selection)."""
+    global _TTS_LANG
+    _TTS_LANG = lang
 
 
 def _phonetic_sub(text: str) -> str:
@@ -307,10 +317,19 @@ def _detect_lang(text: str) -> str:
 
 
 def _speak(tts_q: queue.Queue, text: str, priority: bool) -> None:
+    # Use configured language voice; None means TTS worker uses its default (en)
+    voice = _LANG_VOICES.get(_TTS_LANG) if _TTS_LANG != "en" else None
     try:
-        tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=priority))
+        tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=priority, voice=voice))
     except Exception:
         pass
+
+
+def _say(tts_q: queue.Queue, key: str, priority: bool, fallback: str = "", **kwargs) -> None:
+    """Pick a voiceline variant and speak it; falls back to *fallback* string."""
+    text = _vl.pick(key, lang=_TTS_LANG, **kwargs) or fallback
+    if text:
+        _speak(tts_q, text, priority)
 
 
 def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> None:
@@ -554,16 +573,20 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 msg += f" {hops} {word} remaining."
             if pop > 0:
                 msg += f" Pop: {_fmt_pop(pop)}."
-            tts_msg = f"Arrived in {system}. Jump {_tts_ly(dist)}."
+            # Build optional suffix parts for voiceline templates
+            dist_ly_str = _tts_ly(dist)
+            tts_suffix = ""
             if star_class:
                 scoop_txt = "scoopable" if scoopable else "not scoopable"
-                tts_msg += f" Star {star_class}, {scoop_txt}."
+                tts_suffix += f" Star {star_class}, {scoop_txt}."
             if hops > 0:
-                word = "jump" if hops == 1 else "jumps"
-                tts_msg += f" {hops} {word} remaining."
+                hops_word = "jump" if hops == 1 else "jumps"
+                tts_suffix += f" {hops} {hops_word} remaining."
             if pop > 0:
-                tts_msg += f" Pop: {_fmt_pop(pop)}."
-            _speak(tts_q, tts_msg, False)
+                tts_suffix += f" Pop: {_fmt_pop(pop)}."
+            _say(tts_q, "FSDJump", False,
+                 fallback=f"Arrived in {system}. Jump {dist_ly_str}.{tts_suffix}",
+                 system=system, dist_ly=dist_ly_str, suffix=tts_suffix)
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Location":
@@ -608,9 +631,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.route_next_dist = _pdist(route[0].get("StarPos"), route[1].get("StarPos"))
             state.route_list      = route
 
-            word = "jump" if hops == 1 else "jumps"
-            msg  = f"Route set. Destination: {dest}. {hops} {word} ({tdist:.1f} ly)."
-            _speak(tts_q, msg, False)
+            hops_word = "jump" if hops == 1 else "jumps"
+            msg  = f"Route set. Destination: {dest}. {hops} {hops_word} ({tdist:.1f} ly)."
+            _say(tts_q, "NavRoute", False,
+                 fallback=msg,
+                 dest=dest, hops=hops, hops_word=hops_word, dist_ly=f"{tdist:.1f} light years")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "NavRouteClear":
@@ -619,18 +644,24 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.route_next           = ""
             state.route_next_star      = ""
             state.route_next_scoopable = False
-            _speak(tts_q, "Route cleared.", False)
+            _say(tts_q, "NavRouteClear", False, fallback="Route cleared.")
             return LogEvent.new(EventCategory.Nav, "Route cleared.")
 
         case "SupercruiseEntry":
             state.approach_body = ""
             state.hull = _f(ev, "Health") if "Health" in ev else state.hull
+            _say(tts_q, "SupercruiseEntry", False, fallback="Supercruise engaged.")
             return LogEvent.new(EventCategory.Nav, "Supercruise engaged.")
 
         case "SupercruiseExit":
             body = _s(ev, "Body")
-            msg  = f"Supercruise disengaged near {_short_body(body, state.system)}." if body else "Supercruise disengaged."
-            _speak(tts_q, msg, False)
+            body_short = _short_body(body, state.system)
+            msg  = f"Supercruise disengaged near {body_short}." if body else "Supercruise disengaged."
+            if body:
+                _say(tts_q, "SupercruiseExit", False,
+                     fallback=msg, body=body_short)
+            else:
+                _say(tts_q, "SupercruiseExit_nobdy", False, fallback=msg)
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "ApproachBody":
@@ -651,7 +682,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station_services = ev.get("StationServices") or []
             state.station_dist_ls  = _f(ev, "DistFromStarLS")
             msg = f"Docked at {station}."
-            _speak(tts_q, msg, True)
+            _say(tts_q, "Docked", True, fallback=msg, station=station)
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Undocked":
@@ -664,7 +695,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station_services = []
             state.station_dist_ls  = 0.0
             msg = f"Undocked from {station}." if station else "Undocked."
-            _speak(tts_q, msg, False)
+            if station:
+                _say(tts_q, "Undocked", False, fallback=msg, station=station)
+            else:
+                _say(tts_q, "Undocked_nostation", False, fallback=msg)
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Touchdown":
@@ -693,12 +727,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                         sc.first_footfall = True
                 # Don't announce here — wait for Disembark (player actually stepping out)
             msg = f"Touchdown at {lat:.2f}, {lon:.2f}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "Touchdown", False, fallback=msg,
+                 lat=f"{lat:.2f}", lon=f"{lon:.2f}")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Liftoff":
             state.landed = False
-            _speak(tts_q, "Liftoff.", False)
+            _say(tts_q, "Liftoff", False, fallback="Liftoff.")
             return LogEvent.new(EventCategory.Nav, "Liftoff.")
 
         case "Disembark":
@@ -734,7 +769,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                                  state.first_footfall_spoke == state.first_footfall_body)
                 if not already_spoke:
                     state.first_footfall_spoke = body_dis or state.first_footfall_body
-                    _speak(tts_q, "First footfall on this world!", True)
+                    _say(tts_q, "FirstFootfall", True, fallback="First footfall on this world!")
                     return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None
 
@@ -743,7 +778,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
         case "UnderAttack":
             target = _s(ev, "Target")
             msg    = f"Warning! Under attack! Target: {target}." if target else "Warning! Under attack!"
-            _speak(tts_q, msg, True)
+            if target:
+                _say(tts_q, "UnderAttack_target", True, fallback=msg, target=target)
+            else:
+                _say(tts_q, "UnderAttack", True, fallback=msg)
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "ShieldState":
@@ -751,10 +789,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             up = bool(up) if up is not None else True
             state.shields_up = up
             if not up:
-                _speak(tts_q, "Warning! Shields offline!", True)
+                _say(tts_q, "ShieldDown", True, fallback="Warning! Shields offline!")
                 return LogEvent.new(EventCategory.Warn, "Shields offline!")
             else:
-                _speak(tts_q, "Shields restored.", False)
+                _say(tts_q, "ShieldUp", False, fallback="Shields restored.")
                 return LogEvent.new(EventCategory.Combat, "Shields restored.")
 
         case "HullDamage":
@@ -763,11 +801,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             pct        = round(health * 100.0)
             if pct <= 50.0:
                 msg = f"Critical! Hull at {int(pct)}%!"
-                _speak(tts_q, f"Critical! Hull at {int(pct)} percent!", True)
+                _say(tts_q, "HullDamage_Critical", True,
+                     fallback=f"Critical! Hull at {int(pct)} percent!", pct=int(pct))
                 return LogEvent.new(EventCategory.Warn, msg)
             elif pct <= 75.0:
                 msg = f"Hull damage: {int(pct)}%."
-                _speak(tts_q, f"Hull damage: {int(pct)} percent.", False)
+                _say(tts_q, "HullDamage_Warning", False,
+                     fallback=f"Hull damage: {int(pct)} percent.", pct=int(pct))
                 return LogEvent.new(EventCategory.Combat, msg)
             else:
                 return LogEvent.new(EventCategory.Combat, f"Hull at {int(pct)}%.")
@@ -780,7 +820,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 msg   = f"Destroyed by: {', '.join(names)}."
             else:
                 msg = "You have been destroyed."
-            _speak(tts_q, msg, True)
+            _say(tts_q, "Died", True, fallback=msg, msg=msg)
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "Bounty":
@@ -789,13 +829,18 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             victim = _s(ev, "Target")
             suffix = f" Target: {victim}" if victim else ""
             msg    = f"Bounty: {_fmt_credits(reward)}{suffix}."
-            _speak(tts_q, msg, False)
+            reward_str = _tts_cr(reward)
+            if victim:
+                _say(tts_q, "Bounty_target", False,
+                     fallback=msg, reward=reward_str, victim=victim)
+            else:
+                _say(tts_q, "Bounty", False, fallback=msg, reward=reward_str)
             return LogEvent.new(EventCategory.Combat, msg)
 
         case "FactionKillBond":
             reward = _u(ev, "Reward")
             msg    = f"Combat bond: {_fmt_credits(reward)}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "FactionKillBond", False, fallback=msg, reward=_tts_cr(reward))
             return LogEvent.new(EventCategory.Combat, msg)
 
         # ── Exploration ──────────────────────────────────────────────────────
@@ -846,7 +891,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             if scan_type == "AutoScan" and is_star and not _b(ev, "WasDiscovered"):
                 if not state.discovery_announced:
                     state.discovery_announced = True
-                    _speak(tts_q, "Undiscovered system.", False)
+                    _say(tts_q, "Scan_Undiscovered", False, fallback="Undiscovered system.")
 
             if just_dss_scanned:
                 return None
@@ -876,7 +921,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 parts.extend(sig_parts)
                 detail = " ".join(parts)
                 msg    = f"Notable: {short}. {detail}"
-                _speak(tts_q, msg, valuable or star_type in ("N", "H"))
+                _say(tts_q, "Scan_Notable", valuable or star_type in ("N", "H"),
+                     fallback=msg, body_short=short, detail=detail)
                 return LogEvent.new(EventCategory.Explore, msg)
             elif scan_type == "Detailed":
                 parts = []
@@ -885,7 +931,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 parts.extend(sig_parts)
                 detail = " ".join(parts)
                 msg    = f"Scan: {short}. {detail}"
-                _speak(tts_q, msg, False)
+                _say(tts_q, "Scan_Detailed", False,
+                     fallback=msg, body_short=short, detail=detail)
                 return LogEvent.new(EventCategory.Explore, msg)
             else:
                 return None
@@ -911,21 +958,27 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             if geo_count > 0:
                 sig_parts.append(f"{geo_count} geo")
             msg = f"Mapped: {short}."
+            sig_txt = ""
+            eff_txt = ""
             if sig_parts:
-                msg += f" Signals: {', '.join(sig_parts)}."
+                sig_txt = f" Signals: {', '.join(sig_parts)}."
+                msg += sig_txt
             if efficiency_target > 0:
                 if probes_used <= efficiency_target:
-                    msg += " Efficiency target reached."
+                    eff_txt = " Efficiency target reached."
                 else:
-                    msg += f" Efficiency target missed: {probes_used} probes, target {efficiency_target}."
-            _speak(tts_q, msg, False)
+                    eff_txt = f" Efficiency target missed: {probes_used} probes, target {efficiency_target}."
+                msg += eff_txt
+            _say(tts_q, "SAAScanComplete", False,
+                 fallback=msg, body_short=short,
+                 sig_txt=sig_txt, eff_txt=eff_txt)
             return LogEvent.new(EventCategory.Explore, msg)
 
         case "FSSDiscoveryScan":
             total = _u(ev, "BodyCount")
             state.fss_body_count = total
             msg   = f"Honk complete. {total} bodies detected."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "FSSDiscoveryScan", False, fallback=msg, total=total)
             return LogEvent.new(EventCategory.Explore, msg)
 
         case "FSSBodySignals":
@@ -965,7 +1018,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             sig = _loc(ev, "SignalName")
             if any(k in sig for k in ("Guardian", "Thargoid", "Unknown", "Encoded")):
                 msg = f"Signal detected: {sig}!"
-                _speak(tts_q, msg, True)
+                _say(tts_q, "FSSSignalDiscovered", True, fallback=msg, sig=sig)
                 return LogEvent.new(EventCategory.Explore, msg)
             return None
 
@@ -977,7 +1030,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             msg = f"Codex: {name}."
             # Don't double-announce bio entries — ScanOrganic/Log already speaks them
             if "iol" not in cat.lower():  # "biology" / "biologie"
-                _speak(tts_q, msg, False)
+                _say(tts_q, "CodexEntry", False, fallback=msg, name=name)
             return LogEvent.new(EventCategory.Explore, msg)
 
         case "SAASignalsFound":
@@ -1052,9 +1105,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             first_discovered=first_disc or first_logged,
                             first_footfall=is_first_footfall,
                         ))
-                    tag     = " — new species!" if first_logged else ""
-                    tts_tag = " New species!" if first_logged else ""
-                    _speak(tts_q, f"Biological: {species_loc}.{tts_tag}", False)
+                    tag = " — new species!" if first_logged else ""
+                    if first_logged:
+                        _say(tts_q, "ScanOrganic_Log_NewSpecies", False,
+                             fallback=f"Biological: {species_loc}. New species!", species=species_loc)
+                    else:
+                        _say(tts_q, "ScanOrganic_Log", False,
+                             fallback=f"Biological: {species_loc}.", species=species_loc)
                     return LogEvent.new(EventCategory.Explore, f"Bio{tag}: {species_loc} [{genus_loc}]")
 
                 case "Sample":
@@ -1075,7 +1132,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             
                     if count == 2:
                         msg = f"Bio sample {count} of 3: {species_loc}."
-                        _speak(tts_q, msg, False)
+                        _say(tts_q, "ScanOrganic_Sample", False,
+                             fallback=msg, count=count, species=species_loc,
+                             remaining=3 - count)
                         return LogEvent.new(EventCategory.Explore, msg)
                     return None
 
@@ -1094,7 +1153,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     val_str   = _tts_cr(final_val) if final_val > 0 else "unknown"
                     msg_tts = f"Bio complete: {species_loc}. Value: {val_str}."
                     msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(final_val) if final_val > 0 else '?'}."
-                    _speak(tts_q, msg_tts, False)
+                    _say(tts_q, "ScanOrganic_Analyse", False,
+                         fallback=msg_tts, species=species_loc, val_str=val_str)
                     # Bio completion contextual announcement
                     body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
                     body_info  = next((b for b in state.bodies if b.name == body_name), None)
@@ -1107,15 +1167,20 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     }
                     remaining_by_body = {k: v for k, v in remaining_by_body.items() if v > 0}
                     if body_left > 0:
-                        word = "bio" if body_left == 1 else "bios"
-                        verb = "is" if body_left == 1 else "are"
-                        suffix = f"There {verb} {body_left} more {word} on this body."
+                        bio_word = "bio" if body_left == 1 else "bios"
+                        verb     = "is" if body_left == 1 else "are"
+                        _say(tts_q, "ScanOrganic_Analyse_BodyLeft", False,
+                             fallback=f"There {verb} {body_left} more {bio_word} on this body.",
+                             body_left=body_left, bio_word=bio_word, verb=verb)
                     elif remaining_by_body:
-                        parts_r = [f"{v} on {_short_body(k, state.system)}" for k, v in remaining_by_body.items()]
-                        suffix = f"More bio signals: {', '.join(parts_r)}."
+                        parts_r  = [f"{v} on {_short_body(k, state.system)}" for k, v in remaining_by_body.items()]
+                        parts_str = ", ".join(parts_r)
+                        _say(tts_q, "ScanOrganic_Analyse_SystemMore", False,
+                             fallback=f"More bio signals: {parts_str}.",
+                             parts_str=parts_str)
                     else:
-                        suffix = "All bio signals in this system are complete."
-                    _speak(tts_q, suffix, False)
+                        _say(tts_q, "ScanOrganic_Analyse_SystemDone", False,
+                             fallback="All bio signals in this system are complete.")
                     return LogEvent.new(EventCategory.Explore, msg_log)
 
                 case _:
@@ -1133,7 +1198,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.missions.append(MissionInfo(
                 mission_id=mid, name=name, destination=dest, expiry=expiry,
             ))
-            return None
+            if name:
+                _say(tts_q, "MissionAccepted", False,
+                     fallback=f"Mission accepted: {name}.",
+                     name=name, dest=dest)
+            return LogEvent.new(EventCategory.Mission, f"Mission accepted: {name}.")
 
         case "MissionCompleted":
             mid    = _u(ev, "MissionID")
@@ -1141,7 +1210,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             name   = _loc(ev, "LocalisedName") or _s(ev, "Name")
             state.remove_mission(mid)
             msg = f"Mission complete: {name}. Reward: {_fmt_credits(reward)}."
-            _speak(tts_q, f"Mission complete: {name}. Reward: {_tts_cr(reward)}.", False)
+            _say(tts_q, "MissionCompleted", False,
+                 fallback=f"Mission complete: {name}. Reward: {_tts_cr(reward)}.",
+                 name=name, reward=_tts_cr(reward))
             return LogEvent.new(EventCategory.Mission, msg)
 
         case "MissionFailed":
@@ -1149,7 +1220,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             name = _loc(ev, "LocalisedName") or _s(ev, "Name")
             state.remove_mission(mid)
             msg  = f"Mission failed: {name}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "MissionFailed", False, fallback=msg, name=name)
             return LogEvent.new(EventCategory.Mission, msg)
 
         case "MissionAbandoned":
@@ -1177,10 +1248,16 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             msg = f"Sold: {count}x {commodity} for {_fmt_credits(total)}."
             if profit > 0:
                 msg += f" Profit: {_fmt_credits(profit)}."
-            tts_sell = f"Sold: {count}x {commodity} for {_tts_cr(total)}."
+            total_str  = _tts_cr(total)
+            profit_str = _tts_cr(profit) if profit > 0 else ""
             if profit > 0:
-                tts_sell += f" Profit: {_tts_cr(profit)}."
-            _speak(tts_q, tts_sell, False)
+                _say(tts_q, "MarketSell_profit", False,
+                     fallback=f"Sold: {count}x {commodity} for {total_str}. Profit: {profit_str}.",
+                     count=count, commodity=commodity, total=total_str, profit=profit_str)
+            else:
+                _say(tts_q, "MarketSell", False,
+                     fallback=f"Sold: {count}x {commodity} for {total_str}.",
+                     count=count, commodity=commodity, total=total_str)
             return LogEvent.new(EventCategory.Trade, msg)
 
         case "Materials":
@@ -1239,11 +1316,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 state.engineers[engineer] = (rank, progress)
             if progress == "Unlocked":
                 msg = f"Engineer unlocked: {engineer}!"
-                _speak(tts_q, msg, True)
+                _say(tts_q, "EngineerUnlocked", True, fallback=msg, engineer=engineer)
                 return LogEvent.new(EventCategory.Mission, msg)
             elif rank > 0:
                 msg = f"Engineer {engineer}: rank {rank}."
-                _speak(tts_q, msg, False)
+                _say(tts_q, "EngineerRank", False, fallback=msg,
+                     engineer=engineer, rank=rank)
                 return LogEvent.new(EventCategory.Mission, msg)
             return None
 
@@ -1263,13 +1341,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             # Grab health from login if present
             state.hull       = _f(ev, "HullHealth", 1.0)
             msg = f"CMDR {state.commander} online."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "LoadGame", False, fallback=msg, commander=state.commander)
             return LogEvent.new(EventCategory.System, msg)
 
         case "Shutdown":
             if state.client_online:  # Guard: only announce once per session
-                msg = "Systems powering down. Farewell, Commander."
-                _speak(tts_q, msg, False)
+                _say(tts_q, "Shutdown", False,
+                     fallback="Systems powering down. Farewell, Commander.")
             state.client_online = False
             return LogEvent.new(EventCategory.System, "Game shutdown detected.")
 
@@ -1289,16 +1367,20 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             item = _s(ev, "Item")
             if item == "Wear" or "hull" in item.lower():
                 state.hull = 1.0
+                _say(tts_q, "Repair", False,
+                     fallback=f"Repair complete: {item}.", item=item)
                 return LogEvent.new(EventCategory.Status, "Hull repaired.")
             return None
 
         case "RepairAll":
             state.hull = 1.0
+            _say(tts_q, "RepairAll", False, fallback="Full repair complete.")
             return LogEvent.new(EventCategory.Status, "Full repair complete.")
 
         case "Resurrect":
             state.hull       = 1.0
             state.shields_up = True
+            _say(tts_q, "Resurrect", False, fallback="Respawned at station.")
             return LogEvent.new(EventCategory.Status, "Respawned at station.")
 
         # ── Status / Misc ────────────────────────────────────────────────────
@@ -1310,7 +1392,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             is_full    = state.fuel_max > 0.0 and total >= (state.fuel_max - 0.05)
             if is_full and not state.fuel_announced:
                 state.fuel_announced = True
-                _speak(tts_q, "Fuel tank full.", False)
+                _say(tts_q, "FuelScoop_Full", False, fallback="Fuel tank full.")
             return LogEvent.new(EventCategory.Status, f"Fuel: {total:.1f}/{state.fuel_max:.0f}t.")
 
         case "Interdicted":
@@ -1318,9 +1400,18 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             interdictor = _s(ev, "Interdictor")
             if submitted:
                 msg = f"Interdiction submitted to {interdictor}." if interdictor else "Interdiction submitted."
+                if interdictor:
+                    _say(tts_q, "Interdicted_Submitted_name", False,
+                         fallback=msg, interdictor=interdictor)
+                else:
+                    _say(tts_q, "Interdicted_Submitted", False, fallback=msg)
             else:
                 msg = f"Interdiction escaped from {interdictor}!" if interdictor else "Interdiction escaped!"
-            _speak(tts_q, msg, not submitted)
+                if interdictor:
+                    _say(tts_q, "Interdicted_Escaped_name", True,
+                         fallback=msg, interdictor=interdictor)
+                else:
+                    _say(tts_q, "Interdicted_Escaped", True, fallback=msg)
             cat = EventCategory.Combat if submitted else EventCategory.Warn
             return LogEvent.new(cat, msg)
 
@@ -1329,9 +1420,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             victim  = _s(ev, "Interdicted")
             if success:
                 msg = f"Interdiction successful: {victim}." if victim else "Interdiction successful."
+                _say(tts_q, "Interdiction_Success", False,
+                     fallback=msg, victim=victim or "target")
             else:
                 msg = "Interdiction failed."
-            _speak(tts_q, msg, False)
+                _say(tts_q, "Interdiction_Failed", False, fallback=msg)
             return LogEvent.new(EventCategory.Combat, msg)
 
         case "ReceiveText":
@@ -1371,55 +1464,54 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             stn  = _s(ev, "StationName")
             pad  = _u(ev, "LandingPad")
             msg  = f"Docking request granted. Proceed to pad {pad}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "DockingGranted", False, fallback=msg, pad=pad)
             return LogEvent.new(EventCategory.Nav, f"Docking at {stn} (Pad {pad}).")
 
         case "DockingDenied":
             reason = _s(ev, "Reason")
             msg    = f"Docking request denied. Reason: {reason}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "DockingDenied", False, fallback=msg, reason=reason)
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "DockingCancelled" | "DockingTimeout":
-            _speak(tts_q, "Docking aborted.", False)
+            _say(tts_q, "DockingCancelled", False, fallback="Docking aborted.")
             return LogEvent.new(EventCategory.Nav, "Docking aborted.")
 
         case "StartJump":
             j_type = _s(ev, "JumpType")
             dest   = _s(ev, "StarSystem")
             if j_type == "Hyperspace":
-                msg = f"Engaging hyperspace."
-                _speak(tts_q, msg, False)
+                _say(tts_q, "StartJump_Hyperspace", False, fallback="Engaging hyperspace.")
                 return LogEvent.new(EventCategory.Nav, f"Jumping to {dest}.")
             else:
-                _speak(tts_q, "Entering supercruise.", False)
+                _say(tts_q, "StartJump_Supercruise", False, fallback="Entering supercruise.")
                 return None
 
         case "FSSAllBodiesFound":
             system = _s(ev, "SystemName")
             msg    = f"System scan complete. All signals accounted for in {system}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "FSSAllBodiesFound", False, fallback=msg, system=system)
             return LogEvent.new(EventCategory.Explore, f"System scan complete: {system}")
 
         case "Scanned":
             scan_type = _s(ev, "ScanType")
             msg = f"Warning: {scan_type} scan detected!"
-            _speak(tts_q, msg, True)
+            _say(tts_q, "Scanned", True, fallback=msg, scan_type=scan_type)
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "HeatWarning" | "HeatDamage":
-            _speak(tts_q, "Warning: Heat critical!", True)
+            _say(tts_q, "HeatWarning", True, fallback="Warning: Heat critical!")
             return LogEvent.new(EventCategory.Warn, "Heat critical!")
 
         case "HyperdictInterdict":
             msg = "Thargoid interdiction! Hyperdrive interrupted!"
-            _speak(tts_q, msg, True)
+            _say(tts_q, "HyperdictInterdict", True, fallback=msg)
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "EjectCargo":
             cargo = _loc(ev, "Type")
             msg   = f"Cargo ejected: {cargo}."
-            _speak(tts_q, msg, False)
+            _say(tts_q, "EjectCargo", False, fallback=msg, cargo=cargo)
             return LogEvent.new(EventCategory.Status, msg)
 
         case _:

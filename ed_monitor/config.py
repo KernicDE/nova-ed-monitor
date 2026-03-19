@@ -31,6 +31,7 @@ class Config:
     twitch_channel:           str  = ""
     youtube_channel:          str  = ""
     tts_rate:                 str  = "+10%"
+    tts_lang:                 str  = "en"
     tts_voices:               dict = field(default_factory=lambda: dict(_DEFAULT_VOICES))
     overlay_segments:         list = field(default_factory=lambda: list(_DEFAULT_OVERLAY_SEGMENTS))
     overlay_separator:        str  = _DEFAULT_OVERLAY_SEPARATOR
@@ -55,6 +56,11 @@ DEFAULT_CONFIG = """\
 
 # TTS voice rate adjustment (e.g. +10%, -5%, +0%):
 # tts_rate = +10%
+
+# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):
+# tts_lang = en
+# Voiceline files: ~/.config/nova/voicelines/{lang}.toml
+# Copy from ed_monitor/voicelines/{lang}.toml to customise individual event lines.
 
 # TTS voices per language (edge-tts voice names):
 # tts_voice_en = en-GB-SoniaNeural
@@ -122,6 +128,7 @@ def load() -> Config:
     twitch_channel    = ""
     youtube_channel   = ""
     tts_rate          = "+10%"
+    tts_lang          = "en"
     tts_voices        = dict(_DEFAULT_VOICES)
     overlay_lines: dict[int, str] = {}
     overlay_separator        = _DEFAULT_OVERLAY_SEPARATOR
@@ -156,6 +163,10 @@ def load() -> Config:
                             youtube_channel = channel
                     case "tts_rate":
                         tts_rate = v
+                    case "tts_lang":
+                        _valid = {"en", "de", "fr", "it", "es", "pt", "ru"}
+                        if v in _valid:
+                            tts_lang = v
                     case "overlay_separator":
                         overlay_separator = v
                     case "overlay_uppercase":
@@ -195,6 +206,7 @@ def load() -> Config:
             # Append new sections if missing from an existing config file
             _NEW_SECTIONS = [
                 ("# notable_value_threshold", "\n# ── Notable Bodies ───────────────────────────────────────────────────────────\n# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.\n# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates\n# are always included regardless of this threshold.\n# notable_value_threshold = 500000\n"),
+                ("# tts_lang", "\n# ── Language ─────────────────────────────────────────────────────────────────\n# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):\n# tts_lang = en\n# Voiceline files: ~/.config/nova/voicelines/{lang}.toml (copy from defaults to customise)\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
@@ -226,6 +238,7 @@ def load() -> Config:
         twitch_channel=twitch_channel,
         youtube_channel=youtube_channel,
         tts_rate=tts_rate,
+        tts_lang=tts_lang,
         tts_voices=tts_voices,
         overlay_segments=overlay_segments,
         overlay_separator=overlay_separator,

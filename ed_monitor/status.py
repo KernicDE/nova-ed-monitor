@@ -9,6 +9,8 @@ from pathlib import Path
 
 from .state import AppState
 from .tts import TtsMsg
+from . import voicelines as _vl
+from . import events as _ev
 
 # Status.json flag bits
 # Flags2 bits (Odyssey / Horizons 4.0+)
@@ -166,33 +168,65 @@ def _apply_status(
         state._fsd_charging = new_charging
 
         # COVAS Switch Callouts
-        def _q(txt: str, pri: bool = False):
-            try: tts_q.put_nowait(TtsMsg(text=txt, priority=pri))
-            except Exception: pass
+        def _q(key: str, fallback: str, pri: bool = False, **kwargs):
+            lang  = _ev._TTS_LANG
+            voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+            text  = _vl.pick(key, lang=lang, **kwargs) or fallback
+            try:
+                tts_q.put_nowait(TtsMsg(text=text, priority=pri, voice=voice))
+            except Exception:
+                pass
 
         if new_charging and not prev_charging:
             # We let events.py handle the speech to avoid duplicates
             pass
-            
+
         if not first_run:
             if new_gear != prev_gear:
-                _q("Landing gear deployed." if new_gear else "Landing gear retracted.")
+                if new_gear:
+                    _q("LandingGear_Deployed", "Landing gear deployed.")
+                else:
+                    _q("LandingGear_Retracted", "Landing gear retracted.")
             if new_scoop != prev_scoop:
-                _q("Cargo scoop deployed." if new_scoop else "Cargo scoop retracted.")
+                if new_scoop:
+                    _q("CargoScoop_Deployed", "Cargo scoop deployed.")
+                else:
+                    _q("CargoScoop_Retracted", "Cargo scoop retracted.")
             if new_hardpoints != prev_hardpoints:
-                _q("Hardpoints deployed." if new_hardpoints else "Hardpoints retracted.")
+                if new_hardpoints:
+                    _q("Hardpoints_Deployed", "Hardpoints deployed.")
+                else:
+                    _q("Hardpoints_Retracted", "Hardpoints retracted.")
             if new_lights != prev_lights:
-                _q("Lights on." if new_lights else "Lights off.")
+                if new_lights:
+                    _q("Lights_On", "Lights on.")
+                else:
+                    _q("Lights_Off", "Lights off.")
             if new_nv != prev_nv:
-                _q("Night vision enabled." if new_nv else "Night vision disabled.")
+                if new_nv:
+                    _q("NightVision_On", "Night vision enabled.")
+                else:
+                    _q("NightVision_Off", "Night vision disabled.")
             if new_fa_off != prev_fa_off:
-                _q("Flight assist off." if new_fa_off else "Flight assist on.")
+                if new_fa_off:
+                    _q("FlightAssist_Off", "Flight assist off.")
+                else:
+                    _q("FlightAssist_On", "Flight assist on.")
             if new_silent != prev_silent:
-                _q("Silent running enabled." if new_silent else "Silent running disabled.")
+                if new_silent:
+                    _q("SilentRunning_On", "Silent running enabled.")
+                else:
+                    _q("SilentRunning_Off", "Silent running disabled.")
             if new_analysis != prev_analysis and prev_in_main_ship and new_in_main_ship:
-                _q("Analysis mode." if new_analysis else "Combat mode.")
+                if new_analysis:
+                    _q("AnalysisMode", "Analysis mode.")
+                else:
+                    _q("CombatMode", "Combat mode.")
             if new_srv != prev_srv:
-                _q("S R V deployed." if new_srv else "S R V secured.")
+                if new_srv:
+                    _q("SRV_Deployed", "S R V deployed.")
+                else:
+                    _q("SRV_Secured", "S R V secured.")
 
         v = data.get("Heat")
         if isinstance(v, (int, float)):
@@ -253,14 +287,18 @@ def _apply_status(
     # Mass lock transition TTS — only when the player was already in the main ship
     # both before and after (suppresses false triggers when boarding/exiting ship)
     if prev_in_main_ship and new_in_main_ship:
+        lang  = _ev._TTS_LANG
+        voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
         if new_mass_locked and not prev_mass_locked:
             try:
-                tts_q.put_nowait(TtsMsg(text="Mass locked.", priority=False))
+                text = _vl.pick("MassLocked", lang=lang) or "Mass locked."
+                tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
             except Exception:
                 pass
         elif not new_mass_locked and prev_mass_locked:
             try:
-                tts_q.put_nowait(TtsMsg(text="Mass lock released.", priority=False))
+                text = _vl.pick("MassLockReleased", lang=lang) or "Mass lock released."
+                tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
             except Exception:
                 pass
 
@@ -328,13 +366,20 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             if not sc.alerted:
                 sc.alerted = True
                 try:
+                    lang    = _ev._TTS_LANG
+                    voice   = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+                    dist_m  = int(best_dist)
+                    fallback = (
+                        f"{sc.species_localised} ready. "
+                        f"Distance {dist_m} metres. "
+                        f"You may scan the next sample."
+                    )
+                    text = _vl.pick("BioReady", lang=lang,
+                                    species=sc.species_localised, dist=dist_m) or fallback
                     tts_q.put_nowait(TtsMsg(
-                        text=(
-                            f"{sc.species_localised} ready. "
-                            f"Distance {best_dist:.0f} metres. "
-                            f"You may scan the next sample."
-                        ),
+                        text=text,
                         priority=False,
+                        voice=voice,
                     ))
                 except Exception:
                     pass
