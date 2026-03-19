@@ -290,16 +290,16 @@ overlay_uppercase = false
 
 ## Voiceline Customisation
 
-NOVA ships with built-in voicelines for all 7 languages, stored in `ed_monitor/voicelines/{lang}.toml`. Each event key maps to a list of phrase variants — NOVA picks one at random each time.
-
-To customise voicelines, copy the file for your language to the user config directory:
+On first launch NOVA copies all voiceline files into your config directory so they are easy to find and edit:
 
 | Platform | Path |
 |----------|------|
-| Linux | `~/.config/nova/voicelines/{lang}.toml` |
-| Windows | `%USERPROFILE%\.config\nova\voicelines\{lang}.toml` |
+| Linux | `~/.config/nova/voicelines/` |
+| Windows | `%USERPROFILE%\.config\nova\voicelines\` |
 
-Example — `~/.config/nova/voicelines/en.toml`:
+One file per language: `en.toml`, `de.toml`, `fr.toml`, `it.toml`, `es.toml`, `pt.toml`, `ru.toml`.
+
+Each event key maps to a list of phrase variants — NOVA picks one at random each time. All available `{variables}` are documented in comments above each event key. Example:
 
 ```toml
 [FSDJump]
@@ -313,7 +313,7 @@ lines = [
 ]
 ```
 
-The built-in files document all available `{variables}` above each event key. You only need to include the events you want to override — any key not present in your user file falls back to the built-in file.
+Edit, add, or remove lines freely. On update, new event keys missing from your file fall back to the built-in automatically — your edits are never overwritten.
 
 Set the voiceover language in config.toml:
 

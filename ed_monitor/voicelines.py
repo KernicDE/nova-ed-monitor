@@ -1,9 +1,13 @@
 """
 NOVA Voicelines — random variant picker with per-language TOML support.
 
-Voiceline files are loaded from:
-  1. ~/.config/nova/voicelines/{lang}.toml  (user customisation — takes priority)
-  2. <package>/voicelines/{lang}.toml       (built-in defaults)
+Voiceline files are copied to ~/.config/nova/voicelines/ on first launch so
+users can find and edit them directly. Files are only copied if they don't
+already exist, so user edits are never overwritten on update.
+
+Load order:
+  1. ~/.config/nova/voicelines/{lang}.toml  (user copy — takes priority)
+  2. <package>/voicelines/{lang}.toml       (built-in fallback for missing keys)
 
 TOML format:
   [EventKey]
@@ -115,3 +119,27 @@ def reload(lang: str) -> None:
 def reload_all() -> None:
     """Invalidate entire cache."""
     _CACHE.clear()
+
+
+_SUPPORTED_LANGS = ("en", "de", "fr", "it", "es", "pt", "ru")
+
+
+def ensure_user_files() -> None:
+    """Copy built-in voiceline files to the user config dir if not already present.
+
+    Called once at startup so users can find and edit the files at
+    ~/.config/nova/voicelines/ without digging into the installed package.
+    Existing files are never overwritten.
+    """
+    dest_dir = _config_dir() / "voicelines"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    builtin = _builtin_dir()
+    for lang in _SUPPORTED_LANGS:
+        dest = dest_dir / f"{lang}.toml"
+        if not dest.exists():
+            src = builtin / f"{lang}.toml"
+            if src.exists():
+                try:
+                    dest.write_bytes(src.read_bytes())
+                except OSError:
+                    pass

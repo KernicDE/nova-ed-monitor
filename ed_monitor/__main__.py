@@ -25,7 +25,8 @@ def main() -> None:
     # Apply voice and language config to events / voicelines modules
     events.set_voices(cfg.tts_voices)
     events.set_tts_lang(cfg.tts_lang)
-    voicelines._load(cfg.tts_lang)  # pre-warm cache
+    voicelines.ensure_user_files()   # copy built-ins to config dir if missing
+    voicelines._load(cfg.tts_lang)   # pre-warm cache
 
     database = db.Database(_db_path())
     state    = AppState()
