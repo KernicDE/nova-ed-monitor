@@ -1,548 +1,267 @@
-# NOVA Voicelines — Italiano
-# Copia questo file in ~/.config/nova/voicelines/it.toml per personalizzare.
-# Variabili disponibili: vedi en.toml
+# NOVA Voicelines — Italiano (standard integrato)
+# ────────────────────────────────────────────────
+# Ogni evento ha esattamente una riga. Per aggiungere varianti o sovrascrivere
+# un evento, crea ~/.config/nova/voicelines/it.toml con solo gli eventi
+# che vuoi modificare.
+# Le variabili in {parentesi_graffe} vengono sostituite a runtime.
 
 [Nova_Startup]
-lines = [
-    "NOVA attiva.",
-    "NOVA online. Tutti i sistemi nominali.",
-    "Navigazione, Operazioni e Assistenza al Vascello — online.",
-    "NOVA in attesa, Comandante.",
-    "Sistemi nominali. NOVA pronta.",
-]
+lines = ["NOVA attiva."]
 
 [Shutdown]
-lines = [
-    "Sistemi in spegnimento. Arrivederci, Comandante.",
-    "Spegnimento in corso. Buon viaggio, Comandante.",
-    "NOVA offline. Vola sicuro.",
-    "Spegnimento. Alla prossima, Comandante.",
-]
+lines = ["Sistemi in spegnimento. Arrivederci, Comandante."]
 
 [LoadGame]
-lines = [
-    "Comandante {commander} online.",
-    "Bentornato, Comandante {commander}.",
-    "NOVA pronta. Lieta di rivederti, Comandante {commander}.",
-    "Online. Salve, Comandante {commander}.",
-]
+lines = ["Comandante {commander} online."]
 
 [FSDJump]
-lines = [
-    "Arrivati in {system}. Salto di {dist_ly}.{suffix}",
-    "Iperspazio completato. Benvenuti in {system}. {dist_ly}.{suffix}",
-    "Salto completato. Ingresso in {system}. Distanza: {dist_ly}.{suffix}",
-    "Siamo arrivati in {system}. Distanza del salto: {dist_ly}.{suffix}",
-    "FSD raffreddato. Ora in {system}.{suffix}",
-]
+lines = ["Arrivati in {system}. Salto di {dist_ly}.{suffix}"]
 
 [NavRoute]
-lines = [
-    "Rotta impostata. Destinazione: {dest}. {hops} {hops_word}.",
-    "Rotta di navigazione tracciata. {dest} in {hops} {hops_word}.",
-    "Rotta fissata. {hops} {hops_word} verso {dest}.",
-    "Rotta confermata. {hops} {hops_word} verso {dest}.",
-]
+lines = ["Rotta impostata. Destinazione: {dest}. {hops} {hops_word}."]
 
 [NavRouteClear]
-lines = [
-    "Rotta cancellata.",
-    "Rotta di navigazione annullata.",
-    "Dati della rotta cancellati.",
-]
+lines = ["Rotta cancellata."]
 
 [SupercruiseEntry]
-lines = [
-    "Entrata in supercrociera.",
-    "Supercrociera attivata.",
-    "Propulsore FSD — modalità supercrociera.",
-    "Supercrociera attiva.",
-]
+lines = ["Supercruise attivato."]
 
 [SupercruiseExit]
-lines = [
-    "Supercrociera disattivata vicino a {body}.",
-    "Ritorno allo spazio normale vicino a {body}.",
-    "Uscita dalla supercrociera. Avvicinamento a {body}.",
-]
+lines = ["Supercruise disattivato vicino a {body}."]
 
 [SupercruiseExit_nobdy]
-lines = [
-    "Supercrociera disattivata.",
-    "Ritorno allo spazio normale.",
-    "Uscita dalla supercrociera.",
-]
+lines = ["Supercruise disattivato."]
 
 [StartJump_Hyperspace]
-lines = [
-    "Attivazione dell'iperspazio.",
-    "Avvio del salto FSD.",
-    "Salto iperspaziale attivato.",
-    "Propulsore FSD in fase di avvio.",
-]
+lines = ["Salto iperspaziale attivato."]
 
 [StartJump_Supercruise]
-lines = [
-    "Entrata in supercrociera.",
-    "Supercrociera attivata.",
-]
+lines = ["Supercruise attivato."]
 
 [Docked]
-lines = [
-    "Attraccato a {station}.",
-    "Attracco completato. Benvenuti a {station}.",
-    "Atterraggio confermato. {station}.",
-    "Attracco sicuro a {station}.",
-]
+lines = ["Attraccato a {station}."]
 
 [Undocked]
-lines = [
-    "Disattraccato da {station}.",
-    "Partenza da {station}.",
-    "Autorizzazione alla partenza da {station}.",
-]
+lines = ["Disattraccato da {station}."]
 
 [Undocked_nostation]
-lines = [
-    "Disattraccato.",
-    "Partenza confermata.",
-    "Autorizzazione alla partenza concessa.",
-]
+lines = ["Disattraccato."]
 
 [DockingGranted]
-lines = [
-    "Richiesta di attracco accettata. Dirigersi al pad {pad}.",
-    "Autorizzazione concessa. Pad di atterraggio {pad}.",
-    "Attracco approvato. Il pad {pad} è tuo.",
-    "Sei autorizzato ad atterrare. Pad {pad}.",
-]
+lines = ["Richiesta di attracco accettata. Dirigersi al pad {pad}."]
 
 [DockingDenied]
-lines = [
-    "Richiesta di attracco rifiutata. Motivo: {reason}.",
-    "Attracco rifiutato. {reason}.",
-    "Autorizzazione rifiutata. {reason}.",
-]
+lines = ["Richiesta di attracco negata. Motivo: {reason}."]
 
 [DockingCancelled]
-lines = [
-    "Attracco annullato.",
-    "Sequenza di attracco annullata.",
-    "Richiesta di attracco ritirata.",
-]
+lines = ["Attracco annullato."]
 
 [Touchdown]
-lines = [
-    "Atterraggio a {lat}, {lon}.",
-    "Contatto con la superficie confermato. Coordinate: {lat}, {lon}.",
-    "Atterrato. Posizione: {lat}, {lon}.",
-    "Atterraggio confermato. {lat}, {lon}.",
-]
+lines = ["Atterraggio a {lat}, {lon}."]
 
 [Liftoff]
-lines = [
-    "Decollo.",
-    "Autorizzato ad ascendere.",
-    "Lasciando la superficie.",
-    "Decollo confermato.",
-]
+lines = ["Decollo."]
 
 [FirstFootfall]
-lines = [
-    "Primo passo su questo mondo!",
-    "Atterraggio storico! Sei il primo a mettere piede su questo mondo!",
-    "Primo passo confermato! Hai fatto la storia, Comandante.",
-    "Primo contatto con questa superficie! Una nuova scoperta.",
-]
+lines = ["Primo passo su questo mondo!"]
 
 [UnderAttack]
-lines = [
-    "Attenzione! Sotto attacco!",
-    "Fuoco ostile rilevato! Scudi attivi!",
-    "Allarme! Siamo sotto attacco!",
-    "Prendendo fuoco! Scudi attivati!",
-]
+lines = ["Attenzione! Sotto attacco!"]
 
 [UnderAttack_target]
-lines = [
-    "Attenzione! Sotto attacco! Bersaglio: {target}.",
-    "Fuoco ostile da {target}! Manovra evasiva raccomandata.",
-    "Allarme! {target} sta aprendo il fuoco!",
-    "Sotto il fuoco di {target}! Modalità combattimento attivata.",
-]
+lines = ["Attenzione! Sotto attacco! Bersaglio: {target}."]
 
 [ShieldDown]
-lines = [
-    "Attenzione! Scudi offline!",
-    "Allarme! Guasto agli scudi! Scafo esposto!",
-    "Scudi abbattuti! Integrità dello scafo a rischio!",
-    "Collasso degli scudi rilevato! Intervento immediato richiesto!",
-]
+lines = ["Attenzione! Scudi offline!"]
 
 [ShieldUp]
-lines = [
-    "Scudi ripristinati.",
-    "Integrità degli scudi ripristinata.",
-    "Scudi di nuovo online.",
-    "Sistemi scudo nominali.",
-]
+lines = ["Scudi ripristinati."]
 
 [HullDamage_Critical]
-lines = [
-    "Critico! Scafo al {pct} percento!",
-    "Integrità dello scafo critica! {pct} percento rimanente!",
-    "Emergenza! Breccia nello scafo imminente! {pct} percento!",
-    "Allarme guasto strutturale! Scafo al {pct} percento!",
-]
+lines = ["Critico! Scafo al {pct} percento!"]
 
 [HullDamage_Warning]
-lines = [
-    "Danno allo scafo: {pct} percento.",
-    "Integrità dello scafo ridotta al {pct} percento.",
-    "Rapporto danni: scafo al {pct} percento.",
-    "Avviso scafo: integrità al {pct} percento.",
-]
+lines = ["Danno allo scafo: {pct} percento."]
 
 [Died]
-lines = [
-    "{msg}",
-    "Comandante abbattuto. {msg}",
-    "Nave distrutta. {msg}",
-]
+lines = ["{msg}"]
 
 [Bounty]
-lines = [
-    "Taglia: {reward}.",
-    "Ricompensa di combattimento: {reward}.",
-    "Taglia riscossa: {reward}.",
-]
+lines = ["Taglia: {reward}."]
 
 [Bounty_target]
-lines = [
-    "Taglia: {reward}. Bersaglio: {victim}.",
-    "Ricompensa di combattimento {reward} per l'eliminazione di {victim}.",
-    "Voucher taglia emesso: {reward}. Il bersaglio era {victim}.",
-]
+lines = ["Taglia: {reward}. Bersaglio: {victim}."]
 
 [FactionKillBond]
-lines = [
-    "Legame di combattimento: {reward}.",
-    "Bonus di uccisione: {reward}.",
-    "Legame di combattimento guadagnato: {reward}.",
-]
+lines = ["Legame di combattimento: {reward}."]
 
 [Interdicted_Submitted]
-lines = [
-    "Interdizione ceduta.",
-    "FSD interrotto. Resa registrata.",
-    "Estratti dalla supercrociera. Resa.",
-]
+lines = ["Interdizione accettata."]
 
 [Interdicted_Submitted_name]
-lines = [
-    "Resa all'interdizione di {interdictor}.",
-    "Interdizione di {interdictor} accettata.",
-    "FSD interrotto. In conformità con {interdictor}.",
-]
+lines = ["Resa all'interdizione di {interdictor}."]
 
 [Interdicted_Escaped]
-lines = [
-    "Interdizione sfuggita!",
-    "Interdizione evitata con successo!",
-    "Interdizione spezzata! FSD di nuovo online.",
-]
+lines = ["Interdizione evitata!"]
 
 [Interdicted_Escaped_name]
-lines = [
-    "Interdizione di {interdictor} sfuggita!",
-    "Interdizione di {interdictor} evitata con successo!",
-    "Libero dal campo gravitazionale di {interdictor}!",
-]
+lines = ["Interdizione di {interdictor} evitata!"]
 
 [Interdiction_Success]
-lines = [
-    "Interdizione riuscita: {victim}.",
-    "Bersaglio {victim} estratto dalla supercrociera.",
-    "Interdizione completata. {victim} è stato intercettato.",
-]
+lines = ["Interdizione riuscita: {victim}."]
 
 [Interdiction_Failed]
-lines = [
-    "Interdizione fallita.",
-    "Il bersaglio è sfuggito all'interdizione.",
-    "Interdizione senza successo. Il bersaglio è fuggito.",
-]
+lines = ["Interdizione fallita."]
 
 [Scanned]
-lines = [
-    "Attenzione: scansione {scan_type} rilevata!",
-    "Allarme! Scansione rilevata: {scan_type}!",
-    "Siamo being scansionati — {scan_type}!",
-]
+lines = ["Attenzione: scansione {scan_type} rilevata!"]
 
 [HeatWarning]
-lines = [
-    "Attenzione: calore critico!",
-    "Allarme! Temperatura oltre i limiti di sicurezza!",
-    "Livelli di calore critici! Attivazione sistema di raffreddamento!",
-    "Sovraccarico termico! Ridurre la potenza!",
-]
+lines = ["Attenzione: calore critico!"]
 
 [HyperdictInterdict]
-lines = [
-    "Interdizione Thargoid! Iperpropulsore interrotto!",
-    "Segnale extraterrestre ostile! FSD disturbato!",
-    "Interdizione Thargoid rilevata! Tutti i membri si preparino!",
-    "Segnale non umano! Iperpropulsore offline!",
-]
+lines = ["Interdizione Thargoid! Iperpropulsore interrotto!"]
 
 [FSSDiscoveryScan]
-lines = [
-    "Scansione completata. {total} corpi rilevati.",
-    "Scansione a spettro completo completata. {total} corpi in questo sistema.",
-    "Scansione di scoperta completata. Il sistema contiene {total} corpi.",
-    "Scansione FSS completata: {total} corpi rilevati.",
-]
+lines = ["Scansione completata. {total} corpi rilevati."]
 
 [FSSAllBodiesFound]
-lines = [
-    "Scansione del sistema completata. Tutti i segnali contabilizzati in {system}.",
-    "Tutti i corpi in {system} sono stati identificati.",
-    "Scansione completa del sistema completata. Nessun segnale sconosciuto in {system}.",
-    "Rilevamento di {system} completato. Tutti i corpi catalogati.",
-]
+lines = ["Scansione del sistema completata. Tutti i segnali contabilizzati in {system}."]
 
 [FSSSignalDiscovered]
-lines = [
-    "Segnale rilevato: {sig}!",
-    "Segnale anomalo: {sig}!",
-    "Allarme! Segnale non standard — {sig}!",
-    "Segnale non identificato: {sig}! Indagine raccomandata.",
-]
+lines = ["Segnale rilevato: {sig}!"]
 
 [Scan_Undiscovered]
-lines = [
-    "Sistema non scoperto.",
-    "Prima scoperta confermata! Questo sistema non è stato mappato.",
-    "Sistema stellare non scoperto. Lascia il tuo segno, Comandante.",
-]
+lines = ["Sistema non scoperto."]
 
 [Scan_Notable]
-lines = [
-    "Notevole: {body_short}. {detail}",
-    "Corpo prezioso rilevato: {body_short}. {detail}",
-    "Attenzione! {body_short} è notevole. {detail}",
-    "Corpo straordinario in portata: {body_short}. {detail}",
-]
+lines = ["Notevole: {body_short}. {detail}"]
 
 [Scan_Detailed]
-lines = [
-    "Scansione: {body_short}. {detail}",
-    "Scansione completata: {body_short}. {detail}",
-    "Corpo scansionato: {body_short}. {detail}",
-]
+lines = ["Scansione: {body_short}. {detail}"]
 
 [SAAScanComplete]
-lines = [
-    "Mappato: {body_short}.",
-    "Mappatura superficiale completata: {body_short}.",
-    "Mappatura planetaria eseguita. {body_short} mappato.",
-    "Scansione DSS completata. {body_short} mappato.",
-]
+lines = ["Mappato: {body_short}."]
 
 [CodexEntry]
-lines = [
-    "Codex: {name}.",
-    "Nuova voce nel codex: {name}.",
-    "Codex aggiornato: {name}.",
-]
+lines = ["Codex: {name}."]
 
 [ScanOrganic_Log]
-lines = [
-    "Biologico: {species}.",
-    "Forma di vita organica rilevata: {species}.",
-    "Segnale bio confermato: {species}.",
-]
+lines = ["Biologico: {species}."]
 
 [ScanOrganic_Log_NewSpecies]
-lines = [
-    "Biologico: {species}. Nuova specie!",
-    "Forma di vita: {species}. Primo esemplare registrato!",
-    "Nuova specie scoperta: {species}! Registrata nel Codex.",
-]
+lines = ["Biologico: {species}. Nuova specie!"]
 
 [ScanOrganic_Sample]
-lines = [
-    "Campione bio {count} di 3: {species}.",
-    "Campione {count} prelevato: {species}.",
-    "Campione biologico {count}: {species}.",
-]
+lines = ["Campione bio {count} di 3: {species}."]
 
 [ScanOrganic_Analyse]
-lines = [
-    "Bio completato: {species}. Valore: {val_str}.",
-    "Analisi completata: {species}. Valore totale: {val_str}.",
-    "Esemplare biologico catalogato: {species}. Valore stimato: {val_str}.",
-    "Analisi dei campioni eseguita. {species} — vale {val_str}.",
-]
+lines = ["Bio completato: {species}. Valore: {val_str}."]
 
 [ScanOrganic_Analyse_BodyLeft]
-lines = [
-    "Ci sono ancora {body_left} {bio_word} su questo corpo.",
-    "{body_left} segnali biologici rimanenti qui.",
-    "Continua la scansione. {body_left} {bio_word} ancora su questo corpo.",
-]
+lines = ["Ancora {body_left} {bio_word} su questo corpo."]
 
 [ScanOrganic_Analyse_SystemMore]
-lines = [
-    "Altri segnali bio: {parts_str}.",
-    "Biologia aggiuntiva rilevata altrove: {parts_str}.",
-    "Altri segnali biologici nel sistema: {parts_str}.",
-]
+lines = ["Altri segnali bio: {parts_str}."]
 
 [ScanOrganic_Analyse_SystemDone]
-lines = [
-    "Tutti i segnali bio in questo sistema sono completi.",
-    "Il rilevamento biologico di questo sistema è completato.",
-    "Tutti i campioni organici raccolti in questo sistema.",
-    "Biologia del sistema completa. Ben fatto, Comandante.",
-]
+lines = ["Tutti i segnali bio in questo sistema sono completi."]
 
 [MissionAccepted]
-lines = [
-    "Missione accettata: {name}.",
-    "Nuova missione registrata: {name}.",
-    "Obiettivo confermato: {name}.",
-    "Missione in archivio: {name}.",
-]
+lines = ["Missione accettata: {name}."]
 
 [MissionCompleted]
-lines = [
-    "Missione completata: {name}. Ricompensa: {reward}.",
-    "Obiettivo raggiunto: {name}. Pagamento: {reward}.",
-    "Missione compiuta: {name}. Raccolta di {reward}.",
-    "Bene! {name} completata. Ricompensa: {reward}.",
-]
+lines = ["Missione completata: {name}. Ricompensa: {reward}."]
 
 [MissionFailed]
-lines = [
-    "Missione fallita: {name}.",
-    "Obiettivo mancato: {name}.",
-    "Missione non riuscita: {name}.",
-]
+lines = ["Missione fallita: {name}."]
 
 [MarketSell]
-lines = [
-    "Venduto: {count}x {commodity} per {total}.",
-    "Scambio completato. {count} unità di {commodity}: {total}.",
-    "Vendita al mercato: {count}x {commodity}, guadagno di {total}.",
-]
+lines = ["Venduto: {count}x {commodity} per {total}."]
 
 [MarketSell_profit]
-lines = [
-    "Venduto: {count}x {commodity} per {total}. Profitto: {profit}.",
-    "Scambio completato. {count}x {commodity} venduto per {total}. Profitto: {profit}.",
-    "Vendita completata. {total} guadagnati, {profit} di profitto su {count}x {commodity}.",
-]
+lines = ["Venduto: {count}x {commodity} per {total}. Profitto: {profit}."]
 
 [EngineerUnlocked]
-lines = [
-    "Ingegnere sbloccato: {engineer}!",
-    "Accesso concesso a {engineer}!",
-    "Nuovo ingegnere disponibile: {engineer}!",
-    "{engineer} ha aperto la sua officina per te!",
-]
+lines = ["Ingegnere sbloccato: {engineer}!"]
 
 [EngineerRank]
-lines = [
-    "Ingegnere {engineer}: grado {rank}.",
-    "Grado {rank} raggiunto con {engineer}.",
-    "{engineer} ti ha promosso al grado {rank}.",
-]
+lines = ["Ingegnere {engineer}: grado {rank}."]
 
 [FuelScoop_Full]
-lines = [
-    "Serbatoio pieno.",
-    "Capacità carburante raggiunta. Raccolta completata.",
-    "Carico di carburante completo. Pronto a saltare.",
-    "Serbatoi riempiti. Raccoglitore carburante in disattivazione.",
-]
+lines = ["Serbatoio pieno."]
 
 [EjectCargo]
-lines = [
-    "Carico espulso: {cargo}.",
-    "{cargo} espulso.",
-    "Espulsione del carico confermata: {cargo}.",
-]
+lines = ["Carico espulso: {cargo}."]
 
 [Repair]
-lines = [
-    "Riparazione completata: {item}.",
-    "{item} riparato e ripristinato.",
-    "Riparazioni eseguite su {item}.",
-]
+lines = ["Riparazione completata: {item}."]
 
 [RepairAll]
-lines = [
-    "Riparazione completa eseguita.",
-    "Tutti i sistemi riparati e ripristinati.",
-    "Revisione completa eseguita. Tutti i sistemi nominali.",
-    "Servizio completo eseguito. Nave in perfette condizioni.",
-]
+lines = ["Riparazione completa terminata."]
 
 [Resurrect]
-lines = [
-    "Riapparso alla stazione.",
-    "Riacquisto completato. Di nuovo nel buio, Comandante.",
-    "Comandante revivificato. Una lezione costosa.",
-    "Richiesta assicurativa elaborata. Bentornato.",
-]
-
-# Status keys fall back to English automatically if not translated
-# See en.toml for full status voiceline documentation
+lines = ["Respawn alla stazione."]
 
 [LandingGear_Deployed]
-lines = ["Carrello di atterraggio dispiegato.", "Carrello giù.", "Carrello di atterraggio esteso."]
+lines = ["Carrello di atterraggio dispiegato."]
+
 [LandingGear_Retracted]
-lines = ["Carrello di atterraggio ritratto.", "Carrello su.", "Carrello di atterraggio riposto."]
+lines = ["Carrello di atterraggio retratto."]
+
 [CargoScoop_Deployed]
-lines = ["Raccoglitore di carico dispiegato.", "Raccoglitore aperto.", "Baia limpet aperta."]
+lines = ["Raccoglitore di carico dispiegato."]
+
 [CargoScoop_Retracted]
-lines = ["Raccoglitore di carico ritratto.", "Raccoglitore chiuso.", "Baia limpet chiusa."]
+lines = ["Raccoglitore di carico retratto."]
+
 [Hardpoints_Deployed]
-lines = ["Hardpoint dispiegati.", "Armi calde.", "Configurazione da combattimento attivata."]
+lines = ["Punti di ancoraggio dispiegati."]
+
 [Hardpoints_Retracted]
-lines = ["Hardpoint ritratti.", "Armi riposte.", "Configurazione di volo ripristinata."]
+lines = ["Punti di ancoraggio retratti."]
+
 [Lights_On]
-lines = ["Luci accese.", "Illuminazione esterna attivata.", "Luci di navigazione accese."]
+lines = ["Luci accese."]
+
 [Lights_Off]
-lines = ["Luci spente.", "Illuminazione esterna disattivata.", "Al buio."]
+lines = ["Luci spente."]
+
 [NightVision_On]
-lines = ["Visione notturna attivata.", "Modalità visione notturna attiva.", "Ottica potenziata online."]
+lines = ["Visione notturna attivata."]
+
 [NightVision_Off]
-lines = ["Visione notturna disattivata.", "Visione notturna spenta.", "Modalità ottica standard ripristinata."]
+lines = ["Visione notturna disattivata."]
+
 [FlightAssist_Off]
-lines = ["Assistenza al volo disattivata.", "Volo manuale attivato.", "Sistemi di stabilità disattivati."]
+lines = ["Assistenza di volo disattivata."]
+
 [FlightAssist_On]
-lines = ["Assistenza al volo attivata.", "Sistemi di stabilità attivi.", "Volo assistito ripristinato."]
+lines = ["Assistenza di volo attivata."]
+
 [SilentRunning_On]
-lines = ["Corsa silenziosa attivata.", "Emissioni ridotte.", "Corsa silenziosa attiva."]
+lines = ["Modalità silenziosa attivata."]
+
 [SilentRunning_Off]
-lines = ["Corsa silenziosa disattivata.", "Emissioni normali.", "Corsa silenziosa disattivata."]
+lines = ["Modalità silenziosa disattivata."]
+
 [AnalysisMode]
-lines = ["Modalità analisi.", "Passaggio alla modalità analisi.", "Suite sensori — configurazione esplorazione."]
+lines = ["Modalità analisi."]
+
 [CombatMode]
-lines = ["Modalità combattimento.", "Passaggio alla modalità combattimento.", "Suite sensori — configurazione combattimento."]
+lines = ["Modalità combattimento."]
+
 [SRV_Deployed]
-lines = ["S R V dispiegato.", "Veicolo di superficie dispiegato.", "S R V pronto."]
+lines = ["S R V dispiegato."]
+
 [SRV_Secured]
-lines = ["S R V recuperato.", "Veicolo di superficie recuperato.", "S R V attraccato."]
+lines = ["S R V recuperato."]
+
 [MassLocked]
-lines = ["Blocco di massa.", "FSD inibito. Blocco di massa rilevato.", "Campo gravitazionale attivo."]
+lines = ["Blocco di massa attivo."]
+
 [MassLockReleased]
-lines = ["Blocco di massa rilasciato.", "FSD disponibile.", "Fuori dal campo gravitazionale."]
+lines = ["Blocco di massa rilasciato."]
+
 [BioReady]
-lines = [
-    "{species} pronto. Distanza {dist} metri. Puoi scansionare il prossimo campione.",
-    "Campione biologico pronto. Sposta {dist} metri dall'ultimo campione. Specie: {species}.",
-]
+lines = ["{species} pronto. Distanza {dist} metri. È possibile scansionare il prossimo campione."]

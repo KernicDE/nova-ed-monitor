@@ -1,41 +1,25 @@
-# NOVA Voicelines — English
-# Copy this file to ~/.config/nova/voicelines/en.toml and edit freely.
-# Each [EventKey] section contains a "lines" array of variants.
-# NOVA picks one at random each time the event fires.
-# Delete all but one line per event to disable random selection.
-# Variables in {curly_braces} are replaced at runtime (see comments above each section).
+# NOVA Voicelines — English (built-in standard)
+# ─────────────────────────────────────────────
+# Each event has exactly one line. To add variants or override any event,
+# create ~/.config/nova/voicelines/en.toml with only the events you want
+# to change. See that directory's README.md for format and rules.
+# Variables in {curly_braces} are replaced at runtime.
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
 [Nova_Startup]
 # No variables.
-lines = [
-    "NOVA active.",
-    "NOVA online. All systems nominal.",
-    "Navigation, Operations, and Vessel Assistance — online.",
-    "NOVA standing by, Commander.",
-    "Systems nominal. NOVA ready.",
-]
+lines = ["NOVA active."]
 
 [Shutdown]
 # No variables.
-lines = [
-    "Systems powering down. Farewell, Commander.",
-    "Shutting down. Safe travels, Commander.",
-    "NOVA going offline. Fly safe.",
-    "Powering down. Until next time, Commander.",
-]
+lines = ["Systems powering down. Farewell, Commander."]
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 [LoadGame]
 # {commander} = Commander name
-lines = [
-    "Commander {commander} online.",
-    "Welcome back, Commander {commander}.",
-    "NOVA ready. Good to have you back, Commander {commander}.",
-    "Online. Greetings, Commander {commander}.",
-]
+lines = ["Commander {commander} online."]
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -43,484 +27,236 @@ lines = [
 # {system}  = destination star system name
 # {dist_ly} = jump distance formatted for speech (e.g. "12.3 light years")
 # {suffix}  = optional extra info appended (star class, hops remaining, population)
-lines = [
-    "Arrived in {system}. Jump {dist_ly}.{suffix}",
-    "Hyperspace complete. Welcome to {system}. {dist_ly}.{suffix}",
-    "Jump complete. Entering {system}. Distance: {dist_ly}.{suffix}",
-    "We have arrived in {system}. Jump distance: {dist_ly}.{suffix}",
-    "FSD cooldown complete. Now in {system}.{suffix}",
-]
+lines = ["Arrived in {system}. Jump {dist_ly}.{suffix}"]
 
 [NavRoute]
 # {dest}      = destination system name
 # {hops}      = number of jumps
 # {hops_word} = "jump" or "jumps"
-# {dist_ly}   = total route distance formatted (e.g. "347.2 light years")
-lines = [
-    "Route set. Destination: {dest}. {hops} {hops_word}.",
-    "Navigation route plotted. {dest} in {hops} {hops_word}.",
-    "Course laid in. {hops} {hops_word} to {dest}.",
-    "Route confirmed. {hops} {hops_word} to {dest}.",
-]
+lines = ["Route set. Destination: {dest}. {hops} {hops_word}."]
 
 [NavRouteClear]
 # No variables.
-lines = [
-    "Route cleared.",
-    "Navigation route cancelled.",
-    "Route data cleared.",
-]
+lines = ["Route cleared."]
 
 [SupercruiseEntry]
 # No variables.
-lines = [
-    "Entering supercruise.",
-    "Supercruise engaged.",
-    "Frame Shift Drive — supercruise mode.",
-    "Supercruise active.",
-]
+lines = ["Supercruise engaged."]
 
 [SupercruiseExit]
-# {body} = nearby body name (may be empty)
-lines = [
-    "Supercruise disengaged near {body}.",
-    "Dropping to normal space near {body}.",
-    "Exiting supercruise. Approaching {body}.",
-]
+# {body} = nearby body name
+lines = ["Supercruise disengaged near {body}."]
 
 [SupercruiseExit_nobdy]
 # Used when no body is named.
-lines = [
-    "Supercruise disengaged.",
-    "Dropping to normal space.",
-    "Exiting supercruise.",
-]
+lines = ["Supercruise disengaged."]
 
 [StartJump_Hyperspace]
 # No variables.
-lines = [
-    "Engaging hyperspace.",
-    "Initiating FSD jump.",
-    "Hyperspace jump engaged.",
-    "Frame Shift Drive spooling up.",
-]
+lines = ["Hyperspace jump engaged."]
 
 [StartJump_Supercruise]
 # No variables.
-lines = [
-    "Entering supercruise.",
-    "Supercruise engaged.",
-]
+lines = ["Supercruise engaged."]
 
 [Docked]
 # {station} = station name
-lines = [
-    "Docked at {station}.",
-    "Docking complete. Welcome to {station}.",
-    "Landing confirmed. {station}.",
-    "Secure docking at {station}.",
-]
+lines = ["Docked at {station}."]
 
 [Undocked]
-# {station} = station name (may be empty)
-lines = [
-    "Undocked from {station}.",
-    "Departing {station}.",
-    "Cleared for departure from {station}.",
-]
+# {station} = station name
+lines = ["Undocked from {station}."]
 
 [Undocked_nostation]
 # Used when station name is unknown.
-lines = [
-    "Undocked.",
-    "Departure confirmed.",
-    "Cleared for departure.",
-]
+lines = ["Undocked."]
 
 [DockingGranted]
 # {pad} = landing pad number
-lines = [
-    "Docking request granted. Proceed to pad {pad}.",
-    "Clearance granted. Landing pad {pad}.",
-    "Docking approved. Pad {pad} is yours.",
-    "You are cleared to land. Pad {pad}.",
-]
+lines = ["Docking request granted. Proceed to pad {pad}."]
 
 [DockingDenied]
 # {reason} = denial reason string
-lines = [
-    "Docking request denied. Reason: {reason}.",
-    "Docking denied. {reason}.",
-    "Clearance refused. {reason}.",
-]
+lines = ["Docking request denied. Reason: {reason}."]
 
 [DockingCancelled]
 # No variables.
-lines = [
-    "Docking aborted.",
-    "Docking sequence cancelled.",
-    "Docking request withdrawn.",
-]
+lines = ["Docking aborted."]
 
 [Touchdown]
 # {lat} = latitude (formatted float)
 # {lon} = longitude (formatted float)
-lines = [
-    "Touchdown at {lat}, {lon}.",
-    "Surface contact confirmed. Coordinates: {lat}, {lon}.",
-    "Landed. Position: {lat}, {lon}.",
-    "Touchdown confirmed. {lat}, {lon}.",
-]
+lines = ["Touchdown at {lat}, {lon}."]
 
 [Liftoff]
 # No variables.
-lines = [
-    "Liftoff.",
-    "Cleared for ascent.",
-    "Leaving the surface.",
-    "Liftoff confirmed.",
-]
+lines = ["Liftoff."]
 
 [FirstFootfall]
 # No variables.
-lines = [
-    "First footfall on this world!",
-    "Historic landing! You are the first to set foot on this world!",
-    "First footfall confirmed! You made history, Commander.",
-    "First contact with this surface! A new discovery.",
-]
+lines = ["First footfall on this world!"]
 
 # ── Combat ────────────────────────────────────────────────────────────────────
 
 [UnderAttack]
-# {target} = attacker name (may be empty)
-lines = [
-    "Warning! Under attack!",
-    "Hostile fire detected! Shields up!",
-    "Alert! We are under attack!",
-    "Taking fire! Shields engaged!",
-]
+# No variables.
+lines = ["Warning! Under attack!"]
 
 [UnderAttack_target]
 # {target} = attacker name
-lines = [
-    "Warning! Under attack! Target: {target}.",
-    "Hostile fire from {target}! Evasive action recommended.",
-    "Alert! {target} is firing on us!",
-    "Taking fire from {target}! Combat mode engaged.",
-]
+lines = ["Warning! Under attack! Target: {target}."]
 
 [ShieldDown]
 # No variables.
-lines = [
-    "Warning! Shields offline!",
-    "Alert! Shield failure! Hull exposed!",
-    "Shields down! Hull integrity at risk!",
-    "Shield collapse detected! Immediate action required!",
-]
+lines = ["Warning! Shields offline!"]
 
 [ShieldUp]
 # No variables.
-lines = [
-    "Shields restored.",
-    "Shield integrity restored.",
-    "Shields back online.",
-    "Shield systems nominal.",
-]
+lines = ["Shields restored."]
 
 [HullDamage_Critical]
 # {pct} = hull percentage (integer)
-lines = [
-    "Critical! Hull at {pct} percent!",
-    "Hull integrity critical! {pct} percent remaining!",
-    "Emergency! Hull breach imminent! {pct} percent!",
-    "Structural failure warning! Hull at {pct} percent!",
-]
+lines = ["Critical! Hull at {pct} percent!"]
 
 [HullDamage_Warning]
 # {pct} = hull percentage (integer)
-lines = [
-    "Hull damage: {pct} percent.",
-    "Hull integrity reduced to {pct} percent.",
-    "Damage report: hull at {pct} percent.",
-    "Hull warning: {pct} percent integrity.",
-]
+lines = ["Hull damage: {pct} percent."]
 
 [Died]
-# {msg} = full death message (formatted with killers if known)
-lines = [
-    "{msg}",
-    "Commander down. {msg}",
-    "Ship destroyed. {msg}",
-]
+# {msg} = full death message
+lines = ["{msg}"]
 
 [Bounty]
 # {reward} = formatted credit string
-# {victim} = target name (may be empty)
-lines = [
-    "Bounty: {reward}.",
-    "Combat reward: {reward}.",
-    "Bounty claimed: {reward}.",
-]
+lines = ["Bounty: {reward}."]
 
 [Bounty_target]
 # {reward} = formatted credit string
 # {victim} = target name
-lines = [
-    "Bounty: {reward}. Target: {victim}.",
-    "Combat reward {reward} for eliminating {victim}.",
-    "Bounty voucher issued: {reward}. Target was {victim}.",
-]
+lines = ["Bounty: {reward}. Target: {victim}."]
 
 [FactionKillBond]
 # {reward} = formatted credit string
-lines = [
-    "Combat bond: {reward}.",
-    "Kill bond issued: {reward}.",
-    "Combat bond earned: {reward}.",
-]
+lines = ["Combat bond: {reward}."]
 
 [Interdicted_Submitted]
-# {interdictor} = NPC/player name (may be empty)
-lines = [
-    "Interdiction submitted.",
-    "Frame shift drive interrupted. Submission recorded.",
-    "We have been pulled from supercruise. Submitting.",
-]
+# No variables.
+lines = ["Interdiction submitted."]
 
 [Interdicted_Submitted_name]
 # {interdictor} = NPC/player name
-lines = [
-    "Interdiction submitted to {interdictor}.",
-    "Submitted to interdiction by {interdictor}.",
-    "Frame shift interrupted. Complying with {interdictor}.",
-]
+lines = ["Interdiction submitted to {interdictor}."]
 
 [Interdicted_Escaped]
 # No variables.
-lines = [
-    "Interdiction escaped!",
-    "Successfully evaded the interdiction!",
-    "Interdiction broken! FSD back online.",
-    "Escape confirmed. They won't catch us that easily.",
-]
+lines = ["Interdiction escaped!"]
 
 [Interdicted_Escaped_name]
 # {interdictor} = NPC/player name
-lines = [
-    "Interdiction escaped from {interdictor}!",
-    "Successfully evaded {interdictor}'s interdiction!",
-    "Broke free of {interdictor}'s gravity well!",
-]
+lines = ["Interdiction escaped from {interdictor}!"]
 
 [Interdiction_Success]
 # {victim} = interdicted target name
-lines = [
-    "Interdiction successful: {victim}.",
-    "Target {victim} pulled from supercruise.",
-    "Interdiction complete. {victim} has been engaged.",
-]
+lines = ["Interdiction successful: {victim}."]
 
 [Interdiction_Failed]
 # No variables.
-lines = [
-    "Interdiction failed.",
-    "Target escaped the interdiction.",
-    "Interdiction unsuccessful. Target got away.",
-]
+lines = ["Interdiction failed."]
 
 [Scanned]
 # {scan_type} = type of scan detected
-lines = [
-    "Warning: {scan_type} scan detected!",
-    "Alert! Scan detected: {scan_type}!",
-    "We are being scanned — {scan_type}!",
-]
+lines = ["Warning: {scan_type} scan detected!"]
 
 [HeatWarning]
 # No variables.
-lines = [
-    "Warning: Heat critical!",
-    "Alert! Temperature exceeding safe limits!",
-    "Heat levels critical! Engaging coolant systems!",
-    "Thermal overload warning! Reduce power!",
-]
+lines = ["Warning: Heat critical!"]
 
 [HyperdictInterdict]
 # No variables.
-lines = [
-    "Thargoid interdiction! Hyperdrive interrupted!",
-    "Hostile alien signal! FSD disrupted!",
-    "Thargoid interdiction detected! All hands brace!",
-    "Non-human signal! Hyperdrive offline!",
-]
+lines = ["Thargoid interdiction! Hyperdrive interrupted!"]
 
 # ── Exploration ───────────────────────────────────────────────────────────────
 
 [FSSDiscoveryScan]
 # {total} = total bodies detected (integer)
-lines = [
-    "Honk complete. {total} bodies detected.",
-    "Full spectrum scan complete. {total} bodies in this system.",
-    "Discovery scan finished. System contains {total} bodies.",
-    "FSS scan complete: {total} bodies detected.",
-]
+lines = ["Honk complete. {total} bodies detected."]
 
 [FSSAllBodiesFound]
 # {system} = current system name
-lines = [
-    "System scan complete. All signals accounted for in {system}.",
-    "All bodies in {system} have been identified.",
-    "Full system scan complete. No more unknown signals in {system}.",
-    "Survey of {system} finalised. All bodies catalogued.",
-]
+lines = ["System scan complete. All signals accounted for in {system}."]
 
 [FSSSignalDiscovered]
 # {sig} = signal name
-lines = [
-    "Signal detected: {sig}!",
-    "Anomalous signal: {sig}!",
-    "Alert! Non-standard signal — {sig}!",
-    "Unidentified signal: {sig}! Recommend investigation.",
-]
+lines = ["Signal detected: {sig}!"]
 
 [Scan_Undiscovered]
 # No variables.
-lines = [
-    "Undiscovered system.",
-    "First discovery confirmed! This system is uncharted.",
-    "Undiscovered star system. Make your mark, Commander.",
-]
+lines = ["Undiscovered system."]
 
 [Scan_Notable]
 # {body_short} = short body name
 # {detail}     = detail string (e.g. "Earthlike body. Landable. 3 bio signals")
-lines = [
-    "Notable: {body_short}. {detail}",
-    "Valuable body detected: {body_short}. {detail}",
-    "Attention! {body_short} is notable. {detail}",
-    "Remarkable body in range: {body_short}. {detail}",
-]
+lines = ["Notable: {body_short}. {detail}"]
 
 [Scan_Detailed]
 # {body_short} = short body name
 # {detail}     = detail string
-lines = [
-    "Scan: {body_short}. {detail}",
-    "Scan complete: {body_short}. {detail}",
-    "Body scanned: {body_short}. {detail}",
-]
+lines = ["Scan: {body_short}. {detail}"]
 
 [SAAScanComplete]
 # {body_short} = short body name
-# {sig_txt}    = signal summary (e.g. "3 bio, 2 geo") or ""
-# {eff_txt}    = efficiency message or ""
-lines = [
-    "Mapped: {body_short}.",
-    "Surface mapping complete: {body_short}.",
-    "Planetary mapping done. {body_short} charted.",
-    "DSS scan complete. {body_short} mapped.",
-]
+lines = ["Mapped: {body_short}."]
 
 [CodexEntry]
 # {name} = codex entry name
-lines = [
-    "Codex: {name}.",
-    "New codex entry: {name}.",
-    "Codex updated: {name}.",
-]
+lines = ["Codex: {name}."]
 
 [ScanOrganic_Log]
 # {species} = species localised name
-lines = [
-    "Biological: {species}.",
-    "Organic life form detected: {species}.",
-    "Bio signal confirmed: {species}.",
-]
+lines = ["Biological: {species}."]
 
 [ScanOrganic_Log_NewSpecies]
 # {species} = species localised name
-lines = [
-    "Biological: {species}. New species!",
-    "Organic life form: {species}. First recorded specimen!",
-    "New species discovered: {species}! Logging to Codex.",
-]
+lines = ["Biological: {species}. New species!"]
 
 [ScanOrganic_Sample]
 # {count}   = sample number (2 or 3)
 # {species} = species localised name
-lines = [
-    "Bio sample {count} of 3: {species}.",
-    "Sample {count} taken: {species}. {remaining} more required.",
-    "Biological sample {count}: {species}.",
-]
+lines = ["Bio sample {count} of 3: {species}."]
 
 [ScanOrganic_Analyse]
-# {species}  = species localised name
-# {val_str}  = credit value formatted for speech
-lines = [
-    "Bio complete: {species}. Value: {val_str}.",
-    "Analysis complete: {species}. Total value: {val_str}.",
-    "Biological specimen catalogued: {species}. Estimated value: {val_str}.",
-    "Sample analysis done. {species} — worth {val_str}.",
-]
+# {species} = species localised name
+# {val_str} = credit value formatted for speech
+lines = ["Bio complete: {species}. Value: {val_str}."]
 
 [ScanOrganic_Analyse_BodyLeft]
 # {body_left} = number of remaining bio signals on this body
 # {bio_word}  = "bio" or "bios"
 # {verb}      = "is" or "are"
-lines = [
-    "There {verb} {body_left} more {bio_word} on this body.",
-    "{body_left} more biological {bio_word} remaining here.",
-    "Continue scanning. {body_left} {bio_word} still on this body.",
-]
+lines = ["There {verb} {body_left} more {bio_word} on this body."]
 
 [ScanOrganic_Analyse_SystemMore]
 # {parts_str} = summary of remaining bios per body
-lines = [
-    "More bio signals: {parts_str}.",
-    "Additional biology detected elsewhere: {parts_str}.",
-    "Further biological signals in system: {parts_str}.",
-]
+lines = ["More bio signals: {parts_str}."]
 
 [ScanOrganic_Analyse_SystemDone]
 # No variables.
-lines = [
-    "All bio signals in this system are complete.",
-    "Biological survey of this system is done.",
-    "All organic samples collected in this system.",
-    "System biology complete. Well done, Commander.",
-]
+lines = ["All bio signals in this system are complete."]
 
 # ── Missions ──────────────────────────────────────────────────────────────────
 
 [MissionAccepted]
 # {name} = mission name
-# {dest} = destination (may be empty)
-lines = [
-    "Mission accepted: {name}.",
-    "New mission logged: {name}.",
-    "Objective confirmed: {name}.",
-    "Mission on record: {name}.",
-]
+lines = ["Mission accepted: {name}."]
 
 [MissionCompleted]
 # {name}   = mission name
 # {reward} = credit reward formatted for speech
-lines = [
-    "Mission complete: {name}. Reward: {reward}.",
-    "Objective achieved: {name}. Payout: {reward}.",
-    "Mission accomplished: {name}. Collecting {reward}.",
-    "Well done! {name} complete. Reward: {reward}.",
-]
+lines = ["Mission complete: {name}. Reward: {reward}."]
 
 [MissionFailed]
 # {name} = mission name
-lines = [
-    "Mission failed: {name}.",
-    "Objective failed: {name}.",
-    "Mission unsuccessful: {name}.",
-]
+lines = ["Mission failed: {name}."]
 
 # ── Economy & Trade ───────────────────────────────────────────────────────────
 
@@ -528,237 +264,111 @@ lines = [
 # {count}     = number of units sold
 # {commodity} = commodity name
 # {total}     = total sale value formatted for speech
-lines = [
-    "Sold: {count}x {commodity} for {total}.",
-    "Trade complete. {count} units of {commodity}: {total}.",
-    "Market sale: {count}x {commodity}, earning {total}.",
-]
+lines = ["Sold: {count}x {commodity} for {total}."]
 
 [MarketSell_profit]
 # {count}     = number of units
 # {commodity} = commodity name
 # {total}     = total sale value formatted for speech
 # {profit}    = profit formatted for speech
-lines = [
-    "Sold: {count}x {commodity} for {total}. Profit: {profit}.",
-    "Trade complete. {count}x {commodity} sold for {total}. Profit: {profit}.",
-    "Market sale done. {total} earned, {profit} profit on {count}x {commodity}.",
-]
+lines = ["Sold: {count}x {commodity} for {total}. Profit: {profit}."]
 
 # ── Engineers ─────────────────────────────────────────────────────────────────
 
 [EngineerUnlocked]
 # {engineer} = engineer name
-lines = [
-    "Engineer unlocked: {engineer}!",
-    "Access granted to {engineer}!",
-    "New engineer available: {engineer}!",
-    "{engineer} has opened their workshop to you!",
-]
+lines = ["Engineer unlocked: {engineer}!"]
 
 [EngineerRank]
 # {engineer} = engineer name
 # {rank}     = new rank (integer)
-lines = [
-    "Engineer {engineer}: rank {rank}.",
-    "Rank {rank} achieved with {engineer}.",
-    "{engineer} has promoted you to rank {rank}.",
-]
+lines = ["Engineer {engineer}: rank {rank}."]
 
 # ── Status ────────────────────────────────────────────────────────────────────
 
 [FuelScoop_Full]
 # No variables.
-lines = [
-    "Fuel tank full.",
-    "Fuel capacity reached. Scooping complete.",
-    "Full fuel load. Ready to jump.",
-    "Tanks topped off. Fuel scoop disengaging.",
-]
+lines = ["Fuel tank full."]
 
 [EjectCargo]
 # {cargo} = cargo type name
-lines = [
-    "Cargo ejected: {cargo}.",
-    "Jettisoned {cargo}.",
-    "Cargo release confirmed: {cargo}.",
-]
+lines = ["Cargo ejected: {cargo}."]
 
 [Repair]
 # {item} = repaired item name
-lines = [
-    "Repair complete: {item}.",
-    "{item} repaired and restored.",
-    "Repairs done on {item}.",
-]
+lines = ["Repair complete: {item}."]
 
 [RepairAll]
 # No variables.
-lines = [
-    "Full repair complete.",
-    "All systems repaired and restored.",
-    "Complete overhaul done. All systems nominal.",
-    "Full service complete. Ship is in peak condition.",
-]
+lines = ["Full repair complete."]
 
 [Resurrect]
 # No variables.
-lines = [
-    "Respawned at station.",
-    "Rebuy complete. Back in the black, Commander.",
-    "Commander revived. A costly lesson.",
-    "Insurance claim processed. Welcome back.",
-]
+lines = ["Respawned at station."]
 
 # ── Ship Status / COVAS Callouts ──────────────────────────────────────────────
 
 [LandingGear_Deployed]
-lines = [
-    "Landing gear deployed.",
-    "Gear down.",
-    "Landing gear extended.",
-]
+lines = ["Landing gear deployed."]
 
 [LandingGear_Retracted]
-lines = [
-    "Landing gear retracted.",
-    "Gear up.",
-    "Landing gear stowed.",
-]
+lines = ["Landing gear retracted."]
 
 [CargoScoop_Deployed]
-lines = [
-    "Cargo scoop deployed.",
-    "Cargo scoop open.",
-    "Limpet bay open.",
-]
+lines = ["Cargo scoop deployed."]
 
 [CargoScoop_Retracted]
-lines = [
-    "Cargo scoop retracted.",
-    "Cargo scoop closed.",
-    "Limpet bay secured.",
-]
+lines = ["Cargo scoop retracted."]
 
 [Hardpoints_Deployed]
-lines = [
-    "Hardpoints deployed.",
-    "Weapons hot.",
-    "Combat configuration engaged.",
-    "Hardpoints extended.",
-]
+lines = ["Hardpoints deployed."]
 
 [Hardpoints_Retracted]
-lines = [
-    "Hardpoints retracted.",
-    "Weapons stowed.",
-    "Flight configuration restored.",
-]
+lines = ["Hardpoints retracted."]
 
 [Lights_On]
-lines = [
-    "Lights on.",
-    "External lights activated.",
-    "Navigation lights on.",
-]
+lines = ["Lights on."]
 
 [Lights_Off]
-lines = [
-    "Lights off.",
-    "External lights deactivated.",
-    "Running dark.",
-]
+lines = ["Lights off."]
 
 [NightVision_On]
-lines = [
-    "Night vision enabled.",
-    "Night vision active.",
-    "Enhanced optical mode online.",
-]
+lines = ["Night vision enabled."]
 
 [NightVision_Off]
-lines = [
-    "Night vision disabled.",
-    "Night vision off.",
-    "Standard optical mode restored.",
-]
+lines = ["Night vision disabled."]
 
 [FlightAssist_Off]
-lines = [
-    "Flight assist off.",
-    "Manual flight engaged.",
-    "Stability systems disabled.",
-    "FA off.",
-]
+lines = ["Flight assist off."]
 
 [FlightAssist_On]
-lines = [
-    "Flight assist on.",
-    "Stability systems active.",
-    "Assisted flight restored.",
-]
+lines = ["Flight assist on."]
 
 [SilentRunning_On]
-lines = [
-    "Silent running enabled.",
-    "Emissions reduced. Running silent.",
-    "Silent running active. Heat increasing.",
-]
+lines = ["Silent running enabled."]
 
 [SilentRunning_Off]
-lines = [
-    "Silent running disabled.",
-    "Emissions nominal. Running hot.",
-    "Silent running deactivated.",
-]
+lines = ["Silent running disabled."]
 
 [AnalysisMode]
-lines = [
-    "Analysis mode.",
-    "Switching to analysis mode.",
-    "Sensor suite — exploration configuration.",
-]
+lines = ["Analysis mode."]
 
 [CombatMode]
-lines = [
-    "Combat mode.",
-    "Switching to combat mode.",
-    "Sensor suite — combat configuration.",
-]
+lines = ["Combat mode."]
 
 [SRV_Deployed]
-lines = [
-    "S R V deployed.",
-    "Surface vehicle deployed.",
-    "S R V ready.",
-]
+lines = ["S R V deployed."]
 
 [SRV_Secured]
-lines = [
-    "S R V secured.",
-    "Surface vehicle recovered.",
-    "S R V docked.",
-]
+lines = ["S R V secured."]
 
 [MassLocked]
-lines = [
-    "Mass locked.",
-    "FSD inhibited. Mass lock detected.",
-    "Gravity well engaged. FSD unavailable.",
-]
+lines = ["Mass locked."]
 
 [MassLockReleased]
-lines = [
-    "Mass lock released.",
-    "FSD available.",
-    "Clear of gravity well. FSD ready.",
-]
+lines = ["Mass lock released."]
 
 [BioReady]
 # {species} = species name
 # {dist}    = distance in metres (integer)
-lines = [
-    "{species} ready. Distance {dist} metres. You may scan the next sample.",
-    "Biological sample ready. Move {dist} metres from last sample. Species: {species}.",
-    "Sufficient distance reached. {species} sample available. {dist} metres from previous.",
-]
+lines = ["{species} ready. Distance {dist} metres. You may scan the next sample."]
