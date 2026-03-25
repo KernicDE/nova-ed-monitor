@@ -392,6 +392,7 @@ def _follow(
                 if ev_name in ("FSDJump", "CarrierJump"):
                     with lock:
                         state.session_jumps += 1
+                        state.jump_dist_total += float(effective.get("JumpDist") or 0.0)
 
                 elif ev_name == "Scan":
                     if ev.get("ScanType") == "Detailed" and not ev.get("WasDiscovered"):

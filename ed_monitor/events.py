@@ -515,7 +515,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.government = gov
             state.allegiance = allegiance
             state.jump_dist  = dist
-            state.jump_dist_total = getattr(state, 'jump_dist_total', 0.0) + dist
             state.fuel       = fuel
             state.fuel_announced = False
             state.discovery_announced = False
