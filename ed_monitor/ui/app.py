@@ -99,11 +99,17 @@ class HelpScreen(Screen):
         cfg.append("Windows ", style=GOLD)
         cfg.append("%USERPROFILE%\\.config\\nova\\config.toml", style=WHITE)
 
+        edsm_note = Text()
+        edsm_note.append("Power Play state and nearest inhabited system shown in System panel.\n", style=DIM)
+        edsm_note.append("Stations at next route waypoint shown in Route panel.\n", style=DIM)
+        edsm_note.append("Data sourced from EDSM nightly dumps, refreshed automatically once per day.", style=DIM)
+
         content = Panel(
             Group(
                 header, Text(""),
                 Text("Keyboard Shortcuts", style=GOLD), kb, Text(""),
                 Text("Situational Panel Modes", style=GOLD), sm, Text(""),
+                Text("EDSM Data", style=GOLD), edsm_note, Text(""),
                 Text("Config File", style=GOLD), cfg, Text(""),
                 Text("https://github.com/KernicDE/nova-ed-monitor", style=DIM),
                 Text("Press Esc to close", style=DIM),

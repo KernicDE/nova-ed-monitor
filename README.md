@@ -14,7 +14,10 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically per message
 - **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
 - **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed) and announces messages via TTS
-- **EDSM enrichment** — fetches body data in the background (no API key needed)
+- **EDSM enrichment** — fetches body data in the background (no API key needed); downloads EDSM nightly dumps once per day for offline lookups
+- **Power Play** — displays the controlling power and state (Exploited / Fortified / Control / etc.) for any system from the local EDSM cache
+- **Nearest inhabited system** — shows the closest populated system and distance (ly) when exploring uninhabited space
+- **Next-waypoint stations** — lists stations at the next jump destination in the Route panel (name, distance, services icons: M/S/O/R)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
 - **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species
 - **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) in the Bodies panel before full scan
@@ -359,6 +362,10 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 │ Keybindings                                     Vol 50% ●   │
 └───────────────────────────────────────────────────────────────┘
 ```
+
+**System panel** shows population, economy, security, government, allegiance, faction, body counts, FSS progress, station count, Power Play state, and nearest inhabited system (when exploring uninhabited space).
+
+**Route panel** shows the nav route, next-jump star type, distance, and — from the EDSM dump cache — a list of stations at the next waypoint with service icons (M=market, S=shipyard, O=outfitting, R=repair).
 
 **Situational panel modes** (cycle with `Tab`):
 

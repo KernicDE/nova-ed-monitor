@@ -95,6 +95,38 @@ class Database:
             )""",
             "CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date)",
             "CREATE INDEX IF NOT EXISTS idx_events_date ON events(event_date)",
+            # EDSM dump tables
+            """CREATE TABLE IF NOT EXISTS edsm_systems (
+                id64        INTEGER PRIMARY KEY,
+                name        TEXT    NOT NULL,
+                x           REAL    NOT NULL DEFAULT 0,
+                y           REAL    NOT NULL DEFAULT 0,
+                z           REAL    NOT NULL DEFAULT 0,
+                allegiance  TEXT    NOT NULL DEFAULT '',
+                government  TEXT    NOT NULL DEFAULT '',
+                economy     TEXT    NOT NULL DEFAULT '',
+                population  INTEGER NOT NULL DEFAULT 0,
+                security    TEXT    NOT NULL DEFAULT '',
+                power       TEXT    NOT NULL DEFAULT '',
+                power_state TEXT    NOT NULL DEFAULT ''
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_edsm_systems_name ON edsm_systems(name)",
+            """CREATE TABLE IF NOT EXISTS edsm_stations (
+                id           INTEGER PRIMARY KEY,
+                name         TEXT    NOT NULL,
+                system_id64  INTEGER NOT NULL DEFAULT 0,
+                system_name  TEXT    NOT NULL DEFAULT '',
+                type         TEXT    NOT NULL DEFAULT '',
+                dist_ls      REAL    NOT NULL DEFAULT 0,
+                allegiance   TEXT    NOT NULL DEFAULT '',
+                government   TEXT    NOT NULL DEFAULT '',
+                economy      TEXT    NOT NULL DEFAULT '',
+                has_market   INTEGER NOT NULL DEFAULT 0,
+                has_shipyard INTEGER NOT NULL DEFAULT 0,
+                has_outfitting INTEGER NOT NULL DEFAULT 0,
+                other_services TEXT  NOT NULL DEFAULT ''
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_edsm_stations_system ON edsm_stations(system_name)",
         ]
         with self._lock:
             for sql in migrations:
@@ -304,6 +336,105 @@ class Database:
                 (today, stat, float(value)),
             )
             self._conn.commit()
+
+    # ── EDSM dump import ───────────────────────────────────────────────────────
+
+    def import_edsm_systems_batch(self, rows: list) -> None:
+        """INSERT OR REPLACE a batch of system rows into edsm_systems."""
+        sql = (
+            "INSERT OR REPLACE INTO edsm_systems"
+            " (id64,name,x,y,z,allegiance,government,economy,population,security,power,power_state)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+        )
+        with self._lock:
+            self._conn.executemany(sql, rows)
+            self._conn.commit()
+
+    def upsert_edsm_powerplay_batch(self, rows: list) -> None:
+        """Upsert power-play rows: insert new systems, update only power fields on existing ones."""
+        sql = (
+            "INSERT INTO edsm_systems"
+            " (id64,name,x,y,z,allegiance,government,economy,population,security,power,power_state)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(id64) DO UPDATE SET"
+            "   power=excluded.power,"
+            "   power_state=excluded.power_state"
+            " WHERE excluded.power != ''"
+        )
+        with self._lock:
+            self._conn.executemany(sql, rows)
+            self._conn.commit()
+
+    def import_edsm_stations_batch(self, rows: list) -> None:
+        """INSERT OR REPLACE a batch of station rows into edsm_stations."""
+        sql = (
+            "INSERT OR REPLACE INTO edsm_stations"
+            " (id,name,system_id64,system_name,type,dist_ls,"
+            "  allegiance,government,economy,"
+            "  has_market,has_shipyard,has_outfitting,other_services)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        )
+        with self._lock:
+            self._conn.executemany(sql, rows)
+            self._conn.commit()
+
+    # ── EDSM dump queries ──────────────────────────────────────────────────────
+
+    def get_system_power(self, name: str) -> tuple:
+        """Return (power, power_state) for a system name, or ('', '')."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT power, power_state FROM edsm_systems WHERE name = ?",
+                (name,),
+            ).fetchone()
+        return (row[0] or "", row[1] or "") if row else ("", "")
+
+    def get_nearest_populated(
+        self, x: float, y: float, z: float, exclude: str = ""
+    ) -> Optional[tuple]:
+        """Return (name, dist_ly, allegiance, government, economy, population) for
+        the nearest populated system (population > 0) excluding *exclude*, or None."""
+        with self._lock:
+            row = self._conn.execute(
+                """SELECT name,
+                          (x-?1)*(x-?1)+(y-?2)*(y-?2)+(z-?3)*(z-?3) AS dist2,
+                          allegiance, government, economy, population
+                   FROM edsm_systems
+                   WHERE name != ?4 AND population > 0
+                   ORDER BY dist2
+                   LIMIT 1""",
+                (x, y, z, exclude),
+            ).fetchone()
+        if row:
+            import math as _math
+            dist = _math.sqrt(max(0.0, float(row[1])))
+            return (row[0], round(dist, 1), row[2] or "", row[3] or "", row[4] or "", int(row[5]))
+        return None
+
+    def get_system_stations(self, system_name: str, limit: int = 4) -> list:
+        """Return list of station dicts for a system, ordered by distance."""
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT name, type, dist_ls,
+                          has_market, has_shipyard, has_outfitting, other_services
+                   FROM edsm_stations
+                   WHERE system_name = ?
+                   ORDER BY dist_ls
+                   LIMIT ?""",
+                (system_name, limit),
+            ).fetchall()
+        return [
+            {
+                "name":       r[0],
+                "type":       r[1],
+                "dist_ls":    float(r[2]),
+                "market":     bool(r[3]),
+                "shipyard":   bool(r[4]),
+                "outfitting": bool(r[5]),
+                "services":   [s for s in r[6].split("|") if s] if r[6] else [],
+            }
+            for r in rows
+        ]
 
     def get_stats(self) -> dict:
         today       = date.today()

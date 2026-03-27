@@ -295,6 +295,14 @@ class AppState:
     # Notable body value threshold (from config, controls Overview filter)
     notable_value_threshold: int = 500_000
 
+    # EDSM dump lookups (populated by journal.py after each system change)
+    system_power:                 str   = ""
+    system_power_state:           str   = ""
+    nearest_populated_name:       str   = ""
+    nearest_populated_dist:       float = 0.0
+    nearest_populated_allegiance: str   = ""
+    route_next_stations:          list  = field(default_factory=list)  # list[dict]
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 

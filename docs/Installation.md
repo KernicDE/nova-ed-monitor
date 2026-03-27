@@ -121,8 +121,8 @@ After uninstalling, delete `nova.ps1` and `nova.bat` manually.
 |------|----------|----------|
 | `~/.config/nova/config.toml` | Linux | Configuration |
 | `%USERPROFILE%\.config\nova\config.toml` | Windows | Configuration |
-| `~/.local/share/nova/events.db` | Linux | SQLite event log & statistics |
-| `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log & statistics |
+| `~/.local/share/nova/events.db` | Linux | SQLite event log, statistics & EDSM dump cache (~30–50 MB after first download) |
+| `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log, statistics & EDSM dump cache (~30–50 MB after first download) |
 | `~/.local/share/nova/venv/` | Linux | Python virtual environment |
 | `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
 

@@ -89,6 +89,18 @@ def _pl(n: int) -> str:
     return "" if n == 1 else "s"
 
 
+def _power_state_color(state: str) -> str:
+    return {
+        "Control":    P.HUD_CYAN,
+        "Exploited":  P.AMBER,
+        "Fortified":  P.HUD_GREEN,
+        "Stronghold": P.HUD_GREEN,
+        "Contested":  P.HUD_WARN,
+        "Turmoil":    P.HUD_CRIT,
+        "HomeSystem": "bold white",
+    }.get(state, P.WHITE)
+
+
 def _abbrev_type(planet: str, star: str) -> str:
     if star:
         return {
@@ -308,6 +320,22 @@ class SystemPanel(_Panel):
 
         if s.station_count > 0:
             row("Stations", str(s.station_count))
+
+        # Power Play
+        if s.system_power:
+            pp = s.system_power
+            if s.system_power_state:
+                pp += f" [{s.system_power_state}]"
+            pp_col = _power_state_color(s.system_power_state)
+            row("Power", pp, pp_col)
+
+        # Nearest inhabited system (only when current system is uninhabited)
+        if s.nearest_populated_name and s.population == 0:
+            dist_str = f"{s.nearest_populated_dist:.0f} ly"
+            alleg = s.nearest_populated_allegiance
+            if alleg and alleg not in ("None", ""):
+                dist_str += f"  {alleg}"
+            row("Nearest", f"{s.nearest_populated_name}  ({dist_str})")
 
         if s.nearest_body:
             row("At", _short_name(s.nearest_body, s.system))
@@ -678,6 +706,26 @@ class RoutePanel(_Panel):
                 star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
                 t.append(f"\n      {star_desc} {mark}", style=f"bold {star_col}")
             t.append("\n")
+
+        # Next-waypoint stations (from EDSM dump cache)
+        if s.route_next_stations:
+            t.append("Stations at next:\n", style=P.LABEL)
+            for stn in s.route_next_stations[:3]:
+                icons = ""
+                if stn.get("market"):     icons += "M"
+                if stn.get("shipyard"):   icons += "S"
+                if stn.get("outfitting"): icons += "O"
+                if "Repair" in stn.get("services", []):  icons += "R"
+                stn_name = stn["name"]
+                if len(stn_name) > 16:
+                    stn_name = stn_name[:15] + "…"
+                dist_s = _fmt_ls_compact(stn["dist_ls"]) if stn["dist_ls"] > 0 else ""
+                t.append(f"  {stn_name}", style="white")
+                if dist_s:
+                    t.append(f"  {dist_s}", style=P.LABEL)
+                if icons:
+                    t.append(f"  [{icons}]", style=P.AMBER)
+                t.append("\n")
 
         if s.jump_dist > 0.0:
             t.append("Last  ", style=P.LABEL)

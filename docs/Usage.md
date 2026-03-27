@@ -69,6 +69,50 @@ Press `Tab` to cycle through modes. In **Auto** mode NOVA switches automatically
 
 ---
 
+## System Panel (top left)
+
+Shows current system info: faction, allegiance, economy, population, government, security, and — when data is available — Power Play affiliation.
+
+| Row | Meaning |
+|-----|---------|
+| System | Current system name |
+| Faction | Controlling faction |
+| Power | Power Play controlling power and state (e.g. *Felicia Winters — Exploited*) |
+| Nearest | Nearest inhabited system and distance (shown only when current system is uninhabited) |
+
+Power Play state colour coding:
+- Cyan — Control
+- Green — Fortified / Stronghold
+- Amber — Exploited
+- Yellow — Contested
+- Red — Turmoil
+
+Power Play and nearest-inhabited data is sourced from EDSM nightly dumps, refreshed automatically once per day.
+
+---
+
+## Route Panel (top right)
+
+| Context | Content |
+|---------|---------|
+| Docked | Station name, type, and services (market, shipyard, outfitting, refuel/repair) |
+| Approaching body | Body info from FSS scan |
+| In flight | Nav route: next waypoints with jump count and distance; **Stations** at the next waypoint |
+
+The **Stations** section shows up to 3 closest stations at your next route waypoint:
+
+```
+Stations at next:
+Galileo             490ls [MSO ]
+Titan City         4529ls [M  R]
+```
+
+Icon legend: `M` = Market · `S` = Shipyard · `O` = Outfitting · `R` = Refuel/Repair
+
+Station data is sourced from EDSM nightly dumps.
+
+---
+
 ## Bodies Panel (left)
 
 Shows all scanned bodies in the current system.

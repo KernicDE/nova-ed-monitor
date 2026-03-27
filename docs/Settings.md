@@ -83,6 +83,20 @@ Monitors your live stream chat anonymously (no API key needed). Announces messag
 
 ---
 
+## EDSM Nightly Data
+
+No configuration required. NOVA automatically downloads and refreshes three EDSM nightly dumps once per day:
+
+| Dump | Data provided |
+|------|---------------|
+| `systemsPopulated.json.gz` | Nearest inhabited system, allegiance, population |
+| `powerPlay.json.gz` | Power Play controlling power and state per system |
+| `stations.json.gz` | Stations at next route waypoint (market, shipyard, outfitting, refuel) |
+
+Data is stored in the local SQLite database (`events.db`). The database grows by roughly 20–40 MB after the first download. The download happens in the background — NOVA starts immediately and populates data as soon as the import is complete.
+
+---
+
 ## Notable Body Value Threshold
 
 ```toml

@@ -20,6 +20,49 @@ _BODY_EVENTS = frozenset({
     "Scan", "SAAScanComplete", "FSSBodySignals", "SAASignalsFound",
 })
 
+
+def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
+    """Query local EDSM dump tables for power state, nearest populated system,
+    and next-waypoint stations. Called after every system change and route update."""
+    import math as _math
+    with lock:
+        sys_name   = state.system
+        pop        = state.population
+        pos        = state.star_pos
+        route_next = state.route_next
+
+    if sys_name:
+        power, power_state = db.get_system_power(sys_name)
+        with lock:
+            state.system_power       = power
+            state.system_power_state = power_state
+
+    # Nearest populated: only useful when current system is uninhabited
+    if pos and sys_name and pop == 0:
+        nearest = db.get_nearest_populated(pos[0], pos[1], pos[2], exclude=sys_name)
+        if nearest:
+            with lock:
+                state.nearest_populated_name       = nearest[0]
+                state.nearest_populated_dist       = nearest[1]
+                state.nearest_populated_allegiance = nearest[2]
+        else:
+            with lock:
+                state.nearest_populated_name = ""
+                state.nearest_populated_dist = 0.0
+    else:
+        with lock:
+            state.nearest_populated_name = ""
+            state.nearest_populated_dist = 0.0
+
+    # Stations at next waypoint
+    if route_next:
+        stations = db.get_system_stations(route_next)
+        with lock:
+            state.route_next_stations = stations
+    else:
+        with lock:
+            state.route_next_stations = []
+
 # ── _get_latest cache ──────────────────────────────────────────────────────────
 _latest_cache_time: float = 0.0
 _latest_cache_path: Optional[Path] = None
@@ -123,6 +166,9 @@ def monitor(
 
     with lock:
         state.stats = db.get_stats()
+
+    # Populate power/nearest/stations from local EDSM dump data right after startup
+    _update_dump_lookups(state, lock, db)
 
     while True:
         latest = _get_latest(journal_dir)
@@ -527,6 +573,11 @@ def _follow(
                                     edsm_q.put_nowait(("fetch_stations", new_sys))
                             except Exception:
                                 pass
+                    _update_dump_lookups(state, lock, db)
+
+                # After route update: refresh next-waypoint stations
+                if ev_name in ("NavRoute", "NavRouteClear"):
+                    _update_dump_lookups(state, lock, db)
 
                 # After scan events: save updated bodies and bio scans
                 if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound", "SAAScanComplete",

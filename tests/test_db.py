@@ -81,3 +81,69 @@ def test_config_round_trip():
     db.set_config("test_key", "hello")
     assert db.get_config("test_key") == "hello"
     assert db.get_config("missing_key", "default") == "default"
+
+
+def test_edsm_systems_import_and_query():
+    db = _db()
+    # (id64, name, x, y, z, allegiance, government, economy, population, security, power, power_state)
+    rows = [
+        (100, "Sol",    0.0,  0.0, 0.0,  "Federation", "Democracy", "High Tech", 22_000_000, "High", "Felicia Winters", "Exploited"),
+        (200, "Alioth", -33.6, 72.5, -20.7, "Alliance",  "Democracy", "High Tech",  9_000_000, "High", "Edmund Mahon",    "Control"),
+        (300, "Deep Space", 500.0, 0.0, 0.0, "", "", "", 0, "", "", ""),
+    ]
+    db.import_edsm_systems_batch(rows)
+
+    # Power query
+    power, state = db.get_system_power("Sol")
+    assert power == "Felicia Winters"
+    assert state == "Exploited"
+    assert db.get_system_power("Unknown") == ("", "")
+
+    # Nearest populated (from Deep Space)
+    nearest = db.get_nearest_populated(500.0, 0.0, 0.0, exclude="Deep Space")
+    assert nearest is not None
+    assert nearest[0] in ("Sol", "Alioth")      # one of the inhabited ones
+    assert nearest[1] > 0                        # positive distance
+
+    # Nearest excludes current system
+    nearest_from_sol = db.get_nearest_populated(0.0, 0.0, 0.0, exclude="Sol")
+    assert nearest_from_sol is not None
+    assert nearest_from_sol[0] != "Sol"
+
+
+def test_edsm_stations_import_and_query():
+    db = _db()
+    # (id, name, system_id64, system_name, type, dist_ls, allegiance, government, economy,
+    #  has_market, has_shipyard, has_outfitting, other_services)
+    rows = [
+        (1, "Galileo",      17072, "Sol", "Orbis Starport",  490.0, "Federation", "Democracy", "High Tech", 1, 1, 1, "Refuel|Repair|Contacts"),
+        (2, "Titan City",   17072, "Sol", "Orbis Starport",  4529.0, "Federation", "Democracy", "Industrial", 1, 0, 1, "Refuel|Missions"),
+    ]
+    db.import_edsm_stations_batch(rows)
+
+    stations = db.get_system_stations("Sol")
+    assert len(stations) == 2
+    assert stations[0]["name"] == "Galileo"      # closest first
+    assert stations[0]["market"] is True
+    assert stations[0]["shipyard"] is True
+    assert "Repair" in stations[0]["services"]
+    assert db.get_system_stations("Empty System") == []
+
+
+def test_edsm_powerplay_upsert():
+    db = _db()
+    # First import a populated system
+    db.import_edsm_systems_batch([
+        (100, "Sol", 0.0, 0.0, 0.0, "Federation", "Democracy", "High Tech", 22_000_000, "High", "", "")
+    ])
+    # Power play upsert should set power without touching population
+    db.upsert_edsm_powerplay_batch([
+        (100, "Sol", 0.0, 0.0, 0.0, "", "", "", 0, "", "Felicia Winters", "Exploited")
+    ])
+    power, state = db.get_system_power("Sol")
+    assert power == "Felicia Winters"
+    assert state == "Exploited"
+    # Population should still come from the original import (not overwritten by powerplay)
+    nearest = db.get_nearest_populated(-1.0, 0.0, 0.0, exclude="Other")
+    assert nearest is not None
+    assert nearest[5] == 22_000_000  # population preserved

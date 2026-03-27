@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, events, journal, overlay, status, tts, twitch, voicelines, youtube
+from . import config, db, edsm, edsm_dumps, events, journal, overlay, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -44,6 +44,7 @@ def main() -> None:
     tts_q = tts.spawn_worker(primary_voice, cfg.tts_rate, volume, vol_lock, stop_evt)
 
     edsm_q = edsm.spawn(state, lock)
+    edsm_dumps.spawn(state, lock, database)
 
     with lock:
         state.volume                    = DEFAULT_VOLUME
