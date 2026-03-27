@@ -93,6 +93,8 @@ class Database:
                 last_lon          REAL,
                 PRIMARY KEY (system, body, species)
             )""",
+            "CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date)",
+            "CREATE INDEX IF NOT EXISTS idx_events_date ON events(event_date)",
         ]
         with self._lock:
             for sql in migrations:
@@ -175,53 +177,65 @@ class Database:
             self._conn.commit()
 
     def save_body(self, system: str, body: BodyInfo) -> None:
-        genuses = "|".join(body.bio_genuses)
-        with self._lock:
-            self._conn.execute(
-                """INSERT OR REPLACE INTO bodies
-                   (system, body_name, body_id, level, planet_class, star_type, atmosphere,
-                    terraform, landable, bio_signals, geo_signals, bio_genuses, dist_ls, value,
-                    first_discovered, first_mapped, mapped, fss_scanned, radius,
-                    bio_value_min, bio_value_max,
-                    semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,
-                    surface_gravity)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    system, body.name, body.body_id, body.level,
-                    body.planet_class, body.star_type, body.atmosphere,
-                    int(body.terraform), int(body.landable),
-                    body.bio_signals, body.geo_signals, genuses,
-                    body.dist_ls, body.value,
-                    int(body.first_discovered), int(body.first_mapped),
-                    int(body.mapped), int(body.fss_scanned), body.radius,
-                    body.bio_value_min, body.bio_value_max,
-                    body.semi_major_axis, body.orbital_period,
-                    body.mean_anomaly, body.eccentricity, body.orbital_inclination,
-                    body.surface_gravity,
-                ),
+        self.save_bodies_batch(system, [body])
+
+    def save_bodies_batch(self, system: str, bodies: list) -> None:
+        """Insert/replace all bodies in a single transaction."""
+        _SQL = (
+            "INSERT OR REPLACE INTO bodies"
+            " (system, body_name, body_id, level, planet_class, star_type, atmosphere,"
+            "  terraform, landable, bio_signals, geo_signals, bio_genuses, dist_ls, value,"
+            "  first_discovered, first_mapped, mapped, fss_scanned, radius,"
+            "  bio_value_min, bio_value_max,"
+            "  semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,"
+            "  surface_gravity)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        )
+        params = [
+            (
+                system, b.name, b.body_id, b.level,
+                b.planet_class, b.star_type, b.atmosphere,
+                int(b.terraform), int(b.landable),
+                b.bio_signals, b.geo_signals, "|".join(b.bio_genuses),
+                b.dist_ls, b.value,
+                int(b.first_discovered), int(b.first_mapped),
+                int(b.mapped), int(b.fss_scanned), b.radius,
+                b.bio_value_min, b.bio_value_max,
+                b.semi_major_axis, b.orbital_period,
+                b.mean_anomaly, b.eccentricity, b.orbital_inclination,
+                b.surface_gravity,
             )
+            for b in bodies
+        ]
+        if not params:
+            return
+        with self._lock:
+            self._conn.executemany(_SQL, params)
             self._conn.commit()
 
     def save_bio_scans(self, system: str, scans: list[BioScan]) -> None:
+        _SQL = (
+            "INSERT INTO bio_scans"
+            " (system, body, species, species_localised, genus_localised,"
+            "  samples, min_dist, body_radius, value, complete,"
+            "  first_discovered, first_footfall, sample_lats, sample_lons, last_lat, last_lon)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        )
+        params = [
+            (
+                system, sc.body, sc.species, sc.species_localised, sc.genus_localised,
+                sc.samples, sc.min_dist, sc.body_radius, sc.value, int(sc.complete),
+                int(sc.first_discovered), int(sc.first_footfall),
+                "|".join(str(v) for v in sc.sample_lats),
+                "|".join(str(v) for v in sc.sample_lons),
+                sc.last_lat, sc.last_lon,
+            )
+            for sc in scans
+        ]
         with self._lock:
             self._conn.execute("DELETE FROM bio_scans WHERE system = ?", (system,))
-            for sc in scans:
-                self._conn.execute(
-                    """INSERT INTO bio_scans
-                       (system, body, species, species_localised, genus_localised,
-                        samples, min_dist, body_radius, value, complete,
-                        first_discovered, first_footfall,
-                        sample_lats, sample_lons, last_lat, last_lon)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (
-                        system, sc.body, sc.species, sc.species_localised, sc.genus_localised,
-                        sc.samples, sc.min_dist, sc.body_radius, sc.value, int(sc.complete),
-                        int(sc.first_discovered), int(sc.first_footfall),
-                        "|".join(str(v) for v in sc.sample_lats),
-                        "|".join(str(v) for v in sc.sample_lons),
-                        sc.last_lat, sc.last_lon,
-                    ),
-                )
+            if params:
+                self._conn.executemany(_SQL, params)
             self._conn.commit()
 
     def load_bio_scans(self, system: str) -> list[BioScan]:

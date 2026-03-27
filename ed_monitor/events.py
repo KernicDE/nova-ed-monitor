@@ -54,13 +54,7 @@ def _strip_economy(s: str) -> str:
 
 
 def _fmt_credits(n: int) -> str:
-    s = str(n)
-    out = []
-    for i, c in enumerate(reversed(s)):
-        if i > 0 and i % 3 == 0:
-            out.append(",")
-        out.append(c)
-    return "".join(reversed(out)) + " Cr"
+    return f"{n:,} Cr"
 
 
 # ── Bio species value lookup ──────────────────────────────────────────────────
@@ -522,7 +516,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.lat        = None
             state.lon        = None
             state.station    = ""
-            state.bodies.clear()
+            state.clear_bodies()
             state.bio_scans.clear()
             state.nearest_body        = ""
             state.approach_body       = ""
@@ -749,10 +743,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     first_footfall = True
             # Infer first footfall from first discovery when journal flag is absent
             if not first_footfall and (body_dis or body_dis_id > 0):
-                for b in state.bodies:
-                    if (b.name == body_dis or b.body_id == body_dis_id) and b.first_discovered:
-                        first_footfall = True
-                        break
+                _dis_b = None
+                if body_dis:
+                    _di = state._bodies_by_name.get(body_dis, -1)
+                    _dis_b = state.bodies[_di] if 0 <= _di < len(state.bodies) else None
+                if _dis_b is None and body_dis_id > 0:
+                    _di2 = state._bodies_by_id.get(body_dis_id, -1)
+                    _dis_b = state.bodies[_di2] if 0 <= _di2 < len(state.bodies) else None
+                if _dis_b is not None and _dis_b.first_discovered:
+                    first_footfall = True
             if first_footfall:
                 if body_dis:
                     state.first_footfall_body = body_dis
@@ -895,8 +894,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             if just_dss_scanned:
                 return None
 
-            bio_count = next((b.bio_signals for b in state.bodies if b.name == body_name), 0)
-            geo_count = next((b.geo_signals for b in state.bodies if b.name == body_name), 0)
+            _bidx = state._bodies_by_name.get(body_name, -1)
+            _b    = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
+            bio_count = _b.bio_signals if _b else 0
+            geo_count = _b.geo_signals if _b else 0
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
             rare_star  = star_type in ("N", "H", "D")
@@ -943,12 +944,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             efficiency_target = _u(ev, "EfficiencyTarget")
             bio_count = 0
             geo_count = 0
-            for b in state.bodies:
-                if b.name == body_name:
-                    b.mapped  = True
-                    bio_count = b.bio_signals
-                    geo_count = b.geo_signals
-                    break
+            _bidx2 = state._bodies_by_name.get(body_name, -1)
+            if 0 <= _bidx2 < len(state.bodies):
+                _bm = state.bodies[_bidx2]
+                _bm.mapped = True
+                bio_count  = _bm.bio_signals
+                geo_count  = _bm.geo_signals
             state.dss_recently_completed.add(body_name)
 
             sig_parts = []
@@ -985,20 +986,20 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             body_id   = _u(ev, "BodyID")
             short     = _short_body(body_name, state.system)
 
-            if not any(b.name == body_name for b in state.bodies):
+            if body_name not in state._bodies_by_name:
                 state.upsert_body(_placeholder_body(body_name, body_id))
 
             bio_count = 0
             geo_count = 0
+            _fss_idx = state._bodies_by_name.get(body_name, -1)
+            _fss_b   = state.bodies[_fss_idx] if 0 <= _fss_idx < len(state.bodies) else None
             sigs = ev.get("Signals")
-            if isinstance(sigs, list):
+            if isinstance(sigs, list) and _fss_b is not None:
                 for sig in sigs:
                     sig_type = _loc(sig, "Type")
                     count    = _u(sig, "Count")
-                    for b in state.bodies:
-                        if b.name == body_name:
-                            if "Biological"   in sig_type: b.bio_signals = count; bio_count = count
-                            elif "Geological" in sig_type: b.geo_signals = count; geo_count = count
+                    if "Biological"   in sig_type: _fss_b.bio_signals = count; bio_count = count
+                    elif "Geological" in sig_type: _fss_b.geo_signals = count; geo_count = count
 
             parts = []
             if bio_count > 0:
@@ -1038,29 +1039,28 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             signals   = ev.get("Signals") or []
             genuses   = ev.get("Genuses") or []
 
-            if not any(b.name == body_name for b in state.bodies):
+            if body_name not in state._bodies_by_name:
                 state.upsert_body(_placeholder_body(body_name, body_id))
 
-            for b in state.bodies:
-                if b.name == body_name:
-                    for sig in signals:
-                        sig_type = _loc(sig, "Type")
-                        count    = _u(sig, "Count")
-                        if "Biological"   in sig_type: b.bio_signals = count
-                        elif "Geological" in sig_type: b.geo_signals = count
-                    genus_names = [n for n in (_loc(g, "Genus") for g in genuses) if n]
-                    b.bio_genuses = genus_names
-                    # Estimate bio value range from genus data
-                    if genus_names:
-                        bvmin = bvmax = 0
-                        for g in genus_names:
-                            key = g.lower().split()[0] if g else ""
-                            lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
-                            bvmin += lo
-                            bvmax += hi
-                        b.bio_value_min = bvmin
-                        b.bio_value_max = bvmax
-                    break
+            _saa_idx = state._bodies_by_name.get(body_name, -1)
+            _saa_b   = state.bodies[_saa_idx] if 0 <= _saa_idx < len(state.bodies) else None
+            if _saa_b is not None:
+                for sig in signals:
+                    sig_type = _loc(sig, "Type")
+                    count    = _u(sig, "Count")
+                    if "Biological"   in sig_type: _saa_b.bio_signals = count
+                    elif "Geological" in sig_type: _saa_b.geo_signals = count
+                genus_names = [n for n in (_loc(g, "Genus") for g in genuses) if n]
+                _saa_b.bio_genuses = genus_names
+                if genus_names:
+                    bvmin = bvmax = 0
+                    for g in genus_names:
+                        key = g.lower().split()[0] if g else ""
+                        lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                        bvmin += lo
+                        bvmax += hi
+                    _saa_b.bio_value_min = bvmin
+                    _saa_b.bio_value_max = bvmax
             return None
 
         case "ScanOrganic":
@@ -1070,14 +1070,18 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             genus_loc   = _loc(ev, "Genus")
             body_id     = _u(ev, "Body")
 
-            body_name = next((b.name for b in state.bodies if b.body_id == body_id), "Unknown")
+            _org_bidx = state._bodies_by_id.get(body_id, -1)
+            body_name = (
+                state.bodies[_org_bidx].name
+                if 0 <= _org_bidx < len(state.bodies)
+                else "Unknown"
+            )
             if body_name == "Unknown":
                 body_name = state.nearest_body or state.system or "Unknown"
 
-            body_radius = next(
-                (b.radius for b in state.bodies if b.name == body_name),
-                3_000_000.0
-            )
+            _org_nidx  = state._bodies_by_name.get(body_name, -1)
+            _org_b     = state.bodies[_org_nidx] if 0 <= _org_nidx < len(state.bodies) else None
+            body_radius = _org_b.radius if _org_b and _org_b.radius > 0 else 3_000_000.0
 
             match scan_type:
                 case "Log":
@@ -1156,7 +1160,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                          fallback=msg_tts, species=species_loc, val_str=val_str)
                     # Bio completion contextual announcement
                     body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
-                    body_info  = next((b for b in state.bodies if b.name == body_name), None)
+                    _anl_idx   = state._bodies_by_name.get(body_name, -1)
+                    body_info  = state.bodies[_anl_idx] if 0 <= _anl_idx < len(state.bodies) else None
                     body_total = body_info.bio_signals if body_info else body_done
                     body_left  = body_total - body_done
                     bodies_with_bio = [b for b in state.bodies if b.bio_signals > 0]

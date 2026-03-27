@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import threading
@@ -305,7 +306,6 @@ def _apply_status(
 
 def _compass_away(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
     """Return compass arrow pointing AWAY from (lat2, lon2) as seen from (lat1, lon1)."""
-    import math
     dlat = lat1 - lat2  # reversed: direction away from sample
     dlon = lon1 - lon2
     angle = math.degrees(math.atan2(dlon, dlat))
@@ -320,11 +320,10 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         # Position temporarily unknown — don't wipe last known distances
         return
 
-    body_name   = state.nearest_body
-    body_radius = next(
-        (b.radius for b in state.bodies if b.name == body_name and b.radius > 0),
-        3_389_500.0,
-    )
+    body_name = state.nearest_body
+    _bidx     = state._bodies_by_name.get(body_name, -1)
+    _sb       = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
+    body_radius = _sb.radius if _sb and _sb.radius > 0 else 3_389_500.0
 
     for sc in state.bio_scans:
         if sc.complete or sc.samples == 0:
@@ -432,7 +431,6 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float, radius: float) -> float:
-    import math
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = (math.sin(dlat / 2) ** 2

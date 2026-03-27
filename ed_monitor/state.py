@@ -245,6 +245,9 @@ class AppState:
     # Bodies
     bodies:    list = field(default_factory=list)  # list[BodyInfo]
     bio_scans: list = field(default_factory=list)  # list[BioScan]
+    # Internal indices for O(1) body lookups (not serialised; maintained by upsert_body/clear_bodies)
+    _bodies_by_name: dict = field(default_factory=dict, repr=False)  # name  → list index
+    _bodies_by_id:   dict = field(default_factory=dict, repr=False)  # body_id → list index
 
     # FSS progress
     fss_body_count: int = 0  # total bodies in system (from FSSDiscoveryScan)
@@ -295,37 +298,54 @@ class AppState:
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 
+    def clear_bodies(self) -> None:
+        """Clear bodies list and both lookup indices."""
+        self.bodies.clear()
+        self._bodies_by_name.clear()
+        self._bodies_by_id.clear()
+
+    def _rebuild_body_index(self) -> None:
+        """Rebuild name/id indices from current bodies list (call after bulk inserts)."""
+        self._bodies_by_name = {b.name: i for i, b in enumerate(self.bodies)}
+        self._bodies_by_id   = {b.body_id: i for i, b in enumerate(self.bodies)}
+
     def upsert_body(self, info: BodyInfo) -> None:
-        for i, existing in enumerate(self.bodies):
-            if existing.name == info.name:
-                bio    = existing.bio_signals
-                geo    = existing.geo_signals
-                gen    = existing.bio_genuses[:]
-                mapped = existing.mapped
-                fss    = existing.fss_scanned
-                first  = existing.first_discovered
-                dist   = existing.dist_ls
-                pc     = existing.planet_class
-                st     = existing.star_type
-                bvmin  = existing.bio_value_min
-                bvmax  = existing.bio_value_max
-                self.bodies[i] = info
-                b = self.bodies[i]
-                if not b.planet_class and pc:        b.planet_class = pc
-                if not b.star_type and st:           b.star_type    = st
-                if b.bio_signals == 0:               b.bio_signals  = bio
-                if b.geo_signals == 0:               b.geo_signals  = geo
-                if not b.bio_genuses:                b.bio_genuses  = gen
-                if b.dist_ls == 0.0 and dist > 0.0:  b.dist_ls      = dist
-                b.mapped      = mapped or b.mapped
-                b.fss_scanned = fss    or b.fss_scanned
-                if first: b.first_discovered = True
-                if b.bio_value_min == 0: b.bio_value_min = bvmin
-                if b.bio_value_max == 0: b.bio_value_max = bvmax
-                return
+        i = self._bodies_by_name.get(info.name, -1)
+        if i >= 0 and i < len(self.bodies) and self.bodies[i].name == info.name:
+            existing = self.bodies[i]
+            bio    = existing.bio_signals
+            geo    = existing.geo_signals
+            gen    = existing.bio_genuses[:]
+            mapped = existing.mapped
+            fss    = existing.fss_scanned
+            first  = existing.first_discovered
+            dist   = existing.dist_ls
+            pc     = existing.planet_class
+            st     = existing.star_type
+            bvmin  = existing.bio_value_min
+            bvmax  = existing.bio_value_max
+            self.bodies[i] = info
+            b = self.bodies[i]
+            if not b.planet_class and pc:        b.planet_class = pc
+            if not b.star_type and st:           b.star_type    = st
+            if b.bio_signals == 0:               b.bio_signals  = bio
+            if b.geo_signals == 0:               b.geo_signals  = geo
+            if not b.bio_genuses:                b.bio_genuses  = gen
+            if b.dist_ls == 0.0 and dist > 0.0:  b.dist_ls      = dist
+            b.mapped      = mapped or b.mapped
+            b.fss_scanned = fss    or b.fss_scanned
+            if first: b.first_discovered = True
+            if b.bio_value_min == 0: b.bio_value_min = bvmin
+            if b.bio_value_max == 0: b.bio_value_max = bvmax
+            # Update id index in case body_id changed (rare)
+            self._bodies_by_id[b.body_id] = i
+            return
+        # New body — insert sorted by body_id
         ids = [b.body_id for b in self.bodies]
         pos = bisect.bisect_left(ids, info.body_id)
         self.bodies.insert(pos, info)
+        # All indices at pos and beyond shifted — rebuild both indices
+        self._rebuild_body_index()
 
     def remove_mission(self, mission_id: int) -> None:
         self.missions = [m for m in self.missions if m.mission_id != mission_id]

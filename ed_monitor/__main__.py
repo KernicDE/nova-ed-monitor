@@ -35,12 +35,13 @@ def main() -> None:
     with lock:
         state.events.extendleft(database.get_recent_events(MAX_EVENTS))
 
-    volume   = [DEFAULT_VOLUME]
-    vol_lock = threading.Lock()
+    volume    = [DEFAULT_VOLUME]
+    vol_lock  = threading.Lock()
+    stop_evt  = threading.Event()
 
     # Use configured English voice + rate for the primary TTS worker
     primary_voice = cfg.tts_voices.get("en", "en-GB-SoniaNeural")
-    tts_q = tts.spawn_worker(primary_voice, cfg.tts_rate, volume, vol_lock)
+    tts_q = tts.spawn_worker(primary_voice, cfg.tts_rate, volume, vol_lock, stop_evt)
 
     edsm_q = edsm.spawn(state, lock)
 
@@ -103,7 +104,7 @@ def main() -> None:
         daemon=True,
     ).start()
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q).run()
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt).run()
 
 
 if __name__ == "__main__":

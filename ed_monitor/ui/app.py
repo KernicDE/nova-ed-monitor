@@ -149,6 +149,7 @@ class NOVAApp(App):
         volume:   list[int],
         vol_lock: threading.Lock,
         tts_q:    queue.Queue,
+        stop_evt: threading.Event | None = None,
     ) -> None:
         super().__init__()
         self._state    = state
@@ -156,6 +157,7 @@ class NOVAApp(App):
         self._volume   = volume
         self._vol_lock = vol_lock
         self._tts_q    = tts_q
+        self._stop_evt = stop_evt
         self._scroll   = 0
         self._max_scroll = 0
 
@@ -232,6 +234,10 @@ class NOVAApp(App):
         log.update(snap)
         log.set_scroll(self._scroll)
         self.query_one(ChatLogPanel).update(snap)
+
+    def on_unmount(self) -> None:
+        if self._stop_evt is not None:
+            self._stop_evt.set()
 
     def on_key(self, event: events.Key) -> None:
         key = event.key

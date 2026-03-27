@@ -16,18 +16,26 @@ class TtsMsg:
     volume:   Optional[int] = None
 
 
+# Cached playback backend: set after first successful play, reset on failure.
+# Values: "mpg123_pulse" | "mpg123" | "ffplay" | "afplay" | "pygame_sys" | None
+_audio_backend: Optional[str] = None
+_audio_backend_lock = threading.Lock()
+
+
 def spawn_worker(
-    voice:    str,
-    rate:     str,
-    volume:   list[int],
-    vol_lock: threading.Lock,
+    voice:     str,
+    rate:      str,
+    volume:    list[int],
+    vol_lock:  threading.Lock,
+    stop_evt:  Optional[threading.Event] = None,
 ) -> queue.Queue:
     _cleanup_stale_tmp()
     q: queue.Queue[TtsMsg] = queue.Queue()
     t = threading.Thread(
         target=_worker,
-        args=(q, voice, rate, volume, vol_lock),
+        args=(q, voice, rate, volume, vol_lock, stop_evt or threading.Event()),
         daemon=True,
+        name="nova-tts",
     )
     t.start()
     return q
@@ -49,10 +57,11 @@ def _worker(
     rate:     str,
     volume:   list[int],
     vol_lock: threading.Lock,
+    stop_evt: threading.Event,
 ) -> None:
     pending: list[TtsMsg] = []
 
-    while True:
+    while not stop_evt.is_set():
         # Drain all pending messages
         while True:
             try:
@@ -73,13 +82,15 @@ def _worker(
                     pending.append(msg)
             except queue.Empty:
                 continue
+            if stop_evt.is_set():
+                break
             continue
 
         msg = pending.pop(0)
         with vol_lock:
             vol = volume[0]
-        
-        # Priority on msg.volume override
+
+        # msg.volume overrides global volume (e.g. startup message at lower level)
         if msg.volume is not None:
             vol = msg.volume
 
@@ -106,12 +117,12 @@ def _play(text: str, voice: str, rate: str, volume: int) -> None:
 
 
 def _play_audio(path: str, volume: int) -> None:
-    """Play MP3. Platform-aware fallback chain."""
+    """Play MP3. Platform-aware fallback chain with backend caching."""
+    global _audio_backend
     import sys
     import time
 
     # ── Windows ────────────────────────────────────────────────────────────────
-    # pygame from pip bundles SDL2+SDL_mixer on Windows — always works.
     if sys.platform == "win32":
         try:
             import pygame
@@ -124,7 +135,6 @@ def _play_audio(path: str, volume: int) -> None:
             return
         except Exception:
             pass
-        # Windows fallback: PowerShell Windows.Media.MediaPlayer
         try:
             ps = (
                 f"$mp = [System.Windows.Media.MediaPlayer]::new(); "
@@ -139,57 +149,84 @@ def _play_audio(path: str, volume: int) -> None:
         return
 
     # ── Linux / macOS ──────────────────────────────────────────────────────────
-    # mpg123 factor: 32768 = 100 %, so volume * 327 ≈ correct scale
-    factor = str(int(volume * 327))
+    factor = str(int(volume * 327))  # mpg123: 32768 = 100%
 
-    # 1. mpg123 via PulseAudio — reliable on PipeWire + pipewire-pulse (Linux)
-    try:
-        subprocess.run(
-            ["mpg123", "-o", "pulse", "--quiet", "-f", factor, path],
-            timeout=60,
-        )
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError, subprocess.CalledProcessError):
-        pass
+    def _try_mpg123_pulse() -> bool:
+        try:
+            r = subprocess.run(
+                ["mpg123", "-o", "pulse", "--quiet", "-f", factor, path],
+                timeout=60,
+            )
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
 
-    # 2. mpg123 via default output (ALSA or whatever is configured)
-    try:
-        subprocess.run(
-            ["mpg123", "--quiet", "-f", factor, path],
-            timeout=60,
-        )
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
+    def _try_mpg123() -> bool:
+        try:
+            r = subprocess.run(
+                ["mpg123", "--quiet", "-f", factor, path],
+                timeout=60,
+            )
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
 
-    # 3. ffplay (FFmpeg) — widely available, uses SDL2 audio
-    try:
-        subprocess.run(
-            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
-             "-volume", str(volume), path],
-            timeout=60,
-        )
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
+    def _try_ffplay() -> bool:
+        try:
+            r = subprocess.run(
+                ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+                 "-volume", str(volume), path],
+                timeout=60,
+            )
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
 
-    # 4. afplay (macOS)
-    try:
-        subprocess.run(["afplay", path], timeout=60)
-        return
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
+    def _try_afplay() -> bool:
+        try:
+            r = subprocess.run(["afplay", path], timeout=60)
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
 
-    # 5. System python3 pygame — avoids the venv's potentially broken pygame
-    try:
-        script = (
-            "import pygame, sys, time\n"
-            "pygame.mixer.init()\n"
-            "pygame.mixer.music.load(sys.argv[1])\n"
-            f"pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
-            "pygame.mixer.music.play()\n"
-            "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
-        )
-        subprocess.run(["python3", "-c", script, path], timeout=60)
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
+    def _try_pygame_sys() -> bool:
+        try:
+            script = (
+                "import pygame, sys, time\n"
+                "pygame.mixer.init()\n"
+                "pygame.mixer.music.load(sys.argv[1])\n"
+                f"pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
+                "pygame.mixer.music.play()\n"
+                "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+            )
+            r = subprocess.run(["python3", "-c", script, path], timeout=60)
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
+
+    _backends = [
+        ("mpg123_pulse", _try_mpg123_pulse),
+        ("mpg123",       _try_mpg123),
+        ("ffplay",       _try_ffplay),
+        ("afplay",       _try_afplay),
+        ("pygame_sys",   _try_pygame_sys),
+    ]
+
+    # Try cached backend first
+    with _audio_backend_lock:
+        cached = _audio_backend
+
+    if cached is not None:
+        fn = next((f for n, f in _backends if n == cached), None)
+        if fn is not None and fn():
+            return
+        # Cached backend failed — reset and fall through to full chain
+        with _audio_backend_lock:
+            _audio_backend = None
+
+    # Full discovery chain
+    for name, fn in _backends:
+        if fn():
+            with _audio_backend_lock:
+                _audio_backend = name
+            return

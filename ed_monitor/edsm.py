@@ -149,20 +149,19 @@ def _merge_bodies(state: AppState, lock: threading.RLock, bodies: list) -> None:
                     continue
                 star_type = ""
 
-            found = False
-            for b in state.bodies:
-                if b.name == name:
-                    found = True
-                    if b.dist_ls == 0.0 and dist_ls > 0.0:
-                        b.dist_ls = dist_ls
-                    # Only fill in type from EDSM if player hasn't scanned
-                    if not b.planet_class and not b.star_type:
-                        b.planet_class = planet_class
-                        b.star_type    = star_type
-                    # Fill value if missing
-                    if b.value == 0 and value > 0:
-                        b.value = value
-                    break
+            _eidx = state._bodies_by_name.get(name, -1)
+            found = 0 <= _eidx < len(state.bodies)
+            if found:
+                b = state.bodies[_eidx]
+                if b.dist_ls == 0.0 and dist_ls > 0.0:
+                    b.dist_ls = dist_ls
+                # Only fill in type from EDSM if player hasn't scanned
+                if not b.planet_class and not b.star_type:
+                    b.planet_class = planet_class
+                    b.star_type    = star_type
+                # Fill value if missing
+                if b.value == 0 and value > 0:
+                    b.value = value
 
             if not found:
                 state.upsert_body(BodyInfo(
