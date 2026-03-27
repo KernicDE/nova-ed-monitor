@@ -1834,21 +1834,25 @@ def _render_stats(s: AppState) -> RenderableType:
 
     def _fmt_count(v: float) -> str:
         n = int(v)
-        if n == 0:         return "—"
-        if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
-        if n >= 10_000:    return f"{n//1000}k"
-        if n >= 1_000:     return f"{n:,}"
+        if n == 0:               return "—"
+        if n >= 1_000_000_000:   return f"{n/1_000_000_000:.1f}B"
+        if n >= 1_000_000:       return f"{n/1_000_000:.1f}M"
+        if n >= 1_000:           return f"{n/1_000:.1f}k"
         return str(n)
 
     def _fmt_ly(v: float) -> str:
         if v == 0:          return "—"
-        if v >= 1_000_000:  return f"{v/1_000_000:.1f}Mly"
-        if v >= 1_000:      return f"{v/1_000:.1f}kly"
-        return f"{v:.0f}ly"
+        if v >= 1_000_000:  return f"{v/1_000_000:.1f}M"
+        if v >= 1_000:      return f"{v/1_000:.1f}k"
+        return f"{v:.0f}"
 
     def _fmt_cr(v: float) -> str:
-        if v == 0: return "—"
-        return _fmt_value_short(int(v))
+        n = int(v)
+        if n == 0:             return "—"
+        if n >= 1_000_000_000: return f"{n/1_000_000_000:.1f}B"
+        if n >= 1_000_000:     return f"{n/1_000_000:.1f}M"
+        if n >= 1_000:         return f"{n/1_000:.1f}k"
+        return str(n)
 
     HDR  = "bold rgb(195,160,55)"
     MAIN = "white"
@@ -1856,7 +1860,7 @@ def _render_stats(s: AppState) -> RenderableType:
 
     tbl = Table(show_header=False, show_edge=False, show_lines=False,
                 padding=(0, 1), box=None)
-    tbl.add_column("label", width=11)
+    tbl.add_column("label", width=12)
     tbl.add_column("today", width=7,  justify="right")
     tbl.add_column("week",  width=7,  justify="right")
     tbl.add_column("month", width=7,  justify="right")
@@ -1884,8 +1888,8 @@ def _render_stats(s: AppState) -> RenderableType:
             *[Text(fmt_fn(_g(key, p)), style=val_style) for p in PERIODS],
         )
 
-    row("Jumps",      "jump_count",         _fmt_count)
-    row("Distance",   "jump_dist_ly",        _fmt_ly,    indent=True)
+    row("Jumps",         "jump_count",         _fmt_count)
+    row("Distance ly",   "jump_dist_ly",        _fmt_ly,    indent=True)
     row("Credits +",  "credits_earned",      _fmt_cr)
     row("Credits −",  "credits_spent",       _fmt_cr)
     row("FSS Bodies", "fss_count",           _fmt_count)
