@@ -894,10 +894,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             if just_dss_scanned:
                 return None
 
-            _bidx = state._bodies_by_name.get(body_name, -1)
-            _b    = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
-            bio_count = _b.bio_signals if _b else 0
-            geo_count = _b.geo_signals if _b else 0
+            _bidx      = state._bodies_by_name.get(body_name, -1)
+            _body_info = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
+            bio_count  = _body_info.bio_signals if _body_info else 0
+            geo_count  = _body_info.geo_signals if _body_info else 0
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
             rare_star  = star_type in ("N", "H", "D")

@@ -117,6 +117,7 @@ class HelpScreen(Screen):
 
     def on_key(self, event: events.Key) -> None:
         if event.key in ("escape", "question_mark"):
+            event.stop()
             self.app.pop_screen()
 
 
