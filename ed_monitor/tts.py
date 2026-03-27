@@ -184,7 +184,7 @@ def _play_audio(path: str, volume: int) -> None:
 
     def _try_afplay() -> bool:
         try:
-            r = subprocess.run(["afplay", path], timeout=60)
+            r = subprocess.run(["afplay", "-v", f"{volume / 100.0:.3f}", path], timeout=60)
             return r.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False

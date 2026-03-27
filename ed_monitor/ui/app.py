@@ -7,6 +7,8 @@ import time
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.screen import Screen
+from textual.widgets import Static
 from textual import events
 
 from ..state import AppState
@@ -20,6 +22,102 @@ from .panels import (
     SituationalPanel,
     SystemPanel,
 )
+
+
+class HelpScreen(Screen):
+    CSS = """
+    HelpScreen {
+        background: rgb(18,18,18);
+        align: center middle;
+        padding: 2 4;
+    }
+    #help-static {
+        width: 76;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        try:
+            from importlib.metadata import version as _pkg_ver
+            ver = _pkg_ver("nova-ed-monitor")
+        except Exception:
+            ver = "?"
+
+        from rich.table import Table
+        from rich.text import Text
+        from rich.panel import Panel
+        from rich.console import Group
+
+        GOLD  = "bold rgb(195,160,55)"
+        WHITE = "white"
+        DIM   = "rgb(140,140,140)"
+
+        # ── Header ────────────────────────────────────────────────────────────
+        header = Text()
+        header.append("NOVA", style="bold white")
+        header.append(f"  v{ver}", style=DIM)
+        header.append("  Navigation, Operations & Vessel Assistance", style=DIM)
+
+        # ── Keyboard shortcuts ─────────────────────────────────────────────
+        kb = Table(show_header=False, show_edge=False, box=None, padding=(0, 2))
+        kb.add_column(width=18)
+        kb.add_column()
+        for key, desc in [
+            ("q / Esc",          "Quit"),
+            ("?",                "This help screen"),
+            ("Tab",              "Cycle situational panel mode"),
+            ("r",                "Toggle galaxy map scale (galactic ↔ regional)"),
+            ("↑ / k",            "Scroll event log up"),
+            ("↓ / j",            "Scroll event log down"),
+            ("PgUp / PgDn",      "Scroll event log by 20 lines"),
+            ("Home / g",         "Jump to latest events"),
+            ("+ / =",            "Volume up"),
+            ("−",                "Volume down"),
+        ]:
+            kb.add_row(Text(key, style=GOLD), Text(desc, style=WHITE))
+
+        # ── Situational modes ──────────────────────────────────────────────
+        sm = Table(show_header=False, show_edge=False, box=None, padding=(0, 2))
+        sm.add_column(width=14)
+        sm.add_column()
+        for mode, desc in [
+            ("Auto",        "Bio → Missions → Overview; Stats when offline"),
+            ("Overview",    "System diagram, notable bodies, session stats"),
+            ("Bio",         "Active bio scans with distances and bearings"),
+            ("Missions",    "Active mission list"),
+            ("Inventory",   "Cargo and materials"),
+            ("Engineers",   "Engineer unlock progress"),
+            ("Galaxy",      "Braille top-down galaxy map"),
+            ("Stats",       "Persistent statistics"),
+        ]:
+            sm.add_row(Text(mode, style=GOLD), Text(desc, style=WHITE))
+
+        # ── Config path ────────────────────────────────────────────────────
+        cfg = Text()
+        cfg.append("Linux   ", style=GOLD)
+        cfg.append("~/.config/nova/config.toml\n", style=WHITE)
+        cfg.append("Windows ", style=GOLD)
+        cfg.append("%USERPROFILE%\\.config\\nova\\config.toml", style=WHITE)
+
+        content = Panel(
+            Group(
+                header, Text(""),
+                Text("Keyboard Shortcuts", style=GOLD), kb, Text(""),
+                Text("Situational Panel Modes", style=GOLD), sm, Text(""),
+                Text("Config File", style=GOLD), cfg, Text(""),
+                Text("https://github.com/KernicDE/nova-ed-monitor", style=DIM),
+                Text("Press Esc to close", style=DIM),
+            ),
+            title="NOVA — Help & About",
+            title_align="left",
+            border_style="rgb(195,160,55)",
+            padding=(1, 2),
+        )
+        yield Static(content, id="help-static")
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in ("escape", "question_mark"):
+            self.app.pop_screen()
 
 
 class NOVAApp(App):
@@ -241,6 +339,10 @@ class NOVAApp(App):
 
     def on_key(self, event: events.Key) -> None:
         key = event.key
+
+        if key == "question_mark":
+            self.push_screen(HelpScreen())
+            return
 
         if key in ("q", "escape"):
             self.exit()

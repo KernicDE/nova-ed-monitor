@@ -1787,6 +1787,9 @@ class SituationalPanel(_Panel):
     def _resolve(self, s: AppState) -> str:
         if self._mode != "auto":
             return self._mode
+        # Offline: no live game data — show statistics
+        if not s.client_online:
+            return "stats"
         # Incomplete bio scans only exist when player is actively scanning on a surface
         if any(not sc.complete for sc in s.bio_scans):
             return "bio"

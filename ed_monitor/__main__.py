@@ -57,7 +57,7 @@ def main() -> None:
         state.session_mapped = 0
         state.session_value = 0
         state.jump_dist_total = 0.0
-        state.push_event(LogEvent.new(EventCategory.System, "NOVA (Navigation, Operations, and Vessel Assistance) active."))
+        state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
 
     try:
         startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."

@@ -5,6 +5,8 @@
 
 A real-time TUI companion for **Elite Dangerous** — reads journal files, speaks events via TTS, and displays system / ship / route / bio-scan data in your terminal.
 
+**Guides:** [Installation & Update](docs/Installation.md) · [Settings](docs/Settings.md) · [Usage Guide](docs/Usage.md)
+
 ## Features
 
 - **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
@@ -245,6 +247,7 @@ journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/
 | Key | Action |
 |-----|--------|
 | `q` / `Esc` | Quit |
+| `?` | Help & About screen |
 | `↑` / `k` | Scroll event log up |
 | `↓` / `j` | Scroll event log down |
 | `PgUp` / `PgDn` | Scroll by 20 lines |
