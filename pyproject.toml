@@ -30,6 +30,10 @@ dependencies = [
 
 [project.optional-dependencies]
 pygame = ["pygame>=2.5.0"]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.scripts]
 nova = "ed_monitor.__main__:main"
