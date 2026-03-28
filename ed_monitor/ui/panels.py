@@ -1595,7 +1595,7 @@ def _render_overview(s: AppState) -> RenderableType:
         car_head.append("\nFLEET CARRIERS\n", style="bold rgb(100,180,255)")
         parts.append(car_head)
 
-        for c in s.carriers_current_system[:5]:
+        for c in s.carriers_current_system[:3]:
             c_name     = c.get("name", "")
             c_system   = c.get("system_name", "")
             c_dist_ls  = c.get("dist_ls", 0.0)

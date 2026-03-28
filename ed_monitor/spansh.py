@@ -67,6 +67,22 @@ def _worker(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
         carriers = _fetch_carriers(system_name)
         last_request_time = time.monotonic()
 
+        # Sort by distance to the player's current position and keep nearest 3
+        if len(carriers) > 1:
+            with lock:
+                star_pos = state.star_pos
+            if star_pos:
+                px, py, pz = star_pos
+                carriers.sort(key=lambda c: (
+                    (px - c["sys_x"]) ** 2
+                    + (py - c["sys_y"]) ** 2
+                    + (pz - c["sys_z"]) ** 2
+                ))
+            else:
+                # No position available — sort in-system carriers by arrival distance
+                carriers.sort(key=lambda c: c.get("dist_ls", 0.0))
+        carriers = carriers[:3]
+
         cache[system_name] = (time.monotonic(), carriers)
         with lock:
             # Only update state if the player is still in the same system
