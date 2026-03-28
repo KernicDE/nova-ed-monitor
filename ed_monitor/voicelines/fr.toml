@@ -57,7 +57,7 @@ lines = ["Demande d'amarrage refusée. Raison : {reason}."]
 lines = ["Amarrage annulé."]
 
 [Touchdown]
-lines = ["Atterrissage à {lat}, {lon}."]
+lines = ["Atterrissage."]
 
 [Liftoff]
 lines = ["Décollage."]
@@ -264,4 +264,4 @@ lines = ["Verrouillage de masse."]
 lines = ["Verrouillage de masse libéré."]
 
 [BioReady]
-lines = ["{species} prêt. Distance {dist} mètres. Vous pouvez scanner le prochain échantillon."]
+lines = ["{species} prêt. Vous pouvez scanner le prochain échantillon."]

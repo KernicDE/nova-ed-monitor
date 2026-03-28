@@ -382,14 +382,9 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                 try:
                     lang    = _ev._TTS_LANG
                     voice   = _ev._LANG_VOICES.get(lang) if lang != "en" else None
-                    dist_m  = int(best_dist)
-                    fallback = (
-                        f"{sc.species_localised} ready. "
-                        f"Distance {dist_m} metres. "
-                        f"You may scan the next sample."
-                    )
+                    fallback = f"{sc.species_localised} ready. You may scan the next sample."
                     text = _vl.pick("BioReady", lang=lang,
-                                    species=sc.species_localised, dist=dist_m) or fallback
+                                    species=sc.species_localised) or fallback
                     tts_q.put_nowait(TtsMsg(
                         text=text,
                         priority=False,

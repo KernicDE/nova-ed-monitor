@@ -320,20 +320,25 @@ def _detect_lang(text: str) -> str:
     return "en"
 
 
-def _speak(tts_q: queue.Queue, text: str, priority: bool) -> None:
+def _speak(tts_q: queue.Queue, text: str, priority: bool, cacheable: bool = True) -> None:
     # Use configured language voice; None means TTS worker uses its default (en)
     voice = _LANG_VOICES.get(_TTS_LANG) if _TTS_LANG != "en" else None
     try:
-        tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=priority, voice=voice))
+        tts_q.put_nowait(TtsMsg(
+            text=_phonetic_sub(text), priority=priority, voice=voice, cacheable=cacheable,
+        ))
     except Exception:
         pass
 
 
-def _say(tts_q: queue.Queue, key: str, priority: bool, fallback: str = "", **kwargs) -> None:
+def _say(
+    tts_q: queue.Queue, key: str, priority: bool, fallback: str = "",
+    *, cacheable: bool = True, **kwargs,
+) -> None:
     """Pick a voiceline variant and speak it; falls back to *fallback* string."""
     text = _vl.pick(key, lang=_TTS_LANG, **kwargs) or fallback
     if text:
-        _speak(tts_q, text, priority)
+        _speak(tts_q, text, priority, cacheable=cacheable)
 
 
 def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> None:
@@ -347,7 +352,10 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
             text = f"{user} {on} {source} {verb}: {msg}"
         else:
             text = f"{user} {verb}: {msg}"
-        tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=False, voice=voice))
+        # Chat is unique per message — never cache
+        tts_q.put_nowait(TtsMsg(
+            text=_phonetic_sub(text), priority=False, voice=voice, cacheable=False,
+        ))
     except Exception:
         pass
 
@@ -590,6 +598,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 tts_suffix += f" Pop: {_fmt_pop(pop)}."
             _say(tts_q, "FSDJump", False,
                  fallback=f"Arrived in {system}. Jump {dist_ly_str}.{tts_suffix}",
+                 cacheable=False,
                  system=system, dist_ly=dist_ly_str, suffix=tts_suffix)
             return LogEvent.new(EventCategory.Nav, msg)
 
@@ -639,7 +648,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             hops_word = "jump" if hops == 1 else "jumps"
             msg  = f"Route set. Destination: {dest}. {hops} {hops_word} ({tdist:.1f} ly)."
             _say(tts_q, "NavRoute", False,
-                 fallback=msg,
+                 fallback=msg, cacheable=False,
                  dest=dest, hops=hops, hops_word=hops_word, dist_ly=f"{tdist:.1f} light years")
             return LogEvent.new(EventCategory.Nav, msg)
 
@@ -664,7 +673,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             msg  = f"Supercruise disengaged near {body_short}." if body else "Supercruise disengaged."
             if body:
                 _say(tts_q, "SupercruiseExit", False,
-                     fallback=msg, body=body_short)
+                     fallback=msg, cacheable=False, body=body_short)
             else:
                 _say(tts_q, "SupercruiseExit_nobdy", False, fallback=msg)
             return LogEvent.new(EventCategory.Nav, msg)
@@ -687,7 +696,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station_services = ev.get("StationServices") or []
             state.station_dist_ls  = _f(ev, "DistFromStarLS")
             msg = f"Docked at {station}."
-            _say(tts_q, "Docked", True, fallback=msg, station=station)
+            _say(tts_q, "Docked", True, fallback=msg, cacheable=False, station=station)
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Undocked":
@@ -701,7 +710,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station_dist_ls  = 0.0
             msg = f"Undocked from {station}." if station else "Undocked."
             if station:
-                _say(tts_q, "Undocked", False, fallback=msg, station=station)
+                _say(tts_q, "Undocked", False, fallback=msg, cacheable=False, station=station)
             else:
                 _say(tts_q, "Undocked_nostation", False, fallback=msg)
             return LogEvent.new(EventCategory.Nav, msg)
@@ -732,8 +741,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                         sc.first_footfall = True
                 # Don't announce here — wait for Disembark (player actually stepping out)
             msg = f"Touchdown at {lat:.2f}, {lon:.2f}."
-            _say(tts_q, "Touchdown", False, fallback=msg,
-                 lat=f"{lat:.2f}", lon=f"{lon:.2f}")
+            _say(tts_q, "Touchdown", False, fallback="Touchdown.")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Liftoff":

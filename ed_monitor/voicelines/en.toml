@@ -84,9 +84,8 @@ lines = ["Docking request denied. Reason: {reason}."]
 lines = ["Docking aborted."]
 
 [Touchdown]
-# {lat} = latitude (formatted float)
-# {lon} = longitude (formatted float)
-lines = ["Touchdown at {lat}, {lon}."]
+# No variables.
+lines = ["Touchdown."]
 
 [Liftoff]
 # No variables.
@@ -370,5 +369,4 @@ lines = ["Mass lock released."]
 
 [BioReady]
 # {species} = species name
-# {dist}    = distance in metres (integer)
-lines = ["{species} ready. Distance {dist} metres. You may scan the next sample."]
+lines = ["{species} ready. You may scan the next sample."]

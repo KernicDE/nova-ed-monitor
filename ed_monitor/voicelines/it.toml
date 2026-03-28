@@ -57,7 +57,7 @@ lines = ["Richiesta di attracco negata. Motivo: {reason}."]
 lines = ["Attracco annullato."]
 
 [Touchdown]
-lines = ["Atterraggio a {lat}, {lon}."]
+lines = ["Atterraggio."]
 
 [Liftoff]
 lines = ["Decollo."]
@@ -264,4 +264,4 @@ lines = ["Blocco di massa attivo."]
 lines = ["Blocco di massa rilasciato."]
 
 [BioReady]
-lines = ["{species} pronto. Distanza {dist} metri. È possibile scansionare il prossimo campione."]
+lines = ["{species} pronto. È possibile scansionare il prossimo campione."]

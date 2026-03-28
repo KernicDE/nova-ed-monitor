@@ -23,6 +23,7 @@ Returns None if the key is not found so callers can fall back gracefully.
 """
 from __future__ import annotations
 
+import re
 import random
 import tomllib
 from pathlib import Path
@@ -57,6 +58,47 @@ def _read_toml(path: Path) -> dict:
         return {}
 
 
+def _migrate_user_voiceline_file(path: Path) -> None:
+    """Patch out removed template variables from user override files in-place.
+
+    Handles:
+    - BioReady: removes the "{dist}" distance clause (removed in v1.15.5)
+    - Touchdown: removes the entire [Touchdown] section if it still has {lat}/{lon}
+      so the built-in default (no coordinates) takes over
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    if "{dist}" not in text and "{lat}" not in text and "{lon}" not in text:
+        return
+
+    new_text = text
+
+    # BioReady: strip the sentence-fragment containing {dist}.
+    # e.g. ". Distance {dist} metres." → "." in any language.
+    # Pattern: non-period chars surrounding {dist} up to the next period.
+    new_text = re.sub(r'[^.]*\{dist\}[^.]*\.', '.', new_text)
+    # Clean up double-period artefacts like ".." → "."
+    new_text = re.sub(r'\.(\s*)\.', r'.\1', new_text)
+
+    # Touchdown: the coordinate portion is tightly coupled to the rest of the
+    # sentence (prepositions vary per language), so we remove the whole section
+    # and let the built-in default ("Touchdown." / "Gelandet." etc.) take over.
+    # Use lookahead for next section header (line starting with [) or end of string.
+    if re.search(r'\[Touchdown\].*?\{(?:lat|lon)\}', new_text, re.DOTALL):
+        new_text = re.sub(
+            r'\[Touchdown\].*?(?=\n\[|\Z)', '', new_text, flags=re.DOTALL,
+        )
+
+    if new_text != text:
+        try:
+            path.write_text(new_text, encoding="utf-8")
+        except OSError:
+            pass
+
+
 def _load(lang: str) -> dict[str, list[str]]:
     """Load and cache voicelines for a language. Returns mapping key→[lines].
 
@@ -80,6 +122,7 @@ def _load(lang: str) -> dict[str, list[str]]:
     # 2. Overlay user file — user keys win, including empty lists (= silence)
     user_path = _config_dir() / "voicelines" / f"{lang}.toml"
     if user_path.exists():
+        _migrate_user_voiceline_file(user_path)
         for key, val in _read_toml(user_path).items():
             if isinstance(val, dict) and "lines" in val:
                 raw = val.get("lines", [])

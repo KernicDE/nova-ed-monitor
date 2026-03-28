@@ -1,25 +1,88 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import queue
+import shutil
 import subprocess
 import threading
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 
 @dataclass
 class TtsMsg:
-    text:     str
-    priority: bool = False
-    voice:    Optional[str] = None
-    volume:   Optional[int] = None
+    text:      str
+    priority:  bool = False
+    voice:     Optional[str] = None
+    volume:    Optional[int] = None
+    cacheable: bool = True
 
 
 # Cached playback backend: set after first successful play, reset on failure.
 # Values: "mpg123_pulse" | "mpg123" | "ffplay" | "afplay" | "pygame_sys" | None
 _audio_backend: Optional[str] = None
 _audio_backend_lock = threading.Lock()
+
+_CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500 MB
+
+
+def _cache_dir() -> Path:
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg) / "nova" if xdg else Path.home() / ".config" / "nova"
+    p = base / "cache" / "tts"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _cache_key(text: str, voice: str, rate: str) -> str:
+    return hashlib.sha256(f"{voice}|{rate}|{text}".encode()).hexdigest()[:24]
+
+
+def _evict_cache(cache_dir: Path) -> None:
+    """Delete least-recently-used mp3s until total size is under _CACHE_MAX_BYTES."""
+    files = []
+    for p in cache_dir.glob("*.mp3"):
+        try:
+            st = p.stat()
+            files.append((p, st.st_size, st.st_mtime))
+        except OSError:
+            pass
+    total = sum(sz for _, sz, _ in files)
+    if total <= _CACHE_MAX_BYTES:
+        return
+    files.sort(key=lambda x: x[2])  # oldest mtime first
+    for path, sz, _ in files:
+        if total <= _CACHE_MAX_BYTES:
+            break
+        try:
+            path.unlink()
+            total -= sz
+        except OSError:
+            pass
+
+
+def _reset_cache_if_voice_changed(voice: str, rate: str) -> None:
+    """Clear all cached mp3s when voice or rate has changed since last run."""
+    cd = _cache_dir()
+    sig_file = cd.parent / "voice.sig"
+    sig = f"{voice}|{rate}"
+    try:
+        old_sig = sig_file.read_text(encoding="utf-8")
+    except OSError:
+        old_sig = ""
+    if old_sig == sig:
+        return
+    for p in cd.glob("*.mp3"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    try:
+        sig_file.write_text(sig, encoding="utf-8")
+    except OSError:
+        pass
 
 
 def spawn_worker(
@@ -30,6 +93,7 @@ def spawn_worker(
     stop_evt:  Optional[threading.Event] = None,
 ) -> queue.Queue:
     _cleanup_stale_tmp()
+    _reset_cache_if_voice_changed(voice, rate)
     q: queue.Queue[TtsMsg] = queue.Queue()
     t = threading.Thread(
         target=_worker,
@@ -94,10 +158,23 @@ def _worker(
         if msg.volume is not None:
             vol = msg.volume
 
-        _play(msg.text, msg.voice or voice, rate, vol)
+        _play(msg.text, msg.voice or voice, rate, vol, msg.cacheable)
 
 
-def _play(text: str, voice: str, rate: str, volume: int) -> None:
+def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True) -> None:
+    cd = _cache_dir()
+    key = _cache_key(text, voice, rate)
+    cached_path = cd / f"{key}.mp3"
+
+    if cacheable and cached_path.exists():
+        # Touch to update LRU timestamp, then play directly
+        try:
+            cached_path.touch()
+        except OSError:
+            pass
+        _play_audio(str(cached_path), volume)
+        return
+
     tmp = f"/tmp/nova-tts-{os.getpid()}.mp3"
     try:
         result = subprocess.run(
@@ -106,6 +183,12 @@ def _play(text: str, voice: str, rate: str, volume: int) -> None:
             timeout=30,
         )
         if result.returncode == 0 and os.path.exists(tmp):
+            if cacheable:
+                try:
+                    shutil.copy2(tmp, str(cached_path))
+                    _evict_cache(cd)
+                except OSError:
+                    pass
             _play_audio(tmp, volume)
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass

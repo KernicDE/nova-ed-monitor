@@ -63,7 +63,7 @@ lines = ["Andockgenehmigung verweigert. Grund: {reason}."]
 lines = ["Andocken abgebrochen."]
 
 [Touchdown]
-lines = ["Landung bei {lat}, {lon}."]
+lines = ["Gelandet."]
 
 [Liftoff]
 lines = ["Abgehoben."]
@@ -284,4 +284,4 @@ lines = ["Massesperre aktiv."]
 lines = ["Massesperre aufgehoben."]
 
 [BioReady]
-lines = ["{species} bereit. Abstand {dist} Meter. Nächste Probe kann gescannt werden."]
+lines = ["{species} bereit. Nächste Probe kann gescannt werden."]
