@@ -301,8 +301,11 @@ def _apply_status(
         _check_bio_distance(state, tts_q)
 
     # Mass lock transition TTS — only when the player was already in the main ship
-    # both before and after (suppresses false triggers when boarding/exiting ship)
-    if prev_in_main_ship and new_in_main_ship:
+    # both before and after (suppresses false triggers when boarding/exiting ship).
+    # Also suppressed while in supercruise: the game re-sets mass lock when entering
+    # supercruise near a body (hyperspace still blocked), but that's expected and
+    # not actionable — announcing it there just creates noise.
+    if prev_in_main_ship and new_in_main_ship and not state.supercruise:
         lang  = _ev._TTS_LANG
         voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
         if new_mass_locked and not prev_mass_locked:
@@ -333,6 +336,12 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
     lat, lon = state.lat, state.lon
     if lat is None or lon is None:
         # Position temporarily unknown — don't wipe last known distances
+        return
+
+    # Bio distance alerts are only meaningful on a surface (landed in ship, in SRV,
+    # or on foot). When in the main ship and NOT landed the player is flying/ascending —
+    # skip to avoid false "Species ready" alerts triggered by climbing away from a sample.
+    if state.in_main_ship and not state.landed:
         return
 
     body_name = state.nearest_body
