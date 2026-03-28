@@ -333,7 +333,7 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
         voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
         verb  = _LANG_VERBS.get(lang, "says")
         if source:
-            text = f"User {user} on {source} {verb}: {msg}"
+            text = f"{user} on {source} {verb}: {msg}"
         else:
             text = f"{user} {verb}: {msg}"
         tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=False, voice=voice))
