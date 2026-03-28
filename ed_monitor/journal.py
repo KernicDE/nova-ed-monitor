@@ -653,8 +653,15 @@ def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) ->
     if saved_scans:
         with lock:
             for sc in saved_scans:
-                if not any(s.species == sc.species and s.body == sc.body
-                           for s in state.bio_scans):
+                existing = next(
+                    (s for s in state.bio_scans if s.species == sc.species and s.body == sc.body),
+                    None,
+                )
+                if existing is None:
+                    state.bio_scans.append(sc)
+                elif sc.samples > existing.samples or (sc.complete and not existing.complete):
+                    # DB record is more complete than what journal replay produced — replace it
+                    state.bio_scans.remove(existing)
                     state.bio_scans.append(sc)
 
 
