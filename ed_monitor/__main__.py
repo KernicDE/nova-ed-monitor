@@ -10,9 +10,6 @@ from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
 
-DEFAULT_VOLUME = 50
-
-
 def _db_path() -> Path:
     p = Path.home() / ".local" / "share" / "nova" / "events.db"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -35,7 +32,7 @@ def main() -> None:
     with lock:
         state.events.extendleft(database.get_recent_events(MAX_EVENTS))
 
-    volume    = [DEFAULT_VOLUME]
+    volume    = [cfg.default_volume]
     vol_lock  = threading.Lock()
     stop_evt  = threading.Event()
 
@@ -47,7 +44,7 @@ def main() -> None:
     edsm_dumps.spawn(state, lock, database)
 
     with lock:
-        state.volume                    = DEFAULT_VOLUME
+        state.volume                    = cfg.default_volume
         state.notable_value_threshold   = cfg.notable_value_threshold
         state.session_start             = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True

@@ -595,6 +595,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
 
         case "Location":
             state.client_online = True
+            state.client_shutdown_pending = False
             state.system     = _s(ev, "StarSystem")
             state.population = _u(ev, "Population")
             state.economy    = _strip_economy(_loc(ev, "SystemEconomy"))
@@ -1347,6 +1348,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
 
         case "LoadGame":
             state.client_online = True
+            state.client_shutdown_pending = False
             state.commander  = _s(ev, "Commander")
             state.ship_type  = _fmt_ship_type(_s(ev, "Ship"))
             state.ship_name  = _s(ev, "ShipName")
@@ -1364,6 +1366,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 _say(tts_q, "Shutdown", False,
                      fallback="Systems powering down. Farewell, Commander.")
             state.client_online = False
+            state.client_shutdown_pending = True
             return LogEvent.new(EventCategory.System, "Game shutdown detected.")
 
         case "Loadout":

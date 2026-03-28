@@ -897,10 +897,7 @@ class BodiesPanel(_Panel):
 # ── Content render helpers ────────────────────────────────────────────────────
 
 def _render_bio(s: AppState) -> RenderableType:
-    if not s.bio_scans:
-        t = Text()
-        t.append("No biological scans active.", style=P.LABEL)
-        return t
+    from ..events import _BIO_GENUS_VALUE_RANGE
 
     HDR = "bold rgb(195,160,55)"
 
@@ -910,8 +907,58 @@ def _render_bio(s: AppState) -> RenderableType:
     for sc in s.bio_scans:
         by_body[sc.body or "Unknown"].append(sc)
 
+    # Bodies DSS'd with bio_genuses but no scan started yet (pre-scan)
+    scanned_bodies = set(by_body.keys())
+    prescan_bodies = [
+        b for b in s.bodies
+        if b.bio_genuses and b.name not in scanned_bodies
+    ]
+
     total_known = sum(sc.value for sc in s.bio_scans if sc.complete and sc.value > 0)
     parts: list[RenderableType] = []
+
+    # Pre-scan section: show genus list + value estimates before first sample
+    for b in prescan_bodies:
+        short = _short_name(b.name, s.system) if b.name and s.system else b.name
+        hdr_t = Text()
+        hdr_t.append("─" * 3, style="rgb(60,80,100)")
+        hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+        hdr_t.append("(DSS) ", style="rgb(100,140,180)")
+        hdr_t.append("─" * 14, style="rgb(60,80,100)")
+        hdr_t.append("\n")
+        parts.append(hdr_t)
+
+        tbl = Table(
+            show_header=True, show_edge=False, show_lines=False,
+            padding=(0, 0), box=None,
+        )
+        tbl.add_column("Genus",       width=22, header_style=HDR)
+        tbl.add_column("Est. Value",  width=22, header_style=HDR)
+
+        for g in b.bio_genuses:
+            key = g.lower().split()[0] if g else ""
+            lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+            val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+            tbl.add_row(
+                Text(g, style=P.HUD_CYAN),
+                Text(val_s, style=P.AMBER),
+            )
+        parts.append(tbl)
+
+        if b.bio_value_min > 0:
+            est_t = Text()
+            est_t.append("Est. total  ", style=P.LABEL)
+            est_t.append(
+                f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}",
+                style=f"bold {P.GOLD}",
+            )
+            est_t.append("\n")
+            parts.append(est_t)
+
+    if not by_body and not prescan_bodies:
+        t = Text()
+        t.append("No biological scans active.", style=P.LABEL)
+        return t
 
     for body_name in sorted(by_body):
         # Body header row
@@ -1365,14 +1412,8 @@ def _render_overview(s: AppState) -> RenderableType:
                         bio_s  = "done"
                         bio_c  = P.HUD_GREEN
                 elif b.bio_value_max > 0:
-                    # Estimate from genus data
-                    n = b.bio_signals
-                    per_min = b.bio_value_min // n
-                    per_max = b.bio_value_max // n
-                    if n > 1:
-                        bio_s = f"~{_fmt_cr_compact(per_min)}–{_fmt_cr_compact(per_max)} ea"
-                    else:
-                        bio_s = f"~{_fmt_cr_compact(per_min)}–{_fmt_cr_compact(per_max)}"
+                    # Estimated total from genus data
+                    bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
                     bio_c = P.AMBER
                 else:
                     bio_s = f"{b.bio_signals}×"
@@ -1838,9 +1879,15 @@ class SituationalPanel(_Panel):
         # Offline: no live game data — show statistics
         if not s.client_online:
             return "stats"
-        # Incomplete bio scans only exist when player is actively scanning on a surface
+        # Incomplete bio scans — player is actively scanning
         if any(not sc.complete for sc in s.bio_scans):
             return "bio"
+        # Approaching or on a DSS'd body with bio signals — show pre-scan genus list
+        body_name = s.approach_body or (s.nearest_body if (s.landed or s.in_srv) else "")
+        if body_name:
+            idx = s._bodies_by_name.get(body_name, -1)
+            if 0 <= idx < len(s.bodies) and s.bodies[idx].bio_genuses:
+                return "bio"
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return "missions"

@@ -15,14 +15,12 @@ _DEFAULT_VOICES: dict[str, str] = {
     "ru": "ru-RU-SvetlanaNeural",
 }
 
-# Default overlay segments — replicate original hardcoded output
-_DEFAULT_OVERLAY_SEGMENTS = [
-    "NOVA",
-    "SHIP: {ship_name} ({ship_type})",
-    "POSITION: {system} {position}",
-    "JUMPS LEFT: {jumps_left}",      # skipped automatically when jumps_left == 0
-]
-_DEFAULT_OVERLAY_SEPARATOR = "     ////     "
+
+def _default_overlay_dir() -> str:
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return str(Path(xdg) / "nova" / "overlay")
+    return str(Path.home() / ".config" / "nova" / "overlay")
 
 
 @dataclass
@@ -33,11 +31,9 @@ class Config:
     tts_rate:                 str  = "+10%"
     tts_lang:                 str  = "en"
     tts_voices:               dict = field(default_factory=lambda: dict(_DEFAULT_VOICES))
-    overlay_segments:         list = field(default_factory=lambda: list(_DEFAULT_OVERLAY_SEGMENTS))
-    overlay_separator:        str  = _DEFAULT_OVERLAY_SEPARATOR
-    overlay_uppercase:        bool = True
-    overlay_path:             str  = "stream_info.txt"
+    overlay_dir:              str  = field(default_factory=_default_overlay_dir)
     notable_value_threshold:  int  = 500_000
+    default_volume:           int  = 50
 
 
 DEFAULT_CONFIG = """\
@@ -72,28 +68,18 @@ DEFAULT_CONFIG = """\
 # tts_voice_ru = ru-RU-SvetlanaNeural
 
 # ── Stream Overlay ────────────────────────────────────────────────────────────
-# Each overlay_line_N defines one segment. Segments are joined by the separator.
-# Lines containing a variable that evaluates to empty/zero are skipped.
-#
-# Available variables:
-#   {commander}    — Commander name
-#   {ship_name}    — Ship name
-#   {ship_type}    — Ship type (e.g. "Krait Phantom")
-#   {system}       — Current star system
-#   {position}     — Station, approach body, or "Deep Space"
-#   {jumps_left}   — Remaining jumps in route (skipped when 0)
-#   {route_next}   — Next jump destination (skipped when empty)
-#   {hull_pct}     — Hull integrity percentage (e.g. "98%")
-#   {fuel_t}       — Current fuel in tonnes (e.g. "28.4t")
-#   {fuel_max_t}   — Max fuel capacity (e.g. "32t")
-#
-# overlay_line_1 = NOVA
-# overlay_line_2 = {ship_name} ({ship_type})
-# overlay_line_3 = {system} — {position}
-# overlay_line_4 = JUMPS: {jumps_left}
-# overlay_separator =      ////
-# overlay_uppercase = true
-# overlay_path = stream_info.txt
+# Individual .txt files are written to the overlay directory for use in OBS/Streamlabs.
+# Each file contains one piece of information (e.g. system.txt, ship_name.txt).
+# Files: commander, ship_name, ship_type, ship_ident, system, position, station,
+#        approach_body, route_destination, route_next, jumps_left, hull, fuel,
+#        fuel_max, fuel_reservoir, cargo, heat, shields, status, supercruise,
+#        docked, landed, power, power_state, allegiance, economy, security,
+#        government, population, nearest_inhabited, heading, altitude, coordinates
+# overlay_dir = ~/.config/nova/overlay
+
+# ── Audio ─────────────────────────────────────────────────────────────────────
+# Default TTS/audio volume at startup (0–100):
+# default_volume = 50
 
 # ── Notable Bodies ────────────────────────────────────────────────────────────
 # Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.
@@ -127,14 +113,12 @@ def load() -> Config:
     journal_dir       = None
     twitch_channel    = ""
     youtube_channel   = ""
-    tts_rate          = "+10%"
-    tts_lang          = "en"
-    tts_voices        = dict(_DEFAULT_VOICES)
-    overlay_lines: dict[int, str] = {}
-    overlay_separator        = _DEFAULT_OVERLAY_SEPARATOR
-    overlay_uppercase        = True
-    overlay_path             = "stream_info.txt"
+    tts_rate                 = "+10%"
+    tts_lang                 = "en"
+    tts_voices               = dict(_DEFAULT_VOICES)
+    overlay_dir              = _default_overlay_dir()
     notable_value_threshold  = 500_000
+    default_volume           = 50
     active_keys: set[str] = set()
 
     try:
@@ -167,12 +151,13 @@ def load() -> Config:
                         _valid = {"en", "de", "fr", "it", "es", "pt", "ru"}
                         if v in _valid:
                             tts_lang = v
-                    case "overlay_separator":
-                        overlay_separator = v
-                    case "overlay_uppercase":
-                        overlay_uppercase = v.lower() not in ("false", "0", "no")
-                    case "overlay_path":
-                        overlay_path = v
+                    case "overlay_dir":
+                        overlay_dir = v
+                    case "default_volume":
+                        try:
+                            default_volume = max(0, min(100, int(v)))
+                        except ValueError:
+                            pass
                     case "notable_value_threshold":
                         try:
                             notable_value_threshold = int(v)
@@ -182,19 +167,18 @@ def load() -> Config:
                         lang = k[len("tts_voice_"):]
                         if lang and v:
                             tts_voices[lang] = v
-                    case _ if k.startswith("overlay_line_"):
-                        try:
-                            idx = int(k[len("overlay_line_"):])
-                            overlay_lines[idx] = v
-                        except ValueError:
-                            pass
-        # Rewrite the file if it is missing the full template (outdated format).
-        # Preserve any active settings by prepending them before the template.
-        if "# overlay_line_1" not in text:
+                    # Silently accept old overlay_* keys so existing configs don't error
+        # Rewrite the file if it is missing the new overlay section (outdated format).
+        if "# overlay_dir" not in text:
             active_lines = [
                 line.strip()
                 for line in text.splitlines()
                 if line.strip() and not line.strip().startswith("#") and "=" in line
+                # Drop old overlay_line_N / overlay_separator / overlay_path / overlay_uppercase
+                and not line.strip().startswith("overlay_line_")
+                and not line.strip().startswith("overlay_separator")
+                and not line.strip().startswith("overlay_path")
+                and not line.strip().startswith("overlay_uppercase")
             ]
             if active_lines:
                 prefix = "# Active settings (preserved from previous config):\n"
@@ -207,11 +191,10 @@ def load() -> Config:
             _NEW_SECTIONS = [
                 ("# notable_value_threshold", "\n# ── Notable Bodies ───────────────────────────────────────────────────────────\n# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.\n# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates\n# are always included regardless of this threshold.\n# notable_value_threshold = 500000\n"),
                 ("# tts_lang", "\n# ── Language ─────────────────────────────────────────────────────────────────\n# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):\n# tts_lang = en\n# Voiceline files: ~/.config/nova/voicelines/{lang}.toml (copy from defaults to customise)\n"),
+                ("# default_volume", "\n# ── Audio ────────────────────────────────────────────────────────────────────\n# Default TTS/audio volume at startup (0–100):\n# default_volume = 50\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
-                # Strip "# " to get the bare key name so we match both
-                # the commented form ("# auto_honk") and active form ("auto_honk = true")
                 key = marker.lstrip("#").strip().split()[0]
                 if key not in text:
                     text += section
@@ -227,12 +210,6 @@ def load() -> Config:
     if journal_dir is None:
         journal_dir = discover_journal() or Path(".")
 
-    # Build overlay segments from numbered lines if any were specified
-    if overlay_lines:
-        overlay_segments = [overlay_lines[i] for i in sorted(overlay_lines)]
-    else:
-        overlay_segments = list(_DEFAULT_OVERLAY_SEGMENTS)
-
     return Config(
         journal_dir=journal_dir,
         twitch_channel=twitch_channel,
@@ -240,11 +217,9 @@ def load() -> Config:
         tts_rate=tts_rate,
         tts_lang=tts_lang,
         tts_voices=tts_voices,
-        overlay_segments=overlay_segments,
-        overlay_separator=overlay_separator,
-        overlay_uppercase=overlay_uppercase,
-        overlay_path=overlay_path,
+        overlay_dir=overlay_dir,
         notable_value_threshold=notable_value_threshold,
+        default_volume=default_volume,
     )
 
 

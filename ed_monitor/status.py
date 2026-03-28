@@ -61,11 +61,12 @@ def monitor(
                 last_status = mtime
 
             if is_recent:
-                # Game is active — restore online state if any ship/activity flags are set
+                # Game is active — restore online state if any ship/activity flags are set.
+                # Skip if Shutdown was already detected in the journal.
                 with lock:
                     active = (state.in_main_ship or state.in_srv or
                               state.supercruise or state.docked or state.landed)
-                    if active:
+                    if active and not state.client_shutdown_pending:
                         state.client_online = True
             else:
                 with lock:
