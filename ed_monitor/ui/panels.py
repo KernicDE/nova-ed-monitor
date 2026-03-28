@@ -1458,61 +1458,83 @@ def _render_overview(s: AppState) -> RenderableType:
         tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
         tbl.add_column("name",  style="white", width=10)
         tbl.add_column("type",  width=10)
-        tbl.add_column("val",   width=9, justify="right")
+        tbl.add_column("val",   width=12, justify="right")
         tbl.add_column("bio",   width=12, justify="right")
         tbl.add_column("flags", width=4)
 
-        # Pre-compute which bodies have all bio scans complete
+        # Pre-compute actual bio values and completion per body
         from collections import defaultdict as _dd2
-        _bio_complete_by_body: dict = _dd2(int)
+        _bio_done_cnt:  dict = _dd2(int)
+        _bio_actual_cr: dict = _dd2(int)
         for _sc in s.bio_scans:
             if _sc.complete:
-                _bio_complete_by_body[_sc.body] += 1
+                _bio_done_cnt[_sc.body]  += 1
+                _bio_actual_cr[_sc.body] += _sc.value
 
         for b in notable:
             short  = _short_name(b.name, s.system)
             btype  = _abbrev_type(b.planet_class, b.star_type)
-            col    = _body_color(b.planet_class, b.star_type)
+            body_col = _body_color(b.planet_class, b.star_type)
 
-            # Body scan value column
-            v     = b.value if b.value > 0 else _estimated_value(b)
-            val_s = _fmt_value(v) if v > 0 else "—"
-            vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if v > 0 else P.DIM)
+            # Bio completion state
+            has_bio      = b.bio_signals > 0
+            bio_done_cnt = _bio_done_cnt.get(b.name, 0)
+            bio_all_done = has_bio and bio_done_cnt >= b.bio_signals
+            actual_bio   = _bio_actual_cr.get(b.name, 0) if bio_all_done else 0
 
-            # Bio estimate column
-            if b.bio_signals > 0:
-                bio_done_cnt = _bio_complete_by_body.get(b.name, 0)
-                bio_all_done = bio_done_cnt >= b.bio_signals
-                if bio_all_done:
-                    # Show actual total from completed scans
-                    actual_bio = sum(sc.value for sc in s.bio_scans
-                                     if sc.body == b.name and sc.complete)
-                    if actual_bio > 0:
-                        bio_s  = _fmt_cr_compact(actual_bio)
-                        bio_c  = P.GOLD
-                    else:
-                        bio_s  = "done"
-                        bio_c  = P.HUD_GREEN
-                elif b.bio_value_max > 0:
-                    # Estimated total from genus data
-                    bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
-                    bio_c = P.AMBER
-                else:
-                    bio_s = f"{b.bio_signals}×"
-                    bio_c = P.HUD_GREEN
+            # "Done" = body scanned (mapped) AND bio complete (or no bio)
+            scan_done = b.mapped
+            bio_done  = bio_all_done or not has_bio
+            all_done  = scan_done and bio_done
+
+            # Body scan value
+            body_v = b.value if b.value > 0 else _estimated_value(b)
+
+            if all_done:
+                # Combined total — fold bio into val column
+                total = body_v + actual_bio
+                val_s = _fmt_value(total) if total > 0 else "—"
+                vcol  = P.GOLD
+                bio_s = "✓"
+                bio_c = P.HUD_GREEN
+            elif bio_all_done:
+                # Bio done but body not yet mapped — show separate values
+                val_s = _fmt_value(body_v) if body_v > 0 else "—"
+                vcol  = P.AMBER if b.value == 0 else P.GOLD
+                bio_s = _fmt_cr_compact(actual_bio) if actual_bio > 0 else "✓"
+                bio_c = P.GOLD
             else:
-                bio_s = "—"
-                bio_c = P.DIM
+                # In-progress — body value and bio estimate
+                val_s = _fmt_value(body_v) if body_v > 0 else "—"
+                vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
+                if has_bio:
+                    if b.bio_value_max > 0:
+                        bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
+                        bio_c = P.AMBER
+                    else:
+                        bio_s = f"{b.bio_signals}×"
+                        bio_c = P.HUD_GREEN
+                else:
+                    bio_s = "—"
+                    bio_c = P.DIM
+
+            # Name/type style — dim when all done (already collected)
+            dim_done = all_done
+            name_style = "rgb(110,110,110)" if dim_done else "white"
+            type_style = f"rgb(110,110,110)" if dim_done else f"bold {body_col}"
 
             flags = ""
-            if b.terraform:        flags += "T "
+            if b.terraform:        flags += "T"
             if b.first_discovered: flags += "★"
+            if all_done:           flags += "✓"
+            elif bio_all_done:     flags += "B"  # bio done, body scan pending
+
             tbl.add_row(
-                Text(short, style="white"),
-                Text(btype, style=f"bold {col}"),
+                Text(short, style=name_style),
+                Text(btype, style=type_style),
                 Text(val_s, style=vcol),
                 Text(bio_s, style=bio_c),
-                Text(flags.strip(), style=P.HUD_GREEN),
+                Text(flags, style=P.HUD_GREEN if not dim_done else "rgb(80,140,80)"),
             )
         parts.append(tbl)
 
