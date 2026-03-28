@@ -146,7 +146,7 @@ def _abbrev_type(planet: str, star: str) -> str:
         "High metal content body":           "HMC",
         "Metal rich body":                   "M-Rich",
         "Rocky body":                        "Rocky",
-        "Rocky ice body":                    "Rocky Ice",
+        "Rocky ice body":                    "Rky Ice",
         "Icy body":                          "Icy",
         "Class I gas giant":                 "Gas-I",
         "Sudarsky class I gas giant":        "Gas-I",
