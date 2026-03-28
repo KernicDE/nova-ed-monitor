@@ -60,7 +60,14 @@ def monitor(
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
 
-            if not is_recent:
+            if is_recent:
+                # Game is active — restore online state if any ship/activity flags are set
+                with lock:
+                    active = (state.in_main_ship or state.in_srv or
+                              state.supercruise or state.docked or state.landed)
+                    if active:
+                        state.client_online = True
+            else:
                 with lock:
                     state.client_online = False
         except OSError:

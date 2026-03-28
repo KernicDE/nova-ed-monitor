@@ -168,7 +168,10 @@ def monitor(
         state.stats = db.get_stats()
 
     # Populate power/nearest/stations from local EDSM dump data right after startup
-    _update_dump_lookups(state, lock, db)
+    try:
+        _update_dump_lookups(state, lock, db)
+    except Exception:
+        pass
 
     while True:
         latest = _get_latest(journal_dir)
@@ -573,11 +576,17 @@ def _follow(
                                     edsm_q.put_nowait(("fetch_stations", new_sys))
                             except Exception:
                                 pass
-                    _update_dump_lookups(state, lock, db)
+                    try:
+                        _update_dump_lookups(state, lock, db)
+                    except Exception:
+                        pass
 
                 # After route update: refresh next-waypoint stations
                 if ev_name in ("NavRoute", "NavRouteClear"):
-                    _update_dump_lookups(state, lock, db)
+                    try:
+                        _update_dump_lookups(state, lock, db)
+                    except Exception:
+                        pass
 
                 # After scan events: save updated bodies and bio scans
                 if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound", "SAAScanComplete",
