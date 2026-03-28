@@ -209,6 +209,7 @@ def load() -> Config:
                 ("# notable_value_threshold", "\n# ── Notable Bodies ───────────────────────────────────────────────────────────\n# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.\n# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates\n# are always included regardless of this threshold.\n# notable_value_threshold = 500000\n"),
                 ("# tts_lang", "\n# ── Language ─────────────────────────────────────────────────────────────────\n# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):\n# tts_lang = en\n# Voiceline files: ~/.config/nova/voicelines/{lang}.toml (copy from defaults to customise)\n"),
                 ("# default_volume", "\n# ── Audio ────────────────────────────────────────────────────────────────────\n# Default TTS/audio volume at startup (0–100):\n# default_volume = 50\n"),
+                ("# carrier_lookup", "\n# ── Fleet Carriers ─────────────────────────────────────────────────────────────\n# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):\n# carrier_lookup = false\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:

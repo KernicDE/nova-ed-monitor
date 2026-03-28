@@ -231,6 +231,9 @@ Open it with any text editor to adjust settings:
 # Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
 # ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
 # notable_value_threshold = 500000
+
+# Fleet carrier lookup via Spansh API (cached 5 min, max 1 req/3 sec):
+# carrier_lookup = false
 ```
 
 ### Finding the Journal Directory Manually

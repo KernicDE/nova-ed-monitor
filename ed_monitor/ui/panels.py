@@ -436,68 +436,81 @@ class ShipPanel(_Panel):
         fuel_panel = Panel(Align.center(fuel_txt), title="FUEL",
                            border_style=fuel_col, padding=(0, 1))
 
-        gauges = Columns([hull_panel, sh_panel, fuel_panel], expand=True, equal=True)
-        parts: list[RenderableType] = [Align.center(header), gauges]
+        on_foot  = s.client_online and not s.in_main_ship and not s.in_srv
+        in_ship  = s.in_main_ship
+        in_srv   = s.in_srv
 
-        if s.cargo_capacity > 0:
-            cargo_w     = max(4, self.size.width - 16)
-            cargo_ratio = min(s.cargo / s.cargo_capacity, 1.0)
-            cargo_txt   = Text(justify="center")
-            cargo_txt.append(f"CARGO {s.cargo}/{s.cargo_capacity}  ", style="bold white")
-            cargo_txt.append_text(_gauge_bar(cargo_ratio, cargo_w, "rgb(150,60,180)"))
-            parts.append(Align.center(cargo_txt))
+        # Gauges — only when piloting (main ship or SRV); hidden when offline or on foot
+        parts: list[RenderableType] = [Align.center(header)]
+        if in_ship or in_srv:
+            gauges = Columns([hull_panel, sh_panel, fuel_panel], expand=True, equal=True)
+            parts.append(gauges)
 
-        # PIP display (only when in main ship)
-        if s.in_main_ship:
-            pip_txt = Text(justify="center")
-            pip_txt.append("SYS ", style=f"bold rgb(60,100,200)")
-            pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
-            pip_txt.append("  ENG ", style=f"bold rgb(160,200,60)")
-            pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
-            pip_txt.append("  WEP ", style=f"bold rgb(200,60,60)")
-            pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
-            parts.append(Align.center(pip_txt))
+            if s.cargo_capacity > 0 and in_ship:
+                cargo_w     = max(4, self.size.width - 16)
+                cargo_ratio = min(s.cargo / s.cargo_capacity, 1.0)
+                cargo_txt   = Text(justify="center")
+                cargo_txt.append(f"CARGO {s.cargo}/{s.cargo_capacity}  ", style="bold white")
+                cargo_txt.append_text(_gauge_bar(cargo_ratio, cargo_w, "rgb(150,60,180)"))
+                parts.append(Align.center(cargo_txt))
 
-        # Separator between gauges and buttons
+            # PIPs — only when in main ship
+            if in_ship:
+                pip_txt = Text(justify="center")
+                pip_txt.append("SYS ", style=f"bold rgb(60,100,200)")
+                pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
+                pip_txt.append("  ENG ", style=f"bold rgb(160,200,60)")
+                pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
+                pip_txt.append("  WEP ", style=f"bold rgb(200,60,60)")
+                pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
+                parts.append(Align.center(pip_txt))
+
+        # Separator
         sep_w = max(10, self.size.width - 4)
         parts.append(Text("─" * sep_w, style="rgb(60,60,60)"))
 
-        modes_txt = Text()
-        modes = [
-            ("SC",   s.supercruise and s.in_main_ship,                                         P.HUD_CYAN),
-            ("DKCD", s.docked,                                                                  P.HUD_GREEN),
-            ("LAND", s.landed and not s.docked and s.in_main_ship,                              P.HUD_WARN),
-            ("SRV",  s.in_srv,                                                                  P.HUD_WARN),
-            ("FLT",  s.in_main_ship and not s.supercruise and not s.docked and not s.landed,    P.LABEL),
-        ]
-        _append_buttons(modes_txt, modes)
-        parts.append(Align.center(modes_txt))
-        parts.append(Text(""))
-
-        toggles_txt = Text()
+        # Status button — single combined state indicator
         if not s.client_online:
-            mode_label = "OFL"
-            mode_col   = P.DIM
-        elif not s.in_main_ship and not s.in_srv:
-            mode_label = "FT"
-            mode_col   = "rgb(180,200,255)"  # Pastel blue
-        elif s.analysis_mode:
-            mode_label = "ANL"
-            mode_col   = "rgb(200,255,200)"  # Pastel green
+            status_label, status_col = "OFL",  P.DIM
+        elif on_foot:
+            status_label, status_col = "FT",   "rgb(180,200,255)"
+        elif s.supercruise:
+            status_label, status_col = "SC",   P.HUD_CYAN
+        elif s.docked:
+            status_label, status_col = "DKCD", P.HUD_GREEN
+        elif s.landed:
+            status_label, status_col = "LAND", P.HUD_WARN
+        elif in_srv:
+            status_label, status_col = "SRV",  P.HUD_WARN
         else:
-            mode_label = "CMB"
-            mode_col   = P.HUD_CRIT
-        toggles = [
-            (mode_label, True, mode_col),
-            ("GER",  s.landing_gear,      P.AMBER),
-            ("FAO",  s.flight_assist_off, P.HUD_CRIT),
-            ("SCP",  s.cargo_scoop,       P.AMBER),
-            ("LGT",  s.lights_on,         P.AMBER),
-            ("N/V",  s.night_vision,      P.HUD_GREEN),
-            ("SLT",  s.silent_running,    P.HUD_CRIT),
-        ]
-        _append_buttons(toggles_txt, toggles)
-        parts.append(Align.center(toggles_txt))
+            status_label, status_col = "FLT",  P.LABEL
+
+        status_txt = Text()
+        _append_buttons(status_txt, [(status_label, True, status_col)])
+        parts.append(Align.center(status_txt))
+
+        # HUD mode + contextual toggles (only when in main ship or SRV)
+        if in_ship:
+            if s.analysis_mode:
+                mode_label, mode_col = "ANL", "rgb(200,255,200)"
+            else:
+                mode_label, mode_col = "CMB", P.HUD_CRIT
+
+            if s.docked:
+                toggles = [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN)]
+            elif s.landed:
+                toggles = [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
+            elif s.supercruise:
+                toggles = [(mode_label, True, mode_col), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("LGT", s.lights_on, P.AMBER), ("SLT", s.silent_running, P.HUD_CRIT)]
+            else:
+                toggles = [(mode_label, True, mode_col), ("GER", s.landing_gear, P.AMBER), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("SCP", s.cargo_scoop, P.AMBER), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
+            toggles_txt = Text()
+            _append_buttons(toggles_txt, toggles)
+            parts.append(Align.center(toggles_txt))
+        elif in_srv:
+            toggles_txt = Text()
+            _append_buttons(toggles_txt, [("LGT", s.lights_on, P.AMBER)])
+            parts.append(Align.center(toggles_txt))
 
         warns_txt = Text()
         warns = []
@@ -2168,8 +2181,7 @@ class EventLogPanel(_Panel):
         for ev in visible:
             col  = ev.category.rich_color()
             warn = ev.category == EventCategory.Warn
-            # Muted message color: dim version of category color for non-warn
-            msg_style = f"bold {P.HUD_CRIT}" if warn else col
+            msg_style = f"bold {P.HUD_CRIT}" if warn else "white"
             abbr      = self._CAT_ABBR.get(ev.category, "   ")
             time_str  = ev.time[:5]  # "HH:MM" (trim seconds)
             lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
@@ -2197,6 +2209,17 @@ class ChatLogPanel(_Panel):
     }
     """
 
+    # Source tag → (3-char abbrev, color)
+    _SRC_TAGS: dict[str, tuple[str, str]] = {
+        "[Twitch]":  ("TWI", "rgb(145,70,255)"),   # Twitch purple
+        "[YouTube]": ("YTL", "rgb(255,70,70)"),    # YouTube red
+        "[Wing]":    ("WNG", "rgb(0,175,185)"),    # Cyan
+        "[Local]":   ("LCL", "rgb(160,160,160)"),  # Grey
+        "[Sqn]":     ("SQN", "rgb(0,200,100)"),    # Green
+        "[System]":  ("SYS", "rgb(195,150,0)"),    # Amber
+        "[Friend]":  ("FRD", "rgb(60,130,210)"),   # Blue
+    }
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
@@ -2206,15 +2229,27 @@ class ChatLogPanel(_Panel):
             t = Text()
             t.append("No chat messages.", style=P.LABEL)
             return t
-        prefix_w  = 9  # "HH:MM:SS " (9)
+        prefix_w  = 11  # "HH:MM " (6) + "TWI " (4) + padding 1
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w
         t = Text()
         for ev in chats:
-            lines = textwrap.wrap(ev.message, width=msg_w) or [""]
+            msg = ev.message
+            # Detect and strip source tag from message
+            src_abbr  = "MSG"
+            src_col   = "rgb(160,160,160)"
+            for tag, (abbr, col) in self._SRC_TAGS.items():
+                if msg.startswith(tag + " "):
+                    src_abbr = abbr
+                    src_col  = col
+                    msg = msg[len(tag) + 1:]  # strip tag + space
+                    break
+            time_str = ev.time[:5]  # HH:MM
+            lines = textwrap.wrap(msg, width=msg_w) or [""]
             for i, line in enumerate(lines):
                 if i == 0:
-                    t.append(f"{ev.time} ", style="rgb(120,120,120)")
+                    t.append(f"{time_str} ", style="rgb(100,100,100)")
+                    t.append(f"{src_abbr} ", style=f"bold {src_col}")
                 else:
                     t.append(" " * prefix_w)
                 t.append(line + "\n", style="white")
