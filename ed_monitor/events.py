@@ -221,6 +221,16 @@ _LANG_VERBS: dict[str, str] = {
     "ru": "говорит",
 }
 
+_LANG_ON: dict[str, str] = {
+    "en": "on",
+    "de": "auf",
+    "fr": "sur",
+    "it": "su",
+    "es": "en",
+    "pt": "no",
+    "ru": "на",
+}
+
 # Language detection character sets
 _CYRILLIC = frozenset("абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
 _DE_CHARS  = frozenset("äöüßÄÖÜ")
@@ -332,8 +342,9 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
         lang  = _detect_lang(msg)
         voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
         verb  = _LANG_VERBS.get(lang, "says")
+        on    = _LANG_ON.get(lang, "on")
         if source:
-            text = f"{user} on {source} {verb}: {msg}"
+            text = f"{user} {on} {source} {verb}: {msg}"
         else:
             text = f"{user} {verb}: {msg}"
         tts_q.put_nowait(TtsMsg(text=_phonetic_sub(text), priority=False, voice=voice))
