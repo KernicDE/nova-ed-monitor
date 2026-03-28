@@ -89,6 +89,21 @@ def _pl(n: int) -> str:
     return "" if n == 1 else "s"
 
 
+def _pip_bar(value: float, col: str) -> Text:
+    """Render a pip bar for power distribution (0.0–4.0, 0.5 steps).
+    Uses ● full, ◑ half, ○ empty; always 4 pips wide."""
+    import math
+    t     = Text()
+    full  = int(value)
+    half  = 1 if (value - full) >= 0.5 else 0
+    empty = 4 - full - half
+    t.append("●" * full,  style=f"bold {col}")
+    if half:
+        t.append("◑", style=f"bold {col}")
+    t.append("○" * empty, style="rgb(60,60,60)")
+    return t
+
+
 def _power_state_color(state: str) -> str:
     return {
         "Control":    P.HUD_CYAN,
@@ -268,86 +283,99 @@ class SystemPanel(_Panel):
         if s is None:
             return Text("")
 
-        t = Text()
+        parts: list[RenderableType] = []
 
-        def row(label: str, value: str, vstyle: str = P.WHITE) -> None:
-            t.append(f"{label:<9}", style=P.LABEL)
-            t.append(value + "\n", style=vstyle)
+        # System name header
+        hdr = Text(justify="center")
+        hdr.append(s.system, style="bold white")
+        parts.append(hdr)
 
-        row("System", s.system, "bold white")
+        # FSS / body counts
+        stars   = sum(1 for b in s.bodies if b.star_type)
+        planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
+        moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
+        fss_done    = sum(1 for b in s.bodies if b.fss_scanned and b.planet_class)
+        stars_found = sum(1 for b in s.bodies if b.star_type)
+        fss_total   = max(0, s.fss_body_count - stars_found)
 
+        # Build two column lists: left = natural/exploration, right = human/BGS
+        def _cell(label: str, value: str, vstyle: str = P.WHITE) -> Text:
+            t = Text()
+            t.append(f"{label} ", style=P.LABEL)
+            t.append(value, style=vstyle)
+            return t
+
+        left_cells: list[Text]  = []
+        right_cells: list[Text] = []
+
+        # Left column — exploration / natural data
+        if stars or planets:
+            body_parts = [f"{stars}★"]
+            if planets: body_parts.append(f"{planets}P")
+            if moons:   body_parts.append(f"{moons}M")
+            left_cells.append(_cell("Bodies", " ".join(body_parts)))
+
+        if fss_total > 0:
+            fss_col = P.HUD_GREEN if fss_done >= fss_total else P.AMBER
+            left_cells.append(_cell("FSS", f"{fss_done}/{fss_total}", fss_col))
+
+        if s.system_power:
+            pp     = s.system_power
+            pp_col = _power_state_color(s.system_power_state)
+            if s.system_power_state:
+                pp += f" [{s.system_power_state}]"
+            left_cells.append(_cell("Power", pp, pp_col))
+
+        if s.nearest_populated_name and s.population == 0:
+            dist_str = f"{s.nearest_populated_dist:.0f} ly"
+            left_cells.append(_cell("Nearest", f"{s.nearest_populated_name} ({dist_str})"))
+
+        if s.nearest_body:
+            left_cells.append(_cell("At", _short_name(s.nearest_body, s.system)))
+
+        if s.lat is not None and s.lon is not None:
+            pos = f"{s.lat:.2f}, {s.lon:.2f}"
+            if s.altitude is not None:
+                pos += f" alt{s.altitude:.0f}"
+            left_cells.append(_cell("Pos", pos))
+
+        # Right column — human/BGS data
         if s.population > 0:
-            row("Pop", _fmt_pop(s.population))
+            right_cells.append(_cell("Pop", _fmt_pop(s.population)))
         if s.economy:
-            row("Economy", s.economy)
+            right_cells.append(_cell("Economy", s.economy))
         if s.security:
-            col = (P.HUD_GREEN if "High" in s.security
-                   else P.HUD_WARN if "Medium" in s.security
-                   else P.HUD_CRIT)
-            row("Security", s.security, f"bold {col}")
+            sec_col = (P.HUD_GREEN if "High" in s.security
+                       else P.HUD_WARN if "Medium" in s.security
+                       else P.HUD_CRIT)
+            right_cells.append(_cell("Security", s.security, f"bold {sec_col}"))
         if s.government:
-            row("Gov", s.government)
+            right_cells.append(_cell("Gov", s.government))
         if s.allegiance:
-            row("Alleg", s.allegiance)
+            right_cells.append(_cell("Alleg", s.allegiance))
         if s.controlling_faction:
             faction_str = (
                 f"{s.controlling_faction} [{s.controlling_state}]"
                 if s.controlling_state and s.controlling_state != "None"
                 else s.controlling_faction
             )
-            row("Faction", faction_str)
-
-        stars   = sum(1 for b in s.bodies if b.star_type)
-        planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
-        moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        fss_done = sum(1 for b in s.bodies if b.fss_scanned)
-
-        if stars or planets:
-            parts = [f"{stars} star{_pl(stars)}"]
-            if planets: parts.append(f"{planets} planet{_pl(planets)}")
-            if moons:   parts.append(f"{moons} moon{_pl(moons)}")
-            row("Bodies", ", ".join(parts))
-
-        # FSS progress — only count classified bodies (planet_class set); belt clusters
-        # have no planet_class and inflate the count past FSSDiscoveryScan.BodyCount
-        fss_done    = sum(1 for b in s.bodies if b.fss_scanned and b.planet_class)
-        stars_found = sum(1 for b in s.bodies if b.star_type)
-        fss_total   = max(0, s.fss_body_count - stars_found)
-
-        if fss_total > 0:
-            fss_col = P.HUD_GREEN if fss_done >= fss_total else P.AMBER
-            row("FSS", f"{fss_done} / {fss_total}", fss_col)
-
+            right_cells.append(_cell("Faction", faction_str))
         if s.station_count > 0:
-            row("Stations", str(s.station_count))
+            right_cells.append(_cell("Stations", str(s.station_count)))
 
-        # Power Play
-        if s.system_power:
-            pp = s.system_power
-            if s.system_power_state:
-                pp += f" [{s.system_power_state}]"
-            pp_col = _power_state_color(s.system_power_state)
-            row("Power", pp, pp_col)
+        # Build two-column table
+        if left_cells or right_cells:
+            tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+            tbl.add_column("left",  ratio=1)
+            tbl.add_column("right", ratio=1)
+            rows = max(len(left_cells), len(right_cells))
+            for i in range(rows):
+                lc = left_cells[i]  if i < len(left_cells)  else Text("")
+                rc = right_cells[i] if i < len(right_cells) else Text("")
+                tbl.add_row(lc, rc)
+            parts.append(tbl)
 
-        # Nearest inhabited system (only when current system is uninhabited)
-        if s.nearest_populated_name and s.population == 0:
-            dist_str = f"{s.nearest_populated_dist:.0f} ly"
-            alleg = s.nearest_populated_allegiance
-            if alleg and alleg not in ("None", ""):
-                dist_str += f"  {alleg}"
-            row("Nearest", f"{s.nearest_populated_name}  ({dist_str})")
-
-        if s.nearest_body:
-            row("At", _short_name(s.nearest_body, s.system))
-
-        if s.lat is not None and s.lon is not None:
-            pos = f"{s.lat:.2f}, {s.lon:.2f}"
-            if s.altitude is not None:
-                pos += f"  alt {s.altitude:.0f}m"
-            row("Pos", pos)
-
-        # Session stats removed (moved to footer)
-        return t
+        return Group(*parts) if len(parts) > 1 else (parts[0] if parts else Text(""))
 
 
 # ── Ship panel ────────────────────────────────────────────────────────────────
@@ -419,14 +447,28 @@ class ShipPanel(_Panel):
             cargo_txt.append_text(_gauge_bar(cargo_ratio, cargo_w, "rgb(150,60,180)"))
             parts.append(Align.center(cargo_txt))
 
+        # PIP display (only when in main ship)
+        if s.in_main_ship:
+            pip_txt = Text(justify="center")
+            pip_txt.append("SYS ", style=f"bold rgb(60,100,200)")
+            pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
+            pip_txt.append("  ENG ", style=f"bold rgb(160,200,60)")
+            pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
+            pip_txt.append("  WEP ", style=f"bold rgb(200,60,60)")
+            pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
+            parts.append(Align.center(pip_txt))
+
+        # Separator between gauges and buttons
+        sep_w = max(10, self.size.width - 4)
+        parts.append(Text("─" * sep_w, style="rgb(60,60,60)"))
+
         modes_txt = Text()
-        on_foot = not s.in_main_ship and not s.in_srv
         modes = [
-            ("SUPERCRUISE", s.supercruise and s.in_main_ship,                                              P.HUD_CYAN),
-            ("DOCKED",      s.docked,                                                                      P.HUD_GREEN),
-            ("LANDED",      s.landed and not s.docked and s.in_main_ship,                                  P.HUD_WARN),
-            ("SRV",         s.in_srv,                                                                      P.HUD_WARN),
-            ("NORMAL SPC",  s.in_main_ship and not s.supercruise and not s.docked and not s.landed,        P.LABEL),
+            ("SC",   s.supercruise and s.in_main_ship,                                         P.HUD_CYAN),
+            ("DKCD", s.docked,                                                                  P.HUD_GREEN),
+            ("LAND", s.landed and not s.docked and s.in_main_ship,                              P.HUD_WARN),
+            ("SRV",  s.in_srv,                                                                  P.HUD_WARN),
+            ("FLT",  s.in_main_ship and not s.supercruise and not s.docked and not s.landed,    P.LABEL),
         ]
         _append_buttons(modes_txt, modes)
         parts.append(Align.center(modes_txt))
@@ -434,25 +476,25 @@ class ShipPanel(_Panel):
 
         toggles_txt = Text()
         if not s.client_online:
-            mode_label = "OFFLINE"
+            mode_label = "OFL"
             mode_col   = P.DIM
         elif not s.in_main_ship and not s.in_srv:
-            mode_label = "ON FOOT"
+            mode_label = "FT"
             mode_col   = "rgb(180,200,255)"  # Pastel blue
         elif s.analysis_mode:
-            mode_label = "ANALYSIS"
+            mode_label = "ANL"
             mode_col   = "rgb(200,255,200)"  # Pastel green
         else:
-            mode_label = "COMBAT"
+            mode_label = "CMB"
             mode_col   = P.HUD_CRIT
         toggles = [
             (mode_label, True, mode_col),
-            ("GEAR↓",    s.landing_gear,      P.AMBER),
-            ("FA OFF",   s.flight_assist_off, P.HUD_CRIT),
-            ("SCOOP",    s.cargo_scoop,       P.AMBER),
-            ("LIGHTS",   s.lights_on,         P.AMBER),
-            ("VISION",   s.night_vision,      P.HUD_GREEN),
-            ("SILENT",   s.silent_running,    P.HUD_CRIT),
+            ("GER",  s.landing_gear,      P.AMBER),
+            ("FAO",  s.flight_assist_off, P.HUD_CRIT),
+            ("SCP",  s.cargo_scoop,       P.AMBER),
+            ("LGT",  s.lights_on,         P.AMBER),
+            ("N/V",  s.night_vision,      P.HUD_GREEN),
+            ("SLT",  s.silent_running,    P.HUD_CRIT),
         ]
         _append_buttons(toggles_txt, toggles)
         parts.append(Align.center(toggles_txt))
@@ -669,28 +711,34 @@ class RoutePanel(_Panel):
 
         if not s.route_destination:
             t.append("No route set\n", style=P.AMBER_DIM)
-            if s.jump_dist > 0.0:
-                t.append("Last  ", style=P.LABEL)
-                t.append(f"{s.jump_dist:.1f} ly\n")
-            if s.jump_dist_total > 0.0:
-                t.append("Total ", style=P.LABEL)
-                t.append(f"{s.jump_dist_total:.1f} ly this session\n", style=P.LABEL)
+            if s.jump_dist > 0.0 or s.jump_dist_total > 0.0:
+                if s.jump_dist > 0.0:
+                    t.append("Last ", style=P.LABEL)
+                    t.append(f"{s.jump_dist:.1f} ly", style="white")
+                if s.jump_dist > 0.0 and s.jump_dist_total > 0.0:
+                    t.append("  ·  ", style=P.DIM)
+                if s.jump_dist_total > 0.0:
+                    t.append("Session ", style=P.LABEL)
+                    t.append(f"{s.jump_dist_total:.1f} ly", style=P.LABEL)
+                t.append("\n")
             return t
 
         word = "jump" if s.route_hops == 1 else "jumps"
-        word = "jump" if s.route_hops == 1 else "jumps"
         t.append("→ ", style=f"bold {P.AMBER}")
         t.append(s.route_destination + "\n", style="bold white")
+
+        # Compact: hops · next dist · total on one line
         t.append("  ")
         t.append(f"{s.route_hops} {word}", style=P.AMBER)
         if s.route_next_dist > 0:
-            t.append(f"  ({s.route_next_dist:.1f} ly next)", style="rgb(120,120,120)")
-        t.append(f"\n  Total {s.route_dist:.1f} ly\n", style=P.DIM)
+            t.append(f"  ·  {s.route_next_dist:.1f} ly", style="rgb(120,120,120)")
+        if s.route_dist > 0:
+            t.append(f"  ({s.route_dist:.1f} total)", style=P.DIM)
+        t.append("\n")
 
         if s.route_next:
             t.append("Next  ", style=P.LABEL)
             if s.route_hops == 1:
-                # Next IS the destination — show it prominently
                 t.append(s.route_next, style="bold white")
             else:
                 t.append(s.route_next, style=P.HUD_CYAN)
@@ -700,11 +748,11 @@ class RoutePanel(_Panel):
                     "H": "Black Hole",
                 }.get(s.route_next_star) or (
                     "White Dwarf" if s.route_next_star.startswith("D")
-                    else f"{s.route_next_star} class"
+                    else f"{s.route_next_star}"
                 )
                 mark     = "⛽" if s.route_next_scoopable else "✗"
                 star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
-                t.append(f"\n      {star_desc} {mark}", style=f"bold {star_col}")
+                t.append(f"  {star_desc} {mark}", style=f"bold {star_col}")
             t.append("\n")
 
         # Next-waypoint stations (from EDSM dump cache)
@@ -727,12 +775,30 @@ class RoutePanel(_Panel):
                     t.append(f"  [{icons}]", style=P.AMBER)
                 t.append("\n")
 
-        if s.jump_dist > 0.0:
-            t.append("Last  ", style=P.LABEL)
-            t.append(f"{s.jump_dist:.1f} ly\n")
-        if s.jump_dist_total > 0.0:
-            t.append("Total ", style=P.LABEL)
-            t.append(f"{s.jump_dist_total:.1f} ly this session\n", style=P.LABEL)
+        # Carriers in current system (from Spansh API)
+        if s.carriers_current_system:
+            t.append("Carriers here:\n", style=P.LABEL)
+            for carrier in s.carriers_current_system[:3]:
+                c_name = carrier["name"]
+                if len(c_name) > 16:
+                    c_name = c_name[:15] + "…"
+                dist_s = _fmt_ls_compact(carrier["dist_ls"]) if carrier.get("dist_ls", 0) > 0 else ""
+                t.append(f"  {c_name}", style="white")
+                if dist_s:
+                    t.append(f"  {dist_s}", style=P.LABEL)
+                t.append("\n")
+
+        # Compact last/total on one line
+        if s.jump_dist > 0.0 or s.jump_dist_total > 0.0:
+            if s.jump_dist > 0.0:
+                t.append("Jump ", style=P.LABEL)
+                t.append(f"{s.jump_dist:.1f} ly", style="white")
+            if s.jump_dist > 0.0 and s.jump_dist_total > 0.0:
+                t.append("  ·  ", style=P.DIM)
+            if s.jump_dist_total > 0.0:
+                t.append("Session ", style=P.LABEL)
+                t.append(f"{s.jump_dist_total:.1f} ly", style=P.LABEL)
+            t.append("\n")
 
         return t
 
@@ -1434,7 +1500,56 @@ def _render_overview(s: AppState) -> RenderableType:
             )
         parts.append(tbl)
 
-    # Session stats removed (moved to footer)
+    # Session stats block (when there's activity)
+    if s.session_jumps > 0 or s.session_first_disc > 0 or s.session_mapped > 0 or s.session_value > 0:
+        sess_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+        sess_tbl.add_column("k1", style=P.LABEL, no_wrap=True)
+        sess_tbl.add_column("v1", style="white",  no_wrap=True)
+        sess_tbl.add_column("k2", style=P.LABEL,  no_wrap=True)
+        sess_tbl.add_column("v2", style="white",  no_wrap=True)
+
+        sess_head = Text()
+        sess_head.append("\nSESSION\n", style=f"bold {P.AMBER}")
+        parts.append(sess_head)
+
+        val_s = _fmt_cr_compact(s.session_value) if s.session_value > 0 else "—"
+        sess_tbl.add_row(
+            "Jumps",  str(s.session_jumps)      if s.session_jumps      else "—",
+            "Disc",   str(s.session_first_disc) if s.session_first_disc else "—",
+        )
+        sess_tbl.add_row(
+            "Mapped", str(s.session_mapped)     if s.session_mapped     else "—",
+            "Value",  val_s,
+        )
+        parts.append(sess_tbl)
+
+    # System summary — when no notable bodies and system is inhabited
+    has_notable = any(True for b in s.bodies if (
+        b.bio_signals > 0 or b.terraform or
+        b.planet_class in ("Earthlike body", "Water world", "Ammonia world") or
+        b.value >= s.notable_value_threshold
+    ))
+    if not has_notable and s.economy and s.population > 0:
+        sys_head = Text()
+        sys_head.append("\nCURRENT SYSTEM\n", style=f"bold rgb(195,160,55)")
+        parts.append(sys_head)
+        sys_info = Text()
+        if s.economy:
+            sys_info.append("  Economy    ", style=P.LABEL)
+            sys_info.append(s.economy + "\n", style="white")
+        if s.allegiance:
+            sys_info.append("  Allegiance ", style=P.LABEL)
+            sys_info.append(s.allegiance + "\n", style="white")
+        if s.controlling_faction:
+            faction_str = (
+                f"{s.controlling_faction} [{s.controlling_state}]"
+                if s.controlling_state and s.controlling_state != "None"
+                else s.controlling_faction
+            )
+            sys_info.append("  Faction    ", style=P.LABEL)
+            sys_info.append(faction_str + "\n", style="white")
+        parts.append(sys_info)
+
     if not parts:
         return Text("No data.", style=P.LABEL)
     return Group(*parts)
@@ -2025,6 +2140,18 @@ class EventLogPanel(_Panel):
         self._scroll = scroll
         self.refresh()
 
+    _CAT_ABBR = {
+        EventCategory.Nav:     "NAV",
+        EventCategory.Combat:  "COM",
+        EventCategory.Explore: "EXP",
+        EventCategory.Mission: "MIS",
+        EventCategory.Trade:   "TRD",
+        EventCategory.Status:  "STA",
+        EventCategory.System:  "SYS",
+        EventCategory.Warn:    "WRN",
+        EventCategory.Chat:    "CHT",
+    }
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
@@ -2034,19 +2161,22 @@ class EventLogPanel(_Panel):
         events  = [ev for ev in s.events if ev.category != EventCategory.Chat]
         visible = events[self._scroll:]
 
-        prefix_w  = 11  # "HH:MM:SS " (9) + "◈ " (2)
+        prefix_w  = 10  # "HH:MM " (6) + "NAV " (4)
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w
 
         for ev in visible:
-            col       = ev.category.rich_color()
-            warn      = ev.category == EventCategory.Warn
-            msg_style = f"bold {P.HUD_CRIT}" if warn else "white"
+            col  = ev.category.rich_color()
+            warn = ev.category == EventCategory.Warn
+            # Muted message color: dim version of category color for non-warn
+            msg_style = f"bold {P.HUD_CRIT}" if warn else col
+            abbr      = self._CAT_ABBR.get(ev.category, "   ")
+            time_str  = ev.time[:5]  # "HH:MM" (trim seconds)
             lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
             for i, line in enumerate(lines):
                 if i == 0:
-                    t.append(f"{ev.time} ", style="rgb(120,120,120)")
-                    t.append(f"{ev.category.icon()} ", style=col)
+                    t.append(f"{time_str} ", style="rgb(100,100,100)")
+                    t.append(f"{abbr} ", style=col)
                 else:
                     t.append(" " * prefix_w)
                 t.append(line + "\n", style=msg_style)
@@ -2110,6 +2240,7 @@ class FooterBar(_Panel):
         lbl  = P.AMBER_DIM
         left.append(" q",      style=key); left.append(" Quit ", style=lbl)
         left.append(" Tab",    style=key); left.append(" Mode ", style=lbl)
+        left.append(" ?",      style=key); left.append(" Help ", style=lbl)
         left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
         left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
 

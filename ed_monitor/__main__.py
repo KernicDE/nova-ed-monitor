@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, edsm_dumps, events, journal, overlay, status, tts, twitch, voicelines, youtube
+from . import config, db, edsm, edsm_dumps, events, journal, overlay, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -40,8 +40,9 @@ def main() -> None:
     primary_voice = cfg.tts_voices.get("en", "en-GB-SoniaNeural")
     tts_q = tts.spawn_worker(primary_voice, cfg.tts_rate, volume, vol_lock, stop_evt)
 
-    edsm_q = edsm.spawn(state, lock)
+    edsm_q    = edsm.spawn(state, lock)
     edsm_dumps.spawn(state, lock, database)
+    spansh_q  = spansh.spawn(state, lock) if cfg.carrier_lookup else None
 
     with lock:
         state.volume                    = cfg.default_volume
@@ -70,7 +71,7 @@ def main() -> None:
     # Journal monitor thread
     threading.Thread(
         target=journal.monitor,
-        args=(state, lock, tts_q, database, cfg.journal_dir, edsm_q),
+        args=(state, lock, tts_q, database, cfg.journal_dir, edsm_q, spansh_q),
         daemon=True,
     ).start()
 

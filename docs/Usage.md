@@ -71,14 +71,15 @@ Press `Tab` to cycle through modes. In **Auto** mode NOVA switches automatically
 
 ## System Panel (top left)
 
-Shows current system info: faction, allegiance, economy, population, government, security, and — when data is available — Power Play affiliation.
+Shows current system info in a two-column layout: natural/exploration data on the left, human/BGS data on the right.
 
-| Row | Meaning |
-|-----|---------|
-| System | Current system name |
-| Faction | Controlling faction |
-| Power | Power Play controlling power and state (e.g. *Felicia Winters — Exploited*) |
-| Nearest | Nearest inhabited system and distance (shown only when current system is uninhabited) |
+| Left column | Right column |
+|-------------|--------------|
+| Bodies (stars/planets/moons) | Economy |
+| FSS scan progress | Security |
+| Power Play affiliation | Government / Allegiance |
+| Nearest inhabited (uninhabited only) | Controlling faction |
+| Current position / coordinates | Station count |
 
 Power Play state colour coding:
 - Cyan — Control
@@ -97,7 +98,7 @@ Power Play and nearest-inhabited data is sourced from EDSM nightly dumps, refres
 |---------|---------|
 | Docked | Station name, type, and services (market, shipyard, outfitting, refuel/repair) |
 | Approaching body | Body info from FSS scan |
-| In flight | Nav route: next waypoints with jump count and distance; **Stations** at the next waypoint |
+| In flight | Nav route: destination, jumps · next dist (total); next waypoint with star class; **Stations** at next waypoint; **Carriers** if `carrier_lookup` is enabled |
 
 The **Stations** section shows up to 3 closest stations at your next route waypoint:
 
@@ -109,7 +110,7 @@ Titan City         4529ls [M  R]
 
 Icon legend: `M` = Market · `S` = Shipyard · `O` = Outfitting · `R` = Refuel/Repair
 
-Station data is sourced from EDSM nightly dumps.
+Station data is sourced from EDSM nightly dumps. Fleet carrier data (when enabled) is sourced from the Spansh API and cached for 5 minutes.
 
 ---
 

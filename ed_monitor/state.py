@@ -202,6 +202,11 @@ class AppState:
     in_main_ship:      bool = False
     orbital_cruise:    bool = False
 
+    # Power distribution pips (from Status.json Pips; each 0.0–4.0 in 0.5 steps)
+    pips_sys: float = 4.0
+    pips_eng: float = 2.0
+    pips_wep: float = 2.0
+
     # Position
     station:      str            = ""
     lat:          Optional[float] = None
@@ -303,6 +308,9 @@ class AppState:
     nearest_populated_dist:       float = 0.0
     nearest_populated_allegiance: str   = ""
     route_next_stations:          list  = field(default_factory=list)  # list[dict]
+
+    # Spansh carrier lookup (populated by spansh.py after each system change)
+    carriers_current_system: list = field(default_factory=list)  # list[dict]
 
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)

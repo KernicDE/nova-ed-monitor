@@ -155,6 +155,13 @@ def _apply_status(
         state.analysis_mode     = bool(flags & FLAG_ANALYSIS_MODE)
         state.in_main_ship      = bool(flags & FLAG_IN_MAIN_SHIP)
 
+        # Power distribution pips — only valid when in main ship
+        pips = data.get("Pips", [])
+        if isinstance(pips, list) and len(pips) >= 3 and state.in_main_ship:
+            state.pips_sys = pips[0] / 2.0
+            state.pips_eng = pips[1] / 2.0
+            state.pips_wep = pips[2] / 2.0
+
         flags2 = data.get("Flags2", 0)
         if not isinstance(flags2, int):
             flags2 = 0

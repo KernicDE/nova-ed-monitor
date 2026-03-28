@@ -18,7 +18,13 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Power Play** — displays the controlling power and state (Exploited / Fortified / Control / etc.) for any system from the local EDSM cache
 - **Nearest inhabited system** — shows the closest populated system and distance (ly) when exploring uninhabited space
 - **Next-waypoint stations** — lists stations at the next jump destination in the Route panel (name, distance, services icons: M/S/O/R)
+- **Fleet carrier lookup** — optionally queries the Spansh API for fleet carriers in your current system (enable with `carrier_lookup = true`; results cached 5 min)
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
+  - **Power distribution (PIPs)** — live SYS/ENG/WEP pip display in the Ship panel with half-pip support (●◑○)
+  - **Two-column system info** — natural/exploration data on the left, human/BGS data on the right
+  - **Compact route** — hops, next distance, and total on a single line; carriers shown when available
+  - **Color-coded event log** — category abbreviation (NAV/EXP/COM/…) in category color, muted message color
+  - **Session stats in Overview** — jumps, first discoveries, mapped bodies, and total value
 - **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species
 - **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) in the Bodies panel before full scan
 - **Galaxy map** — Braille-rendered top-down map of the Milky Way with route waypoints

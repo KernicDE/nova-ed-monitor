@@ -107,6 +107,17 @@ Data is stored in the local SQLite database (`events.db`). The database grows by
 
 ---
 
+## Fleet Carrier Lookup
+
+```toml
+# Enable Spansh API lookup for fleet carriers in current system:
+# carrier_lookup = false
+```
+
+When enabled, NOVA queries the [Spansh](https://spansh.co.uk) API each time you jump to a new system and displays any fleet carriers found in the Route panel. Results are cached for 5 minutes and at most one API call is made every 3 seconds. **Disabled by default** — enable if you actively use carriers.
+
+---
+
 ## Stream Overlay (OBS/Streamlabs)
 
 NOVA writes a text file for use as a "Read from file" **Text** source in OBS or Streamlabs.

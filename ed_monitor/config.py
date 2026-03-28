@@ -34,6 +34,7 @@ class Config:
     overlay_dir:              str  = field(default_factory=_default_overlay_dir)
     notable_value_threshold:  int  = 500_000
     default_volume:           int  = 50
+    carrier_lookup:           bool = False
 
 
 DEFAULT_CONFIG = """\
@@ -86,6 +87,10 @@ DEFAULT_CONFIG = """\
 # Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates
 # are always included regardless of this threshold.
 # notable_value_threshold = 500000
+
+# ── Fleet Carriers ─────────────────────────────────────────────────────────────
+# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):
+# carrier_lookup = false
 """
 
 
@@ -119,7 +124,14 @@ def load() -> Config:
     overlay_dir              = _default_overlay_dir()
     notable_value_threshold  = 500_000
     default_volume           = 50
+    carrier_lookup           = False
     active_keys: set[str] = set()
+
+    _KNOWN_KEYS = {
+        "journal_dir", "twitch_channel", "youtube_channel",
+        "tts_rate", "tts_lang", "overlay_dir",
+        "default_volume", "notable_value_threshold", "carrier_lookup",
+    }
 
     try:
         text = config_path.read_text(encoding="utf-8")
@@ -163,6 +175,8 @@ def load() -> Config:
                             notable_value_threshold = int(v)
                         except ValueError:
                             pass
+                    case "carrier_lookup":
+                        carrier_lookup = v.lower() in ("true", "1", "yes")
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -174,6 +188,9 @@ def load() -> Config:
                 line.strip()
                 for line in text.splitlines()
                 if line.strip() and not line.strip().startswith("#") and "=" in line
+                # Drop unknown/stale keys; keep known keys and tts_voice_* prefix
+                and (line.strip().split("=")[0].strip() in _KNOWN_KEYS
+                     or line.strip().split("=")[0].strip().startswith("tts_voice_"))
                 # Drop old overlay_line_N / overlay_separator / overlay_path / overlay_uppercase
                 and not line.strip().startswith("overlay_line_")
                 and not line.strip().startswith("overlay_separator")
@@ -220,6 +237,7 @@ def load() -> Config:
         overlay_dir=overlay_dir,
         notable_value_threshold=notable_value_threshold,
         default_volume=default_volume,
+        carrier_lookup=carrier_lookup,
     )
 
 

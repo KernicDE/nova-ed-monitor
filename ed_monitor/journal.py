@@ -145,6 +145,7 @@ def monitor(
     db:          Database,
     journal_dir: Path,
     edsm_q:      Optional[queue.Queue],
+    spansh_q:    Optional[queue.Queue] = None,
 ) -> None:
     current: Optional[Path] = None
     last_file = db.get_config("last_journal_file")
@@ -199,7 +200,7 @@ def monitor(
             continue
 
         _follow(current, state, lock, tts_q, db, journal_dir, edsm_q,
-                start_offset=start_offset)
+                start_offset=start_offset, spansh_q=spansh_q)
         current = None
 
 # ── Backlog scan ───────────────────────────────────────────────────────────────
@@ -380,6 +381,7 @@ def _follow(
     journal_dir:  Path,
     edsm_q:       Optional[queue.Queue],
     start_offset: int = 0,
+    spansh_q:     Optional[queue.Queue] = None,
 ) -> None:
     try:
         fd = open(path, "r", errors="replace")
@@ -565,17 +567,22 @@ def _follow(
                 # After jump or start: load saved bodies, trigger EDSM fetch
                 if ev_name in ("FSDJump", "CarrierJump", "Location"):
                     _load_system_bodies(state, lock, db)
-                    if edsm_q is not None:
-                        with lock:
-                            new_sys = state.system
-                            pop     = state.population
-                        if new_sys:
-                            try:
-                                edsm_q.put_nowait(("fetch_system", new_sys))
-                                if pop > 0:
-                                    edsm_q.put_nowait(("fetch_stations", new_sys))
-                            except Exception:
-                                pass
+                    with lock:
+                        new_sys = state.system
+                        pop     = state.population
+                        state.carriers_current_system = []
+                    if edsm_q is not None and new_sys:
+                        try:
+                            edsm_q.put_nowait(("fetch_system", new_sys))
+                            if pop > 0:
+                                edsm_q.put_nowait(("fetch_stations", new_sys))
+                        except Exception:
+                            pass
+                    if spansh_q is not None and new_sys:
+                        try:
+                            spansh_q.put_nowait(("fetch_carriers", new_sys))
+                        except Exception:
+                            pass
                     try:
                         _update_dump_lookups(state, lock, db)
                     except Exception:
