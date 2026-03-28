@@ -78,6 +78,23 @@ def _fmt_ls_compact(ls: float) -> str:
     return f"{ls:.0f} ls"
 
 
+def _fmt_ago(iso: str) -> str:
+    """Return human-readable 'X ago' string from an ISO-8601 timestamp."""
+    if not iso:
+        return ""
+    try:
+        from datetime import timezone as _tz
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        diff = datetime.now(_tz.utc) - dt
+        secs = int(diff.total_seconds())
+        if secs < 0:     return ""
+        if secs < 3600:  return f"{secs//60}m ago"
+        if secs < 86400: return f"{secs//3600}h ago"
+        return f"{secs//86400}d ago"
+    except Exception:
+        return ""
+
+
 def _fmt_pop(n: int) -> str:
     if n >= 1_000_000_000: return f"{n/1_000_000_000:.1f}B"
     if n >= 1_000_000:     return f"{n/1_000_000:.1f}M"
@@ -469,7 +486,9 @@ class ShipPanel(_Panel):
         sep_w = max(10, self.size.width - 4)
         parts.append(Text("─" * sep_w, style="rgb(60,60,60)"))
 
-        # Status button — single combined state indicator
+        # Status + contextual toggles — combined on one line, with breathing room above
+        parts.append(Text(""))  # half-line spacer
+
         if not s.client_online:
             status_label, status_col = "OFL",  P.DIM
         elif on_foot:
@@ -485,11 +504,8 @@ class ShipPanel(_Panel):
         else:
             status_label, status_col = "FLT",  P.LABEL
 
-        status_txt = Text()
-        _append_buttons(status_txt, [(status_label, True, status_col)])
-        parts.append(Align.center(status_txt))
+        btn_row: list[tuple[str, bool, str]] = [(status_label, True, status_col)]
 
-        # HUD mode + contextual toggles (only when in main ship or SRV)
         if in_ship:
             if s.analysis_mode:
                 mode_label, mode_col = "ANL", "rgb(200,255,200)"
@@ -497,20 +513,19 @@ class ShipPanel(_Panel):
                 mode_label, mode_col = "CMB", P.HUD_CRIT
 
             if s.docked:
-                toggles = [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN)]
+                btn_row += [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN)]
             elif s.landed:
-                toggles = [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
+                btn_row += [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
             elif s.supercruise:
-                toggles = [(mode_label, True, mode_col), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("LGT", s.lights_on, P.AMBER), ("SLT", s.silent_running, P.HUD_CRIT)]
+                btn_row += [(mode_label, True, mode_col), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("LGT", s.lights_on, P.AMBER), ("SLT", s.silent_running, P.HUD_CRIT)]
             else:
-                toggles = [(mode_label, True, mode_col), ("GER", s.landing_gear, P.AMBER), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("SCP", s.cargo_scoop, P.AMBER), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
-            toggles_txt = Text()
-            _append_buttons(toggles_txt, toggles)
-            parts.append(Align.center(toggles_txt))
+                btn_row += [(mode_label, True, mode_col), ("GER", s.landing_gear, P.AMBER), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("SCP", s.cargo_scoop, P.AMBER), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
         elif in_srv:
-            toggles_txt = Text()
-            _append_buttons(toggles_txt, [("LGT", s.lights_on, P.AMBER)])
-            parts.append(Align.center(toggles_txt))
+            btn_row += [("LGT", s.lights_on, P.AMBER)]
+
+        btn_txt = Text()
+        _append_buttons(btn_txt, btn_row)
+        parts.append(Align.center(btn_txt))
 
         warns_txt = Text()
         warns = []
@@ -788,18 +803,6 @@ class RoutePanel(_Panel):
                     t.append(f"  [{icons}]", style=P.AMBER)
                 t.append("\n")
 
-        # Carriers in current system (from Spansh API)
-        if s.carriers_current_system:
-            t.append("Carriers here:\n", style=P.LABEL)
-            for carrier in s.carriers_current_system[:3]:
-                c_name = carrier["name"]
-                if len(c_name) > 16:
-                    c_name = c_name[:15] + "…"
-                dist_s = _fmt_ls_compact(carrier["dist_ls"]) if carrier.get("dist_ls", 0) > 0 else ""
-                t.append(f"  {c_name}", style="white")
-                if dist_s:
-                    t.append(f"  {dist_s}", style=P.LABEL)
-                t.append("\n")
 
         # Compact last/total on one line
         if s.jump_dist > 0.0 or s.jump_dist_total > 0.0:
@@ -1563,6 +1566,60 @@ def _render_overview(s: AppState) -> RenderableType:
             sys_info.append(faction_str + "\n", style="white")
         parts.append(sys_info)
 
+    # Fleet carriers (from Spansh API, when carrier_lookup enabled)
+    if s.carriers_current_system:
+        import math as _math
+        car_head = Text()
+        car_head.append("\nFLEET CARRIERS\n", style="bold rgb(100,180,255)")
+        parts.append(car_head)
+
+        for c in s.carriers_current_system[:5]:
+            c_name     = c.get("name", "")
+            c_system   = c.get("system_name", "")
+            c_dist_ls  = c.get("dist_ls", 0.0)
+            c_updated  = c.get("updated_at", "")
+            c_x        = c.get("sys_x", 0.0)
+            c_y        = c.get("sys_y", 0.0)
+            c_z        = c.get("sys_z", 0.0)
+
+            # Compute Ly distance from current position
+            ly_dist: Optional[float] = None
+            jumps_est: Optional[int] = None
+            if s.star_pos and (c_x or c_y or c_z):
+                px, py, pz = s.star_pos
+                ly_dist = _math.sqrt((px-c_x)**2 + (py-c_y)**2 + (pz-c_z)**2)
+                if s.jump_dist > 0 and ly_dist > 0:
+                    jumps_est = _math.ceil(ly_dist / s.jump_dist)
+
+            # Location line
+            loc_txt = Text()
+            loc_txt.append("  " + c_name + "\n", style="bold white")
+            loc_txt.append("  ", style="")
+            in_current = c_system and c_system.lower() == s.system.lower()
+            if c_system:
+                loc_txt.append(c_system, style=P.HUD_CYAN if in_current else P.AMBER)
+            if in_current and c_dist_ls > 0:
+                loc_txt.append(f"  {_fmt_ls_compact(c_dist_ls)}", style=P.LABEL)
+            elif ly_dist is not None:
+                loc_txt.append(f"  {ly_dist:.0f} ly", style=P.LABEL)
+                if jumps_est is not None:
+                    loc_txt.append(f"  ~{jumps_est} jump{'s' if jumps_est != 1 else ''}", style="rgb(130,130,130)")
+            if c_updated:
+                ago = _fmt_ago(c_updated)
+                if ago:
+                    loc_txt.append(f"  {ago}", style="rgb(100,100,100)")
+            loc_txt.append("\n", style="")
+
+            # Services line
+            icons = ""
+            if c.get("market"):     icons += "M"
+            if c.get("shipyard"):   icons += "S"
+            if c.get("outfitting"): icons += "O"
+            if icons:
+                loc_txt.append(f"  [{icons}]\n", style=P.AMBER)
+
+            parts.append(loc_txt)
+
     if not parts:
         return Text("No data.", style=P.LABEL)
     return Group(*parts)
@@ -2245,14 +2302,28 @@ class ChatLogPanel(_Panel):
                     msg = msg[len(tag) + 1:]  # strip tag + space
                     break
             time_str = ev.time[:5]  # HH:MM
-            lines = textwrap.wrap(msg, width=msg_w) or [""]
+            # Split "Username: message" — make username italic
+            colon_idx = msg.find(": ")
+            if colon_idx > 0:
+                username    = msg[:colon_idx]
+                msg_body    = msg[colon_idx + 2:]
+            else:
+                username    = ""
+                msg_body    = msg
+            display     = f"{username}: {msg_body}" if username else msg_body
+            lines = textwrap.wrap(display, width=msg_w) or [""]
             for i, line in enumerate(lines):
                 if i == 0:
                     t.append(f"{time_str} ", style="rgb(100,100,100)")
                     t.append(f"{src_abbr} ", style=f"bold {src_col}")
+                    if username and line.startswith(username + ": "):
+                        t.append(username, style=f"italic {src_col}")
+                        t.append(": " + line[len(username)+2:] + "\n", style="white")
+                    else:
+                        t.append(line + "\n", style="white")
                 else:
                     t.append(" " * prefix_w)
-                t.append(line + "\n", style="white")
+                    t.append(line + "\n", style="white")
         return t
 
 

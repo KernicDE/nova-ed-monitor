@@ -75,11 +75,26 @@ def _worker(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
 
 
 def _fetch_carriers(system_name: str) -> list[dict]:
-    payload = json.dumps({
-        "system_name": system_name,
-        "type": "Drake-Class Carrier",
-        "size": 10,
-    }).encode()
+    # Try current system first; if empty, fall back to nearest N carriers galaxy-wide
+    carriers = _fetch_carriers_query(system_name=system_name, size=10)
+    if not carriers:
+        carriers = _fetch_carriers_query(system_name=None, reference_system=system_name, size=20)
+    return carriers
+
+
+def _fetch_carriers_query(
+    *,
+    system_name: Optional[str] = None,
+    reference_system: Optional[str] = None,
+    size: int = 10,
+) -> list[dict]:
+    body: dict = {"type": "Drake-Class Carrier", "size": size}
+    if system_name:
+        body["system_name"] = system_name
+    if reference_system:
+        body["reference_system"] = reference_system
+
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         _API_URL,
@@ -99,10 +114,24 @@ def _fetch_carriers(system_name: str) -> list[dict]:
         name       = r.get("name", "")
         dist_ls    = r.get("distance_to_arrival") or 0.0
         updated_at = r.get("updated_at", "")
+        sys_name   = r.get("system_name", "")
+        sys_x      = float(r.get("system_x") or 0.0)
+        sys_y      = float(r.get("system_y") or 0.0)
+        sys_z      = float(r.get("system_z") or 0.0)
+        market     = bool(r.get("has_market"))
+        shipyard   = bool(r.get("has_shipyard"))
+        outfitting = bool(r.get("has_outfitting"))
         if name:
             carriers.append({
-                "name":       name,
-                "dist_ls":    float(dist_ls),
-                "updated_at": updated_at,
+                "name":        name,
+                "system_name": sys_name,
+                "dist_ls":     float(dist_ls),
+                "updated_at":  updated_at,
+                "sys_x":       sys_x,
+                "sys_y":       sys_y,
+                "sys_z":       sys_z,
+                "market":      market,
+                "shipyard":    shipyard,
+                "outfitting":  outfitting,
             })
     return carriers
