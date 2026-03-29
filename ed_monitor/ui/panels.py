@@ -482,10 +482,6 @@ class ShipPanel(_Panel):
                 pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
                 parts.append(Align.center(pip_txt))
 
-        # Separator
-        sep_w = max(10, self.size.width - 4)
-        parts.append(Text("─" * sep_w, style="rgb(60,60,60)"))
-
         # Status + contextual toggles — combined on one line, with breathing room above
         parts.append(Text(""))  # half-line spacer
 
@@ -1107,6 +1103,25 @@ def _render_bio(s: AppState) -> RenderableType:
                 Text(travel_str, style=travel_col),
                 Text(value_str, style=f"bold {P.GOLD}" if sc.value > 0 else P.LABEL),
             )
+
+        # Show any genuses from the DSS that haven't been scanned yet
+        _bidx2 = s._bodies_by_name.get(body_name, -1)
+        _binfo = s.bodies[_bidx2] if 0 <= _bidx2 < len(s.bodies) else None
+        if _binfo and _binfo.bio_genuses:
+            scanned_genera = {sc.genus_localised.lower() for sc in by_body[body_name]}
+            for g in _binfo.bio_genuses:
+                if g.lower() not in scanned_genera:
+                    _key = g.lower().split()[0] if g else ""
+                    lo, hi = _BIO_GENUS_VALUE_RANGE.get(_key, (0, 0))
+                    val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                    tbl.add_row(
+                        Text("?", style=P.DIM),
+                        Text(g, style=P.HUD_CYAN),
+                        Text("—", style=P.DIM),
+                        Text("—", style=P.DIM),
+                        Text("—", style=P.DIM),
+                        Text(val_s, style=P.AMBER),
+                    )
 
         parts.append(tbl)
 
