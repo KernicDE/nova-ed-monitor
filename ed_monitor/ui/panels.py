@@ -630,10 +630,37 @@ class ShipPanel(_Panel):
         parts.append(Columns([hull_panel, sh_panel], expand=True, equal=True))
         parts.append(Text(""))
 
-        btn_row: list[tuple[str, bool, str]] = [("Lights", s.lights_on, P.AMBER)]
+        # Mode + toggles
+        if s.analysis_mode:
+            mode_label, mode_col = "Analysis", "rgb(200,255,200)"
+        else:
+            mode_label, mode_col = "Combat", P.HUD_CRIT
+
+        # Drive assist = SRV equivalent of flight assist (active = normal, off = manual)
+        btn_row: list[tuple[str, bool, str]] = [
+            (mode_label,  True,                   mode_col),
+            ("Assist",    s.srv_drive_assist,      P.HUD_GREEN),
+            ("Lights",    s.lights_on,             P.AMBER),
+            ("Night",     s.night_vision,          P.HUD_GREEN),
+        ]
+        # Turret only relevant when turret view is active or retracted state differs
+        if s.srv_turret_view or not s.srv_turret_retracted:
+            btn_row.append(("Turret", s.srv_turret_view, P.HUD_CYAN))
+
         btn_txt = Text()
         _append_buttons(btn_txt, btn_row)
         parts.append(Align.center(btn_txt))
+
+        warns_txt = Text()
+        warns = []
+        if s.srv_handbrake: warns.append(("⏸ HANDBRAKE",  P.HUD_WARN))
+        if s.overheating:   warns.append(("⚠ OVERHEAT",   P.HUD_CRIT))
+        if s.low_fuel:      warns.append(("⚠ LOW FUEL",   P.HUD_CRIT))
+        for i, (label, col) in enumerate(warns):
+            if i: warns_txt.append("   ")
+            warns_txt.append(label, style=f"bold {col}")
+        if warns:
+            parts.append(Align.center(warns_txt))
 
         return Group(*parts)
 

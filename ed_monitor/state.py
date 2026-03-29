@@ -217,6 +217,12 @@ class AppState:
     suit_cold:       bool  = False
     suit_hot:        bool  = False
 
+    # SRV-specific flags (from Status.json Flags; only meaningful when in_srv)
+    srv_handbrake:        bool = False
+    srv_turret_view:      bool = False
+    srv_turret_retracted: bool = False
+    srv_drive_assist:     bool = False
+
     # Position
     station:      str            = ""
     lat:          Optional[float] = None

@@ -1510,7 +1510,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 _say(tts_q, "StartJump_Hyperspace", False, fallback="Engaging hyperspace.")
                 return LogEvent.new(EventCategory.Nav, f"Jumping to {dest}.")
             else:
-                _say(tts_q, "StartJump_Supercruise", False, fallback="Entering supercruise.")
+                # No TTS here — SupercruiseEntry fires ~2s later and speaks the confirmation.
+                # Speaking on StartJump too causes a double callout.
                 return None
 
         case "FSSAllBodiesFound":

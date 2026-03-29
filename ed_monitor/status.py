@@ -28,7 +28,11 @@ FLAG_SHIELDS_UP     = 1 << 3
 FLAG_SUPERCRUISE    = 1 << 4
 FLAG_FA_OFF         = 1 << 5
 FLAG_HARDPOINTS     = 1 << 6
-FLAG_MASS_LOCKED    = 1 << 16  # FSD Mass Locked (bit 7 is "In Wing")
+FLAG_SRV_HANDBRAKE        = 1 << 12  # SRV handbrake engaged
+FLAG_SRV_TURRET_VIEW      = 1 << 13  # SRV using turret view
+FLAG_SRV_TURRET_RETRACTED = 1 << 14  # SRV turret retracted
+FLAG_SRV_DRIVE_ASSIST     = 1 << 15  # SRV drive assist enabled
+FLAG_MASS_LOCKED          = 1 << 16  # FSD Mass Locked (bit 7 is "In Wing")
 FLAG_IN_MAIN_SHIP   = 1 << 24  # Player is in the main ship (not on foot, not in SRV)
 FLAG_LIGHTS         = 1 << 8
 FLAG_CARGO_SCOOP    = 1 << 9
@@ -158,6 +162,12 @@ def _apply_status(
         state.in_srv            = bool(flags & FLAG_IN_SRV)
         state.analysis_mode     = bool(flags & FLAG_ANALYSIS_MODE)
         state.in_main_ship      = bool(flags & FLAG_IN_MAIN_SHIP)
+
+        # SRV-specific flags (bits 12–15 only meaningful when in_srv)
+        state.srv_handbrake        = bool(flags & FLAG_SRV_HANDBRAKE)
+        state.srv_turret_view      = bool(flags & FLAG_SRV_TURRET_VIEW)
+        state.srv_turret_retracted = bool(flags & FLAG_SRV_TURRET_RETRACTED)
+        state.srv_drive_assist     = bool(flags & FLAG_SRV_DRIVE_ASSIST)
 
         # Power distribution pips — only valid when in main ship
         pips = data.get("Pips", [])
