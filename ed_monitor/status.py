@@ -15,7 +15,11 @@ from . import events as _ev
 
 # Status.json flag bits
 # Flags2 bits (Odyssey / Horizons 4.0+)
-FLAG2_GLIDE = 1 << 12  # GlideMode = orbital cruise
+FLAG2_GLIDE       = 1 << 12  # GlideMode = orbital cruise
+FLAG2_LOW_OXYGEN  = 1 << 6   # LowOxygen warning
+FLAG2_LOW_HEALTH  = 1 << 7   # LowHealth warning (suit)
+FLAG2_COLD        = 1 << 8   # Cold environment
+FLAG2_HOT         = 1 << 9   # Hot environment
 
 FLAG_DOCKED         = 1 << 0
 FLAG_LANDED         = 1 << 1
@@ -168,6 +172,26 @@ def _apply_status(
         prev_orbital_cruise    = state.orbital_cruise
         state.orbital_cruise   = bool(flags2 & FLAG2_GLIDE)
         new_orbital_cruise     = state.orbital_cruise
+
+        # On-foot Flags2 warnings
+        state.low_oxygen      = bool(flags2 & FLAG2_LOW_OXYGEN)
+        state.low_health_suit = bool(flags2 & FLAG2_LOW_HEALTH)
+        state.suit_cold       = bool(flags2 & FLAG2_COLD)
+        state.suit_hot        = bool(flags2 & FLAG2_HOT)
+
+        # On-foot suit fields — only update when on foot
+        v = data.get("Oxygen")
+        if isinstance(v, (int, float)):
+            state.suit_oxygen = float(v)
+        v = data.get("Health")
+        if isinstance(v, (int, float)) and not state.in_main_ship and not state.in_srv:
+            state.suit_health = float(v)
+        v = data.get("SelectedWeapon")
+        if isinstance(v, str):
+            state.selected_weapon = v
+        v = data.get("Gravity")
+        if isinstance(v, (int, float)):
+            state.on_foot_gravity = float(v)
 
         new_mass_locked  = state.mass_locked
         new_in_main_ship = state.in_main_ship

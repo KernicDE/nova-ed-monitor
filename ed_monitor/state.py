@@ -207,6 +207,16 @@ class AppState:
     pips_eng: float = 2.0
     pips_wep: float = 2.0
 
+    # On-foot / suit status (from Status.json; only valid when not in_main_ship and not in_srv)
+    suit_health:     float = 1.0
+    suit_oxygen:     float = 1.0
+    selected_weapon: str   = ""
+    on_foot_gravity: float = 0.0
+    low_oxygen:      bool  = False
+    low_health_suit: bool  = False
+    suit_cold:       bool  = False
+    suit_hot:        bool  = False
+
     # Position
     station:      str            = ""
     lat:          Optional[float] = None

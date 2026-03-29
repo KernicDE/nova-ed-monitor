@@ -411,11 +411,46 @@ class ShipPanel(_Panel):
     }
     """
 
+    def update(self, snap: AppState) -> None:
+        self._snap = snap
+        on_foot = snap.client_online and not snap.in_main_ship and not snap.in_srv
+        if not snap.client_online:
+            self.border_title = "◈ Ship — Offline"
+        elif on_foot:
+            self.border_title = "◈ On Foot"
+        elif snap.in_srv:
+            self.border_title = "◈ SRV"
+        elif snap.in_main_ship:
+            if snap.supercruise:
+                self.border_title = "◈ Ship — Supercruise"
+            elif snap.orbital_cruise:
+                self.border_title = "◈ Ship — Orbital Cruise"
+            elif snap.docked:
+                self.border_title = "◈ Ship — Docked"
+            elif snap.landed:
+                self.border_title = "◈ Ship — Landed"
+            else:
+                self.border_title = "◈ Ship — Flying"
+        else:
+            self.border_title = "◈ Ship"
+        self.refresh()
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
             return Text("")
 
+        on_foot = s.client_online and not s.in_main_ship and not s.in_srv
+        in_ship = s.in_main_ship
+        in_srv  = s.in_srv
+
+        if on_foot:
+            return self._render_on_foot(s)
+        if in_srv:
+            return self._render_srv(s)
+        return self._render_ship(s)
+
+    def _render_ship(self, s: AppState) -> RenderableType:
         panel_w = max(10, self.size.width // 3)
         bar_w   = max(4, panel_w - 6)
 
@@ -453,17 +488,13 @@ class ShipPanel(_Panel):
         fuel_panel = Panel(Align.center(fuel_txt), title="FUEL",
                            border_style=fuel_col, padding=(0, 1))
 
-        on_foot  = s.client_online and not s.in_main_ship and not s.in_srv
-        in_ship  = s.in_main_ship
-        in_srv   = s.in_srv
-
-        # Gauges — only when piloting (main ship or SRV); hidden when offline or on foot
         parts: list[RenderableType] = [Align.center(header)]
-        if in_ship or in_srv:
+
+        if s.in_main_ship:
             gauges = Columns([hull_panel, sh_panel, fuel_panel], expand=True, equal=True)
             parts.append(gauges)
 
-            if s.cargo_capacity > 0 and in_ship:
+            if s.cargo_capacity > 0:
                 cargo_w     = max(4, self.size.width - 16)
                 cargo_ratio = min(s.cargo / s.cargo_capacity, 1.0)
                 cargo_txt   = Text(justify="center")
@@ -471,57 +502,36 @@ class ShipPanel(_Panel):
                 cargo_txt.append_text(_gauge_bar(cargo_ratio, cargo_w, "rgb(150,60,180)"))
                 parts.append(Align.center(cargo_txt))
 
-            # PIPs — only when in main ship
-            if in_ship:
-                pip_txt = Text(justify="center")
-                pip_txt.append("SYS ", style=f"bold rgb(60,100,200)")
-                pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
-                pip_txt.append("  ENG ", style=f"bold rgb(160,200,60)")
-                pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
-                pip_txt.append("  WEP ", style=f"bold rgb(200,60,60)")
-                pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
-                parts.append(Align.center(pip_txt))
+            pip_txt = Text(justify="center")
+            pip_txt.append("SYS ", style="bold rgb(60,100,200)")
+            pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
+            pip_txt.append("  ENG ", style="bold rgb(160,200,60)")
+            pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
+            pip_txt.append("  WEP ", style="bold rgb(200,60,60)")
+            pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
+            parts.append(Align.center(pip_txt))
 
-        # Status + contextual toggles — combined on one line, with breathing room above
-        parts.append(Text(""))  # half-line spacer
+        parts.append(Text(""))  # spacer
 
-        if not s.client_online:
-            status_label, status_col = "OFL",  P.DIM
-        elif on_foot:
-            status_label, status_col = "FT",   "rgb(180,200,255)"
-        elif s.supercruise:
-            status_label, status_col = "SC",   P.HUD_CYAN
-        elif s.docked:
-            status_label, status_col = "DKCD", P.HUD_GREEN
-        elif s.landed:
-            status_label, status_col = "LAND", P.HUD_WARN
-        elif in_srv:
-            status_label, status_col = "SRV",  P.HUD_WARN
-        else:
-            status_label, status_col = "FLT",  P.LABEL
-
-        btn_row: list[tuple[str, bool, str]] = [(status_label, True, status_col)]
-
-        if in_ship:
+        if s.in_main_ship:
             if s.analysis_mode:
-                mode_label, mode_col = "ANL", "rgb(200,255,200)"
+                mode_label, mode_col = "Analysis", "rgb(200,255,200)"
             else:
-                mode_label, mode_col = "CMB", P.HUD_CRIT
+                mode_label, mode_col = "Combat", P.HUD_CRIT
 
+            btn_row: list[tuple[str, bool, str]] = []
             if s.docked:
-                btn_row += [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN)]
+                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN)]
             elif s.landed:
-                btn_row += [(mode_label, True, mode_col), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT)]
             elif s.supercruise:
-                btn_row += [(mode_label, True, mode_col), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("LGT", s.lights_on, P.AMBER), ("SLT", s.silent_running, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Lights", s.lights_on, P.AMBER), ("Silent", s.silent_running, P.HUD_CRIT)]
             else:
-                btn_row += [(mode_label, True, mode_col), ("GER", s.landing_gear, P.AMBER), ("FAO", s.flight_assist_off, P.HUD_CRIT), ("SCP", s.cargo_scoop, P.AMBER), ("LGT", s.lights_on, P.AMBER), ("N/V", s.night_vision, P.HUD_GREEN), ("SLT", s.silent_running, P.HUD_CRIT)]
-        elif in_srv:
-            btn_row += [("LGT", s.lights_on, P.AMBER)]
+                btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.AMBER), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Scoop", s.cargo_scoop, P.AMBER), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT)]
 
-        btn_txt = Text()
-        _append_buttons(btn_txt, btn_row)
-        parts.append(Align.center(btn_txt))
+            btn_txt = Text()
+            _append_buttons(btn_txt, btn_row)
+            parts.append(Align.center(btn_txt))
 
         warns_txt = Text()
         warns = []
@@ -534,6 +544,96 @@ class ShipPanel(_Panel):
             warns_txt.append(label, style=f"bold {col}")
         if warns:
             parts.append(Align.center(warns_txt))
+
+        return Group(*parts)
+
+    def _render_on_foot(self, s: AppState) -> RenderableType:
+        panel_w = max(10, self.size.width // 3)
+        bar_w   = max(4, panel_w - 6)
+
+        hp_col  = P.HUD_GREEN if s.suit_health > 0.75 else (P.HUD_WARN if s.suit_health > 0.5 else P.HUD_CRIT)
+        hp_txt  = Text(justify="center")
+        hp_txt.append(f"{s.suit_health*100:.0f}%\n", style=f"bold {hp_col}")
+        hp_txt.append_text(_gauge_bar(s.suit_health, bar_w, hp_col))
+        hp_panel = Panel(Align.center(hp_txt), title="HEALTH",
+                         border_style=hp_col, padding=(0, 1))
+
+        sh_col   = P.BLUE_SH if s.shields_up else P.HUD_CRIT
+        sh_label = "UP" if s.shields_up else "DOWN"
+        sh_txt   = Text(justify="center")
+        sh_txt.append(f"{sh_label}\n", style=f"bold {sh_col}")
+        sh_txt.append_text(_gauge_bar(1.0 if s.shields_up else 0.0, bar_w, sh_col))
+        sh_panel = Panel(Align.center(sh_txt), title="SHIELD",
+                         border_style=sh_col, padding=(0, 1))
+
+        ox_col  = P.HUD_CRIT if s.low_oxygen else (P.HUD_WARN if s.suit_oxygen < 0.5 else P.HUD_GREEN)
+        ox_txt  = Text(justify="center")
+        ox_txt.append(f"{s.suit_oxygen*100:.0f}%\n", style=f"bold {ox_col}")
+        ox_txt.append_text(_gauge_bar(s.suit_oxygen, bar_w, ox_col))
+        ox_panel = Panel(Align.center(ox_txt), title="OXYGEN",
+                         border_style=ox_col, padding=(0, 1))
+
+        parts: list[RenderableType] = []
+        parts.append(Columns([hp_panel, sh_panel, ox_panel], expand=True, equal=True))
+
+        info_txt = Text(justify="center")
+        if s.selected_weapon:
+            # Strip internal path prefix (e.g. "$humanoid_compactlaser_name;" → "Laser")
+            weapon = s.selected_weapon
+            if weapon.startswith("$") and ";" in weapon:
+                weapon = weapon.split(";")[0].split("_name")[0].rsplit("_", 1)[-1].title()
+            info_txt.append("Weapon  ", style=P.LABEL)
+            info_txt.append(weapon, style=f"bold {P.AMBER}")
+        if s.on_foot_gravity > 0.0:
+            if s.selected_weapon:
+                info_txt.append("   ")
+            info_txt.append("Gravity  ", style=P.LABEL)
+            info_txt.append(f"{s.on_foot_gravity:.2f}g", style=f"bold {P.HUD_CYAN}")
+        if len(info_txt) > 0:
+            parts.append(Align.center(info_txt))
+
+        warns_txt = Text()
+        warns = []
+        if s.low_health_suit: warns.append(("⚠ LOW HEALTH", P.HUD_CRIT))
+        if s.low_oxygen:      warns.append(("⚠ LOW O2",     P.HUD_CRIT))
+        if s.suit_cold:       warns.append(("❄ COLD",        "rgb(120,180,255)"))
+        if s.suit_hot:        warns.append(("🔥 HOT",         P.HUD_WARN))
+        for i, (label, col) in enumerate(warns):
+            if i: warns_txt.append("   ")
+            warns_txt.append(label, style=f"bold {col}")
+        if warns:
+            parts.append(Align.center(warns_txt))
+
+        return Group(*parts)
+
+    def _render_srv(self, s: AppState) -> RenderableType:
+        panel_w = max(10, self.size.width // 3)
+        bar_w   = max(4, panel_w - 6)
+
+        hull_pct = int(round(s.hull * 100.0))
+        hull_col = P.HUD_GREEN if s.hull > 0.75 else (P.HUD_WARN if s.hull > 0.5 else P.HUD_CRIT)
+        hull_txt = Text(justify="center")
+        hull_txt.append(f"{hull_pct}%\n", style=f"bold {hull_col}")
+        hull_txt.append_text(_gauge_bar(s.hull, bar_w, hull_col))
+        hull_panel = Panel(Align.center(hull_txt), title="HULL",
+                           border_style=hull_col, padding=(0, 1))
+
+        sh_col   = P.BLUE_SH if s.shields_up else P.HUD_CRIT
+        sh_label = "UP" if s.shields_up else "DOWN"
+        sh_txt   = Text(justify="center")
+        sh_txt.append(f"{sh_label}\n", style=f"bold {sh_col}")
+        sh_txt.append_text(_gauge_bar(1.0 if s.shields_up else 0.0, bar_w, sh_col))
+        sh_panel = Panel(Align.center(sh_txt), title="SHIELD",
+                         border_style=sh_col, padding=(0, 1))
+
+        parts: list[RenderableType] = []
+        parts.append(Columns([hull_panel, sh_panel], expand=True, equal=True))
+        parts.append(Text(""))
+
+        btn_row: list[tuple[str, bool, str]] = [("Lights", s.lights_on, P.AMBER)]
+        btn_txt = Text()
+        _append_buttons(btn_txt, btn_row)
+        parts.append(Align.center(btn_txt))
 
         return Group(*parts)
 
