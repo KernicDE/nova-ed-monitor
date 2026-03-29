@@ -233,7 +233,7 @@ class AppState:
     heading:      Optional[float] = None
     first_footfall_body:    str = ""  # body name where player has first footfall
     first_footfall_body_id: int = -1  # body ID (more reliable than name matching)
-    first_footfall_spoke:   str = ""  # body name where announcement was already made
+    first_footfall_bodies:  set = field(default_factory=set)  # body names where footfall was already announced
 
     # Route
     route_destination:    str  = ""

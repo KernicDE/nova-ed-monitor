@@ -541,7 +541,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.approach_body       = ""
             state.first_footfall_body    = ""
             state.first_footfall_body_id = -1
-            state.first_footfall_spoke   = ""
+            state.first_footfall_bodies.clear()
             state.orbital_cruise         = False
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
@@ -781,12 +781,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     if body_dis and sc.body == body_dis:
                         sc.first_footfall = True
                 # Only announce once per body per system visit
-                already_spoke = (body_dis and state.first_footfall_spoke == body_dis) or \
+                key = body_dis or state.first_footfall_body
+                already_spoke = bool(key and key in state.first_footfall_bodies) or \
                                 (not body_dis and body_dis_id > 0 and
-                                 state.first_footfall_body_id == body_dis_id and
-                                 state.first_footfall_spoke == state.first_footfall_body)
+                                 any(b == state.first_footfall_body
+                                     for b in state.first_footfall_bodies))
                 if not already_spoke:
-                    state.first_footfall_spoke = body_dis or state.first_footfall_body
+                    if key:
+                        state.first_footfall_bodies.add(key)
                     _say(tts_q, "FirstFootfall", True, fallback="First footfall on this world!")
                     return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None

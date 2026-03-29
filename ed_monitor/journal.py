@@ -119,7 +119,7 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
 
             # Save current bodies before FSDJump/CarrierJump clears them
             if ev_name in ("FSDJump", "CarrierJump"):
-                _save_current_bodies(tmp, tmp_lock, db)
+                _save_bodies_only(tmp, tmp_lock, db)
 
             try:
                 with tmp_lock:
@@ -129,10 +129,10 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
 
             if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
                            "SAAScanComplete", "Location"):
-                _save_current_bodies(tmp, tmp_lock, db)
+                _save_bodies_only(tmp, tmp_lock, db)
 
     # Final save for the last system processed
-    _save_current_bodies(tmp, tmp_lock, db)
+    _save_bodies_only(tmp, tmp_lock, db)
 
     # Record the mtime so we can skip next time if nothing changed
     db.set_config("last_rebuild_mtime", latest_mtime)
@@ -639,6 +639,16 @@ def _save_current_bodies(state: AppState, lock: threading.RLock, db: Database) -
     db.save_bio_scans(system, bio_scans)
 
 
+def _save_bodies_only(state: AppState, lock: threading.RLock, db: Database) -> None:
+    """Save only body data — never touches bio_scans in DB."""
+    with lock:
+        system = state.system
+        bodies = list(state.bodies)
+    if not system or system == "—":
+        return
+    db.save_bodies_batch(system, bodies)
+
+
 def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) -> None:
     with lock:
         system = state.system
@@ -663,6 +673,11 @@ def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) ->
                     # DB record is more complete than what journal replay produced — replace it
                     state.bio_scans.remove(existing)
                     state.bio_scans.append(sc)
+            # Restore first-footfall announcements so they don't re-fire on bodies
+            # the player has already visited with first footfall
+            for sc in state.bio_scans:
+                if sc.first_footfall and sc.body:
+                    state.first_footfall_bodies.add(sc.body)
 
 
 # ── File helpers ───────────────────────────────────────────────────────────────
