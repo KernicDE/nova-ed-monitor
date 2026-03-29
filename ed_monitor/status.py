@@ -456,7 +456,11 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         sc.current_bearing = _compass_toward(lat, lon, best_slat, best_slon) if best_slat is not None else None
 
         if best_dist >= sc.min_dist:
-            if not sc.alerted and on_surface:
+            # BioReady only fires when the player can actually take a foot sample:
+            # on foot or in SRV. Excludes main ship even if landed — FLAG_LANDED stays
+            # True during liftoff animation, which caused false BioReady callouts.
+            can_sample = not state.in_main_ship
+            if not sc.alerted and can_sample:
                 sc.alerted = True
                 try:
                     lang    = _ev._TTS_LANG
