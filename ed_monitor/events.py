@@ -1109,8 +1109,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 case "Log":
                     first_disc = _b_absent_true(ev, "WasDiscovered") is False
                     first_logged = _b_absent_true(ev, "WasLogged") is False
-                    
-                    if not any(sc.species == species and sc.body == body_name for sc in state.bio_scans):
+                    log_lat, log_lon = state.lat, state.lon
+                    from_ship = state.in_main_ship
+
+                    existing_sc = next(
+                        (sc for sc in state.bio_scans if sc.species == species and sc.body == body_name),
+                        None
+                    )
+                    if existing_sc is None:
                         base_val = _bio_value_lookup(species_loc)
                         if first_disc or first_logged:
                             base_val *= 5
@@ -1119,17 +1125,29 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             (bool(state.first_footfall_body) and body_name == state.first_footfall_body)
                             or (state.first_footfall_body_id > 0 and body_id == state.first_footfall_body_id)
                         )
-                        state.bio_scans.append(BioScan(
+                        new_sc = BioScan(
                             species=species, species_localised=species_loc,
                             genus_localised=genus_loc, body=body_name,
                             samples=1, min_dist=genus_min_dist(genus_loc),
-                            last_lat=state.lat, last_lon=state.lon,
+                            last_lat=log_lat, last_lon=log_lon,
                             body_radius=body_radius, current_dist=None,
                             value=base_val,
                             alerted=False, complete=False,
                             first_discovered=first_disc or first_logged,
                             first_footfall=is_first_footfall,
-                        ))
+                        )
+                        if from_ship and log_lat is not None and log_lon is not None:
+                            new_sc.comp_lats.append(log_lat)
+                            new_sc.comp_lons.append(log_lon)
+                        elif not from_ship and log_lat is not None and log_lon is not None:
+                            new_sc.sample_lats.append(log_lat)
+                            new_sc.sample_lons.append(log_lon)
+                        state.bio_scans.append(new_sc)
+                    else:
+                        # Subsequent COMP scan of same species on same body — save new position
+                        if from_ship and log_lat is not None and log_lon is not None:
+                            existing_sc.comp_lats.append(log_lat)
+                            existing_sc.comp_lons.append(log_lon)
                     tag = " — new species!" if first_logged else ""
                     if first_logged:
                         _say(tts_q, "ScanOrganic_Log_NewSpecies", False,

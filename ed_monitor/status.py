@@ -401,11 +401,32 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             sc.sample_bearings = []
             continue
 
-        # Use all recorded sample positions (stored in sample_lats/sample_lons)
-        # Fall back to last_lat/last_lon for backward compat (replayed sessions)
-        positions = list(zip(sc.sample_lats, sc.sample_lons))
-        if not positions and sc.last_lat is not None and sc.last_lon is not None:
-            positions = [(sc.last_lat, sc.last_lon)]
+        # Determine nav targets.
+        # Priority: unvisited COMP-scanned positions (not within 100m of any foot sample
+        # AND at least min_dist from all foot samples) → navigate to those.
+        # Otherwise: navigate toward foot-scanned sample positions.
+        foot_positions = list(zip(sc.sample_lats, sc.sample_lons))
+
+        unvisited_comp = []
+        for clat, clon in zip(sc.comp_lats, sc.comp_lons):
+            close_to_foot = any(
+                _haversine(clat, clon, slat, slon, body_radius) < 100.0
+                for slat, slon in foot_positions
+            )
+            too_close_to_foot = any(
+                _haversine(clat, clon, slat, slon, body_radius) < sc.min_dist
+                for slat, slon in foot_positions
+            )
+            if not close_to_foot and not too_close_to_foot:
+                unvisited_comp.append((clat, clon))
+
+        if unvisited_comp:
+            positions = unvisited_comp
+        else:
+            # Fall back to foot-scanned positions; then last_lat/last_lon for backward compat
+            positions = foot_positions
+            if not positions and sc.last_lat is not None and sc.last_lon is not None:
+                positions = [(sc.last_lat, sc.last_lon)]
 
         if not positions:
             sc.current_dist    = None
@@ -413,13 +434,13 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             sc.sample_bearings = []
             continue
 
-        # Compute per-sample bearings (toward each sample)
+        # Compute per-target bearings
         sc.sample_bearings = [
             _compass_toward(lat, lon, slat, slon)
             for slat, slon in positions
         ]
 
-        # Find nearest previous sample for distance display
+        # Find nearest target for distance display
         best_dist   = float("inf")
         best_slat   = sc.last_lat
         best_slon   = sc.last_lon
@@ -431,7 +452,7 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                 best_slon = slon
 
         sc.current_dist = best_dist
-        # Keep current_bearing for backward compat (now points toward nearest sample)
+        # Keep current_bearing for backward compat (now points toward nearest target)
         sc.current_bearing = _compass_toward(lat, lon, best_slat, best_slon) if best_slat is not None else None
 
         if best_dist >= sc.min_dist:

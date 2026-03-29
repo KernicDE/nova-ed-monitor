@@ -93,6 +93,8 @@ class Database:
                 last_lon          REAL,
                 PRIMARY KEY (system, body, species)
             )""",
+            "ALTER TABLE bio_scans ADD COLUMN comp_lats TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE bio_scans ADD COLUMN comp_lons TEXT NOT NULL DEFAULT ''",
             "CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date)",
             "CREATE INDEX IF NOT EXISTS idx_events_date ON events(event_date)",
             # EDSM dump tables
@@ -250,8 +252,9 @@ class Database:
             "INSERT INTO bio_scans"
             " (system, body, species, species_localised, genus_localised,"
             "  samples, min_dist, body_radius, value, complete,"
-            "  first_discovered, first_footfall, sample_lats, sample_lons, last_lat, last_lon)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            "  first_discovered, first_footfall, sample_lats, sample_lons,"
+            "  last_lat, last_lon, comp_lats, comp_lons)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         )
         params = [
             (
@@ -261,6 +264,8 @@ class Database:
                 "|".join(str(v) for v in sc.sample_lats),
                 "|".join(str(v) for v in sc.sample_lons),
                 sc.last_lat, sc.last_lon,
+                "|".join(str(v) for v in sc.comp_lats),
+                "|".join(str(v) for v in sc.comp_lons),
             )
             for sc in scans
         ]
@@ -276,20 +281,24 @@ class Database:
                 """SELECT body, species, species_localised, genus_localised,
                           samples, min_dist, body_radius, value, complete,
                           first_discovered, first_footfall,
-                          sample_lats, sample_lons, last_lat, last_lon
+                          sample_lats, sample_lons, last_lat, last_lon,
+                          comp_lats, comp_lons
                    FROM bio_scans WHERE system = ?""",
                 (system,),
             ).fetchall()
         result = []
         for row in rows:
-            lats = [float(v) for v in row[11].split("|") if v]
-            lons = [float(v) for v in row[12].split("|") if v]
+            lats  = [float(v) for v in row[11].split("|") if v]
+            lons  = [float(v) for v in row[12].split("|") if v]
+            clats = [float(v) for v in row[15].split("|") if v]
+            clons = [float(v) for v in row[16].split("|") if v]
             result.append(BioScan(
                 body=row[0], species=row[1], species_localised=row[2], genus_localised=row[3],
                 samples=int(row[4]), min_dist=float(row[5]), body_radius=float(row[6]),
                 value=int(row[7]), complete=bool(row[8]),
                 first_discovered=bool(row[9]), first_footfall=bool(row[10]),
                 sample_lats=lats, sample_lons=lons,
+                comp_lats=clats, comp_lons=clons,
                 last_lat=row[13], last_lon=row[14],
                 current_dist=None, alerted=False,
             ))

@@ -133,10 +133,12 @@ class BioScan:
     alerted:           bool
     complete:          bool
     first_discovered:  bool
-    sample_lats:       list  = field(default_factory=list)  # lat of each sample taken
-    sample_lons:       list  = field(default_factory=list)  # lon of each sample taken
+    sample_lats:       list  = field(default_factory=list)  # lat of each on-foot sample
+    sample_lons:       list  = field(default_factory=list)  # lon of each on-foot sample
+    comp_lats:         list  = field(default_factory=list)  # lat from COMP scanner (ship Log events)
+    comp_lons:         list  = field(default_factory=list)  # lon from COMP scanner (ship Log events)
     current_bearing:   Optional[str]  = None  # compass direction toward nearest sample (unused, kept for compat)
-    sample_bearings:   list  = field(default_factory=list)  # compass direction toward each sample
+    sample_bearings:   list  = field(default_factory=list)  # compass direction toward each nav target
     first_footfall:    bool  = False
 
 
