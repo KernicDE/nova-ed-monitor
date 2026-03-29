@@ -424,7 +424,7 @@ class ShipPanel(_Panel):
             if snap.supercruise:
                 self.border_title = "◈ Ship — Supercruise"
             elif snap.orbital_cruise:
-                self.border_title = "◈ Ship — Orbital Cruise"
+                self.border_title = "◈ Ship — Glide"
             elif snap.docked:
                 self.border_title = "◈ Ship — Docked"
             elif snap.landed:
@@ -862,16 +862,9 @@ class RoutePanel(_Panel):
 
         if not s.route_destination:
             t.append("No route set\n", style=P.AMBER_DIM)
-            if s.jump_dist > 0.0 or s.jump_dist_total > 0.0:
-                if s.jump_dist > 0.0:
-                    t.append("Last ", style=P.LABEL)
-                    t.append(f"{s.jump_dist:.1f} ly", style="white")
-                if s.jump_dist > 0.0 and s.jump_dist_total > 0.0:
-                    t.append("  ·  ", style=P.DIM)
-                if s.jump_dist_total > 0.0:
-                    t.append("Session ", style=P.LABEL)
-                    t.append(f"{s.jump_dist_total:.1f} ly", style=P.LABEL)
-                t.append("\n")
+            if s.jump_dist > 0.0:
+                t.append("Last ", style=P.LABEL)
+                t.append(f"{s.jump_dist:.1f} ly\n", style="white")
             return t
 
         word = "jump" if s.route_hops == 1 else "jumps"
@@ -927,17 +920,9 @@ class RoutePanel(_Panel):
                 t.append("\n")
 
 
-        # Compact last/total on one line
-        if s.jump_dist > 0.0 or s.jump_dist_total > 0.0:
-            if s.jump_dist > 0.0:
-                t.append("Jump ", style=P.LABEL)
-                t.append(f"{s.jump_dist:.1f} ly", style="white")
-            if s.jump_dist > 0.0 and s.jump_dist_total > 0.0:
-                t.append("  ·  ", style=P.DIM)
-            if s.jump_dist_total > 0.0:
-                t.append("Session ", style=P.LABEL)
-                t.append(f"{s.jump_dist_total:.1f} ly", style=P.LABEL)
-            t.append("\n")
+        if s.jump_dist > 0.0:
+            t.append("Jump ", style=P.LABEL)
+            t.append(f"{s.jump_dist:.1f} ly\n", style="white")
 
         return t
 
@@ -1214,8 +1199,9 @@ def _render_bio(s: AppState) -> RenderableType:
                 ratio      = min(sc.current_dist / sc.min_dist, 1.0) if sc.min_dist > 0 else 1.0
                 filled     = int(ratio * 10)
                 bar        = "█" * filled + "░" * (10 - filled)
-                bearing    = f" {sc.current_bearing}" if sc.current_bearing else ""
-                travel_str = f"{bar}{bearing} {sc.current_dist:.0f}m"
+                arrows     = " ".join(sc.sample_bearings) if sc.sample_bearings else (sc.current_bearing or "")
+                arrow_str  = f" {arrows}" if arrows else ""
+                travel_str = f"{bar} {sc.current_dist:.0f}m{arrow_str}"
                 travel_col = P.HUD_GREEN if ratio >= 1.0 else P.HUD_WARN
             elif sc.samples == 0 or sc.complete:
                 travel_str, travel_col = "—", P.DIM
@@ -1680,29 +1666,6 @@ def _render_overview(s: AppState) -> RenderableType:
             )
         parts.append(tbl)
 
-    # Session stats block (when there's activity)
-    if s.session_jumps > 0 or s.session_first_disc > 0 or s.session_mapped > 0 or s.session_value > 0:
-        sess_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
-        sess_tbl.add_column("k1", style=P.LABEL, no_wrap=True)
-        sess_tbl.add_column("v1", style="white",  no_wrap=True)
-        sess_tbl.add_column("k2", style=P.LABEL,  no_wrap=True)
-        sess_tbl.add_column("v2", style="white",  no_wrap=True)
-
-        sess_head = Text()
-        sess_head.append("\nSESSION\n", style=f"bold {P.AMBER}")
-        parts.append(sess_head)
-
-        val_s = _fmt_cr_compact(s.session_value) if s.session_value > 0 else "—"
-        sess_tbl.add_row(
-            "Jumps",  str(s.session_jumps)      if s.session_jumps      else "—",
-            "Disc",   str(s.session_first_disc) if s.session_first_disc else "—",
-        )
-        sess_tbl.add_row(
-            "Mapped", str(s.session_mapped)     if s.session_mapped     else "—",
-            "Value",  val_s,
-        )
-        parts.append(sess_tbl)
-
     # System summary — when no notable bodies and system is inhabited
     has_notable = any(True for b in s.bodies if (
         b.bio_signals > 0 or b.terraform or
@@ -1730,14 +1693,15 @@ def _render_overview(s: AppState) -> RenderableType:
             sys_info.append(faction_str + "\n", style="white")
         parts.append(sys_info)
 
-    # Fleet carriers (from Spansh API, when carrier_lookup enabled)
+    # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
     if s.carriers_current_system:
         import math as _math
         car_head = Text()
-        car_head.append("\nFLEET CARRIERS\n", style="bold rgb(100,180,255)")
+        car_head.append("\nFLEET CARRIER\n", style="bold rgb(100,180,255)")
         parts.append(car_head)
 
-        for c in s.carriers_current_system[:3]:
+        nearest = min(s.carriers_current_system, key=lambda c: c.get("dist_ls", float("inf")))
+        for c in [nearest]:
             c_name     = c.get("name", "")
             c_system   = c.get("system_name", "")
             c_dist_ls  = c.get("dist_ls", 0.0)
@@ -2518,12 +2482,6 @@ class FooterBar(_Panel):
         if s is not None:
             if s.session_start:
                 right.append(f"Online: {s.session_start}  ", style="rgb(110,110,110)")
-                parts = []
-                if s.session_jumps:      parts.append(f"{s.session_jumps}J")
-                if s.session_first_disc: parts.append(f"{s.session_first_disc}D")
-                if s.session_mapped:     parts.append(f"{s.session_mapped}M")
-                if parts:
-                    right.append("· " + " ".join(parts) + "   ", style="rgb(90,90,90)")
             _append_edsm(right, s.edsm_status)
         right.append(f"  v{_NOVA_VERSION}", style="rgb(70,70,70)")
 

@@ -257,6 +257,12 @@ lines = ["S R V desplegado."]
 [SRV_Secured]
 lines = ["S R V asegurado."]
 
+[SRV_Boarded]
+lines = ["S R V abordado."]
+
+[SRV_Exited]
+lines = ["S R V salido."]
+
 [MassLocked]
 lines = ["Bloqueo de masa activo."]
 

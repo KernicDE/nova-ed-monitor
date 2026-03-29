@@ -135,7 +135,8 @@ class BioScan:
     first_discovered:  bool
     sample_lats:       list  = field(default_factory=list)  # lat of each sample taken
     sample_lons:       list  = field(default_factory=list)  # lon of each sample taken
-    current_bearing:   Optional[str]  = None  # compass direction away from nearest sample
+    current_bearing:   Optional[str]  = None  # compass direction toward nearest sample (unused, kept for compat)
+    sample_bearings:   list  = field(default_factory=list)  # compass direction toward each sample
     first_footfall:    bool  = False
 
 

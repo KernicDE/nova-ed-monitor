@@ -361,6 +361,12 @@ lines = ["S R V deployed."]
 [SRV_Secured]
 lines = ["S R V secured."]
 
+[SRV_Boarded]
+lines = ["S R V boarded."]
+
+[SRV_Exited]
+lines = ["S R V exited."]
+
 [MassLocked]
 lines = ["Mass locked."]
 

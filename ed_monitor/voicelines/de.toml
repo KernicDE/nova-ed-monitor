@@ -277,6 +277,12 @@ lines = ["SRV ausgefahren."]
 [SRV_Secured]
 lines = ["SRV gesichert."]
 
+[SRV_Boarded]
+lines = ["SRV bestiegen."]
+
+[SRV_Exited]
+lines = ["SRV verlassen."]
+
 [MassLocked]
 lines = ["Massesperre aktiv."]
 

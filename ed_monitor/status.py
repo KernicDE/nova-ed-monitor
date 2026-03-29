@@ -142,6 +142,7 @@ def _apply_status(
         prev_silent             = state.silent_running
         prev_analysis           = state.analysis_mode
         prev_srv                = state.in_srv
+        prev_on_foot            = not state.in_main_ship and not state.in_srv
         prev_charging           = getattr(state, "_fsd_charging", False)
 
         state.docked            = bool(flags & FLAG_DOCKED)
@@ -247,7 +248,9 @@ def _apply_status(
                     _q("Hardpoints_Deployed", "Hardpoints deployed.")
                 else:
                     _q("Hardpoints_Retracted", "Hardpoints retracted.")
-            if new_lights != prev_lights:
+            if new_lights != prev_lights and new_srv == prev_srv:
+                # Suppress light toggle announcements when SRV state also changed
+                # this tick — the light flag change is just a vehicle switch artefact.
                 if new_lights:
                     _q("Lights_On", "Lights on.")
                 else:
@@ -274,9 +277,19 @@ def _apply_status(
                     _q("CombatMode", "Combat mode.")
             if new_srv != prev_srv:
                 if new_srv:
-                    _q("SRV_Deployed", "S R V deployed.")
+                    if prev_on_foot:
+                        # Player was on foot and boarded an already-deployed SRV
+                        _q("SRV_Boarded", "S R V boarded.")
+                    else:
+                        # Deployed from main ship
+                        _q("SRV_Deployed", "S R V deployed.")
                 else:
-                    _q("SRV_Secured", "S R V secured.")
+                    if new_in_main_ship:
+                        # SRV recalled back into ship bay
+                        _q("SRV_Secured", "S R V secured.")
+                    else:
+                        # Exited SRV on foot — SRV remains deployed on surface
+                        _q("SRV_Exited", "S R V exited.")
 
         v = data.get("Heat")
         if isinstance(v, (int, float)):
@@ -339,7 +352,7 @@ def _apply_status(
     # Also suppressed while in supercruise: the game re-sets mass lock when entering
     # supercruise near a body (hyperspace still blocked), but that's expected and
     # not actionable — announcing it there just creates noise.
-    if prev_in_main_ship and new_in_main_ship and not state.supercruise:
+    if prev_in_main_ship and new_in_main_ship and not state.supercruise and not state.orbital_cruise:
         lang  = _ev._TTS_LANG
         voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
         if new_mass_locked and not prev_mass_locked:
@@ -356,10 +369,10 @@ def _apply_status(
                 pass
 
 
-def _compass_away(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
-    """Return compass arrow pointing AWAY from (lat2, lon2) as seen from (lat1, lon1)."""
-    dlat = lat1 - lat2  # reversed: direction away from sample
-    dlon = lon1 - lon2
+def _compass_toward(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
+    """Return compass arrow pointing TOWARD (lat2, lon2) from (lat1, lon1)."""
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
     angle = math.degrees(math.atan2(dlon, dlat))
     arrows = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
     idx = round(angle / 45) % 8
@@ -372,11 +385,9 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         # Position temporarily unknown — don't wipe last known distances
         return
 
-    # Bio distance alerts are only meaningful on a surface (landed in ship, in SRV,
-    # or on foot). When in the main ship and NOT landed the player is flying/ascending —
-    # skip to avoid false "Species ready" alerts triggered by climbing away from a sample.
-    if state.in_main_ship and not state.landed:
-        return
+    # TTS alerts are only valid on a surface (landed in ship, in SRV, or on foot).
+    # While flying in main ship, still update distance/bearing for display but suppress TTS.
+    on_surface = state.landed or state.in_srv or (not state.in_main_ship and not state.in_srv)
 
     body_name = state.nearest_body
     _bidx     = state._bodies_by_name.get(body_name, -1)
@@ -387,6 +398,7 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         if sc.complete or sc.samples == 0:
             sc.current_dist    = None
             sc.current_bearing = None
+            sc.sample_bearings = []
             continue
 
         # Use all recorded sample positions (stored in sample_lats/sample_lons)
@@ -398,9 +410,16 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         if not positions:
             sc.current_dist    = None
             sc.current_bearing = None
+            sc.sample_bearings = []
             continue
 
-        # Find nearest previous sample
+        # Compute per-sample bearings (toward each sample)
+        sc.sample_bearings = [
+            _compass_toward(lat, lon, slat, slon)
+            for slat, slon in positions
+        ]
+
+        # Find nearest previous sample for distance display
         best_dist   = float("inf")
         best_slat   = sc.last_lat
         best_slon   = sc.last_lon
@@ -412,15 +431,11 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                 best_slon = slon
 
         sc.current_dist = best_dist
-
-        # Bearing AWAY from nearest sample (direction to fly to increase distance)
-        if best_slat is not None and best_slon is not None:
-            sc.current_bearing = _compass_away(lat, lon, best_slat, best_slon)
-        else:
-            sc.current_bearing = None
+        # Keep current_bearing for backward compat (now points toward nearest sample)
+        sc.current_bearing = _compass_toward(lat, lon, best_slat, best_slon) if best_slat is not None else None
 
         if best_dist >= sc.min_dist:
-            if not sc.alerted:
+            if not sc.alerted and on_surface:
                 sc.alerted = True
                 try:
                     lang    = _ev._TTS_LANG
@@ -436,7 +451,9 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                 except Exception:
                     pass
         else:
-            sc.alerted = False
+            # Only reset alerted flag when on surface — prevents re-arming while flying away
+            if on_surface:
+                sc.alerted = False
 
 
 def _apply_cargo(path: Path, state: AppState, lock: threading.RLock) -> None:

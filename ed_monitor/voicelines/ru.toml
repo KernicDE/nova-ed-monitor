@@ -257,6 +257,12 @@ lines = ["С Р В развёрнут."]
 [SRV_Secured]
 lines = ["С Р В закреплён."]
 
+[SRV_Boarded]
+lines = ["С Р В занят."]
+
+[SRV_Exited]
+lines = ["С Р В покинут."]
+
 [MassLocked]
 lines = ["Массовая блокировка."]
 
