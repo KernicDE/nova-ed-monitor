@@ -56,21 +56,25 @@ def main() -> None:
         state.session_mapped = 0
         state.session_value = 0
         state.jump_dist_total = 0.0
-        state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
+        # Removed log event to prevent potential duplicate TTS triggers
+        # state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
 
     try:
-        startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."
-        voice = None  # use worker default
-        if cfg.tts_lang != "en":
-            from . import events as _ev_mod
-            voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
-        tts_q.put_nowait(TtsMsg(
-            text=startup_text, 
-            priority=False, 
-            volume=20, 
-            voice=voice,
-            deduplication_key="Nova_Startup"
-        ))
+        # Only play startup message if not already played (prevents duplicates)
+        if not getattr(state, '_startup_message_played', False):
+            state._startup_message_played = True
+            startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."
+            voice = None  # use worker default
+            if cfg.tts_lang != "en":
+                from . import events as _ev_mod
+                voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
+            tts_q.put_nowait(TtsMsg(
+                text=startup_text, 
+                priority=False, 
+                volume=20, 
+                voice=voice,
+                deduplication_key="Nova_Startup"
+            ))
     except Exception:
         pass
 
