@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from .state import AppState
-from .tts import TtsMsg
+from .tts import TtsMsg, _audio_logger
 from . import voicelines as _vl
 from . import events as _ev
 
@@ -470,13 +470,16 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                     fallback = f"{sc.species_localised} ready. You may scan the next sample."
                     text = _vl.pick("BioReady", lang=lang,
                                     species=sc.species_localised) or fallback
+                    dedup_key = f"BioReady-{sc.species}-{sc.body}-{sc.samples}"
+                    _audio_logger.info(f"BioReady TTS queued: species={sc.species}, body={sc.body}, samples={sc.samples}, key={dedup_key}")
                     tts_q.put_nowait(TtsMsg(
                         text=text,
                         priority=False,
                         voice=voice,
-                        deduplication_key=f"BioReady-{sc.species}-{sc.body}",
+                        deduplication_key=dedup_key,
                     ))
-                except Exception:
+                except Exception as e:
+                    _audio_logger.error(f"BioReady TTS error: {e}")
                     pass
         else:
             # Only reset alerted flag when on surface — prevents re-arming while flying away

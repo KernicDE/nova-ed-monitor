@@ -32,11 +32,11 @@ file_handler.setFormatter(formatter)
 # Add the handler to the logger
 _audio_logger.addHandler(file_handler)
 
-# Also log to console for immediate feedback
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(formatter)
-_audio_logger.addHandler(console_handler)
+# Also log to console for immediate feedback (commented out to prevent terminal flickering)
+# console_handler = logging.StreamHandler()
+# console_handler.setLevel(logging.INFO)
+# console_handler.setFormatter(formatter)
+# _audio_logger.addHandler(console_handler)
 
 
 @dataclass
@@ -56,7 +56,7 @@ _audio_backend: Optional[str] = None
 _audio_backend_lock = threading.Lock()
 
 _CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500 MB
-_DUPLICATE_WINDOW = 5.0  # seconds - prevent duplicate messages within this window
+_DUPLICATE_WINDOW = 10.0  # seconds - prevent duplicate messages within this window
 
 # Store recent messages for deduplication
 _recent_messages: dict[str, float] = {}
