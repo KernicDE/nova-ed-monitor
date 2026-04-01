@@ -64,7 +64,13 @@ def main() -> None:
         if cfg.tts_lang != "en":
             from . import events as _ev_mod
             voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
-        tts_q.put_nowait(TtsMsg(text=startup_text, priority=False, volume=20, voice=voice))
+        tts_q.put_nowait(TtsMsg(
+            text=startup_text, 
+            priority=False, 
+            volume=20, 
+            voice=voice,
+            deduplication_key="Nova_Startup"
+        ))
     except Exception:
         pass
 
