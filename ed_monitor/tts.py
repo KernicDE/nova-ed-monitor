@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import glob
 import hashlib
 import os
 import queue
 import shutil
 import subprocess
+import tempfile
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+_TMPDIR = tempfile.gettempdir()
 
 
 @dataclass
@@ -106,9 +110,9 @@ def spawn_worker(
 
 
 def _cleanup_stale_tmp() -> None:
-    """Delete any leftover ed-tts-*.mp3 files from previous runs."""
-    import glob
-    for path in glob.glob("/tmp/nova-tts-*.mp3"):
+    """Delete any leftover nova-tts-*.mp3 files from previous runs."""
+    pattern = os.path.join(_TMPDIR, "nova-tts-*.mp3")
+    for path in glob.glob(pattern):
         try:
             os.unlink(path)
         except OSError:
@@ -175,7 +179,7 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
         _play_audio(str(cached_path), volume)
         return
 
-    tmp = f"/tmp/nova-tts-{os.getpid()}.mp3"
+    tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}.mp3")
     try:
         result = subprocess.run(
             ["edge-tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
