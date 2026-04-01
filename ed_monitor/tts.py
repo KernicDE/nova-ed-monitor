@@ -248,7 +248,9 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
         except OSError as e:
             _audio_logger.warning(f"Failed to touch cached file {cached_path}: {e}")
             pass
+        _audio_logger.info(f"Playing cached audio: {cached_path}")
         _play_audio(str(cached_path), volume)
+        _audio_logger.info(f"Playback completed for: {cached_path}")
         return
 
     tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}.mp3")
@@ -281,9 +283,9 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
                     _audio_logger.warning(f"Failed to cache audio file: {e}")
                     pass
             
-            _audio_logger.info(f"Playing audio: {tmp}")
+            _audio_logger.info(f"Playing generated audio: {tmp}")
             _play_audio(tmp, volume)
-            _audio_logger.info(f"Audio playback completed")
+            _audio_logger.info(f"Generated audio playback completed: {tmp}")
         else:
             _audio_logger.error(f"TTS generation failed or temp file missing. Return code: {result.returncode}, file exists: {os.path.exists(tmp)}")
             
