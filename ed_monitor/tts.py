@@ -16,7 +16,7 @@ from typing import Optional
 
 _TMPDIR = tempfile.gettempdir()
 
-# Set up audio debugging logger
+# Set up audio debugging logger (file-only to prevent terminal flickering)
 _audio_logger = logging.getLogger("nova.audio")
 _audio_logger.setLevel(logging.DEBUG)
 
@@ -32,11 +32,7 @@ file_handler.setFormatter(formatter)
 # Add the handler to the logger
 _audio_logger.addHandler(file_handler)
 
-# Also log to console for immediate feedback (commented out to prevent terminal flickering)
-# console_handler = logging.StreamHandler()
-# console_handler.setLevel(logging.INFO)
-# console_handler.setFormatter(formatter)
-# _audio_logger.addHandler(console_handler)
+# Console logging is disabled to prevent terminal flickering
 
 
 @dataclass
@@ -57,10 +53,27 @@ _audio_backend_lock = threading.Lock()
 
 _CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500 MB
 _DUPLICATE_WINDOW = 10.0  # seconds - prevent duplicate messages within this window
+_BIOREADY_COOLDOWN = 30.0  # seconds - specific cooldown for BioReady messages
 
 # Store recent messages for deduplication
 _recent_messages: dict[str, float] = {}
 _recent_messages_lock = threading.Lock()
+
+# Specific cooldown for BioReady messages
+_last_bioready_time = 0.0
+_bioready_cooldown_lock = threading.Lock()
+
+
+def _check_bioready_cooldown() -> bool:
+    """Check if BioReady messages are allowed based on cooldown period."""
+    global _last_bioready_time
+    current_time = time.time()
+    with _bioready_cooldown_lock:
+        if current_time - _last_bioready_time < _BIOREADY_COOLDOWN:
+            _audio_logger.info(f"BioReady message suppressed by cooldown ({current_time - _last_bioready_time:.1f}s since last)")
+            return False
+        _last_bioready_time = current_time
+        return True
 
 
 def _cache_dir() -> Path:
@@ -185,7 +198,12 @@ def _worker(
             try:
                 msg = q.get(timeout=0.5)
                 
-                # Deduplication logic
+                # Special BioReady cooldown check
+                if msg.deduplication_key and msg.deduplication_key.startswith("BioReady-"):
+                    if not _check_bioready_cooldown():
+                        continue  # Skip this message due to cooldown
+                
+                # General deduplication logic
                 if msg.deduplication_key:
                     with _recent_messages_lock:
                         last_time = _recent_messages.get(msg.deduplication_key)
