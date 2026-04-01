@@ -211,28 +211,60 @@ def _play_audio(path: str, volume: int) -> None:
 
     # ── Windows ────────────────────────────────────────────────────────────────
     if sys.platform == "win32":
+        # Try pygame first (most reliable cross-platform approach)
         try:
             import pygame
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.set_volume(volume / 100.0)
             pygame.mixer.music.play()
+            # Wait for playback to complete
             while pygame.mixer.music.get_busy():
                 time.sleep(0.05)
             return
         except Exception:
             pass
+        
+        # Fallback 1: Use pygame with explicit Python subprocess
         try:
-            ps = (
-                f"$mp = [System.Windows.Media.MediaPlayer]::new(); "
-                f"$mp.Open([uri]'{path}'); $mp.Play(); Start-Sleep -Seconds 60"
+            import subprocess
+            import sys
+            py_script = (
+                f"import pygame, time; "
+                f"pygame.mixer.init(); "
+                f"pygame.mixer.music.load('{path}'); "
+                f"pygame.mixer.music.set_volume({volume / 100.0}); "
+                f"pygame.mixer.music.play(); "
+                f"while pygame.mixer.music.get_busy(): time.sleep(0.05)"
+            )
+            subprocess.run([sys.executable, "-c", py_script], timeout=60)
+            return
+        except Exception:
+            pass
+        
+        # Fallback 2: Use Windows Media Player via subprocess
+        try:
+            subprocess.run(["wmplayer", path], timeout=60)
+            return
+        except Exception:
+            pass
+        
+        # Fallback 3: Use PowerShell with better error handling
+        try:
+            ps_script = (
+                f'$mp = New-Object System.Windows.Media.MediaPlayer; '
+                f'$mp.Open("{path}"); '
+                f'$mp.Volume = {volume / 100.0}; '
+                f'$mp.Play(); '
+                f'while ($mp.HasAudio) {{ Start-Sleep -Milliseconds 50 }}'
             )
             subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps],
-                timeout=90,
+                ["powershell", "-NoProfile", "-Command", ps_script],
+                timeout=60
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except Exception:
             pass
+        
         return
 
     # ── Linux / macOS ──────────────────────────────────────────────────────────
