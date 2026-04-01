@@ -474,6 +474,7 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                         text=text,
                         priority=False,
                         voice=voice,
+                        deduplication_key=f"BioReady-{sc.species}-{sc.body}",
                     ))
                 except Exception:
                     pass

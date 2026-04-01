@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -45,6 +46,8 @@ class TtsMsg:
     voice:     Optional[str] = None
     volume:    Optional[int] = None
     cacheable: bool = True
+    timestamp: float = field(default_factory=lambda: time.time())
+    deduplication_key: Optional[str] = None
 
 
 # Cached playback backend: set after first successful play, reset on failure.
@@ -53,6 +56,11 @@ _audio_backend: Optional[str] = None
 _audio_backend_lock = threading.Lock()
 
 _CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500 MB
+_DUPLICATE_WINDOW = 5.0  # seconds - prevent duplicate messages within this window
+
+# Store recent messages for deduplication
+_recent_messages: dict[str, float] = {}
+_recent_messages_lock = threading.Lock()
 
 
 def _cache_dir() -> Path:
@@ -165,8 +173,27 @@ def _worker(
                 break
 
         if not pending:
+            # Clean up old deduplication keys periodically
+            current_time = time.time()
+            if current_time % 30 < 0.1:  # Clean up roughly every 30 seconds
+                with _recent_messages_lock:
+                    old_keys = [key for key, timestamp in _recent_messages.items() 
+                              if (current_time - timestamp) > (_DUPLICATE_WINDOW * 2)]
+                    for key in old_keys:
+                        del _recent_messages[key]
+            
             try:
                 msg = q.get(timeout=0.5)
+                
+                # Deduplication logic
+                if msg.deduplication_key:
+                    with _recent_messages_lock:
+                        last_time = _recent_messages.get(msg.deduplication_key)
+                        if last_time and (current_time - last_time) < _DUPLICATE_WINDOW:
+                            _audio_logger.debug(f"Dropping duplicate message (key: {msg.deduplication_key})")
+                            continue  # Skip this duplicate message
+                        _recent_messages[msg.deduplication_key] = current_time
+                
                 if msg.priority:
                     pending.insert(0, msg)
                 else:
