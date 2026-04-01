@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import logging
 import os
 import queue
 import shutil
@@ -13,6 +14,28 @@ from pathlib import Path
 from typing import Optional
 
 _TMPDIR = tempfile.gettempdir()
+
+# Set up audio debugging logger
+_audio_logger = logging.getLogger("nova.audio")
+_audio_logger.setLevel(logging.DEBUG)
+
+# Create file handler which logs debug messages to a file
+audio_log_file = Path(tempfile.gettempdir()) / "nova-audio-debug.log"
+file_handler = logging.FileHandler(audio_log_file, mode='w')
+file_handler.setLevel(logging.DEBUG)
+
+# Create formatter and add it to the handler
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# Add the handler to the logger
+_audio_logger.addHandler(file_handler)
+
+# Also log to console for immediate feedback
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+_audio_logger.addHandler(console_handler)
 
 
 @dataclass
@@ -170,36 +193,65 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
     key = _cache_key(text, voice, rate)
     cached_path = cd / f"{key}.mp3"
 
+    _audio_logger.debug(f"TTS play requested: text='{text[:100]}...', voice={voice}, rate={rate}, volume={volume}, cacheable={cacheable}")
+
     if cacheable and cached_path.exists():
         # Touch to update LRU timestamp, then play directly
         try:
             cached_path.touch()
-        except OSError:
+            _audio_logger.debug(f"Using cached audio file: {cached_path}")
+        except OSError as e:
+            _audio_logger.warning(f"Failed to touch cached file {cached_path}: {e}")
             pass
         _play_audio(str(cached_path), volume)
         return
 
     tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}.mp3")
+    _audio_logger.debug(f"Generating new TTS to temp file: {tmp}")
+    
     try:
+        _audio_logger.debug(f"Running edge-tts command: edge-tts --voice {voice} --rate {rate} --text '{text[:50]}...' --write-media {tmp}")
         result = subprocess.run(
             ["edge-tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
             capture_output=True,
             timeout=30,
         )
+        
+        _audio_logger.debug(f"edge-tts completed with return code: {result.returncode}")
+        if result.stdout:
+            _audio_logger.debug(f"edge-tts stdout: {result.stdout[:200]}")
+        if result.stderr:
+            _audio_logger.debug(f"edge-tts stderr: {result.stderr[:200]}")
+        
         if result.returncode == 0 and os.path.exists(tmp):
+            file_size = os.path.getsize(tmp)
+            _audio_logger.debug(f"TTS generation successful, file size: {file_size} bytes")
+            
             if cacheable:
                 try:
                     shutil.copy2(tmp, str(cached_path))
                     _evict_cache(cd)
-                except OSError:
+                    _audio_logger.debug(f"Cached audio file to: {cached_path}")
+                except OSError as e:
+                    _audio_logger.warning(f"Failed to cache audio file: {e}")
                     pass
+            
+            _audio_logger.info(f"Playing audio: {tmp}")
             _play_audio(tmp, volume)
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            _audio_logger.info(f"Audio playback completed")
+        else:
+            _audio_logger.error(f"TTS generation failed or temp file missing. Return code: {result.returncode}, file exists: {os.path.exists(tmp)}")
+            
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        _audio_logger.error(f"TTS generation exception: {e}")
         pass
     finally:
         try:
-            os.unlink(tmp)
-        except OSError:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+                _audio_logger.debug(f"Cleaned up temp file: {tmp}")
+        except OSError as e:
+            _audio_logger.warning(f"Failed to clean up temp file {tmp}: {e}")
             pass
 
 
@@ -207,28 +259,37 @@ def _play_audio(path: str, volume: int) -> None:
     """Play MP3. Platform-aware fallback chain with backend caching."""
     global _audio_backend
     import sys
+    import subprocess
     import time
+
+    _audio_logger.info(f"Playing audio file: {path}, volume: {volume}%, platform: {sys.platform}")
 
     # ── Windows ────────────────────────────────────────────────────────────────
     if sys.platform == "win32":
+        _audio_logger.debug("Using Windows audio playback methods")
+        
         # Try pygame first (most reliable cross-platform approach)
         try:
             import pygame
+            _audio_logger.debug("Attempting direct pygame playback")
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.set_volume(volume / 100.0)
             pygame.mixer.music.play()
+            _audio_logger.info("Pygame playback started successfully")
             # Wait for playback to complete
             while pygame.mixer.music.get_busy():
                 time.sleep(0.05)
+            _audio_logger.info("Pygame playback completed")
             return
-        except Exception:
+        except Exception as e:
+            _audio_logger.warning(f"Direct pygame playback failed: {e}")
             pass
         
         # Fallback 1: Use pygame with explicit Python subprocess
         try:
             import subprocess
-            import sys
+            _audio_logger.debug("Attempting pygame via Python subprocess")
             py_script = (
                 f"import pygame, time; "
                 f"pygame.mixer.init(); "
@@ -237,20 +298,33 @@ def _play_audio(path: str, volume: int) -> None:
                 f"pygame.mixer.music.play(); "
                 f"while pygame.mixer.music.get_busy(): time.sleep(0.05)"
             )
-            subprocess.run([sys.executable, "-c", py_script], timeout=60)
-            return
-        except Exception:
+            result = subprocess.run([sys.executable, "-c", py_script], timeout=60, 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                _audio_logger.info("Pygame subprocess playback completed")
+                return
+            else:
+                _audio_logger.warning(f"Pygame subprocess failed with code {result.returncode}")
+        except Exception as e:
+            _audio_logger.warning(f"Pygame subprocess exception: {e}")
             pass
         
         # Fallback 2: Use Windows Media Player via subprocess
         try:
-            subprocess.run(["wmplayer", path], timeout=60)
-            return
-        except Exception:
+            _audio_logger.debug("Attempting Windows Media Player")
+            result = subprocess.run(["wmplayer", path], timeout=60, capture_output=True)
+            if result.returncode == 0:
+                _audio_logger.info("Windows Media Player playback completed")
+                return
+            else:
+                _audio_logger.warning(f"Windows Media Player failed with code {result.returncode}")
+        except Exception as e:
+            _audio_logger.warning(f"Windows Media Player exception: {e}")
             pass
         
         # Fallback 3: Use PowerShell with better error handling
         try:
+            _audio_logger.debug("Attempting PowerShell MediaPlayer")
             ps_script = (
                 f'$mp = New-Object System.Windows.Media.MediaPlayer; '
                 f'$mp.Open("{path}"); '
@@ -258,58 +332,90 @@ def _play_audio(path: str, volume: int) -> None:
                 f'$mp.Play(); '
                 f'while ($mp.HasAudio) {{ Start-Sleep -Milliseconds 50 }}'
             )
-            subprocess.run(
+            result = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", ps_script],
-                timeout=60
+                timeout=60, capture_output=True, text=True
             )
-        except Exception:
+            if result.returncode == 0:
+                _audio_logger.info("PowerShell MediaPlayer playback completed")
+            else:
+                _audio_logger.warning(f"PowerShell MediaPlayer failed with code {result.returncode}")
+        except Exception as e:
+            _audio_logger.warning(f"PowerShell MediaPlayer exception: {e}")
             pass
         
+        _audio_logger.error("All Windows audio playback methods failed")
         return
 
     # ── Linux / macOS ──────────────────────────────────────────────────────────
+    _audio_logger.debug("Using Linux/macOS audio playback methods")
     factor = str(int(volume * 327))  # mpg123: 32768 = 100%
 
     def _try_mpg123_pulse() -> bool:
         try:
+            _audio_logger.debug("Trying mpg123 with pulse audio")
             r = subprocess.run(
                 ["mpg123", "-o", "pulse", "--quiet", "-f", factor, path],
                 timeout=60,
             )
+            if r.returncode == 0:
+                _audio_logger.info("mpg123 pulse audio playback successful")
+            else:
+                _audio_logger.warning(f"mpg123 pulse audio failed with code {r.returncode}")
             return r.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            _audio_logger.debug(f"mpg123 pulse audio exception: {e}")
             return False
 
     def _try_mpg123() -> bool:
         try:
+            _audio_logger.debug("Trying mpg123 without pulse")
             r = subprocess.run(
                 ["mpg123", "--quiet", "-f", factor, path],
                 timeout=60,
             )
+            if r.returncode == 0:
+                _audio_logger.info("mpg123 playback successful")
+            else:
+                _audio_logger.warning(f"mpg123 failed with code {r.returncode}")
             return r.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            _audio_logger.debug(f"mpg123 exception: {e}")
             return False
 
     def _try_ffplay() -> bool:
         try:
+            _audio_logger.debug("Trying ffplay")
             r = subprocess.run(
                 ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
                  "-volume", str(volume), path],
                 timeout=60,
             )
+            if r.returncode == 0:
+                _audio_logger.info("ffplay playback successful")
+            else:
+                _audio_logger.warning(f"ffplay failed with code {r.returncode}")
             return r.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            _audio_logger.debug(f"ffplay exception: {e}")
             return False
 
     def _try_afplay() -> bool:
         try:
+            _audio_logger.debug("Trying afplay (macOS)")
             r = subprocess.run(["afplay", "-v", f"{volume / 100.0:.3f}", path], timeout=60)
+            if r.returncode == 0:
+                _audio_logger.info("afplay playback successful")
+            else:
+                _audio_logger.warning(f"afplay failed with code {r.returncode}")
             return r.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            _audio_logger.debug(f"afplay exception: {e}")
             return False
 
     def _try_pygame_sys() -> bool:
         try:
+            _audio_logger.debug("Trying pygame system fallback")
             script = (
                 "import pygame, sys, time\n"
                 "pygame.mixer.init()\n"
@@ -319,8 +425,13 @@ def _play_audio(path: str, volume: int) -> None:
                 "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
             )
             r = subprocess.run(["python3", "-c", script, path], timeout=60)
+            if r.returncode == 0:
+                _audio_logger.info("pygame system fallback successful")
+            else:
+                _audio_logger.warning(f"pygame system fallback failed with code {r.returncode}")
             return r.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            _audio_logger.debug(f"pygame system fallback exception: {e}")
             return False
 
     _backends = [
@@ -336,16 +447,22 @@ def _play_audio(path: str, volume: int) -> None:
         cached = _audio_backend
 
     if cached is not None:
+        _audio_logger.debug(f"Trying cached backend: {cached}")
         fn = next((f for n, f in _backends if n == cached), None)
         if fn is not None and fn():
             return
         # Cached backend failed — reset and fall through to full chain
+        _audio_logger.warning(f"Cached backend {cached} failed, trying all backends")
         with _audio_backend_lock:
             _audio_backend = None
 
     # Full discovery chain
+    _audio_logger.debug("Trying all audio backends in order")
     for name, fn in _backends:
+        _audio_logger.debug(f"Trying backend: {name}")
         if fn():
+            _audio_logger.info(f"Successfully used backend: {name}")
             with _audio_backend_lock:
                 _audio_backend = name
-            return
+
+    _audio_logger.error("All Linux/macOS audio playback methods failed")
