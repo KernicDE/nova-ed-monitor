@@ -398,7 +398,13 @@ def _play_audio(path: str, volume: int) -> None:
     _audio_logger.debug("Using Linux/macOS audio playback methods")
     factor = str(int(volume * 327))  # mpg123: 32768 = 100%
 
+    # Global flag to track if audio has been played in this call
+    _audio_played = False
+    
     def _try_mpg123_pulse() -> bool:
+        nonlocal _audio_played
+        if _audio_played:
+            return False  # Audio already played by previous backend
         try:
             _audio_logger.debug("Trying mpg123 with pulse audio")
             r = subprocess.run(
@@ -406,6 +412,7 @@ def _play_audio(path: str, volume: int) -> None:
                 timeout=60,
             )
             if r.returncode == 0:
+                _audio_played = True
                 _audio_logger.info("mpg123 pulse audio playback successful")
             else:
                 _audio_logger.warning(f"mpg123 pulse audio failed with code {r.returncode}")
@@ -415,6 +422,9 @@ def _play_audio(path: str, volume: int) -> None:
             return False
 
     def _try_mpg123() -> bool:
+        nonlocal _audio_played
+        if _audio_played:
+            return False  # Audio already played by previous backend
         try:
             _audio_logger.debug("Trying mpg123 without pulse")
             r = subprocess.run(
@@ -422,6 +432,7 @@ def _play_audio(path: str, volume: int) -> None:
                 timeout=60,
             )
             if r.returncode == 0:
+                _audio_played = True
                 _audio_logger.info("mpg123 playback successful")
             else:
                 _audio_logger.warning(f"mpg123 failed with code {r.returncode}")
@@ -431,6 +442,9 @@ def _play_audio(path: str, volume: int) -> None:
             return False
 
     def _try_ffplay() -> bool:
+        nonlocal _audio_played
+        if _audio_played:
+            return False  # Audio already played by previous backend
         try:
             _audio_logger.debug("Trying ffplay")
             r = subprocess.run(
@@ -439,6 +453,7 @@ def _play_audio(path: str, volume: int) -> None:
                 timeout=60,
             )
             if r.returncode == 0:
+                _audio_played = True
                 _audio_logger.info("ffplay playback successful")
             else:
                 _audio_logger.warning(f"ffplay failed with code {r.returncode}")
@@ -448,10 +463,14 @@ def _play_audio(path: str, volume: int) -> None:
             return False
 
     def _try_afplay() -> bool:
+        nonlocal _audio_played
+        if _audio_played:
+            return False  # Audio already played by previous backend
         try:
             _audio_logger.debug("Trying afplay (macOS)")
             r = subprocess.run(["afplay", "-v", f"{volume / 100.0:.3f}", path], timeout=60)
             if r.returncode == 0:
+                _audio_played = True
                 _audio_logger.info("afplay playback successful")
             else:
                 _audio_logger.warning(f"afplay failed with code {r.returncode}")
@@ -461,6 +480,9 @@ def _play_audio(path: str, volume: int) -> None:
             return False
 
     def _try_pygame_sys() -> bool:
+        nonlocal _audio_played
+        if _audio_played:
+            return False  # Audio already played by previous backend
         try:
             _audio_logger.debug("Trying pygame system fallback")
             script = (
@@ -473,6 +495,7 @@ def _play_audio(path: str, volume: int) -> None:
             )
             r = subprocess.run(["python3", "-c", script, path], timeout=60)
             if r.returncode == 0:
+                _audio_played = True
                 _audio_logger.info("pygame system fallback successful")
             else:
                 _audio_logger.warning(f"pygame system fallback failed with code {r.returncode}")
