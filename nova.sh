@@ -75,7 +75,7 @@ fi
 find_python() {
     for cmd in python3 python python3.13 python3.12 python3.11; do
         if command -v "$cmd" &>/dev/null 2>&1; then
-            ok=$("$cmd" -c "import sys; print((3,11) <= sys.version_info < (3,14))" 2>/dev/null || echo "False")
+            ok=$("$cmd" -c "import sys; print(sys.version_info >= (3,11))" 2>/dev/null || echo "False")
             if [ "$ok" = "True" ]; then
                 echo "$cmd"
                 return 0
@@ -87,7 +87,7 @@ find_python() {
 
 PYTHON=""
 if ! PYTHON=$(find_python); then
-    warn "Python 3.11–3.13 not found. Attempting to install..."
+    warn "Python 3.11+ not found. Attempting to install..."
     echo ""
 
     if command -v pacman &>/dev/null; then
