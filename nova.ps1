@@ -98,7 +98,7 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
             exit
         }
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-    } catch {
+    } catch { } } }
         # No internet or download failed - continue without self-update
     }
 }
@@ -110,7 +110,7 @@ function Get-Python {
         try {
             $r = & $cmd -c "import sys; print((3,11) <= sys.version_info < (3,14))" 2>$null
             if ($LASTEXITCODE -eq 0 -and $r -eq "True") { return $cmd }
-        } catch {}
+        } catch { }
     }
     return $null
 }
@@ -154,6 +154,7 @@ if (-not $Python) {
         Read-Host "Press Enter to exit"; exit 1
     }
     Write-Host ""
+    }
 }
 
 Write-Success "Python: $(& $Python --version 2>&1)"
@@ -179,7 +180,7 @@ try {
     $latestVer = $rel.tag_name.TrimStart("v")
     $whlAsset  = $rel.assets | Where-Object { $_.name -like "*.whl" } | Select-Object -First 1
     if ($whlAsset) { $whlUrl = $whlAsset.browser_download_url }
-} catch {}
+} catch { }
 
 # -- Install or auto-update NOVA -----------------------------------------------
 
@@ -235,10 +236,10 @@ $StartMenu  = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\NOVA
 
 # Keep scripts in a permanent location so the Start Menu shortcut always works
 if ($ScriptPath -and (Test-Path $ScriptPath) -and ($ScriptPath -ne $PermScript)) {
-    try { Copy-Item $ScriptPath $PermScript -Force -ErrorAction SilentlyContinue } catch {}
+    try { Copy-Item $ScriptPath $PermScript -Force -ErrorAction SilentlyContinue } catch { }
     $srcBat = Join-Path (Split-Path $ScriptPath -Parent) "nova.bat"
     if (Test-Path $srcBat) {
-        try { Copy-Item $srcBat $PermBat -Force -ErrorAction SilentlyContinue } catch {}
+        try { Copy-Item $srcBat $PermBat -Force -ErrorAction SilentlyContinue } catch { }
     } elseif (-not (Test-Path $PermBat)) {
         "@echo off`r`npowershell.exe -ExecutionPolicy Bypass -File `"%~dp0nova.ps1`" %*`r`nif `"%~1`"==`"`" pause" |
             Set-Content $PermBat -Encoding ASCII
@@ -256,7 +257,7 @@ if (-not (Test-Path $StartMenu)) {
         $lnk.Description      = "NOVA - Navigation, Operations, and Vessel Assistance"
         $lnk.Save()
         Write-Success "Start Menu shortcut created - search for NOVA to launch it."
-    } catch {}
+    } catch { }
 }
 
 # -- Launch NOVA ---------------------------------------------------------------
