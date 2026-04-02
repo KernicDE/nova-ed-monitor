@@ -108,7 +108,7 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
 function Get-Python {
     foreach ($cmd in @("python", "python3", "py")) {
         try {
-            $r = & $cmd -c "import sys; print(sys.version_info >= (3, 11))" 2>$null
+            $r = & $cmd -c "import sys; print((3,11) <= sys.version_info < (3,14))" 2>$null
             if ($LASTEXITCODE -eq 0 -and $r -eq "True") { return $cmd }
         } catch {}
     }
@@ -123,7 +123,7 @@ function Refresh-Path {
 $Python = Get-Python
 
 if (-not $Python) {
-    Write-Warn "Python 3.11+ not found. Downloading Python 3.12.7..."
+    Write-Warn "Python 3.11–3.13 not found. Downloading Python 3.12.7..."
     Write-Host ""
 
     $installer = Join-Path $env:TEMP "python-installer.exe"
