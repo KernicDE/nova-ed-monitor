@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Optional
 
 _TMPDIR = tempfile.gettempdir()
+_tmp_seq = 0
+_tmp_seq_lock = threading.Lock()
 
 # Set up audio debugging logger (file-only to prevent terminal flickering)
 _audio_logger = logging.getLogger("nova.audio")
@@ -244,7 +246,11 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
         _play_audio(str(cached_path), volume)
         return
 
-    tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}.mp3")
+    global _tmp_seq
+    with _tmp_seq_lock:
+        _tmp_seq += 1
+        seq = _tmp_seq
+    tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}-{seq}.mp3")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "edge_tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
@@ -289,6 +295,7 @@ def _play_audio(path: str, volume: int) -> None:
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
                 time.sleep(0.05)
+            pygame.mixer.music.unload()  # release file handle (required on Windows)
             return
         except Exception as e:
             _audio_logger.warning(f"pygame playback failed: {e}")
