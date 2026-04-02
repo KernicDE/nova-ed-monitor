@@ -98,9 +98,10 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
             exit
         }
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-    } catch { } } }
+    } catch {
         # No internet or download failed - continue without self-update
     }
+}
 
 # -- Find Python 3.11+ ---------------------------------------------------------
 
