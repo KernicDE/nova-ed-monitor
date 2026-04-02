@@ -101,7 +101,6 @@ if (-not $NoSelfUpdate -and $ScriptPath) {
     } catch { } } }
         # No internet or download failed - continue without self-update
     }
-}
 
 # -- Find Python 3.11+ ---------------------------------------------------------
 
@@ -154,7 +153,6 @@ if (-not $Python) {
         Read-Host "Press Enter to exit"; exit 1
     }
     Write-Host ""
-    }
 }
 
 Write-Success "Python: $(& $Python --version 2>&1)"
