@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import time
@@ -8,6 +9,8 @@ from typing import Optional
 from urllib.parse import quote
 
 from .state import AppState, BodyInfo
+
+_log = logging.getLogger("nova.edsm")
 
 
 def spawn(state: AppState, lock: threading.RLock) -> queue.Queue:
@@ -41,17 +44,19 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
 
             # Execute each unique request
             for kind, system in pending:
+                _log.debug(f"EDSM request: {kind} for '{system}'")
                 try:
                     if kind == "fetch_system":
                         bodies = _fetch_system_bodies(client, system, state, lock)
                         if bodies:
                             _merge_bodies(state, lock, bodies)
+                            _log.debug(f"EDSM merged {len(bodies)} body/bodies for '{system}'")
                     elif kind == "fetch_stations":
                         count = _fetch_station_count(client, system, state, lock)
                         with lock:
                             state.station_count = count
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _log.warning(f"EDSM {kind} error for '{system}': {exc}")
                 time.sleep(0.5)
 
     finally:

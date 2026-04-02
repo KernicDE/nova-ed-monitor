@@ -195,6 +195,12 @@ If configured (see [Settings](Settings)), NOVA reads your stream chat and announ
 
 ---
 
+## Keybindings Backup
+
+NOVA watches your Elite Dangerous `.binds` file in the background. Whenever it detects a change (e.g. after editing bindings in-game), it automatically creates a timestamped backup in `~/.config/nova/bindings_backup/` and logs a `SYS` event in the event log. The last 5 backups are kept. No setup required.
+
+---
+
 ## Stream Overlay
 
 NOVA writes a text file (`stream_info.txt` by default in your launch directory) with live game data. Add it as a **Text (GDI+)** / **Text** source in OBS or Streamlabs with "Read from file" enabled.

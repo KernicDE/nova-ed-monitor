@@ -35,6 +35,7 @@ class Config:
     notable_value_threshold:  int  = 500_000
     default_volume:           int  = 50
     carrier_lookup:           bool = False
+    debug_log:                bool = False
 
 
 DEFAULT_CONFIG = """\
@@ -91,10 +92,16 @@ DEFAULT_CONFIG = """\
 # ── Fleet Carriers ─────────────────────────────────────────────────────────────
 # Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):
 # carrier_lookup = false
+
+# ── Debug Logging ─────────────────────────────────────────────────────────────
+# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).
+# Enable when you need to diagnose a problem and send the log to the developer.
+# debug_log = false
 """
 
 
-def _config_dir() -> Path:
+def config_dir() -> Path:
+    """Return the NOVA config directory (~/.config/nova or $XDG_CONFIG_HOME/nova)."""
     xdg = os.environ.get("XDG_CONFIG_HOME")
     if xdg:
         return Path(xdg) / "nova"
@@ -102,17 +109,17 @@ def _config_dir() -> Path:
 
 
 def load() -> Config:
-    config_dir  = _config_dir()
-    config_path = config_dir / "config.toml"
+    cfg_dir     = config_dir()
+    config_path = cfg_dir / "config.toml"
 
     # Migrate from old ed-monitor config dir if new one doesn't exist
     if not config_path.exists():
         old_path = _old_config_path()
         if old_path and old_path.exists():
-            config_dir.mkdir(parents=True, exist_ok=True)
+            cfg_dir.mkdir(parents=True, exist_ok=True)
             config_path.write_text(old_path.read_text(encoding="utf-8"), encoding="utf-8")
         else:
-            config_dir.mkdir(parents=True, exist_ok=True)
+            cfg_dir.mkdir(parents=True, exist_ok=True)
             config_path.write_text(DEFAULT_CONFIG, encoding="utf-8")
 
     journal_dir       = None
@@ -125,12 +132,14 @@ def load() -> Config:
     notable_value_threshold  = 500_000
     default_volume           = 50
     carrier_lookup           = False
+    debug_log                = False
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
         "journal_dir", "twitch_channel", "youtube_channel",
         "tts_rate", "tts_lang", "overlay_dir",
         "default_volume", "notable_value_threshold", "carrier_lookup",
+        "debug_log",
     }
 
     try:
@@ -177,6 +186,8 @@ def load() -> Config:
                             pass
                     case "carrier_lookup":
                         carrier_lookup = v.lower() in ("true", "1", "yes")
+                    case "debug_log":
+                        debug_log = v.lower() in ("true", "1", "yes")
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -210,6 +221,7 @@ def load() -> Config:
                 ("# tts_lang", "\n# ── Language ─────────────────────────────────────────────────────────────────\n# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):\n# tts_lang = en\n# Voiceline files: ~/.config/nova/voicelines/{lang}.toml (copy from defaults to customise)\n"),
                 ("# default_volume", "\n# ── Audio ────────────────────────────────────────────────────────────────────\n# Default TTS/audio volume at startup (0–100):\n# default_volume = 50\n"),
                 ("# carrier_lookup", "\n# ── Fleet Carriers ─────────────────────────────────────────────────────────────\n# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):\n# carrier_lookup = false\n"),
+                ("# debug_log", "\n# ── Debug Logging ─────────────────────────────────────────────────────────────\n# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).\n# Enable when you need to diagnose a problem and send the log to the developer.\n# debug_log = false\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
@@ -239,6 +251,7 @@ def load() -> Config:
         notable_value_threshold=notable_value_threshold,
         default_volume=default_volume,
         carrier_lookup=carrier_lookup,
+        debug_log=debug_log,
     )
 
 

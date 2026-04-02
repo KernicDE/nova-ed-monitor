@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import queue
 import re
 import threading
@@ -10,6 +11,8 @@ import httpx
 from . import events
 from .config import Config
 from .state import AppState, EventCategory, LogEvent
+
+_log = logging.getLogger("nova.youtube")
 
 _LIVE_CHAT_URL = "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat"
 _CLIENT_CONTEXT = {
@@ -150,11 +153,14 @@ def monitor(
                 # Find the live stream
                 video_id = _get_live_video_id(channel, client)
                 if not video_id:
+                    _log.debug(f"YouTube: no live stream for @{channel}")
                     time.sleep(60)
                     continue
 
+                _log.info(f"YouTube: live stream found, video_id={video_id}")
                 continuation = _get_continuation(video_id, client)
                 if not continuation:
+                    _log.debug("YouTube: could not get chat continuation token")
                     time.sleep(60)
                     continue
 
@@ -171,6 +177,6 @@ def monitor(
                     continuation = next_cont
                     time.sleep(timeout_ms / 1000)
 
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning(f"YouTube monitor error (will retry): {exc}")
         time.sleep(5)

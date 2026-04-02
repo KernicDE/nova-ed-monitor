@@ -125,6 +125,10 @@ After uninstalling, delete `nova.ps1` and `nova.bat` manually.
 | `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log, statistics & EDSM dump cache (~30–50 MB after first download) |
 | `~/.local/share/nova/venv/` | Linux | Python virtual environment |
 | `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
+| `~/.config/nova/bindings_backup/` | Linux | Keybindings backups (last 5 versions) |
+| `%USERPROFILE%\.config\nova\bindings_backup\` | Windows | Keybindings backups (last 5 versions) |
+| `~/.config/nova/nova-debug.log` | Linux | Debug log (when `debug_log = true` in config) |
+| `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log (when `debug_log = true` in config) |
 
 ---
 
@@ -143,3 +147,6 @@ After uninstalling, delete `nova.ps1` and `nova.bat` manually.
 **"Access denied" / execution policy error (Windows)**
 → Right-click `nova.bat` → "Run as administrator" once, or run in PowerShell:
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+**Something is not working as expected / reporting a bug**
+→ Add `debug_log = true` to `config.toml`, reproduce the issue, then attach `nova-debug.log` from the config directory with your report (see [Data Paths](#data-paths) above)

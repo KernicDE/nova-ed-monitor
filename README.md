@@ -19,6 +19,8 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Nearest inhabited system** — shows the closest populated system and distance (ly) when exploring uninhabited space
 - **Next-waypoint stations** — lists stations at the next jump destination in the Route panel (name, distance, services icons: M/S/O/R)
 - **Fleet carrier lookup** — optionally queries the Spansh API for fleet carriers in your current system (enable with `carrier_lookup = true`; results cached 5 min)
+- **Keybindings backup** — automatically backs up your Elite Dangerous `.binds` file whenever it changes; last 5 versions kept in `~/.config/nova/bindings_backup/`; preset switches are detected and logged in the UI
+- **Debug logging** — enable `debug_log = true` in config to write a full session log to `~/.config/nova/nova-debug.log` for diagnostics
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
   - **Power distribution (PIPs)** — live SYS/ENG/WEP pip display in the Ship panel with half-pip support (●◑○)
   - **Two-column system info** — natural/exploration data on the left, human/BGS data on the right
@@ -234,6 +236,9 @@ Open it with any text editor to adjust settings:
 
 # Fleet carrier lookup via Spansh API (cached 5 min, max 1 req/3 sec):
 # carrier_lookup = false
+
+# Debug log — writes full session log to ~/.config/nova/nova-debug.log:
+# debug_log = false
 ```
 
 ### Finding the Journal Directory Manually
@@ -420,6 +425,10 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 | `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log |
 | `~/.local/share/nova/venv/` | Linux | Python virtual environment |
 | `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
+| `~/.config/nova/bindings_backup/` | Linux | Keybindings backups (last 5 per session) |
+| `%USERPROFILE%\.config\nova\bindings_backup\` | Windows | Keybindings backups (last 5 per session) |
+| `~/.config/nova/nova-debug.log` | Linux | Debug log (when `debug_log = true`) |
+| `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log (when `debug_log = true`) |
 | `stream_info.txt` | both | OBS/Streamlabs overlay (launch dir, configurable) |
 
 ---
@@ -442,6 +451,9 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 
 **TTS is too fast/slow**
 → Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal speed, `tts_rate = +20%` for faster
+
+**Something is not working as expected / need to report a bug**
+→ Add `debug_log = true` to config.toml, reproduce the issue, then send `~/.config/nova/nova-debug.log` (Linux) or `%USERPROFILE%\.config\nova\nova-debug.log` (Windows) with your report
 
 ---
 

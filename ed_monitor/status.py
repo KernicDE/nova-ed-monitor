@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import queue
@@ -10,6 +11,8 @@ from pathlib import Path
 
 from .state import AppState
 from .tts import TtsMsg, _audio_logger
+
+_log = logging.getLogger("nova.status")
 from . import voicelines as _vl
 from . import events as _ev
 
@@ -65,6 +68,7 @@ def monitor(
             is_recent = age < 300  # 5 minutes
 
             if mtime != last_status:
+                _log.debug(f"Status.json changed (age={age:.0f}s)")
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
 

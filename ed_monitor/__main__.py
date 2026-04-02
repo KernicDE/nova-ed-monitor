@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import config, db, edsm, edsm_dumps, events, journal, overlay, spansh, status, tts, twitch, voicelines, youtube
+from . import bindings, config, db, debug_log, edsm, edsm_dumps, events, journal, overlay, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -18,6 +18,7 @@ def _db_path() -> Path:
 
 def main() -> None:
     cfg = config.load()
+    debug_log.setup(cfg.debug_log, config.config_dir())
 
     # Apply voice and language config to events / voicelines modules
     events.set_voices(cfg.tts_voices)
@@ -56,8 +57,7 @@ def main() -> None:
         state.session_mapped = 0
         state.session_value = 0
         state.jump_dist_total = 0.0
-        # Removed log event to prevent potential duplicate TTS triggers
-        # state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
+        state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
 
     try:
         # Only play startup message if not already played (prevents duplicates)
@@ -110,6 +110,13 @@ def main() -> None:
     threading.Thread(
         target=overlay.monitor,
         args=(state, lock, cfg),
+        daemon=True,
+    ).start()
+
+    # Keybindings monitor thread
+    threading.Thread(
+        target=bindings.monitor,
+        args=(state, lock, cfg.journal_dir, config.config_dir()),
         daemon=True,
     ).start()
 

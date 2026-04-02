@@ -7,6 +7,7 @@ Rate limiting: minimum 3 s between requests; results cached for 300 s per system
 from __future__ import annotations
 
 import json
+import logging
 import queue
 import threading
 import time
@@ -15,6 +16,8 @@ import urllib.request
 from typing import Optional
 
 from .state import AppState
+
+_log = logging.getLogger("nova.spansh")
 
 _API_URL   = "https://spansh.co.uk/api/stations/search"
 _CACHE_TTL = 300.0   # seconds before a cached result is considered stale
@@ -64,7 +67,9 @@ def _worker(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
         if elapsed < _MIN_DELAY:
             time.sleep(_MIN_DELAY - elapsed)
 
+        _log.debug(f"Spansh: fetching carriers for '{system_name}'")
         carriers = _fetch_carriers(system_name)
+        _log.debug(f"Spansh: {len(carriers)} carrier(s) found for '{system_name}'")
         last_request_time = time.monotonic()
 
         # Sort by distance to the player's current position and keep nearest 3
@@ -121,7 +126,8 @@ def _fetch_carriers_query(
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError):
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
+        _log.warning(f"Spansh API error: {exc}")
         return []
 
     results = data.get("results", [])

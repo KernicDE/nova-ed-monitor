@@ -118,6 +118,38 @@ When enabled, NOVA queries the [Spansh](https://spansh.co.uk) API each time you 
 
 ---
 
+## Debug Logging
+
+```toml
+# debug_log = false
+```
+
+When set to `true`, NOVA writes a detailed log file each session:
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/nova/nova-debug.log` |
+| Windows | `%USERPROFILE%\.config\nova\nova-debug.log` |
+
+The log is **overwritten on every launch** so it always reflects the latest session. It covers all background processes: journal monitoring, status polling, EDSM/Spansh API calls, TTS generation and playback, Twitch/YouTube connections, and keybindings changes.
+
+**Disabled by default.** Enable it when you need to diagnose a problem and want to share the log with the developer.
+
+---
+
+## Keybindings Backup
+
+No configuration required. NOVA automatically monitors your Elite Dangerous `.binds` file and creates a timestamped backup whenever it changes. Backups are stored in:
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/nova/bindings_backup/` |
+| Windows | `%USERPROFILE%\.config\nova\bindings_backup\` |
+
+The last **5 backups** are kept; older ones are deleted automatically. When a backup is created, a `SYS` event appears in the UI event log. Preset switches are also detected and logged. This feature is always active — there is no setting to disable it.
+
+---
+
 ## Stream Overlay (OBS/Streamlabs)
 
 NOVA writes a text file for use as a "Read from file" **Text** source in OBS or Streamlabs.

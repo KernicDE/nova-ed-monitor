@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import queue
 import select as _select
@@ -13,6 +14,8 @@ from .db import Database
 from .events import handle
 from .state import AppState, EventCategory, LogEvent
 from .tts import TtsMsg
+
+_log = logging.getLogger("nova.journal")
 
 
 _BODY_EVENTS = frozenset({
@@ -189,6 +192,7 @@ def monitor(
 
             start_offset = 0
             if latest is not None:
+                _log.info(f"Journal file: {latest.name}")
                 start_offset = _init_scan(latest, state, lock, journal_dir, db)
                 db.set_config("last_journal_file", latest.name)
                 db.set_config("last_journal_offset", str(start_offset))
@@ -228,6 +232,7 @@ def _process_backlog(
 
     # Sort files chronologically: oldest to newest
     candidates.sort(key=lambda p: p.stat().st_mtime)
+    _log.info(f"Backlog: {len(candidates)} journal file(s), last={last_file or 'none'}, offset={last_offset}")
 
     # Find the index of the last processed file
     start_idx = -1
@@ -388,6 +393,7 @@ def _follow(
     except OSError:
         return
 
+    _log.debug(f"Tailing: {path.name} from offset {start_offset}")
     initial_ino = os.fstat(fd.fileno()).st_ino
     if start_offset > 0:
         fd.seek(start_offset)
@@ -454,6 +460,8 @@ def _follow(
                     _save_current_bodies(state, lock, db)
 
                 # Run event handler
+                if ev_name in _CRITICAL_EVENTS:
+                    _log.info(f"Event: {ev_name}")
                 try:
                     with lock:
                         log_ev = handle(effective, state, tts_q)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import logging
 import math
 import re
 import threading
@@ -18,6 +19,8 @@ import time
 import urllib.request
 import urllib.error
 from typing import Optional
+
+_log = logging.getLogger("nova.edsm_dumps")
 
 _DUMPS = {
     "systems":   "https://www.edsm.net/dump/systemsPopulated.json.gz",
@@ -67,11 +70,12 @@ def _download_and_import(name: str, state, lock, db) -> None:
 
     url = _DUMPS[name]
 
-    def _log(msg: str) -> None:
+    def _push(msg: str) -> None:
         with lock:
             state.push_event(LogEvent.new(EventCategory.System, msg))
 
-    _log(f"EDSM: downloading {name} dump…")
+    _log.info(f"Downloading EDSM {name} dump")
+    _push(f"EDSM: downloading {name} dump…")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": _UA})
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
@@ -84,11 +88,14 @@ def _download_and_import(name: str, state, lock, db) -> None:
             else:
                 count = 0
         db.set_config(f"edsm_dump_{name}_ts", str(time.time()))
-        _log(f"EDSM: {name} import done ({count:,} records).")
+        _log.info(f"EDSM {name} import done ({count:,} records)")
+        _push(f"EDSM: {name} import done ({count:,} records).")
     except urllib.error.HTTPError as e:
-        _log(f"EDSM: {name} download failed — HTTP {e.code}")
+        _log.warning(f"EDSM {name} download failed — HTTP {e.code}")
+        _push(f"EDSM: {name} download failed — HTTP {e.code}")
     except Exception as e:
-        _log(f"EDSM: {name} download failed — {str(e)[:60]}")
+        _log.warning(f"EDSM {name} download failed — {e}")
+        _push(f"EDSM: {name} download failed — {str(e)[:60]}")
 
 
 # ── Stream parsers ─────────────────────────────────────────────────────────────
