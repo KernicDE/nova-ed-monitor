@@ -7,6 +7,7 @@ import os
 import queue
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -246,7 +247,7 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
     tmp = os.path.join(_TMPDIR, f"nova-tts-{os.getpid()}.mp3")
     try:
         result = subprocess.run(
-            ["edge-tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
+            [sys.executable, "-m", "edge_tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
             capture_output=True,
             timeout=30,
         )
