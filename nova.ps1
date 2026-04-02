@@ -179,6 +179,9 @@ try {
     $latestVer = $rel.tag_name.TrimStart("v")
     $whlAsset  = $rel.assets | Where-Object { $_.name -like "*.whl" } | Select-Object -First 1
     if ($whlAsset) { $whlUrl = $whlAsset.browser_download_url }
+    if (-not $whlUrl -and $rel.tag_name) {
+        $whlUrl = "https://github.com/KernicDE/nova-ed-monitor/archive/refs/tags/$($rel.tag_name).tar.gz"
+    }
 } catch { }
 
 # -- Install or auto-update NOVA -----------------------------------------------
