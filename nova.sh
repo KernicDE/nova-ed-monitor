@@ -125,6 +125,32 @@ if [ ! -d "$VENV_DIR" ]; then
     success "Virtual environment created."
 fi
 
+# ── Ensure SDL2 build dependencies (needed if pygame must compile from source) ─
+
+ensure_build_deps() {
+    # Skip if sdl2-config is already present (pygame can build fine)
+    command -v sdl2-config &>/dev/null 2>&1 && return 0
+    pkg-config --exists sdl2 2>/dev/null && return 0
+
+    warn "SDL2 development libraries not found — installing build dependencies..."
+    if command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm --needed sdl2 freetype2
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y libsdl2-dev libfreetype6-dev
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y SDL2-devel freetype-devel
+    elif command -v brew &>/dev/null; then
+        brew install sdl2 freetype
+    else
+        warn "Could not auto-install SDL2. If installation fails, install SDL2 dev libraries manually."
+        warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel"
+        warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev"
+        warn "  Arch:           sudo pacman -S sdl2 freetype2"
+    fi
+}
+
+ensure_build_deps
+
 # ── Install or auto-update NOVA ───────────────────────────────────────────────
 
 if ! "$VENV_PIP" show "$NOVA_PKG" &>/dev/null 2>&1; then
