@@ -142,6 +142,17 @@ class BioScan:
     first_footfall:    bool  = False
 
 
+# ── Engineer ──────────────────────────────────────────────────────────────────
+
+@dataclass
+class EngineerInfo:
+    name:          str
+    rank:          int   = 0
+    rank_progress: float = 0.0  # 0–100
+    progress:      str   = ""   # "Unlocked", "Invited", "Known", "Unknown", etc.
+    engineer_id:   int   = 0
+
+
 # ── Mission ────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -301,8 +312,23 @@ class AppState:
     # Missions
     missions: list = field(default_factory=list)  # list[MissionInfo]
 
-    # Engineers: name -> (rank, progress_str)
+    # Engineers: name -> EngineerInfo
     engineers: dict = field(default_factory=dict)
+
+    # High-G approach warning
+    high_g_extreme: bool = False
+
+    # Wallet / cross-galaxy inventory
+    credits:      int  = 0
+    stored_ships: list = field(default_factory=list)   # list[dict] from StoredShips event
+    suit_loadout: dict = field(default_factory=dict)   # from SuitLoadout event
+    backpack:     dict = field(default_factory=dict)   # from Backpack/BackpackChange events
+
+    # Neutron route plotter
+    jump_range:           float = 0.0   # max jump range in ly, from Loadout event
+    neutron_route:        list  = field(default_factory=list)  # list of jump dicts
+    neutron_route_to:     str   = ""
+    neutron_route_status: str   = ""   # "", "plotting", "done", "error"
 
     # Event log
     events: deque = field(default_factory=lambda: deque(maxlen=MAX_EVENTS))

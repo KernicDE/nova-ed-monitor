@@ -8,7 +8,7 @@ import time
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Static
+from textual.widgets import Input, Label, Static
 from textual import events
 
 from ..state import AppState
@@ -83,10 +83,12 @@ class HelpScreen(Screen):
         for mode, desc in [
             ("Auto",        "Bio → Missions → Overview; Stats when offline"),
             ("Overview",    "System diagram, notable bodies, session stats"),
+            ("Wealth",      "Credit balance, fleet, cargo, suit loadout"),
+            ("Inventory",   "Cargo and materials"),
             ("Bio",         "Active bio scans with distances and bearings"),
             ("Missions",    "Active mission list"),
-            ("Inventory",   "Cargo and materials"),
-            ("Engineers",   "Engineer unlock progress"),
+            ("Engineers",   "Engineer unlock progress and rank"),
+            ("Neutron",     "Local neutron route planner (n = new route)"),
             ("Galaxy",      "Braille top-down galaxy map"),
             ("Stats",       "Persistent statistics"),
         ]:
@@ -123,6 +125,62 @@ class HelpScreen(Screen):
 
     def on_key(self, event: events.Key) -> None:
         if event.key in ("escape", "question_mark"):
+            event.stop()
+            self.app.pop_screen()
+
+
+class NeutronInputScreen(Screen):
+    """Overlay for entering a neutron route destination."""
+
+    CSS = """
+    NeutronInputScreen {
+        background: rgba(10,10,10,0.9);
+        align: center middle;
+    }
+    #neutron-box {
+        width: 60;
+        height: auto;
+        background: rgb(28,28,28);
+        border: solid rgb(195,160,55);
+        padding: 1 2;
+    }
+    #neutron-label {
+        color: rgb(195,160,55);
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    Input {
+        margin-top: 1;
+    }
+    #neutron-hint {
+        color: rgb(100,100,100);
+        margin-top: 1;
+    }
+    """
+
+    def __init__(self, neutron_q, current_system: str = "") -> None:
+        super().__init__()
+        self._neutron_q      = neutron_q
+        self._current_system = current_system
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="neutron-box"):
+            yield Label("◈ Neutron Route Plotter", id="neutron-label")
+            yield Label(f"From: {self._current_system or '(current system)'}")
+            yield Input(placeholder="Enter destination system name…", id="neutron-dest")
+            yield Label("Enter to plot  ·  Esc to cancel", id="neutron-hint")
+
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        target = event.value.strip()
+        if target and self._neutron_q is not None:
+            self._neutron_q.put(("plot", target))
+        self.app.pop_screen()
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
             event.stop()
             self.app.pop_screen()
 
@@ -239,6 +297,22 @@ class NOVAApp(App):
         background: rgb(80, 0, 0);
     }
 
+    /* High-G extreme warning flash */
+    Screen.high-g-flash SystemPanel,
+    Screen.high-g-flash ShipPanel,
+    Screen.high-g-flash RoutePanel,
+    Screen.high-g-flash BodiesPanel,
+    Screen.high-g-flash SituationalPanel,
+    Screen.high-g-flash EventLogPanel,
+    Screen.high-g-flash ChatLogPanel {
+        border: solid rgb(220,100,0) !important;
+        border-title-color: rgb(220,100,0) !important;
+    }
+
+    Screen.high-g-flash {
+        background: rgb(50, 20, 0);
+    }
+
     Screen.combat-mode SystemPanel {
         border-title-color: rgb(185,40,40) !important;
     }
@@ -255,15 +329,17 @@ class NOVAApp(App):
         vol_lock: threading.Lock,
         tts_q:    queue.Queue,
         stop_evt: threading.Event | None = None,
+        neutron_q: queue.Queue | None = None,
     ) -> None:
         super().__init__()
-        self._state    = state
-        self._lock     = lock
-        self._volume   = volume
-        self._vol_lock = vol_lock
-        self._tts_q    = tts_q
-        self._stop_evt = stop_evt
-        self._scroll   = 0
+        self._state     = state
+        self._lock      = lock
+        self._volume    = volume
+        self._vol_lock  = vol_lock
+        self._tts_q     = tts_q
+        self._stop_evt  = stop_evt
+        self._neutron_q = neutron_q
+        self._scroll    = 0
         self._max_scroll = 0
 
     def compose(self) -> ComposeResult:
@@ -294,14 +370,12 @@ class NOVAApp(App):
 
     def _snapshot(self) -> AppState:
         with self._lock:
-            # Shallow copy is enough for most fields
             snap = copy.copy(self._state)
-            # Only deep copy things that are likely to change and cause threading issues during render
-            snap.events  = copy.copy(self._state.events)
-            snap.bodies  = list(self._state.bodies)
-            snap.bio_scans = list(self._state.bio_scans)
-            # Factions, cargo, mats etc are left as references - they change rarely 
-            # and the render methods treat them as read-only.
+            snap.events      = copy.copy(self._state.events)
+            snap.bodies      = list(self._state.bodies)
+            snap.bio_scans   = list(self._state.bio_scans)
+            snap.neutron_route = list(self._state.neutron_route)
+            snap.stored_ships  = list(self._state.stored_ships)
         return snap
 
     def _refresh_all(self) -> None:
@@ -327,6 +401,15 @@ class NOVAApp(App):
         has_hazard = snap.overheating or (0 < snap.hull < 0.25)
         flash_on   = has_hazard and (int(time.time()) % 2 == 0)
         self.screen.set_class(flash_on, "alert-flash")
+
+        # High-G extreme approach flash (orange; stops when landed)
+        high_g_flash = (
+            snap.high_g_extreme
+            and not snap.landed
+            and not snap.in_srv
+            and (int(time.time()) % 2 == 0)
+        )
+        self.screen.set_class(high_g_flash, "high-g-flash")
 
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)
@@ -386,3 +469,11 @@ class NOVAApp(App):
                 self._volume[0] = max(self._volume[0] - 5, 0)
             with self._lock:
                 self._state.volume = self._volume[0]
+
+        elif key == "n":
+            # Open neutron route input screen
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron" or sit._mode == "neutron":
+                with self._lock:
+                    cur = self._state.system
+                self.push_screen(NeutronInputScreen(self._neutron_q, cur))

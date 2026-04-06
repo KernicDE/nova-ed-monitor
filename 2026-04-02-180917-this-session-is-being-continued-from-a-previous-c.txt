@@ -1,0 +1,114 @@
+ ▐▛███▜▌   Claude Code v2.1.89
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Documents/ed-monitor
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(nova.sh)
+  ⎿  Added 1 line, removed 1 line
+      87  
+      88  PYTHON=""
+      89  if ! PYTHON=$(find_python); then
+      90 -    warn "Python 3.11+ not found. Attempting to install..."    
+      90 +    warn "Python 3.11–3.13 not found. Attempting to install..."
+      91      echo ""
+      92  
+      93      if command -v pacman &>/dev/null; then
+
+● Update(nova.ps1)
+  ⎿  Added 1 line, removed 1 line
+      123  $Python = Get-Python
+      124  
+      125  if (-not $Python) {
+      126 -    Write-Warn "Python 3.11+ not found. Downloading Python 3.1
+          -2.7..."                                                       
+      126 +    Write-Warn "Python 3.11–3.13 not found. Downloading Python
+          + 3.12.7..."                                                   
+      127      Write-Host ""
+      128  
+      129      $installer = Join-Path $env:TEMP "python-installer.exe"
+
+● Now commit and push:
+
+● Bash(git diff --stat)
+  ⎿   nova.ps1       | 4 ++--
+      nova.sh        | 4 ++--
+      pyproject.toml | 4 ++--
+      3 files changed, 6 insertions(+), 6 deletions(-)
+
+● Bash(git add pyproject.toml nova.sh nova.ps1 && git commit -m "$(cat <<'EOF'
+      fix: Reject Python 3.14 in launchers — pygame incompatible — v1.18.4…)
+  ⎿  [main 1f454f0] fix: Reject Python 3.14 in launchers — pygame incompati
+     ble — v1.18.4
+      3 files changed, 6 insertions(+), 6 deletions(-)
+
+● Bash(git push origin main)
+  ⎿  To https://github.com/KernicDE/nova-ed-monitor.git
+        17b6e8f..1f454f0  main -> main
+
+● Bash(gh release create v1.18.4 \
+        --title "v1.18.4 — Python 3.14 compatibility guard" \…)
+  ⎿  https://github.com/KernicDE/nova-ed-monitor/releases/tag/v1.18.4
+
+● v1.18.4 is live. Both launchers now reject Python 3.14 and fall back to
+  installing 3.12.7. Users who only have 3.14 will get a clean install of a
+  supported version instead of silently broken pygame.
+
+✻ Sautéed for 3m 59s
+
+❯ /exit                                                                         
+  ⎿  Bye!
+
+❯ 3.14.3 seems to be working. I had no problems with pygame. May check my       
+python and pygame version, this combination works. Allow this                   
+
+● I'll revert the 3.14 block and bump to v1.18.5.
+
+● Update(pyproject.toml)
+  ⎿  User rejected update to pyproject.toml
+
+● Update(nova.sh)
+  ⎿  User rejected update to nova.sh
+
+● Update(nova.ps1)
+  ⎿  User rejected update to nova.ps1
+
+❯ 3.14 on Windows didn't work. May check this thread:                           
+https://github.com/pygame/pygame/issues/4627 and allow the working python       
+versions                                                                        
+
+● Bash(gh issue view 4627 --repo pygame/pygame 2>/dev/null | head -200)
+  ⎿  title:     Cannot install under Python 3.14
+     state:     OPEN
+     author:    DigitalDetective47 (Em Schierts)
+     … +128 lines (ctrl+o to expand)
+
+● Bash(gh issue view 4627 --repo pygame/pygame --comments 2>/dev/null | tail
+      -100)
+  ⎿  that seems to be a different issue. can you confirm that it compiles c
+     orrectly on python 3.13?
+     --
+     … +46 lines (ctrl+o to expand)
+
+● The issue is still open and unresolved — pygame 2.6.1 has no pre-built Windows
+   wheel for Python 3.14, and building from source fails because
+  distutils.msvccompiler was removed. On Linux, pygame installs fine via system
+  packages, which is why it works for you.
+
+  So the fix should be Windows-only: keep the <3.14 guard in nova.ps1, but
+  revert nova.sh and pyproject.toml back to >=3.11.
+● Update(nova.sh)
+  ⎿  Added 1 line, removed 1 line
+      75  find_python() {
+      76      for cmd in python3 python python3.13 python3.12 python3.11;
+           do
+      77          if command -v "$cmd" &>/dev/null 2>&1; then
+      78 -            ok=$("$cmd" -c "import sys; print((3,11) <= sys.ver
+         -sion_info < (3,14))" 2>/dev/null || echo "False")              
+      78 +            ok=$("$cmd" -c "import sys; print(sys.version_info 
+         +>= (3,11))" 2>/dev/null || echo "False")                       
+      79              if [ "$ok" = "True" ]; then
+      80                  echo "$cmd"
+      81                  return 0
+  ⎿  You're out of extra usage · resets 8pm (Europe/Berlin)
+     /upgrade or /extra-usage to finish what you’re working on.

@@ -19,7 +19,7 @@ from rich.table import Table
 from rich.text import Text
 from textual.widget import Widget
 
-from ..state import AppState, BioScan, BodyInfo, EventCategory
+from ..state import AppState, BioScan, BodyInfo, EngineerInfo, EventCategory
 from . import palette as P
 
 
@@ -1328,39 +1328,302 @@ def _render_missions(s: AppState) -> RenderableType:
     return tbl
 
 
+_ENGINEER_STATIC: dict[str, tuple[str, str]] = {
+    # name → (specialty, system)
+    "Elvira Martuuk":     ("FSD",             "Long Sight Base, Kwatee"),
+    "Felicity Farseer":   ("FSD / Thrusters", "Farseer Inc, Deciat"),
+    "Ishmael Palin":      ("Thrusters",       "Mawson Dock, Arque"),
+    "Professor Palin":    ("Thrusters",       "Mawson Dock, Arque"),
+    "Chloe Sedesi":       ("FSD / Thrusters", "Synuefe XR-H d11-102"),
+    "Mel Brandon":        ("Various",         "The Brig, Luchtaine"),
+    "Marco Qwent":        ("Power Plant",     "Qwent Research Base, Sirius"),
+    "Hera Tani":          ("Power Plant",     "The Jet's Hole, Kuwemaki"),
+    "Etienne Dorn":       ("Sensors",         "Krins Survey, Los"),
+    "Juri Ishmaak":       ("Sensors/Countermeasures", "Pater's Memorial, Giryak"),
+    "Lei Cheung":         ("Shields",         "Trader's Rest, Laksak"),
+    "Selene Jean":        ("Armour",          "Prospector's Rest, Kuk"),
+    "The Dweller":        ("Weapons",         "Black Hide, Wyrd"),
+    "Tod 'The Blaster' McQuinn": ("Weapons",  "Trophy Camp, Wolf 397"),
+    "Broo Tarquin":       ("Weapons",         "Broo's Legacy, Muang"),
+    "Liz Ryder":          ("Explosives",      "Demolition Unlimited, Eurybia"),
+    "Ram Tah":            ("Electronic Countermeasures", "Phoenix Base, Meene"),
+    "Bill Turner":        ("Plasma Charger",  "Alioth Research Facility, Alioth"),
+    "Didi Vatermann":     ("Shields",         "Vatermann LLC, Leesti"),
+    "Colonel Bris Dekker":("FSD Interdictor", "Dekker's Yard, Sol"),
+    "Petra Olmanova":     ("Armour",          "Sanctuary, Asura"),
+    "Zacariah Nemo":      ("Pulse Laser",     "Nemo Cyber Party Base, Yoru"),
+    "Yarden Bond":        ("Shields",         "Brestla i-Ship Brewery, Brestla"),
+    "Corra Sang":         ("Shields",         "Piri's Retreat, Eurybia"),
+    "Kit Fowler":         ("Launch Bay",      "Fowler's Hope, Capella"),
+    "Marsha Hicks":       ("Detailed Scanner","The Watchtower, 83 Leonis"),
+    "Wellington Beck":    ("Mining Equipment","The Watchtower, 83 Leonis"),
+    "Baltanos":           ("Suit",            "Builders Croft, Deriso"),
+    "Eleanor Bresa":      ("Suit",            "Bresa Modifications, Kojeara"),
+    "Hero Ferrari":       ("Suit",            "Ferrari Salvage Inc, Siris"),
+    "Rosa Dayette":       ("Suit/Weapon",     "Rosa's Retreat, Novas"),
+    "Yi Shen":            ("Weapon",          "Shen's World, Pan Geminorum"),
+    "Domino Green":       ("Weapon",          "Prosperous Horizons, Orishis"),
+    "Uma Laszlo":         ("Weapon",          "Laszlo's Resolve, Xuane"),
+    "Oden Geiger":        ("Suit",            "Ankh's Promise, Candiaei"),
+    "Terra Velasquez":    ("Suit",            "Rascals' Choice, Shou Xing"),
+    "Yarden Bond":        ("Shield",          "Brestla i-Ship Brewery, Brestla"),
+}
+
+
 def _render_engineers(s: AppState) -> RenderableType:
     if not s.engineers:
         t = Text()
         t.append("No engineer data.", style=P.LABEL)
         return t
 
-    tbl = Table(
-        show_header=False, show_edge=False, show_lines=False,
-        padding=(0, 1), box=None,
-    )
-    tbl.add_column("name",     style="white")
-    tbl.add_column("progress", width=11)
-    tbl.add_column("rank",     width=3, justify="right")
+    HDR = "bold rgb(195,160,55)"
 
-    for name in sorted(s.engineers):
-        rank, progress = s.engineers[name]
-        if progress == "Unlocked":
-            prog_col = P.HUD_GREEN
-            rank_str = str(rank) if rank > 0 else "—"
-        elif progress in ("Invited", "Acquainted"):
-            prog_col = P.AMBER
-            rank_str = "—"
+    # Separate into groups
+    unlocked = []
+    in_progress = []
+    locked = []
+
+    for name, info in sorted(s.engineers.items()):
+        if isinstance(info, EngineerInfo):
+            prog = info.progress
+            rank = info.rank
+            rp   = info.rank_progress
         else:
-            prog_col = P.LABEL
-            rank_str = "—"
+            # Legacy tuple (rank, progress)
+            rank, prog = info
+            rp = 0.0
+        if prog == "Unlocked":
+            unlocked.append((name, rank, rp, prog))
+        elif prog in ("Invited", "Acquainted", "Known"):
+            in_progress.append((name, rank, rp, prog))
+        else:
+            locked.append((name, rank, rp, prog))
 
-        tbl.add_row(
-            Text(name, style="white"),
-            Text(progress, style=prog_col),
-            Text(rank_str, style=f"bold {prog_col}"),
-        )
+    parts: list[RenderableType] = []
 
-    return tbl
+    def _rank_bar(rank: int, max_rank: int = 5) -> Text:
+        t = Text()
+        filled = min(rank, max_rank)
+        t.append("█" * filled, style=P.HUD_GREEN)
+        t.append("░" * (max_rank - filled), style=P.LABEL)
+        return t
+
+    def _progress_bar(pct: float, width: int = 8) -> Text:
+        filled = int(pct / 100.0 * width)
+        t = Text()
+        t.append("▓" * filled, style=P.AMBER)
+        t.append("░" * (width - filled), style=P.LABEL)
+        return t
+
+    for section_label, group in (
+        ("UNLOCKED", unlocked),
+        ("IN PROGRESS", in_progress),
+        ("LOCKED / UNKNOWN", locked),
+    ):
+        if not group:
+            continue
+        parts.append(_section_header(section_label))
+        tbl = Table(show_header=False, show_edge=False, show_lines=False,
+                    padding=(0, 1), box=None)
+        tbl.add_column("name",     style="white")
+        tbl.add_column("spec",     style=P.LABEL, width=16)
+        tbl.add_column("rank",     width=7)
+        tbl.add_column("progress", width=10)
+
+        for name, rank, rp, prog in group:
+            spec, _ = _ENGINEER_STATIC.get(name, ("", ""))
+
+            if prog == "Unlocked":
+                prog_col  = P.HUD_GREEN
+                rank_cell = _rank_bar(rank)
+                prog_cell = Text(f"{int(rp)}%", style=P.LABEL) if rp > 0 else Text("Max" if rank >= 5 else "", style=P.LABEL)
+            elif prog in ("Invited", "Acquainted", "Known"):
+                prog_col  = P.AMBER
+                rank_cell = Text(prog, style=prog_col)
+                prog_cell = _progress_bar(rp) if rp > 0 else Text("", style=P.LABEL)
+            else:
+                prog_col  = P.LABEL
+                rank_cell = Text(prog or "Unknown", style=prog_col)
+                prog_cell = Text("", style=P.LABEL)
+
+            tbl.add_row(
+                Text(name, style="white"),
+                Text(spec, style=P.LABEL),
+                rank_cell,
+                prog_cell,
+            )
+        parts.append(tbl)
+
+    if not parts:
+        t = Text()
+        t.append("No engineer data.", style=P.LABEL)
+        return t
+
+    return Group(*parts)
+
+
+def _render_wealth(s: AppState) -> RenderableType:
+    parts: list[RenderableType] = []
+
+    # ── Balance ──────────────────────────────────────────────────────────────
+    bal_text = Text()
+    bal_text.append("BALANCE\n", style="bold rgb(195,160,55)")
+    if s.credits > 0:
+        bal_text.append(f"  {_de(s.credits)} Cr\n", style="bold white")
+    else:
+        bal_text.append("  Unknown\n", style=P.LABEL)
+    parts.append(bal_text)
+
+    # ── Fleet ────────────────────────────────────────────────────────────────
+    # Current ship always first
+    cur_ship = Text()
+    cur_ship.append("\nFLEET\n", style="bold rgb(195,160,55)")
+    if s.ship_type or s.ship_name:
+        label = s.ship_name or s.ship_type
+        cur_ship.append(f"  {label}", style="bold white")
+        if s.ship_ident:
+            cur_ship.append(f"  [{s.ship_ident}]", style=P.LABEL)
+        cur_ship.append("  ◀ HERE\n", style=P.HUD_GREEN)
+    parts.append(cur_ship)
+
+    if s.stored_ships:
+        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        tbl.add_column("name",    style="white")
+        tbl.add_column("ident",   style=P.LABEL,    width=8)
+        tbl.add_column("system",  style=P.HUD_CYAN,  width=20)
+        for ship in s.stored_ships[:8]:
+            name   = ship.get("name") or ship.get("type") or "Unknown"
+            ident  = ship.get("ident") or ""
+            system = ship.get("system") or ""
+            here   = ship.get("here", False)
+            tbl.add_row(
+                Text(name, style="bold white" if here else "white"),
+                Text(ident, style=P.LABEL),
+                Text(system + (" [HERE]" if here else ""), style=P.HUD_GREEN if here else P.HUD_CYAN),
+            )
+        parts.append(tbl)
+
+    # ── Cargo ────────────────────────────────────────────────────────────────
+    if s.cargo_items:
+        parts.append(_section_header(f"CARGO  {s.cargo}/{s.cargo_capacity}t"))
+        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        tbl.add_column("name",  style="white")
+        tbl.add_column("count", justify="right", style=P.AMBER)
+        for item in s.cargo_items[:12]:
+            style = "rgb(255,80,80)" if item.get("stolen") else "white"
+            tbl.add_row(Text(item["name"], style=style), Text(str(item["count"]), style=f"bold {P.AMBER}"))
+        parts.append(tbl)
+
+    # ── Materials summary ────────────────────────────────────────────────────
+    mat_counts = (len(s.materials_raw), len(s.materials_mfg), len(s.materials_enc))
+    if any(mat_counts):
+        mat_text = Text()
+        mat_text.append("\nMATERIALS\n", style="bold rgb(195,160,55)")
+        mat_text.append(f"  Raw {mat_counts[0]}  ", style="white")
+        mat_text.append(f"Mfg {mat_counts[1]}  ", style="white")
+        mat_text.append(f"Enc {mat_counts[2]}\n", style="white")
+        parts.append(mat_text)
+
+    # ── Suit / backpack ──────────────────────────────────────────────────────
+    if s.suit_loadout:
+        suit_text = Text()
+        suit_text.append("\nSUIT LOADOUT\n", style="bold rgb(195,160,55)")
+        suit_name = s.suit_loadout.get("suit") or "Unknown Suit"
+        suit_text.append(f"  {suit_name}\n", style="white")
+        weapons = s.suit_loadout.get("weapons") or []
+        for w in weapons[:3]:
+            wname = (w.get("SuitModuleName_Localised") or w.get("SuitModuleName") or "")
+            if wname:
+                suit_text.append(f"  ▸ {wname}\n", style=P.LABEL)
+        parts.append(suit_text)
+
+    if s.backpack:
+        items = s.backpack.get("items") or []
+        comps = s.backpack.get("components") or []
+        data  = s.backpack.get("data") or []
+        consumables = s.backpack.get("consumables") or []
+        total_items = len(items) + len(comps) + len(data) + len(consumables)
+        if total_items > 0:
+            bp_text = Text()
+            bp_text.append("\nBACKPACK\n", style="bold rgb(195,160,55)")
+            bp_text.append(f"  {total_items} item(s) — Items {len(items)}  Comps {len(comps)}  Data {len(data)}\n", style=P.LABEL)
+            parts.append(bp_text)
+
+    if not parts:
+        t = Text()
+        t.append("No wealth data yet.\n", style=P.LABEL)
+        t.append("Dock at a station or open the in-game outfitting/shipyard menu.", style=P.LABEL)
+        return t
+
+    return Group(*parts)
+
+
+def _render_neutron(s: AppState) -> RenderableType:
+    parts: list[RenderableType] = []
+
+    # Status header
+    status = s.neutron_route_status
+    target = s.neutron_route_to
+    route  = s.neutron_route
+
+    hdr = Text()
+    hdr.append("NEUTRON ROUTE PLOTTER\n", style="bold rgb(195,160,55)")
+    if s.jump_range > 0:
+        hdr.append(f"  Jump range: ", style=P.LABEL)
+        hdr.append(f"{s.jump_range:.1f} ly", style="white")
+        hdr.append(f"  Boosted: {s.jump_range * 4:.0f} ly\n", style=P.LABEL)
+    else:
+        hdr.append("  Jump range: Unknown (fly your ship to update)\n", style=P.LABEL)
+    parts.append(hdr)
+
+    if status == "plotting":
+        t = Text()
+        t.append(f"\n  Plotting route to {target}…\n", style=P.AMBER)
+        parts.append(t)
+    elif status == "error":
+        t = Text()
+        t.append(f"\n  Could not plot route to '{target}'.\n", style=P.HUD_CRIT)
+        t.append("  Check that the system name is spelled exactly as in-game.\n", style=P.LABEL)
+        t.append("  (EDSM data required — download may still be in progress)\n", style=P.LABEL)
+        parts.append(t)
+    elif status == "done" and route:
+        total_ly = sum(j.get("distance", 0) for j in route)
+        neutron_count = sum(1 for j in route if j.get("neutron"))
+        summary = Text()
+        summary.append(f"\n  → {target}\n", style="bold white")
+        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts\n",
+                       style=P.AMBER)
+        parts.append(summary)
+
+        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1))
+        HDR = "bold rgb(195,160,55)"
+        tbl.add_column("#",      width=4,  header_style=HDR, justify="right")
+        tbl.add_column("System", header_style=HDR)
+        tbl.add_column("Dist",   width=8,  header_style=HDR, justify="right")
+        tbl.add_column("",       width=2,  header_style=HDR)
+
+        for i, jump in enumerate(route[:40], 1):
+            sys_name = jump.get("system", "?")
+            dist     = jump.get("distance", 0.0)
+            is_n     = jump.get("neutron", False)
+            marker   = Text("⚡", style="bold rgb(195,160,55)") if is_n else Text("")
+            dist_col = P.HUD_GREEN if is_n else "white"
+            tbl.add_row(
+                Text(str(i), style=P.LABEL),
+                Text(sys_name, style="bold white" if i == len(route) else "white"),
+                Text(f"{dist:.1f} ly", style=dist_col),
+                marker,
+            )
+        if len(route) > 40:
+            tbl.add_row(Text("…", style=P.LABEL), Text(f"+{len(route)-40} more jumps", style=P.LABEL), Text(""), Text(""))
+        parts.append(tbl)
+    else:
+        hint = Text()
+        hint.append("\n  Press  n  to enter a destination system.\n", style=P.LABEL)
+        hint.append("  Uses local neutron star data (Spansh dump, refreshed daily).\n", style=P.LABEL)
+        parts.append(hint)
+
+    return Group(*parts)
 
 
 def _render_overview(s: AppState) -> RenderableType:
@@ -2159,7 +2422,7 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "inventory", "bio", "missions", "engineers", "galaxy", "stats")
+    _MODES           = ("auto", "overview", "wealth", "inventory", "bio", "missions", "engineers", "neutron", "galaxy", "stats")
     _mode:   str     = "auto"
     _active: str     = "overview"
     _galaxy_regional: bool = False
@@ -2229,6 +2492,10 @@ class SituationalPanel(_Panel):
             return _render_engineers(s)
         if self._active == "inventory":
             return _render_inventory(s)
+        if self._active == "wealth":
+            return _render_wealth(s)
+        if self._active == "neutron":
+            return _render_neutron(s)
         if self._active == "galaxy":
             return _render_galaxy(s, regional=self._galaxy_regional,
                                   panel_w=self.size.width, panel_h=self.size.height)

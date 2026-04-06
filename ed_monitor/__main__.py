@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from . import bindings, config, db, debug_log, edsm, edsm_dumps, events, journal, overlay, spansh, status, tts, twitch, voicelines, youtube
+from . import bindings, config, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -44,6 +44,7 @@ def main() -> None:
     edsm_q    = edsm.spawn(state, lock)
     edsm_dumps.spawn(state, lock, database)
     spansh_q  = spansh.spawn(state, lock) if cfg.carrier_lookup else None
+    neutron_q = neutron.spawn(state, lock, database)
 
     with lock:
         state.volume                    = cfg.default_volume
@@ -120,7 +121,14 @@ def main() -> None:
         daemon=True,
     ).start()
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt).run()
+    # Screenshot processing thread
+    threading.Thread(
+        target=screenshots.monitor,
+        args=(state, lock, cfg),
+        daemon=True,
+    ).start()
+
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q).run()
 
 
 if __name__ == "__main__":

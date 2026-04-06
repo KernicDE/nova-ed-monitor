@@ -36,6 +36,8 @@ class Config:
     default_volume:           int  = 50
     carrier_lookup:           bool = False
     debug_log:                bool = False
+    screenshot_dir:           str  = ""    # ED screenshot source dir (auto-detected if empty)
+    screenshot_dest:          str  = ""    # destination dir (default: ~/Pictures/Elite Dangerous)
 
 
 DEFAULT_CONFIG = """\
@@ -133,13 +135,15 @@ def load() -> Config:
     default_volume           = 50
     carrier_lookup           = False
     debug_log                = False
+    screenshot_dir           = ""
+    screenshot_dest          = ""
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
         "journal_dir", "twitch_channel", "youtube_channel",
         "tts_rate", "tts_lang", "overlay_dir",
         "default_volume", "notable_value_threshold", "carrier_lookup",
-        "debug_log",
+        "debug_log", "screenshot_dir", "screenshot_dest",
     }
 
     try:
@@ -188,6 +192,10 @@ def load() -> Config:
                         carrier_lookup = v.lower() in ("true", "1", "yes")
                     case "debug_log":
                         debug_log = v.lower() in ("true", "1", "yes")
+                    case "screenshot_dir":
+                        screenshot_dir = v
+                    case "screenshot_dest":
+                        screenshot_dest = v
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -252,6 +260,8 @@ def load() -> Config:
         default_volume=default_volume,
         carrier_lookup=carrier_lookup,
         debug_log=debug_log,
+        screenshot_dir=screenshot_dir,
+        screenshot_dest=screenshot_dest,
     )
 
 

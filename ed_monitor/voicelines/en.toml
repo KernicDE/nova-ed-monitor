@@ -59,6 +59,14 @@ lines = ["Hyperspace jump engaged."]
 # No variables.
 lines = ["Supercruise engaged."]
 
+[HighGWarning]
+# {g} = gravity formatted as "X.X G"
+lines = ["Caution: {g} body ahead.", "High gravity warning: {g}."]
+
+[HighGExtreme]
+# {g} = gravity formatted as "X.X G"
+lines = ["Extreme gravity alert! {g} — approach with extreme caution.", "Warning! Gravity exceeds safe threshold: {g}."]
+
 [Docked]
 # {station} = station name
 lines = ["Docked at {station}."]
@@ -376,3 +384,7 @@ lines = ["Mass lock released."]
 [BioReady]
 # {species} = species name
 lines = ["{species} ready. You may scan the next sample."]
+
+[SellExplorationData]
+# {value} = credit value formatted for speech
+lines = ["Exploration data sold: {value}."]
