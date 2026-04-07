@@ -85,15 +85,16 @@ Monitors your live stream chat anonymously (no API key needed). Announces messag
 
 ## EDSM Nightly Data
 
-No configuration required. NOVA automatically downloads and refreshes three EDSM nightly dumps once per day:
+No configuration required. NOVA automatically downloads and refreshes EDSM and Spansh nightly dumps once per day:
 
 | Dump | Data provided |
 |------|---------------|
 | `systemsPopulated.json.gz` | Nearest inhabited system, allegiance, population |
 | `powerPlay.json.gz` | Power Play controlling power and state per system |
 | `stations.json.gz` | Stations at next route waypoint (market, shipyard, outfitting, refuel) |
+| `systems_neutron.json.gz` | Neutron star positions for the local route planner (~50 k systems) |
 
-Data is stored in the local SQLite database (`events.db`). The database grows by roughly 20–40 MB after the first download. The download happens in the background — NOVA starts immediately and populates data as soon as the import is complete.
+Data is stored in the local SQLite database (`events.db`). The database grows by roughly 50–80 MB after the first download (EDSM + neutron stars). Downloads happen in the background — NOVA starts immediately and populates data as soon as the import is complete.
 
 ---
 
@@ -104,6 +105,43 @@ Data is stored in the local SQLite database (`events.db`). The database grows by
 # ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
 # notable_value_threshold = 500000
 ```
+
+---
+
+## Screenshot Processing
+
+```toml
+# Source folder — ED screenshot directory (leave empty to auto-detect):
+# screenshot_dir = /path/to/screenshots
+
+# Destination folder (default: ~/Pictures/Elite Dangerous):
+# screenshot_dest = ~/Pictures/Elite Dangerous
+```
+
+NOVA watches the ED screenshot folder and automatically:
+1. Converts BMP files to PNG (requires the `Pillow` library, installed automatically)
+2. Renames each file to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`
+3. Moves the file to the destination folder, creating it if needed
+
+**Auto-detected source directories (checked in order):**
+
+| Platform | Default path |
+|----------|-------------|
+| Linux (Proton / default Steam) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/…/Pictures/Frontier Developments/Elite Dangerous` |
+| Linux (Proton / Flatpak Steam) | `~/.var/app/com.valvesoftware.Steam/…/Pictures/Frontier Developments/Elite Dangerous` |
+| Windows / native | `~/Pictures/Frontier Developments/Elite Dangerous` |
+
+If auto-detection fails, set `screenshot_dir` explicitly.
+
+---
+
+## Neutron Route Planner
+
+No configuration required. NOVA downloads the Spansh neutron-star dump (`systems_neutron.json.gz`) once per day and stores it locally. Routes are computed entirely offline — no live API calls.
+
+To use: press `Tab` until the **Neutron** panel is active, then press `n` and type a destination system name. The route appears immediately using your ship's current max jump range (read from the `Loadout` journal event; fly your ship once after launching NOVA to populate it).
+
+Route accuracy: the planner uses a greedy A* algorithm — results are good for most routes. For very long routes in sparse regions, quality approaches the Spansh website's output.
 
 ---
 

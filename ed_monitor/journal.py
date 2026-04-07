@@ -171,6 +171,15 @@ def monitor(
     with lock:
         state.stats = db.get_stats()
 
+    # Restore stored fleet from previous session
+    ships_json = db.get_config("stored_ships_json")
+    if ships_json:
+        try:
+            with lock:
+                state.stored_ships = json.loads(ships_json)
+        except Exception:
+            pass
+
     # Populate power/nearest/stations from local EDSM dump data right after startup
     try:
         _update_dump_lookups(state, lock, db)
@@ -595,6 +604,12 @@ def _follow(
                         _update_dump_lookups(state, lock, db)
                     except Exception:
                         pass
+
+                # Persist fleet list so it survives restarts
+                if ev_name == "StoredShips":
+                    with lock:
+                        ships_snap = list(state.stored_ships)
+                    db.set_config("stored_ships_json", json.dumps(ships_snap))
 
                 # After route update: refresh next-waypoint stations
                 if ev_name in ("NavRoute", "NavRouteClear"):

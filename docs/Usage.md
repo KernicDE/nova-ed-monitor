@@ -18,9 +18,9 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 ┌─ System ─────────┬─ Ship ──────────────────────┬─ Route ────┐
 │ System/faction   │ Hull/Shield/Fuel gauges     │ Nav route  │
 ├──────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies   │ Overview / Bio / Missions /  │ Events     │
-│ (FSS, DSS,       │ Inventory / Engineers /      ├────────────┤
-│  values, dist)   │ Galaxy / Stats               │ Chat log   │
+│ Scanned Bodies   │ Overview / Wealth / Bio /    │ Events     │
+│ (FSS, DSS,       │ Missions / Engineers /       ├────────────┤
+│  values, dist)   │ Neutron / Galaxy / Stats     │ Chat log   │
 ├──────────────────┴──────────────────────────────┴────────────┤
 │ Keybindings                                     Vol 50% ●   │
 └───────────────────────────────────────────────────────────────┘
@@ -28,6 +28,7 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 
 **Mode indicators** (border colour):
 - White/grey — Normal flight
+- Orange — Extreme gravity approach (≥3 G)
 - Green — Analysis mode (FSS/DSS)
 - Purple — On foot
 - Red — Combat mode
@@ -42,6 +43,7 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `q` / `Esc` | Quit |
 | `?` | Help & About screen |
 | `Tab` | Cycle situational panel mode |
+| `n` | Open neutron route destination input (Neutron mode only) |
 | `r` | Toggle galaxy map scale (galactic ↔ regional ±1000 ly) |
 | `↑` / `k` | Scroll event log up |
 | `↓` / `j` | Scroll event log down |
@@ -60,10 +62,12 @@ Press `Tab` to cycle through modes. In **Auto** mode NOVA switches automatically
 |------|-------|-------------|
 | **Auto** | — | Bio → Missions → Overview; Stats when offline |
 | Overview | ✓ | System diagram, notable bodies, session totals |
+| Wealth | — | Credit balance, fleet locations, cargo, suit loadout, backpack |
+| Inventory | — | Cargo hold and materials |
 | Bio | ✓ | Active bio scans — distances, bearings, sample counts |
 | Missions | ✓ | Active mission list |
-| Inventory | — | Cargo hold and materials |
-| Engineers | — | Engineer unlock progress |
+| Engineers | — | Rank bars, rank-progress %, specialty and system per engineer |
+| Neutron | — | Neutron route planner — press `n` to enter destination |
 | Galaxy | — | Braille top-down galaxy map (`r` to toggle scale) |
 | Stats | ✓ (offline) | Persistent statistics by today / week / month / year / total |
 
@@ -155,6 +159,74 @@ When you scan a biological species on a planet surface:
 3. After all 3 samples, the scan is marked complete with total value
 
 Minimum sample distances are species-specific — NOVA knows them all.
+
+---
+
+## High-G Body Warning
+
+When your ship approaches a body with significant surface gravity, NOVA warns you via TTS:
+
+| Gravity | Behaviour |
+|---------|-----------|
+| ≥ 1.5 G | Single TTS warning: *"Caution: 2.3 G body ahead."* |
+| ≥ 3.0 G | Three TTS warnings spaced 10 s apart + full orange border flash |
+
+The orange flash and repeat warnings stop automatically when the ship touches the ground. Both the warning and the flash clear on departure (`LeaveBody`) or when entering supercruise.
+
+---
+
+## Wealth Panel
+
+The **Wealth** panel shows your financial and inventory overview across all locations:
+
+- **Balance** — current credit total, tracked from login, market transactions, missions, and exploration sales
+- **Fleet** — current ship plus all stored ships with their station and system
+- **Cargo** — items currently in your ship's cargo hold
+- **Materials** — count of raw / manufactured / encoded materials
+- **Suit Loadout** — equipped suit and weapons (when on foot)
+- **Backpack** — item counts while on foot
+
+Data updates automatically from journal events. Open the in-game outfitting or shipyard interface once per session to populate the fleet list (`StoredShips` journal event).
+
+---
+
+## Neutron Route Planner
+
+The **Neutron** panel plots neutron-boosted routes to any destination entirely offline:
+
+1. Press `Tab` until the Neutron panel is active
+2. Press `n` — a destination input box appears
+3. Type the exact system name (as shown in-game) and press Enter
+4. The route appears: each row shows the system, jump distance, and a `⚡` marker for neutron boosts
+
+The planner uses your ship's current **max jump range** (read from the `Loadout` journal event — fly your ship at least once per session for accurate results). Neutron stars provide a 4× range boost.
+
+Route data comes from a local Spansh neutron-star dump (`systems_neutron.json.gz`) refreshed once per day. No live internet connection is needed to plot routes. The first download takes place in the background on startup.
+
+---
+
+## Screenshot Processing
+
+NOVA automatically processes screenshots taken in Elite Dangerous:
+
+1. Detects new files in the ED screenshot folder (auto-detected for Proton and native installs)
+2. Converts BMP → PNG if needed
+3. Renames to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`
+4. Moves to `~/Pictures/Elite Dangerous` (created automatically)
+
+No setup required. To override folders, see [Settings → Screenshot Processing](Settings#screenshot-processing).
+
+---
+
+## Engineers Panel
+
+The **Engineers** panel shows all ~36 engineers grouped by status:
+
+- **Unlocked** — rank bar (1–5), rank-progress % toward next rank, specialty
+- **In Progress** — current unlock stage (Known / Invited / Acquainted), progress bar
+- **Locked / Unknown** — engineers not yet contacted
+
+Data comes from the `EngineerProgress` journal event (fired automatically at game login). The specialty and home system columns use built-in static data.
 
 ---
 

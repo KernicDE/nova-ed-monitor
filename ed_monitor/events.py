@@ -1646,7 +1646,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 if not isinstance(raw, dict):
                     continue
                 all_ships.append({
-                    "name":    raw.get("Name_Localised") or raw.get("ShipType_Localised") or raw.get("ShipType", ""),
+                    "name":    raw.get("Name") or raw.get("Name_Localised") or raw.get("ShipType_Localised") or raw.get("ShipType", ""),
                     "type":    _fmt_ship_type(raw.get("ShipType", "")),
                     "ident":   raw.get("ShipIdent", ""),
                     "system":  current_sys,
@@ -1657,11 +1657,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 if not isinstance(raw, dict):
                     continue
                 all_ships.append({
-                    "name":    raw.get("Name_Localised") or raw.get("ShipType_Localised") or raw.get("ShipType", ""),
+                    "name":    raw.get("Name") or raw.get("Name_Localised") or raw.get("ShipType_Localised") or raw.get("ShipType", ""),
                     "type":    _fmt_ship_type(raw.get("ShipType", "")),
                     "ident":   raw.get("ShipIdent", ""),
                     "system":  raw.get("StarSystem", ""),
-                    "station": raw.get("ShipMarketID", ""),
+                    "station": raw.get("StationName", ""),
                     "here":    False,
                 })
             state.stored_ships = all_ships

@@ -19,6 +19,11 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Nearest inhabited system** — shows the closest populated system and distance (ly) when exploring uninhabited space
 - **Next-waypoint stations** — lists stations at the next jump destination in the Route panel (name, distance, services icons: M/S/O/R)
 - **Fleet carrier lookup** — optionally queries the Spansh API for fleet carriers in your current system (enable with `carrier_lookup = true`; results cached 5 min)
+- **High-G body warning** — TTS warning when approaching a body with ≥1.5 G; three repeated alerts and full orange border flash for extreme gravity (≥3 G); stops when the ship lands
+- **Screenshot processing** — monitors the ED screenshot folder, converts BMP → PNG, renames files to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`, and moves them to `~/Pictures/Elite Dangerous` automatically
+- **Neutron route planner** — local neutron star route calculator using a daily-refreshed Spansh dump; no live API calls; press `n` in the Neutron panel to enter a destination
+- **Wallet & fleet** — Wealth panel shows credit balance, fleet location across all stations, cargo, materials, suit loadout, and backpack contents
+- **Engineer progress** — enhanced Engineers panel with rank bars, rank-progress %, specialty, and system for all ~36 engineers; grouped by Unlocked / In Progress / Locked
 - **Keybindings backup** — automatically backs up your Elite Dangerous `.binds` file whenever it changes; last 5 versions kept in `~/.config/nova/bindings_backup/`; preset switches are detected and logged in the UI
 - **Debug logging** — enable `debug_log = true` in config to write a full session log to `~/.config/nova/nova-debug.log` for diagnostics
 - **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
@@ -237,6 +242,10 @@ Open it with any text editor to adjust settings:
 # Fleet carrier lookup via Spansh API (cached 5 min, max 1 req/3 sec):
 # carrier_lookup = false
 
+# Screenshot processing — auto-detected for Proton and native installs:
+# screenshot_dir  = /path/to/ED/screenshots     # source folder (leave empty to auto-detect)
+# screenshot_dest = ~/Pictures/Elite Dangerous   # destination folder
+
 # Debug log — writes full session log to ~/.config/nova/nova-debug.log:
 # debug_log = false
 ```
@@ -270,6 +279,7 @@ journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/
 | `PgUp` / `PgDn` | Scroll by 20 lines |
 | `Home` / `g` | Jump to latest events |
 | `Tab` | Cycle situational panel mode |
+| `n` | Open neutron route destination input (Neutron mode only) |
 | `r` | Toggle galaxy map scale (galactic ↔ regional ±1000 ly) |
 | `+` / `=` | Volume up |
 | `-` | Volume down |
@@ -387,10 +397,12 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 |------|-------------|
 | Auto | Switches automatically: Bio → Missions → Overview |
 | Overview | System diagram, notable bodies, session stats |
+| Wealth | Credit balance, fleet locations, cargo, suit loadout, backpack |
+| Inventory | Cargo and materials |
 | Bio | Active bio scans with distances and bearings |
 | Missions | Active mission list |
-| Inventory | Cargo and materials |
-| Engineers | Engineer unlock progress |
+| Engineers | Rank bars, progress %, specialty and system for all engineers |
+| Neutron | Local neutron route planner — press `n` to enter destination |
 | Galaxy | Braille top-down galaxy map — `r` toggles galactic (±65k ly) / regional (±1k ly) |
 | Stats | Persistent statistics: jumps, credits, FSS/DSS/bio, enemies, ships lost |
 

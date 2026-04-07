@@ -999,12 +999,12 @@ class BodiesPanel(_Panel):
 
         for b in visible:
             short = _short_name(b.name, system).strip()
-            
+
             # Display logic: If it's a star and name matches system precisely, call it 'A'
             display_name = short
             if not display_name:
                 display_name = "A" if b.star_type else b.name
-            
+
             parts = display_name.split()
 
             # Hierarchical indentation:
@@ -1024,8 +1024,16 @@ class BodiesPanel(_Panel):
                 level = len(parts) - 1
 
             indent = " " * max(0, level)
-            name   = indent + display_name
-            btype  = _abbrev_type(b.planet_class, b.star_type)
+            # High-G coloring: orange ≥1.5G, red-orange ≥3.0G (landable planets only)
+            g_val = b.surface_gravity / 9.80665 if b.surface_gravity > 0 and b.landable else 0.0
+            if g_val >= 3.0:
+                name_style = "bold rgb(220,60,0)"
+            elif g_val >= 1.5:
+                name_style = "bold rgb(220,140,0)"
+            else:
+                name_style = "white"
+            name  = Text(indent + display_name, style=name_style)
+            btype = _abbrev_type(b.planet_class, b.star_type)
 
             val     = _fmt_value_short(b.value if b.value > 0 else _estimated_value(b))
             val_col = (P.GOLD if b.value > 1_000_000
@@ -1425,32 +1433,29 @@ def _render_engineers(s: AppState) -> RenderableType:
         parts.append(_section_header(section_label))
         tbl = Table(show_header=False, show_edge=False, show_lines=False,
                     padding=(0, 1), box=None)
-        tbl.add_column("name",     style="white")
-        tbl.add_column("spec",     style=P.LABEL, width=16)
-        tbl.add_column("rank",     width=7)
-        tbl.add_column("progress", width=10)
+        tbl.add_column("name", style="white", no_wrap=True)
+        tbl.add_column("spec", style=P.LABEL, width=14, no_wrap=True)
+        tbl.add_column("sys",  style=P.HUD_CYAN, width=14, no_wrap=True)
+        tbl.add_column("rank", width=9, no_wrap=True)
 
         for name, rank, rp, prog in group:
-            spec, _ = _ENGINEER_STATIC.get(name, ("", ""))
+            spec, system = _ENGINEER_STATIC.get(name, ("", ""))
+            sys_short = system.split("/")[0].strip()[:14] if system else ""
 
             if prog == "Unlocked":
-                prog_col  = P.HUD_GREEN
-                rank_cell = _rank_bar(rank)
-                prog_cell = Text(f"{int(rp)}%", style=P.LABEL) if rp > 0 else Text("Max" if rank >= 5 else "", style=P.LABEL)
+                rank_bar = _rank_bar(rank)
+                rank_bar.append(f" {rank}/5", style=P.LABEL)
+                rank_cell = rank_bar
             elif prog in ("Invited", "Acquainted", "Known"):
-                prog_col  = P.AMBER
-                rank_cell = Text(prog, style=prog_col)
-                prog_cell = _progress_bar(rp) if rp > 0 else Text("", style=P.LABEL)
+                rank_cell = _progress_bar(rp) if rp > 0 else Text(prog, style=P.AMBER)
             else:
-                prog_col  = P.LABEL
-                rank_cell = Text(prog or "Unknown", style=prog_col)
-                prog_cell = Text("", style=P.LABEL)
+                rank_cell = Text(prog or "Unknown", style=P.LABEL)
 
             tbl.add_row(
                 Text(name, style="white"),
                 Text(spec, style=P.LABEL),
+                Text(sys_short, style=P.HUD_CYAN),
                 rank_cell,
-                prog_cell,
             )
         parts.append(tbl)
 
@@ -1558,7 +1563,7 @@ def _render_wealth(s: AppState) -> RenderableType:
     return Group(*parts)
 
 
-def _render_neutron(s: AppState) -> RenderableType:
+def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     parts: list[RenderableType] = []
 
     # Status header
@@ -1595,6 +1600,10 @@ def _render_neutron(s: AppState) -> RenderableType:
                        style=P.AMBER)
         parts.append(summary)
 
+        PAGE = 30
+        scroll = max(0, min(scroll, max(0, len(route) - PAGE)))
+        visible = route[scroll:scroll + PAGE]
+
         tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1))
         HDR = "bold rgb(195,160,55)"
         tbl.add_column("#",      width=4,  header_style=HDR, justify="right")
@@ -1602,7 +1611,7 @@ def _render_neutron(s: AppState) -> RenderableType:
         tbl.add_column("Dist",   width=8,  header_style=HDR, justify="right")
         tbl.add_column("",       width=2,  header_style=HDR)
 
-        for i, jump in enumerate(route[:40], 1):
+        for i, jump in enumerate(visible, scroll + 1):
             sys_name = jump.get("system", "?")
             dist     = jump.get("distance", 0.0)
             is_n     = jump.get("neutron", False)
@@ -1614,8 +1623,12 @@ def _render_neutron(s: AppState) -> RenderableType:
                 Text(f"{dist:.1f} ly", style=dist_col),
                 marker,
             )
-        if len(route) > 40:
-            tbl.add_row(Text("…", style=P.LABEL), Text(f"+{len(route)-40} more jumps", style=P.LABEL), Text(""), Text(""))
+
+        if scroll > 0:
+            tbl.add_row(Text("↑", style=P.LABEL), Text(f"{scroll} above", style=P.LABEL), Text(""), Text(""))
+        remaining = len(route) - scroll - len(visible)
+        if remaining > 0:
+            tbl.add_row(Text("↓", style=P.LABEL), Text(f"{remaining} more  (↓/↑)", style=P.LABEL), Text(""), Text(""))
         parts.append(tbl)
     else:
         hint = Text()
@@ -1735,6 +1748,16 @@ def _render_overview(s: AppState) -> RenderableType:
             for _ in range(n):
                 _emit("-", "rgb(55,55,55)")
 
+        def _planet_col(body: BodyInfo) -> str:
+            """Body color, overridden orange/red for high-G landable bodies."""
+            if body.landable and body.surface_gravity > 0:
+                g = body.surface_gravity / 9.80665
+                if g >= 3.0:
+                    return "bold rgb(220,60,0)"
+                if g >= 1.5:
+                    return "bold rgb(220,140,0)"
+            return f"bold {_body_color(body.planet_class, body.star_type)}"
+
         first_star = True
         for sk in sorted_star_keys:
             sb  = star_index[sk]
@@ -1749,23 +1772,21 @@ def _render_overview(s: AppState) -> RenderableType:
             for planet in sp:
                 _sep(3)
                 p_short = _short_name(planet.name, _sys).strip()
-                p_col   = _body_color(planet.planet_class, planet.star_type)
-                _emit("O", f"bold {p_col}", planet)
+                _emit("O", _planet_col(planet), planet)
                 for moon in sorted(planet_moons.get(p_short, []),
                                    key=lambda b: _natural_key(_short_name(b.name, _sys))):
                     _sep(1)
-                    _emit("o", _body_color(moon.planet_class, moon.star_type), moon)
+                    _emit("o", _planet_col(moon), moon)
 
         # Barycentre planets at the end (orbit the binary, not a single star)
         for planet in barycentre_planets:
             _sep(3)
             p_short = _short_name(planet.name, _sys).strip()
-            p_col   = _body_color(planet.planet_class, planet.star_type)
-            _emit("O", f"bold {p_col}", planet)
+            _emit("O", _planet_col(planet), planet)
             for moon in sorted(planet_moons.get(p_short, []),
                                key=lambda b: _natural_key(_short_name(b.name, _sys))):
                 _sep(1)
-                _emit("o", _body_color(moon.planet_class, moon.star_type), moon)
+                _emit("o", _planet_col(moon), moon)
 
         W = len(ruler_chars)
         if W:
@@ -2426,6 +2447,7 @@ class SituationalPanel(_Panel):
     _mode:   str     = "auto"
     _active: str     = "overview"
     _galaxy_regional: bool = False
+    _neutron_scroll:  int  = 0
 
     DEFAULT_CSS = """
     SituationalPanel {
@@ -2447,6 +2469,12 @@ class SituationalPanel(_Panel):
     def toggle_galaxy_scale(self) -> None:
         """Toggle between galactic and regional scale in galaxy mode."""
         self._galaxy_regional = not self._galaxy_regional
+        self.refresh()
+
+    def scroll_neutron(self, delta: int) -> None:
+        """Scroll the neutron route list up/down."""
+        route_len = len(self._snap.neutron_route) if self._snap else 0
+        self._neutron_scroll = max(0, min(self._neutron_scroll + delta, max(0, route_len - 5)))
         self.refresh()
 
     def _resolve(self, s: AppState) -> str:
@@ -2495,7 +2523,7 @@ class SituationalPanel(_Panel):
         if self._active == "wealth":
             return _render_wealth(s)
         if self._active == "neutron":
-            return _render_neutron(s)
+            return _render_neutron(s, scroll=self._neutron_scroll)
         if self._active == "galaxy":
             return _render_galaxy(s, regional=self._galaxy_regional,
                                   panel_w=self.size.width, panel_h=self.size.height)

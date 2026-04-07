@@ -438,19 +438,39 @@ class NOVAApp(App):
             self.exit()
 
         elif key in ("down", "j"):
-            self._scroll = min(self._scroll + 1, self._max_scroll)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(1)
+            else:
+                self._scroll = min(self._scroll + 1, self._max_scroll)
 
         elif key in ("up", "k"):
-            self._scroll = max(self._scroll - 1, 0)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(-1)
+            else:
+                self._scroll = max(self._scroll - 1, 0)
 
         elif key == "pagedown":
-            self._scroll = min(self._scroll + 20, self._max_scroll)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(10)
+            else:
+                self._scroll = min(self._scroll + 20, self._max_scroll)
 
         elif key == "pageup":
-            self._scroll = max(self._scroll - 20, 0)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(-10)
+            else:
+                self._scroll = max(self._scroll - 20, 0)
 
         elif key in ("home", "g"):
-            self._scroll = 0
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(-9999)
+            else:
+                self._scroll = 0
 
         elif key == "tab":
             self.query_one(SituationalPanel).cycle()

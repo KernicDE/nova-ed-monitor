@@ -280,6 +280,13 @@ def _set_last_download(db, ts: float) -> None:
 def _refresh_dump_if_needed(db) -> None:
     last = _get_last_download(db)
     if time.time() - last < _MAX_AGE:
+        # Still fresh — but re-import if table is empty (e.g. previous import failed)
+        with db._lock:
+            count = db._conn.execute("SELECT COUNT(*) FROM neutron_stars").fetchone()[0]
+        if count > 0:
+            return
+        _log.info("Neutron star table is empty despite recent download — re-importing.")
+        _import_dump(db)
         return
 
     _log.info("Downloading neutron star dump from Spansh…")
@@ -342,11 +349,14 @@ def _import_dump(db) -> None:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                name   = obj.get("name", "") or obj.get("system", "")
+                name   = obj.get("name") or obj.get("system", "")
                 coords = obj.get("coords") or {}
-                x = coords.get("x")
-                y = coords.get("y")
-                z = coords.get("z")
+                x = coords.get("x") if coords else None
+                if x is None: x = obj.get("x")
+                y = coords.get("y") if coords else None
+                if y is None: y = obj.get("y")
+                z = coords.get("z") if coords else None
+                if z is None: z = obj.get("z")
                 if name and x is not None:
                     batch.append((name, float(x), float(y), float(z)))
                     if len(batch) >= _BATCH:
