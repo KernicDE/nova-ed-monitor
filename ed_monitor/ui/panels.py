@@ -1598,9 +1598,10 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     elif status == "done" and route:
         total_ly = sum(j.get("distance", 0) for j in route)
         neutron_count = sum(1 for j in route if j.get("neutron"))
+        src_label = f"  via {s.neutron_route_source}" if s.neutron_route_source else ""
         summary = Text()
         summary.append(f"\n  → {target}\n", style="bold white")
-        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts\n",
+        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts{src_label}\n",
                        style=P.AMBER)
         parts.append(summary)
 
@@ -1616,7 +1617,9 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         tbl.add_column("",       width=2,  header_style=HDR)
 
         for i, jump in enumerate(visible, scroll + 1):
-            sys_name = jump.get("system", "?")
+            sys_name = jump.get("system") or ""
+            if sys_name == "(direct jump)":
+                sys_name = ""
             dist     = jump.get("distance", 0.0)
             is_n     = jump.get("neutron", False)
             marker   = Text("⚡", style="bold rgb(195,160,55)") if is_n else Text("")
