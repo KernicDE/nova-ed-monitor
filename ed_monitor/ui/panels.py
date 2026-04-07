@@ -1598,46 +1598,66 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         t = Text()
         t.append(f"\n  Could not plot route to '{target}'.\n", style=P.HUD_CRIT)
         t.append("  Check that the system name is spelled exactly as in-game.\n", style=P.LABEL)
-        t.append("  (EDSM data required — download may still be in progress)\n", style=P.LABEL)
         parts.append(t)
     elif status == "done" and route:
-        total_ly = sum(j.get("distance", 0) for j in route)
-        neutron_count = sum(1 for j in route if j.get("neutron"))
+        # Skip the starting-system entry (distance=0, jumps=0) — it's just the origin
+        display_route = [j for j in route if j.get("distance", 0) > 0 or j.get("jumps", 0) > 0]
+        total_ly      = sum(j.get("distance", 0) for j in display_route)
+        neutron_count = sum(1 for j in display_route if j.get("neutron"))
+        regular_hops  = sum(j.get("jumps", 0) for j in display_route)
         summary = Text()
         summary.append(f"\n  → {target}\n", style="bold white")
-        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts\n",
-                       style=P.AMBER)
+        summary.append(
+            f"  {len(display_route)} waypoints  |  {regular_hops} regular + {neutron_count} boosted jumps"
+            f"  |  {total_ly:,.0f} ly\n",
+            style=P.AMBER,
+        )
         parts.append(summary)
 
         PAGE = 30
-        scroll = max(0, min(scroll, max(0, len(route) - PAGE)))
-        visible = route[scroll:scroll + PAGE]
+        scroll = max(0, min(scroll, max(0, len(display_route) - PAGE)))
+        visible = display_route[scroll:scroll + PAGE]
 
         tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1))
         HDR = "bold rgb(195,160,55)"
-        tbl.add_column("#",      width=4,  header_style=HDR, justify="right")
+        tbl.add_column("#",    width=4,  header_style=HDR, justify="right")
         tbl.add_column("System", header_style=HDR)
-        tbl.add_column("Dist",   width=8,  header_style=HDR, justify="right")
-        tbl.add_column("",       width=2,  header_style=HDR)
+        tbl.add_column("Boost", width=9, header_style=HDR, justify="right")
+        tbl.add_column("",     width=5,  header_style=HDR)
 
         for i, jump in enumerate(visible, scroll + 1):
-            sys_name = jump.get("system") or ""
-            if sys_name == "(direct jump)":
-                sys_name = ""
-            dist     = jump.get("distance", 0.0)
-            is_n     = jump.get("neutron", False)
-            marker   = Text("⚡", style="bold rgb(195,160,55)") if is_n else Text("")
-            dist_col = P.HUD_GREEN if is_n else "white"
+            sys_name  = jump.get("system") or "—"
+            dist      = jump.get("distance", 0.0)
+            pre_jumps = jump.get("jumps", 0)
+            is_n      = jump.get("neutron", False)
+            is_last   = (i == len(display_route))
+
+            dist_str = Text(
+                f"{dist:.1f} ly",
+                style=P.HUD_GREEN if is_n else ("bold white" if is_last else "white"),
+            )
+
+            # Marker col: ⚡ Nj for neutron (Nj = regular hops to reach this star)
+            #             Nj → for non-neutron with pre-hops  (e.g. final destination)
+            #             (empty) for non-neutron without pre-hops
+            marker = Text()
+            if is_n:
+                marker.append("⚡", style=f"bold {P.HUD_GREEN}")
+                if pre_jumps > 0:
+                    marker.append(f" {pre_jumps}j", style=P.LABEL)
+            elif pre_jumps > 0:
+                marker.append(f"{pre_jumps}j", style=P.LABEL)
+
             tbl.add_row(
                 Text(str(i), style=P.LABEL),
-                Text(sys_name, style="bold white" if i == len(route) else "white"),
-                Text(f"{dist:.1f} ly", style=dist_col),
+                Text(sys_name, style="bold white" if is_last else "white"),
+                dist_str,
                 marker,
             )
 
         if scroll > 0:
             tbl.add_row(Text("↑", style=P.LABEL), Text(f"{scroll} above", style=P.LABEL), Text(""), Text(""))
-        remaining = len(route) - scroll - len(visible)
+        remaining = len(display_route) - scroll - len(visible)
         if remaining > 0:
             tbl.add_row(Text("↓", style=P.LABEL), Text(f"{remaining} more  (↓/↑)", style=P.LABEL), Text(""), Text(""))
         parts.append(tbl)

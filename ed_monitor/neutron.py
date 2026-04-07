@@ -90,10 +90,10 @@ def _spansh_route(src: str, dst: str, jump_range: float) -> Optional[list[dict]]
     Returns list of {system, neutron, distance} or None on failure."""
 
     params = urllib.parse.urlencode({
-        "source":      src,
-        "destination": dst,
-        "efficiency":  60,
-        "range":       f"{jump_range:.2f}",
+        "from":       src,
+        "to":         dst,
+        "efficiency": 60,
+        "range":      f"{jump_range:.2f}",
     }).encode("utf-8")
 
     try:
@@ -136,9 +136,10 @@ def _spansh_route(src: str, dst: str, jump_range: float) -> Optional[list[dict]]
             for j in jumps:
                 dist = float(j.get("distance_jumped") or j.get("distance") or 0.0)
                 route.append({
-                    "system":  j.get("system", "?"),
-                    "neutron": bool(j.get("neutron_star", False)),
+                    "system":   j.get("system", "?"),
+                    "neutron":  bool(j.get("neutron_star", False)),
                     "distance": dist,
+                    "jumps":    int(j.get("jumps") or 0),  # regular hops to reach this waypoint
                 })
             return route or None
         elif status == "error":
