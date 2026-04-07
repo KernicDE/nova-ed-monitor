@@ -288,10 +288,56 @@ def _old_config_path() -> Path | None:
     return p if p.exists() else None
 
 
+def _heroic_journal() -> "Path | None":
+    """Try to find the ED journal dir from Heroic Games Launcher config."""
+    import json as _json
+
+    ed_path   = Path("Saved Games/Frontier Developments/Elite Dangerous")
+    wine_user = Path("drive_c/users/steamuser") / ed_path
+    ptn_user  = Path("pfx/drive_c/users/steamuser") / ed_path
+
+    # Heroic config dirs: native install and Flatpak
+    heroic_cfg_dirs = [
+        Path.home() / ".config/heroic",
+        Path.home() / ".var/app/com.heroicgameslauncher.hgl/config/heroic",
+    ]
+
+    _ED_KEYWORDS = {"elite dangerous", "elite-dangerous", "elitedangerous"}
+
+    for cfg_dir in heroic_cfg_dirs:
+        games_cfg = cfg_dir / "GamesConfig"
+        if not games_cfg.is_dir():
+            continue
+        for json_file in games_cfg.iterdir():
+            if json_file.suffix != ".json":
+                continue
+            try:
+                data = _json.loads(json_file.read_text(encoding="utf-8", errors="replace"))
+                # GamesConfig files are keyed by app ID; the value is the config dict
+                for _app_id, game_cfg in data.items() if isinstance(data, dict) else []:
+                    if not isinstance(game_cfg, dict):
+                        continue
+                    title = str(game_cfg.get("title", "")).lower()
+                    if not any(kw in title for kw in _ED_KEYWORDS):
+                        continue
+                    prefix = game_cfg.get("winePrefix") or game_cfg.get("winePrefixPath")
+                    if prefix:
+                        base = Path(prefix)
+                        for suffix in (wine_user, ptn_user):
+                            p = base / suffix
+                            if p.is_dir():
+                                return p
+            except Exception:
+                continue
+
+    return None
+
+
 def discover_journal() -> Path | None:
     home    = Path.home()
     ed_path = Path("Saved Games/Frontier Developments/Elite Dangerous")
     proton  = Path("pfx/drive_c/users/steamuser") / ed_path
+    wine    = Path("drive_c/users/steamuser") / ed_path
 
     candidates = [
         # Linux: Proton — default Steam install
@@ -300,8 +346,14 @@ def discover_journal() -> Path | None:
         home / ".steam/steam/steamapps/compatdata/359320" / proton,
         # Linux: Proton — Flatpak Steam
         home / ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/359320" / proton,
+        # Heroic Games Launcher (native + Flatpak) — game-named prefix, Wine or Proton
+        home / "Games/Heroic/Prefixes/Elite Dangerous" / wine,
+        home / "Games/Heroic/Prefixes/Elite Dangerous" / proton,
+        # Heroic — "default" prefix group (some versions use this layout)
+        home / "Games/Heroic/Prefixes/default/Elite Dangerous" / wine,
+        home / "Games/Heroic/Prefixes/default/Elite Dangerous" / proton,
         # Windows native (common path)
-        Path.home() / ed_path,
+        home / ed_path,
         # macOS
         home / "Library/Application Support/Frontier Developments/Elite Dangerous",
     ]
@@ -309,4 +361,6 @@ def discover_journal() -> Path | None:
     for p in candidates:
         if p.is_dir():
             return p
-    return None
+
+    # Fall back to parsing Heroic's GamesConfig for custom prefix locations
+    return _heroic_journal()
