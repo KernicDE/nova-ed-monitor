@@ -44,7 +44,7 @@ def main() -> None:
     edsm_q    = edsm.spawn(state, lock)
     edsm_dumps.spawn(state, lock, database)
     spansh_q  = spansh.spawn(state, lock) if cfg.carrier_lookup else None
-    neutron_q = neutron.spawn(state, lock, database)
+    neutron_q = neutron.spawn(state, lock)
 
     with lock:
         state.volume                    = cfg.default_volume

@@ -1572,7 +1572,8 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     route  = s.neutron_route
 
     hdr = Text()
-    hdr.append("NEUTRON ROUTE PLOTTER\n", style="bold rgb(195,160,55)")
+    hdr.append("NEUTRON ROUTE PLOTTER  ", style="bold rgb(195,160,55)")
+    hdr.append("via Spansh API\n", style=P.LABEL)
     if s.jump_range > 0:
         hdr.append(f"  Unladen max: ", style=P.LABEL)
         hdr.append(f"{s.jump_range:.1f} ly", style="white")
@@ -1584,14 +1585,9 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
             hdr.append(f"{s.jump_range_last:.1f} ly", style="white")
             hdr.append(f"{diff_str}\n", style=P.LABEL)
         else:
-            hdr.append("  Last jump:  unknown (make a jump to measure)\n", style=P.LABEL)
+            hdr.append("  Last jump:  unknown — make a jump first for accurate routing\n", style=P.LABEL)
     else:
-        hdr.append("  Jump range: unknown — fly your ship to load Loadout data\n", style=P.LABEL)
-    if s.neutron_star_count > 0:
-        hdr.append(f"  DB: {s.neutron_star_count:,} neutron stars  ", style=P.LABEL)
-    else:
-        hdr.append("  DB: downloading neutron star data…  ", style=P.HUD_WARN)
-    hdr.append("Fuel: scoop at non-neutron hops between waypoints\n", style=P.LABEL)
+        hdr.append("  Jump range: unknown — fly your ship first\n", style=P.LABEL)
     parts.append(hdr)
 
     if status == "plotting":
@@ -1607,10 +1603,9 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     elif status == "done" and route:
         total_ly = sum(j.get("distance", 0) for j in route)
         neutron_count = sum(1 for j in route if j.get("neutron"))
-        src_label = f"  via {s.neutron_route_source}" if s.neutron_route_source else ""
         summary = Text()
         summary.append(f"\n  → {target}\n", style="bold white")
-        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts{src_label}\n",
+        summary.append(f"  {len(route)} jumps  |  {total_ly:,.0f} ly total  |  {neutron_count} neutron boosts\n",
                        style=P.AMBER)
         parts.append(summary)
 
