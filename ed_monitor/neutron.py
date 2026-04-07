@@ -355,6 +355,8 @@ def _import_dump(db) -> None:
                     continue
                 if line.startswith(","):
                     line = line[1:]
+                if line.endswith(","):
+                    line = line[:-1]
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
