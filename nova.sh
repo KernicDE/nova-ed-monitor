@@ -150,11 +150,17 @@ fi
 # ── Ensure SDL2 build dependencies (needed if pygame must compile from source) ─
 
 ensure_build_deps() {
-    # Skip if sdl2-config is already present (pygame can build fine)
-    command -v sdl2-config &>/dev/null 2>&1 && return 0
-    pkg-config --exists sdl2 2>/dev/null && return 0
+    local has_sdl2=0 has_pydevel=0
+    { command -v sdl2-config &>/dev/null 2>&1 || pkg-config --exists sdl2 2>/dev/null; } && has_sdl2=1
+    $PYTHON -c "
+import sysconfig, os
+h = os.path.join(sysconfig.get_path('include'), 'Python.h')
+exit(0 if os.path.exists(h) else 1)
+" 2>/dev/null && has_pydevel=1
 
-    warn "SDL2 development libraries not found — installing build dependencies..."
+    [ $has_sdl2 -eq 1 ] && [ $has_pydevel -eq 1 ] && return 0
+
+    warn "Missing build dependencies — installing..."
     case "$_PM" in
         pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 python ;;
         apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev python3-dev ;;
