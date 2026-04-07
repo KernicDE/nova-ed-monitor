@@ -473,7 +473,11 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             # True during liftoff animation, which caused false BioReady callouts.
             # Also suppressed while navigating to a COMP-scanned position (no foot
             # samples taken yet) — the player needs to go TO the marker, not away.
-            can_sample = not state.in_main_ship and not unvisited_comp
+            # mass_locked / supercruise guard: STATUS.JSON can briefly report
+            # in_main_ship=False during liftoff transitions; those two flight-state
+            # flags block false BioReady fires that slip through that window.
+            can_sample = (not state.in_main_ship and not state.mass_locked
+                          and not state.supercruise and not unvisited_comp)
             if not sc.alerted and can_sample:
                 sc.alerted = True
                 try:
