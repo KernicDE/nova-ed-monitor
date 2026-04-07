@@ -156,14 +156,14 @@ ensure_build_deps() {
 
     warn "SDL2 development libraries not found — installing build dependencies..."
     case "$_PM" in
-        pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 ;;
-        apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev ;;
-        dnf)    sudo dnf install -y SDL2-devel freetype-devel ;;
+        pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 python ;;
+        apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev python3-dev ;;
+        dnf)    sudo dnf install -y SDL2-devel freetype-devel python3-devel ;;
         brew)   brew install sdl2 freetype ;;
-        *)      warn "Could not auto-install SDL2. Install SDL2 dev libraries manually:"
-                warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel"
-                warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev"
-                warn "  Arch:           sudo pacman -S sdl2 freetype2" ;;
+        *)      warn "Could not auto-install build deps. Install them manually:"
+                warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel python3-devel"
+                warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev python3-dev"
+                warn "  Arch:           sudo pacman -S sdl2 freetype2 python" ;;
     esac
 }
 
