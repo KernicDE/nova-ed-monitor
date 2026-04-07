@@ -1574,15 +1574,24 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     hdr = Text()
     hdr.append("NEUTRON ROUTE PLOTTER\n", style="bold rgb(195,160,55)")
     if s.jump_range > 0:
-        hdr.append(f"  Jump range: ", style=P.LABEL)
+        hdr.append(f"  Unladen max: ", style=P.LABEL)
         hdr.append(f"{s.jump_range:.1f} ly", style="white")
-        hdr.append(f"  Boosted: {s.jump_range * 4:.0f} ly\n", style=P.LABEL)
+        hdr.append(f"  →  boosted {s.jump_range * 4:.0f} ly\n", style=P.LABEL)
+        if s.jump_range_last > 0:
+            diff = s.jump_range - s.jump_range_last
+            diff_str = f"  ({diff:+.1f} ly vs unladen)" if abs(diff) > 0.5 else ""
+            hdr.append(f"  Last jump:  ", style=P.LABEL)
+            hdr.append(f"{s.jump_range_last:.1f} ly", style="white")
+            hdr.append(f"{diff_str}\n", style=P.LABEL)
+        else:
+            hdr.append("  Last jump:  unknown (make a jump to measure)\n", style=P.LABEL)
     else:
-        hdr.append("  Jump range: Unknown (fly your ship to update)\n", style=P.LABEL)
+        hdr.append("  Jump range: unknown — fly your ship to load Loadout data\n", style=P.LABEL)
     if s.neutron_star_count > 0:
-        hdr.append(f"  DB: {s.neutron_star_count:,} neutron stars loaded\n", style=P.LABEL)
+        hdr.append(f"  DB: {s.neutron_star_count:,} neutron stars  ", style=P.LABEL)
     else:
-        hdr.append("  DB: downloading neutron star data…\n", style=P.HUD_WARN)
+        hdr.append("  DB: downloading neutron star data…  ", style=P.HUD_WARN)
+    hdr.append("Fuel: scoop at non-neutron hops between waypoints\n", style=P.LABEL)
     parts.append(hdr)
 
     if status == "plotting":

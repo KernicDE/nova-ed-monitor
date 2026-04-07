@@ -325,7 +325,8 @@ class AppState:
     backpack:     dict = field(default_factory=dict)   # from Backpack/BackpackChange events
 
     # Neutron route plotter
-    jump_range:           float = 0.0   # max jump range in ly, from Loadout event
+    jump_range:           float = 0.0   # MaxJumpRange from Loadout (unladen theoretical max)
+    jump_range_last:      float = 0.0   # last actual JumpDist from FSDJump (laden reality)
     neutron_route:        list  = field(default_factory=list)  # list of jump dicts
     neutron_route_to:     str   = ""
     neutron_route_status: str   = ""   # "", "plotting", "done", "error"

@@ -531,6 +531,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.allegiance = allegiance
             state.jump_dist  = dist
             state.fuel       = fuel
+            if dist > 0.0:
+                state.jump_range_last = dist  # actual laden range for this jump
             state.fuel_announced = False
             state.discovery_announced = False
             state.hull       = _f(ev, "Health") if "Health" in ev else state.hull

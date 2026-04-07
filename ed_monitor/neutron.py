@@ -84,10 +84,11 @@ def _worker(q: queue.Queue, state: AppState, lock: threading.RLock, db) -> None:
             continue
 
         # Grab current position + jump range from state
+        # Prefer last actual jump distance (laden reality) over unladen theoretical max
         with lock:
-            star_pos   = state.star_pos
-            jump_range = state.jump_range
-            cur_system = state.system
+            star_pos        = state.star_pos
+            jump_range      = state.jump_range_last if state.jump_range_last > 0 else state.jump_range
+            cur_system      = state.system
 
         if not star_pos or jump_range <= 0.0:
             with lock:
