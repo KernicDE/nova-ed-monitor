@@ -269,7 +269,8 @@ _PT_WORDS = frozenset({
 })
 
 
-_TTS_LANG: str = "en"
+_TTS_LANG:  str = "en"
+_CHAT_LANG: str = ""   # fallback for chat TTS; empty = rely on auto-detection only
 
 
 def set_voices(voices: dict[str, str]) -> None:
@@ -281,6 +282,12 @@ def set_tts_lang(lang: str) -> None:
     """Set NOVA's own voiceover language (used for voiceline lookup and voice selection)."""
     global _TTS_LANG
     _TTS_LANG = lang
+
+
+def set_chat_lang(lang: str) -> None:
+    """Set fallback language for chat TTS when auto-detection returns English."""
+    global _CHAT_LANG
+    _CHAT_LANG = lang
 
 
 def _phonetic_sub(text: str) -> str:
@@ -346,7 +353,10 @@ def _say(
 def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> None:
     """Speak chat text with language detection. source='Twitch' adds Twitch prefix."""
     try:
-        lang  = _detect_lang(msg)
+        lang = _detect_lang(msg)
+        # If detection falls back to English and a chat language is configured, use it
+        if lang == "en" and _CHAT_LANG:
+            lang = _CHAT_LANG
         voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
         verb  = _LANG_VERBS.get(lang, "says")
         on    = _LANG_ON.get(lang, "on")

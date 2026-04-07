@@ -23,6 +23,40 @@ success() { echo -e "${GREEN}  ${*}${NC}"; }
 warn()    { echo -e "${YELLOW}  ${*}${NC}"; }
 error()   { echo -e "${RED}  ${*}${NC}"; }
 
+# ── Detect package manager ────────────────────────────────────────────────────
+# Reads /etc/os-release (reliable on all modern Linux distros) before falling
+# back to command presence — prevents false apt-get matches on RPM-based systems.
+
+detect_pm() {
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        local _id _id_like
+        _id=$(. /etc/os-release && echo "${ID:-}")
+        _id_like=$(. /etc/os-release && echo "${ID_LIKE:-}")
+        case "$_id $id_like" in
+            *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) echo "dnf"; return ;;
+        esac
+        case "$_id_like $id_like" in
+            *fedora*|*rhel*|*centos*)                          echo "dnf"; return ;;
+            *debian*|*ubuntu*)                                 echo "apt"; return ;;
+            *arch*|*manjaro*)                                  echo "pacman"; return ;;
+        esac
+        case "$_id" in
+            fedora|rhel|centos|rocky|almalinux|nobara)         echo "dnf"; return ;;
+            debian|ubuntu|linuxmint|pop|elementary|kali)       echo "apt"; return ;;
+            arch|manjaro|endeavouros|garuda|artix)             echo "pacman"; return ;;
+        esac
+    fi
+    # Fallback: command presence (note: dnf checked before apt to avoid false matches)
+    command -v pacman  &>/dev/null && echo "pacman" && return
+    command -v dnf     &>/dev/null && echo "dnf"    && return
+    command -v apt-get &>/dev/null && echo "apt"    && return
+    command -v brew    &>/dev/null && echo "brew"   && return
+    echo "unknown"
+}
+
+_PM=$(detect_pm)
+
 # ── Parse args ────────────────────────────────────────────────────────────────
 
 SELF_UPDATE=1   # set to 0 after self-update to avoid loop
@@ -90,23 +124,19 @@ if ! PYTHON=$(find_python); then
     warn "Python 3.11+ not found. Attempting to install..."
     echo ""
 
-    if command -v pacman &>/dev/null; then
-        info "Detected Arch Linux / Manjaro — installing Python via pacman..."
-        sudo pacman -S --noconfirm python
-    elif command -v apt-get &>/dev/null; then
-        info "Detected Debian / Ubuntu / Mint — installing Python via apt..."
-        sudo apt-get update -qq && sudo apt-get install -y python3 python3-venv
-    elif command -v dnf &>/dev/null; then
-        info "Detected Fedora / RHEL — installing Python via dnf..."
-        sudo dnf install -y python3
-    elif command -v brew &>/dev/null; then
-        info "Detected macOS / Homebrew — installing Python via brew..."
-        brew install python3
-    else
-        error "Cannot auto-install Python on this system."
-        error "Please install Python 3.11+ from https://www.python.org/downloads/"
-        exit 1
-    fi
+    case "$_PM" in
+        pacman) info "Detected Arch Linux / Manjaro — installing Python via pacman..."
+                sudo pacman -S --noconfirm python ;;
+        apt)    info "Detected Debian / Ubuntu / Mint — installing Python via apt..."
+                sudo apt-get update -qq && sudo apt-get install -y python3 python3-venv ;;
+        dnf)    info "Detected Fedora / RHEL — installing Python via dnf..."
+                sudo dnf install -y python3 ;;
+        brew)   info "Detected macOS / Homebrew — installing Python via brew..."
+                brew install python3 ;;
+        *)      error "Cannot auto-install Python on this system."
+                error "Please install Python 3.11+ from https://www.python.org/downloads/"
+                exit 1 ;;
+    esac
 
     PYTHON=$(find_python) || {
         error "Python installation succeeded but still not found in PATH."
@@ -133,20 +163,16 @@ ensure_build_deps() {
     pkg-config --exists sdl2 2>/dev/null && return 0
 
     warn "SDL2 development libraries not found — installing build dependencies..."
-    if command -v pacman &>/dev/null; then
-        sudo pacman -S --noconfirm --needed sdl2 freetype2
-    elif command -v apt-get &>/dev/null; then
-        sudo apt-get install -y libsdl2-dev libfreetype6-dev
-    elif command -v dnf &>/dev/null; then
-        sudo dnf install -y SDL2-devel freetype-devel
-    elif command -v brew &>/dev/null; then
-        brew install sdl2 freetype
-    else
-        warn "Could not auto-install SDL2. If installation fails, install SDL2 dev libraries manually."
-        warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel"
-        warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev"
-        warn "  Arch:           sudo pacman -S sdl2 freetype2"
-    fi
+    case "$_PM" in
+        pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 ;;
+        apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev ;;
+        dnf)    sudo dnf install -y SDL2-devel freetype-devel ;;
+        brew)   brew install sdl2 freetype ;;
+        *)      warn "Could not auto-install SDL2. Install SDL2 dev libraries manually:"
+                warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel"
+                warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev"
+                warn "  Arch:           sudo pacman -S sdl2 freetype2" ;;
+    esac
 }
 
 ensure_build_deps

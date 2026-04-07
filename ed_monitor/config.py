@@ -38,6 +38,7 @@ class Config:
     debug_log:                bool = False
     screenshot_dir:           str  = ""    # ED screenshot source dir (auto-detected if empty)
     screenshot_dest:          str  = ""    # destination dir (default: ~/Pictures/Elite Dangerous)
+    chat_lang:                str  = ""    # fallback language for chat TTS (empty = auto-detect)
 
 
 DEFAULT_CONFIG = """\
@@ -61,6 +62,11 @@ DEFAULT_CONFIG = """\
 # tts_lang = en
 # Voiceline files: ~/.config/nova/voicelines/{lang}.toml
 # Copy from ed_monitor/voicelines/{lang}.toml to customise individual event lines.
+
+# Fallback language for chat TTS (in-game, Twitch, YouTube).
+# Auto-detection is used first; this applies when detection returns English.
+# Set to your squad's language if messages are often short or ambiguous (e.g. de).
+# chat_lang = de
 
 # TTS voices per language (edge-tts voice names):
 # tts_voice_en = en-GB-SoniaNeural
@@ -137,13 +143,14 @@ def load() -> Config:
     debug_log                = False
     screenshot_dir           = ""
     screenshot_dest          = ""
+    chat_lang                = ""
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
         "journal_dir", "twitch_channel", "youtube_channel",
         "tts_rate", "tts_lang", "overlay_dir",
         "default_volume", "notable_value_threshold", "carrier_lookup",
-        "debug_log", "screenshot_dir", "screenshot_dest",
+        "debug_log", "screenshot_dir", "screenshot_dest", "chat_lang",
     }
 
     try:
@@ -196,6 +203,10 @@ def load() -> Config:
                         screenshot_dir = v
                     case "screenshot_dest":
                         screenshot_dest = v
+                    case "chat_lang":
+                        _valid = {"en", "de", "fr", "it", "es", "pt", "ru"}
+                        if v in _valid:
+                            chat_lang = v
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -230,6 +241,7 @@ def load() -> Config:
                 ("# default_volume", "\n# ── Audio ────────────────────────────────────────────────────────────────────\n# Default TTS/audio volume at startup (0–100):\n# default_volume = 50\n"),
                 ("# carrier_lookup", "\n# ── Fleet Carriers ─────────────────────────────────────────────────────────────\n# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):\n# carrier_lookup = false\n"),
                 ("# debug_log", "\n# ── Debug Logging ─────────────────────────────────────────────────────────────\n# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).\n# Enable when you need to diagnose a problem and send the log to the developer.\n# debug_log = false\n"),
+                ("# chat_lang", "\n# Fallback language for chat TTS (in-game, Twitch, YouTube).\n# Auto-detection is used first; this applies when detection returns English.\n# Set to your squad's language if messages are often short or ambiguous (e.g. de).\n# chat_lang = de\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
@@ -262,6 +274,7 @@ def load() -> Config:
         debug_log=debug_log,
         screenshot_dir=screenshot_dir,
         screenshot_dest=screenshot_dest,
+        chat_lang=chat_lang,
     )
 
 

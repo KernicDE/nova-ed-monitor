@@ -405,6 +405,14 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             sc.sample_bearings = []
             continue
 
+        # Skip scans from other bodies — distance calculations would be meaningless
+        # and could trigger false BioReady alerts when leaving a different body.
+        if body_name and sc.body != body_name:
+            sc.current_dist    = None
+            sc.current_bearing = None
+            sc.sample_bearings = []
+            continue
+
         # Determine nav targets.
         # Priority: unvisited COMP-scanned positions (not within 100m of any foot sample
         # AND at least min_dist from all foot samples) → navigate to those.
