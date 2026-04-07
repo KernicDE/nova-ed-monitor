@@ -1821,14 +1821,29 @@ def _render_overview(s: AppState) -> RenderableType:
 
         W = len(ruler_chars)
         if W:
+            # Pre-compute per-body bio completion for diagram markers
+            from collections import defaultdict as _dd_diag
+            _diag_bio_done: dict = _dd_diag(int)
+            for _dsc in s.bio_scans:
+                if _dsc.complete:
+                    _diag_bio_done[_dsc.body] += 1
+            _bio_complete_bodies: set = {
+                b.name for b in s.bodies
+                if b.bio_signals > 0 and _diag_bio_done.get(b.name, 0) >= b.bio_signals
+            }
+
             # Split wide diagrams into multiple parts (max width per part)
             max_width = 60  # Maximum width before splitting
             num_parts = max(1, (W + max_width - 1) // max_width)
-            
+
+            def _last_label(b: BodyInfo) -> str:
+                short = _short_name(b.name, _sys).strip()
+                return short.split()[-1] if short else "A"
+
             for part_idx in range(num_parts):
                 start = part_idx * max_width
                 end = min((part_idx + 1) * max_width, W)
-                
+
                 # ── Row 1: ruler (part) ──────────────────────────────────────
                 row1 = Text("  ")
                 for i in range(start, end):
@@ -1836,12 +1851,9 @@ def _render_overview(s: AppState) -> RenderableType:
                     row1.append(ch, style=style)
                 row1.append("\n")
 
-                # ── Row 2: last label of each body (part) ────────────────────
-                def _last_label(b: BodyInfo) -> str:
-                    short = _short_name(b.name, _sys).strip()
-                    return short.split()[-1] if short else "A"
-
-                name_arr = [" "] * (end - start)
+                # ── Row 2: body name labels — DSS-scanned bodies in green ────
+                name_arr  = [" "] * (end - start)
+                name_body = [None] * (end - start)
                 for pos, b in body_pos:
                     if start <= pos < end:
                         lbl = _last_label(b)
@@ -1849,8 +1861,12 @@ def _render_overview(s: AppState) -> RenderableType:
                         for i, ch in enumerate(lbl):
                             if rel_pos + i < len(name_arr) and name_arr[rel_pos + i] == " ":
                                 name_arr[rel_pos + i] = ch
+                                name_body[rel_pos + i] = b
                 row2 = Text("  ")
-                row2.append("".join(name_arr) + "\n", style="rgb(160,160,160)")
+                for ch, b in zip(name_arr, name_body):
+                    style = (f"bold {P.HUD_GREEN}") if (b and b.mapped) else "rgb(160,160,160)"
+                    row2.append(ch, style=style)
+                row2.append("\n")
 
                 # ── Row 3: notable (+) (part) ────────────────────────────────
                 notable_arr = [" "] * (end - start)
@@ -1861,13 +1877,14 @@ def _render_overview(s: AppState) -> RenderableType:
                             notable_arr[pos - start] = "+"
                 has_notable = any(c != " " for c in notable_arr)
 
-                # ── Row 4: bio signal counts (part) ────────────────────────
-                bio_arr = [" "] * (end - start)
+                # ── Row 4: bio counts — ✓ when all scans complete ────────────
+                bio_cells: list[tuple[str, bool]] = [(" ", False)] * (end - start)
+                has_bio = False
                 for pos, b in body_pos:
-                    if start <= pos < end:
-                        if b.bio_signals > 0:
-                            bio_arr[pos - start] = str(b.bio_signals)
-                has_bio = any(c != " " for c in bio_arr)
+                    if start <= pos < end and b.bio_signals > 0:
+                        complete = b.name in _bio_complete_bodies
+                        bio_cells[pos - start] = ("✓" if complete else str(b.bio_signals), complete)
+                        has_bio = True
 
                 diag.append_text(row1)
                 diag.append_text(row2)
@@ -1877,9 +1894,16 @@ def _render_overview(s: AppState) -> RenderableType:
                     diag.append_text(row3)
                 if has_bio:
                     row4 = Text("  ")
-                    row4.append("".join(bio_arr) + "\n", style="rgb(0,200,80)")
+                    for ch, complete in bio_cells:
+                        if ch == " ":
+                            row4.append(ch)
+                        elif complete:
+                            row4.append(ch, style=f"bold {P.HUD_GREEN}")
+                        else:
+                            row4.append(ch, style="rgb(0,200,80)")
+                    row4.append("\n")
                     diag.append_text(row4)
-                
+
                 if part_idx < num_parts - 1:
                     diag.append("\n")  # Add spacing between parts
 
@@ -1898,12 +1922,13 @@ def _render_overview(s: AppState) -> RenderableType:
         hdr.append("\nNOTABLE BODIES\n", style="bold rgb(195,160,55)")
         parts.append(hdr)
 
-        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-        tbl.add_column("name",  style="white", width=10)
-        tbl.add_column("type",  width=10)
-        tbl.add_column("val",   width=12, justify="right")
-        tbl.add_column("bio",   width=12, justify="right")
-        tbl.add_column("flags", width=4)
+        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1),
+                    header_style="dim rgb(130,130,130)")
+        tbl.add_column("BODY",  style="white", width=10, no_wrap=True)
+        tbl.add_column("TYPE",  width=10, no_wrap=True)
+        tbl.add_column("SCAN",  width=9,  justify="right", no_wrap=True)
+        tbl.add_column("BIO",   width=13, justify="right", no_wrap=True)
+        tbl.add_column("",      width=3,  no_wrap=True)
 
         # Pre-compute actual bio values and completion per body
         from collections import defaultdict as _dd2
@@ -1934,21 +1959,20 @@ def _render_overview(s: AppState) -> RenderableType:
             body_v = b.value if b.value > 0 else _estimated_value(b)
 
             if all_done:
-                # Combined total — fold bio into val column
-                total = body_v + actual_bio
-                val_s = _fmt_value(total) if total > 0 else "—"
+                # All done — show scan and bio values separately
+                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
                 vcol  = P.GOLD
-                bio_s = "✓"
+                bio_s = _fmt_cr_compact(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
                 # Bio done but body not yet mapped — show separate values
-                val_s = _fmt_value(body_v) if body_v > 0 else "—"
+                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
                 vcol  = P.AMBER if b.value == 0 else P.GOLD
                 bio_s = _fmt_cr_compact(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.GOLD
             else:
                 # In-progress — body value and bio estimate
-                val_s = _fmt_value(body_v) if body_v > 0 else "—"
+                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
                 vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
                     if b.bio_value_max > 0:
