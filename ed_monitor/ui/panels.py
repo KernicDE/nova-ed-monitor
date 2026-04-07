@@ -1529,16 +1529,6 @@ def _render_wealth(s: AppState) -> RenderableType:
             tbl.add_row(Text(item["name"], style=style), Text(str(item["count"]), style=f"bold {P.AMBER}"))
         parts.append(tbl)
 
-    # ── Materials summary ────────────────────────────────────────────────────
-    mat_counts = (len(s.materials_raw), len(s.materials_mfg), len(s.materials_enc))
-    if any(mat_counts):
-        mat_text = Text()
-        mat_text.append("\nMATERIALS\n", style="bold rgb(195,160,55)")
-        mat_text.append(f"  Raw {mat_counts[0]}  ", style="white")
-        mat_text.append(f"Mfg {mat_counts[1]}  ", style="white")
-        mat_text.append(f"Enc {mat_counts[2]}\n", style="white")
-        parts.append(mat_text)
-
     # ── Suit / backpack ──────────────────────────────────────────────────────
     if s.suit_loadout:
         suit_text = Text()
@@ -2457,7 +2447,7 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "wealth", "inventory", "bio", "missions", "engineers", "neutron", "galaxy", "stats")
+    _MODES           = ("auto", "overview", "wealth", "bio", "missions", "engineers", "neutron", "galaxy", "stats")
     _mode:   str     = "auto"
     _active: str     = "overview"
     _galaxy_regional: bool = False
@@ -2532,8 +2522,6 @@ class SituationalPanel(_Panel):
             return _render_missions(s)
         if self._active == "engineers":
             return _render_engineers(s)
-        if self._active == "inventory":
-            return _render_inventory(s)
         if self._active == "wealth":
             return _render_wealth(s)
         if self._active == "neutron":
