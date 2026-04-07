@@ -1285,6 +1285,7 @@ def _render_inventory(s: AppState) -> RenderableType:
     ):
         if not mdict:
             continue
+        parts.append(Text("\n"))
         parts.append(_section_header(label))
         tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
         tbl.add_column("name",  style="white")
@@ -1423,6 +1424,7 @@ def _render_engineers(s: AppState) -> RenderableType:
         t.append("░" * (width - filled), style=P.LABEL)
         return t
 
+    first_section = True
     for section_label, group in (
         ("UNLOCKED", unlocked),
         ("IN PROGRESS", in_progress),
@@ -1430,6 +1432,9 @@ def _render_engineers(s: AppState) -> RenderableType:
     ):
         if not group:
             continue
+        if not first_section:
+            parts.append(Text("\n"))
+        first_section = False
         parts.append(_section_header(section_label))
         tbl = Table(show_header=False, show_edge=False, show_lines=False,
                     padding=(0, 1), box=None)
@@ -1507,6 +1512,11 @@ def _render_wealth(s: AppState) -> RenderableType:
                 Text(system + (" [HERE]" if here else ""), style=P.HUD_GREEN if here else P.HUD_CYAN),
             )
         parts.append(tbl)
+    else:
+        no_fleet = Text()
+        no_fleet.append("  Open the ship transfer screen at any station\n", style=P.LABEL)
+        no_fleet.append("  to load your full fleet.\n", style=P.LABEL)
+        parts.append(no_fleet)
 
     # ── Cargo ────────────────────────────────────────────────────────────────
     if s.cargo_items:
@@ -1579,6 +1589,10 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         hdr.append(f"  Boosted: {s.jump_range * 4:.0f} ly\n", style=P.LABEL)
     else:
         hdr.append("  Jump range: Unknown (fly your ship to update)\n", style=P.LABEL)
+    if s.neutron_star_count > 0:
+        hdr.append(f"  DB: {s.neutron_star_count:,} neutron stars loaded\n", style=P.LABEL)
+    else:
+        hdr.append("  DB: downloading neutron star data…\n", style=P.HUD_WARN)
     parts.append(hdr)
 
     if status == "plotting":

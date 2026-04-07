@@ -61,12 +61,22 @@ def _worker(q: queue.Queue, state: AppState, lock: threading.RLock, db) -> None:
     # Download dump if stale (non-blocking; done in this thread before first query)
     _refresh_dump_if_needed(db)
 
+    # Update star count in state so the panel can show it
+    with db._lock:
+        count = db._conn.execute("SELECT COUNT(*) FROM neutron_stars").fetchone()[0]
+    with lock:
+        state.neutron_star_count = count
+
     while True:
         try:
             msg = q.get(timeout=60.0)
         except queue.Empty:
             # Periodic refresh check
             _refresh_dump_if_needed(db)
+            with db._lock:
+                count = db._conn.execute("SELECT COUNT(*) FROM neutron_stars").fetchone()[0]
+            with lock:
+                state.neutron_star_count = count
             continue
 
         if not isinstance(msg, tuple) or len(msg) < 2 or msg[0] != "plot":
@@ -216,17 +226,17 @@ def _nearest_neutron_stars(
 
 
 def _lookup_system(db, name: str) -> Optional[tuple]:
-    """Return (x, y, z) for *name* from edsm_systems, or None."""
+    """Return (x, y, z) for *name* from edsm_systems, or None. Case-insensitive."""
     with db._lock:
         row = db._conn.execute(
-            "SELECT x, y, z FROM edsm_systems WHERE name = ? LIMIT 1", (name,)
+            "SELECT x, y, z FROM edsm_systems WHERE name = ? COLLATE NOCASE LIMIT 1", (name,)
         ).fetchone()
     if row:
         return (float(row[0]), float(row[1]), float(row[2]))
     # Also check neutron_stars table
     with db._lock:
         row = db._conn.execute(
-            "SELECT x, y, z FROM neutron_stars WHERE name = ? LIMIT 1", (name,)
+            "SELECT x, y, z FROM neutron_stars WHERE name = ? COLLATE NOCASE LIMIT 1", (name,)
         ).fetchone()
     if row:
         return (float(row[0]), float(row[1]), float(row[2]))

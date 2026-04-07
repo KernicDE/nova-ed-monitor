@@ -329,6 +329,7 @@ class AppState:
     neutron_route:        list  = field(default_factory=list)  # list of jump dicts
     neutron_route_to:     str   = ""
     neutron_route_status: str   = ""   # "", "plotting", "done", "error"
+    neutron_star_count:   int   = 0    # rows in neutron_stars table (0 = not yet loaded)
 
     # Event log
     events: deque = field(default_factory=lambda: deque(maxlen=MAX_EVENTS))
