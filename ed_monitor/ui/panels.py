@@ -72,6 +72,13 @@ def _fmt_cr_compact(v: int) -> str:
     return str(v)
 
 
+def _fmt_notable_val(v: int) -> str:
+    """Credit value for notable bodies table: compact only above 1M, full number below."""
+    if v <= 0:           return "—"
+    if v >= 1_000_000:   return _fmt_cr_compact(v)
+    return _de(v)
+
+
 def _fmt_ls_compact(ls: float) -> str:
     if ls <= 0: return "—"
     if ls >= 100:            return f"{int(ls):,}".replace(",", _NNBSP) + " ls"
@@ -1926,6 +1933,7 @@ def _render_overview(s: AppState) -> RenderableType:
                     header_style="dim rgb(130,130,130)")
         tbl.add_column("BODY",  style="white", width=10, no_wrap=True)
         tbl.add_column("TYPE",  width=10, no_wrap=True)
+        tbl.add_column("G",     width=6,  justify="right", no_wrap=True)
         tbl.add_column("SCAN",  width=9,  justify="right", no_wrap=True)
         tbl.add_column("BIO",   width=13, justify="right", no_wrap=True)
         tbl.add_column("",      width=3,  no_wrap=True)
@@ -1960,19 +1968,19 @@ def _render_overview(s: AppState) -> RenderableType:
 
             if all_done:
                 # All done — show scan and bio values separately
-                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
+                val_s = _fmt_notable_val(body_v)
                 vcol  = P.GOLD
-                bio_s = _fmt_cr_compact(actual_bio) if actual_bio > 0 else "✓"
+                bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
                 # Bio done but body not yet mapped — show separate values
-                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
+                val_s = _fmt_notable_val(body_v)
                 vcol  = P.AMBER if b.value == 0 else P.GOLD
-                bio_s = _fmt_cr_compact(actual_bio) if actual_bio > 0 else "✓"
+                bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.GOLD
             else:
                 # In-progress — body value and bio estimate
-                val_s = _fmt_cr_compact(body_v) if body_v > 0 else "—"
+                val_s = _fmt_notable_val(body_v)
                 vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
                     if b.bio_value_max > 0:
@@ -1984,6 +1992,17 @@ def _render_overview(s: AppState) -> RenderableType:
                 else:
                     bio_s = "—"
                     bio_c = P.DIM
+
+            # Gravity
+            if b.landable and b.surface_gravity > 0:
+                g_val = b.surface_gravity / 9.80665
+                g_s   = f"{g_val:.2f}G"
+                g_col = ("bold rgb(220,60,0)"   if g_val >= 3.0
+                         else "bold rgb(220,140,0)" if g_val >= 1.5
+                         else "rgb(160,160,160)")
+            else:
+                g_s   = "—"
+                g_col = P.DIM
 
             # Name/type style — dim when all done (already collected)
             dim_done = all_done
@@ -1999,6 +2018,7 @@ def _render_overview(s: AppState) -> RenderableType:
             tbl.add_row(
                 Text(short, style=name_style),
                 Text(btype, style=type_style),
+                Text(g_s,   style=g_col),
                 Text(val_s, style=vcol),
                 Text(bio_s, style=bio_c),
                 Text(flags, style=P.HUD_GREEN if not dim_done else "rgb(80,140,80)"),
