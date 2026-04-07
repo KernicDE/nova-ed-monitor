@@ -390,6 +390,40 @@ def _tts_ly(ly: float) -> str:
     return f"{ly:.1f} light years"
 
 
+# ── Jumponium material sets ───────────────────────────────────────────────────
+_JUMP_BASIC    = {"sulphur", "carbon", "phosphorus"}
+_JUMP_STANDARD = _JUMP_BASIC    | {"manganese", "arsenic"}
+_JUMP_PREMIUM  = _JUMP_STANDARD | {"niobium", "yttrium", "polonium"}
+
+def _jumponium_tier(materials: dict) -> str:
+    """Return 'Premium', 'Standard', 'Basic' or '' for a body's material set."""
+    mats = {k.lower() for k in materials}
+    if _JUMP_PREMIUM.issubset(mats):  return "Premium"
+    if _JUMP_STANDARD.issubset(mats): return "Standard"
+    if _JUMP_BASIC.issubset(mats):    return "Basic"
+    return ""
+
+
+# ── BGS activity helpers ──────────────────────────────────────────────────────
+def _bgs_tick(state: AppState) -> None:
+    """Reset BGS log if the UTC date has rolled over (approximate tick boundary)."""
+    from datetime import date as _date, timezone as _tz
+    today = _date.today().isoformat()
+    if state.bgs_log_date != today:
+        state.bgs_log      = {}
+        state.bgs_log_date = today
+
+
+def _bgs_add(state: AppState, faction: str, activity: str, count: int = 1) -> None:
+    """Record BGS activity for the current system's faction."""
+    if not faction or not state.system:
+        return
+    _bgs_tick(state)
+    sys_log = state.bgs_log.setdefault(state.system, {})
+    fac_log = sys_log.setdefault(faction, {})
+    fac_log[activity] = fac_log.get(activity, 0) + count
+
+
 def _short_body(body_name: str, system: str) -> str:
     if body_name.lower().startswith(system.lower()):
         short = body_name[len(system):].strip()
@@ -557,6 +591,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.first_footfall_body_id = -1
             state.first_footfall_bodies.clear()
             state.orbital_cruise         = False
+            state.docked_pad          = 0
+            state.docked_station_name = ""
+            state.docked_station_type = ""
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -751,6 +788,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.station_allegiance = ""
             state.station_services = []
             state.station_dist_ls  = 0.0
+            state.docked_pad          = 0
+            state.docked_station_name = ""
+            state.docked_station_type = ""
             msg = f"Undocked from {station}." if station else "Undocked."
             if station:
                 _say(tts_q, "Undocked", False, fallback=msg, cacheable=False, station=station)
@@ -889,10 +929,17 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
         case "Bounty":
             reward = (ev.get("TotalReward") or ev.get("Reward") or 0)
             if isinstance(reward, float): reward = int(reward)
-            victim = _s(ev, "Target")
+            victim        = _s(ev, "Target")
+            victim_faction = _s(ev, "VictimFaction")
             suffix = f" Target: {victim}" if victim else ""
             msg    = f"Bounty: {_fmt_credits(reward)}{suffix}."
             reward_str = _tts_cr(reward)
+            # Update massacre kill counters for matching factions
+            if victim_faction:
+                for mid_k, mk in state.massacre_kills.items():
+                    if mk["faction"] == victim_faction:
+                        mk["done"] = min(mk["done"] + 1, mk["needed"])
+                _bgs_add(state, victim_faction, "bounty")
             if victim:
                 _say(tts_q, "Bounty_target", False,
                      fallback=msg, reward=reward_str, victim=victim)
@@ -901,8 +948,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             return LogEvent.new(EventCategory.Combat, msg)
 
         case "FactionKillBond":
-            reward = _u(ev, "Reward")
+            reward         = _u(ev, "Reward")
+            victim_faction = _s(ev, "VictimFaction")
             msg    = f"Combat bond: {_fmt_credits(reward)}."
+            if victim_faction:
+                for mid_k, mk in state.massacre_kills.items():
+                    if mk["faction"] == victim_faction:
+                        mk["done"] = min(mk["done"] + 1, mk["needed"])
+                _bgs_add(state, victim_faction, "combat bond")
             _say(tts_q, "FactionKillBond", False, fallback=msg, reward=_tts_cr(reward))
             return LogEvent.new(EventCategory.Combat, msg)
 
@@ -930,6 +983,32 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 state.dss_recently_completed.discard(body_name)
 
             if body_name:
+                # Parse surface materials from Scan event
+                raw_mats = ev.get("Materials")
+                body_materials: dict = {}
+                if isinstance(raw_mats, list):
+                    for m in raw_mats:
+                        if not isinstance(m, dict):
+                            continue
+                        mname = (m.get("Name") or "").lower()
+                        mpct  = float(m.get("Percent") or 0.0)
+                        if mname:
+                            body_materials[mname] = mpct
+
+                # Detect unusual body properties
+                orbital_period = _f(ev, "OrbitalPeriod")
+                eccentricity   = _f(ev, "Eccentricity")
+                unusual_flags  = []
+                if landable and not is_star and radius > 0 and radius < 500_000:
+                    km = int(radius / 1000)
+                    unusual_flags.append(f"Tiny <{km} km")
+                if not is_star and eccentricity > 0.8:
+                    unusual_flags.append(f"Eccentric ({eccentricity:.2f})")
+                if not is_star and 0 < orbital_period < 7_200:
+                    mins = int(orbital_period / 60)
+                    unusual_flags.append(f"Fast orbit ({mins} min)")
+                unusual_body = " · ".join(unusual_flags)
+
                 state.upsert_body(BodyInfo(
                     name=body_name, body_id=body_id, level=level,
                     planet_class=planet_class, star_type=star_type, atmosphere=atmosphere,
@@ -941,11 +1020,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     mapped=False, fss_scanned=scan_type in ("Detailed", "AutoScan"),
                     radius=radius,
                     semi_major_axis=_f(ev, "SemiMajorAxis"),
-                    orbital_period=_f(ev, "OrbitalPeriod"),
+                    orbital_period=orbital_period,
                     mean_anomaly=_f(ev, "MeanAnomaly"),
-                    eccentricity=_f(ev, "Eccentricity"),
+                    eccentricity=eccentricity,
                     orbital_inclination=_f(ev, "OrbitalInclination"),
                     surface_gravity=_f(ev, "SurfaceGravity"),
+                    materials=body_materials,
+                    unusual_body=unusual_body,
                 ))
 
             if scan_type not in ("Detailed", "AutoScan"):
@@ -1285,6 +1366,17 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.missions.append(MissionInfo(
                 mission_id=mid, name=name, destination=dest, expiry=expiry,
             ))
+            # Track massacre missions for kill progress display
+            raw_name = _s(ev, "Name")
+            if "Massacre" in raw_name and mid:
+                kill_count     = _u(ev, "KillCount")
+                target_faction = _s(ev, "TargetFaction")
+                if kill_count and target_faction:
+                    state.massacre_kills[mid] = {
+                        "faction": target_faction,
+                        "needed":  kill_count,
+                        "done":    0,
+                    }
             if name:
                 _say(tts_q, "MissionAccepted", False,
                      fallback=f"Mission accepted: {name}.",
@@ -1298,6 +1390,22 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             if reward:
                 state.credits += reward
             state.remove_mission(mid)
+            state.massacre_kills.pop(mid, None)
+            # Parse BGS faction effects
+            faction_effects = ev.get("FactionEffects")
+            if isinstance(faction_effects, list):
+                for fe in faction_effects:
+                    if not isinstance(fe, dict):
+                        continue
+                    faction = fe.get("Faction", "")
+                    effects = fe.get("Effects") or []
+                    for eff in effects:
+                        if not isinstance(eff, dict):
+                            continue
+                        effect = eff.get("Effect_Localised") or eff.get("Effect", "")
+                        if effect:
+                            _bgs_add(state, faction, "mission")
+                            break  # one log entry per faction per mission
             msg = f"Mission complete: {name}. Reward: {_fmt_credits(reward)}."
             _say(tts_q, "MissionCompleted", False,
                  fallback=f"Mission complete: {name}. Reward: {_tts_cr(reward)}.",
@@ -1308,6 +1416,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             mid  = _u(ev, "MissionID")
             name = _loc(ev, "LocalisedName") or _s(ev, "Name")
             state.remove_mission(mid)
+            state.massacre_kills.pop(mid, None)
             msg  = f"Mission failed: {name}."
             _say(tts_q, "MissionFailed", False, fallback=msg, name=name)
             return LogEvent.new(EventCategory.Mission, msg)
@@ -1315,6 +1424,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
         case "MissionAbandoned":
             mid = _u(ev, "MissionID")
             state.remove_mission(mid)
+            state.massacre_kills.pop(mid, None)
             return None
 
         case "MissionRedirected":
@@ -1336,6 +1446,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             profit    = _u(ev, "TotalProfit")
             if total:
                 state.credits += total
+            _bgs_add(state, state.controlling_faction, "trade")
             msg = f"Sold: {count}x {commodity} for {_fmt_credits(total)}."
             if profit > 0:
                 msg += f" Profit: {_fmt_credits(profit)}."
@@ -1587,6 +1698,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
         case "DockingGranted":
             stn  = _s(ev, "StationName")
             pad  = _u(ev, "LandingPad")
+            state.docked_pad          = pad
+            state.docked_station_type = _s(ev, "StationType")
+            state.docked_station_name = stn
             msg  = f"Docking request granted. Proceed to pad {pad}."
             _say(tts_q, "DockingGranted", False, fallback=msg, pad=pad)
             return LogEvent.new(EventCategory.Nav, f"Docking at {stn} (Pad {pad}).")
@@ -1711,12 +1825,92 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             total = _u(ev, "TotalEarnings") or _u(ev, "BaseValue")
             if total and state.credits >= 0:
                 state.credits += total
+            _bgs_add(state, state.controlling_faction, "exploration")
             if total:
                 _say(tts_q, "SellExplorationData", False,
                      fallback=f"Exploration data sold: {_fmt_credits(total)}.",
                      value=_tts_cr(total))
                 return LogEvent.new(EventCategory.Trade,
                                     f"Exploration data sold: {_fmt_credits(total)}.")
+            return None
+
+        case "RedeemVoucher":
+            voucher_type = _s(ev, "Type")
+            if voucher_type in ("Bounty", "CombatBond"):
+                factions_raw = ev.get("Factions")
+                if isinstance(factions_raw, list):
+                    for f in factions_raw:
+                        if isinstance(f, dict):
+                            faction = f.get("Faction", "")
+                            activity = "bounty" if voucher_type == "Bounty" else "combat bond"
+                            _bgs_add(state, faction, activity)
+            return None
+
+        case "ColonisationConstructionDepot":
+            # Fired when approaching a construction site; provides commodity requirement details
+            market_id   = _u(ev, "MarketID")
+            system_name = _s(ev, "SystemName") or state.system
+            if not market_id:
+                return None
+            resources = ev.get("ResourcesRequired") or []
+            commodities: list = []
+            if isinstance(resources, list):
+                for r in resources:
+                    if not isinstance(r, dict):
+                        continue
+                    name     = _loc(r, "Name") or _s(r, "Name")
+                    required = _u(r, "RequiredAmount")
+                    provided = _u(r, "ProvidedAmount")
+                    if name:
+                        commodities.append({"name": name, "required": required, "provided": provided})
+            existing = state.colonisation_sites.get(market_id, {})
+            state.colonisation_sites[market_id] = {
+                "market_id":   market_id,
+                "system":      system_name,
+                "commodities": commodities or existing.get("commodities", []),
+            }
+            return None
+
+        case "ColonisationContribution":
+            market_id = _u(ev, "MarketID")
+            if not market_id:
+                return None
+            # Update or create site entry with contribution data
+            site = state.colonisation_sites.setdefault(market_id, {
+                "market_id": market_id,
+                "system":    state.system,
+                "commodities": [],
+            })
+            contributions = ev.get("Contributions") or []
+            if isinstance(contributions, list):
+                # Merge contributed amounts into existing commodities
+                for c in contributions:
+                    if not isinstance(c, dict):
+                        continue
+                    cname  = _loc(c, "Name") or _s(c, "Name")
+                    ccount = _u(c, "Amount")
+                    if not cname:
+                        continue
+                    found = False
+                    for com in site["commodities"]:
+                        if com.get("name", "").lower() == cname.lower():
+                            com["provided"] = com.get("provided", 0) + ccount
+                            found = True
+                            break
+                    if not found:
+                        site["commodities"].append({"name": cname, "required": 0, "provided": ccount})
+            _bgs_add(state, state.controlling_faction, "colonisation")
+            commodity_count = _u(ev, "TotalCommodities") or sum(
+                _u(c, "Amount") for c in contributions if isinstance(c, dict)
+            )
+            msg = f"Colonisation contribution: {commodity_count} t delivered."
+            return LogEvent.new(EventCategory.Mission, msg)
+
+        case "PowerplayMerits":
+            state.pp_power          = _s(ev, "Power")
+            state.pp_rank           = _u(ev, "Rank")
+            state.pp_total_merits   = _u(ev, "TotalMerits")
+            state.pp_session_merits = _u(ev, "MeritsGained")
             return None
 
         case _:

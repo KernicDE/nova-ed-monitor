@@ -441,6 +441,10 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "neutron":
                 sit.scroll_neutron(1)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(1)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(1)
             else:
                 self._scroll = min(self._scroll + 1, self._max_scroll)
 
@@ -448,6 +452,10 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "neutron":
                 sit.scroll_neutron(-1)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(-1)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(-1)
             else:
                 self._scroll = max(self._scroll - 1, 0)
 
@@ -455,6 +463,10 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "neutron":
                 sit.scroll_neutron(10)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(10)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(10)
             else:
                 self._scroll = min(self._scroll + 20, self._max_scroll)
 
@@ -462,6 +474,10 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "neutron":
                 sit.scroll_neutron(-10)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(-10)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(-10)
             else:
                 self._scroll = max(self._scroll - 20, 0)
 
@@ -469,6 +485,10 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "neutron":
                 sit.scroll_neutron(-9999)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(-9999)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(-9999)
             else:
                 self._scroll = 0
 

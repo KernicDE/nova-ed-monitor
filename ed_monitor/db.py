@@ -68,6 +68,7 @@ class Database:
             "ALTER TABLE bodies ADD COLUMN eccentricity REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN orbital_inclination REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN surface_gravity REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN materials TEXT NOT NULL DEFAULT ''",
             """CREATE TABLE IF NOT EXISTS stats (
                 date  TEXT NOT NULL,
                 stat  TEXT NOT NULL,
@@ -215,6 +216,7 @@ class Database:
 
     def save_bodies_batch(self, system: str, bodies: list) -> None:
         """Insert/replace all bodies in a single transaction."""
+        import json as _json
         _SQL = (
             "INSERT OR REPLACE INTO bodies"
             " (system, body_name, body_id, level, planet_class, star_type, atmosphere,"
@@ -222,8 +224,8 @@ class Database:
             "  first_discovered, first_mapped, mapped, fss_scanned, radius,"
             "  bio_value_min, bio_value_max,"
             "  semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,"
-            "  surface_gravity)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            "  surface_gravity, materials)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         )
         params = [
             (
@@ -238,6 +240,7 @@ class Database:
                 b.semi_major_axis, b.orbital_period,
                 b.mean_anomaly, b.eccentricity, b.orbital_inclination,
                 b.surface_gravity,
+                _json.dumps(b.materials) if b.materials else "",
             )
             for b in bodies
         ]
@@ -305,6 +308,7 @@ class Database:
         return result
 
     def load_bodies(self, system: str) -> list[BodyInfo]:
+        import json as _json
         with self._lock:
             rows = self._conn.execute(
                 """SELECT body_name, body_id, level, planet_class, star_type, atmosphere,
@@ -312,13 +316,19 @@ class Database:
                           dist_ls, value, first_discovered, first_mapped, mapped, fss_scanned, radius,
                           bio_value_min, bio_value_max,
                           semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,
-                          surface_gravity
+                          surface_gravity,
+                          COALESCE(materials, '')
                    FROM bodies WHERE system = ?""",
                 (system,),
             ).fetchall()
         result = []
         for row in rows:
             genuses = [g for g in row[10].split("|") if g]
+            mats_raw = row[26] or ""
+            try:
+                mats = _json.loads(mats_raw) if mats_raw else {}
+            except Exception:
+                mats = {}
             result.append(BodyInfo(
                 name=row[0],      body_id=int(row[1]),   level=int(row[2]),
                 planet_class=row[3], star_type=row[4],   atmosphere=row[5],
@@ -333,6 +343,7 @@ class Database:
                 mean_anomaly=float(row[22] or 0), eccentricity=float(row[23] or 0),
                 orbital_inclination=float(row[24] or 0),
                 surface_gravity=float(row[25] or 0),
+                materials=mats,
             ))
         return result
 

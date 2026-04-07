@@ -115,6 +115,8 @@ class BodyInfo:
     eccentricity:        float = 0.0
     orbital_inclination: float = 0.0   # degrees
     surface_gravity:     float = 0.0   # m/s², from SurfaceGravity in Scan event
+    materials:           dict  = field(default_factory=dict)   # {name_lower: pct} from Scan Materials
+    unusual_body:        str   = ""    # non-empty = unusual (e.g. "Tiny <300 km", "Eccentric")
 
 
 @dataclass
@@ -358,6 +360,28 @@ class AppState:
     # Spansh carrier lookup (populated by spansh.py after each system change)
     carriers_current_system: list = field(default_factory=list)  # list[dict]
 
+    # Docking helper (from DockingGranted; cleared on Undocked/FSDJump)
+    docked_pad:          int  = 0
+    docked_station_type: str  = ""
+    docked_station_name: str  = ""
+
+    # Massacre mission kill tracking: {mission_id: {"faction": str, "needed": int, "done": int}}
+    massacre_kills: dict = field(default_factory=dict)
+
+    # BGS activity log: {system_name: {faction_name: {activity: count}}}
+    # Reset daily at midnight UTC (approximate tick boundary)
+    bgs_log:      dict = field(default_factory=dict)
+    bgs_log_date: str  = ""   # ISO date string of last reset (YYYY-MM-DD)
+
+    # Colonisation construction sites: {market_id: site_dict}
+    colonisation_sites: dict = field(default_factory=dict)
+
+    # PowerPlay 2.0
+    pp_power:          str = ""
+    pp_total_merits:   int = 0
+    pp_session_merits: int = 0
+    pp_rank:           int = 0
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 
@@ -387,6 +411,8 @@ class AppState:
             st     = existing.star_type
             bvmin  = existing.bio_value_min
             bvmax  = existing.bio_value_max
+            mats   = existing.materials.copy()
+            unusual = existing.unusual_body
             self.bodies[i] = info
             b = self.bodies[i]
             if not b.planet_class and pc:        b.planet_class = pc
@@ -400,6 +426,8 @@ class AppState:
             if first: b.first_discovered = True
             if b.bio_value_min == 0: b.bio_value_min = bvmin
             if b.bio_value_max == 0: b.bio_value_max = bvmax
+            if not b.materials and mats:    b.materials    = mats
+            if not b.unusual_body and unusual: b.unusual_body = unusual
             # Update id index in case body_id changed (rare)
             self._bodies_by_id[b.body_id] = i
             return

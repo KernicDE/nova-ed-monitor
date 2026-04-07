@@ -1317,6 +1317,34 @@ def _render_missions(s: AppState) -> RenderableType:
         t.append("No active missions.", style=P.LABEL)
         return t
 
+    parts: list[RenderableType] = []
+
+    # Massacre kill progress (grouped by faction)
+    if s.massacre_kills:
+        # Group by faction
+        fac_kills: dict = {}
+        for mid, mk in s.massacre_kills.items():
+            fac = mk["faction"]
+            if fac not in fac_kills:
+                fac_kills[fac] = {"needed": 0, "done": 0}
+            fac_kills[fac]["needed"] += mk["needed"]
+            fac_kills[fac]["done"]   += mk["done"]
+
+        kill_head = Text()
+        kill_head.append("MASSACRE PROGRESS\n", style="bold rgb(195,60,60)")
+        parts.append(kill_head)
+
+        for fac, kd in fac_kills.items():
+            done   = kd["done"]
+            needed = kd["needed"]
+            filled = int(10 * done / needed) if needed > 0 else 0
+            bar    = "█" * filled + "░" * (10 - filled)
+            pct_t  = Text()
+            pct_t.append(f"  [{bar}] ", style="rgb(200,80,80)")
+            pct_t.append(f"{done}/{needed}", style="white")
+            pct_t.append(f"  {fac}\n", style=P.LABEL)
+            parts.append(pct_t)
+
     tbl = Table(
         show_header=True, show_edge=False, show_lines=False,
         padding=(0, 1), box=None,
@@ -1340,8 +1368,9 @@ def _render_missions(s: AppState) -> RenderableType:
             Text(m.destination, style=P.LABEL),
             Text(remaining, style=f"bold {time_col}"),
         )
+    parts.append(tbl)
 
-    return tbl
+    return Group(*parts)
 
 
 _ENGINEER_STATIC: dict[str, tuple[str, str]] = {
@@ -1917,12 +1946,21 @@ def _render_overview(s: AppState) -> RenderableType:
         parts.append(diag)
 
     # Notable bodies in current system
-    notable = [
-        b for b in s.bodies
-        if b.planet_class in (
-            "Earthlike body", "Water world", "Ammonia world",
-        ) or b.terraform or b.bio_signals > 0 or b.value > s.notable_value_threshold
-    ]
+    from ..events import _jumponium_tier as _jt
+    def _is_notable(b: BodyInfo) -> bool:
+        if b.planet_class in ("Earthlike body", "Water world", "Ammonia world"):
+            return True
+        if b.terraform or b.bio_signals > 0:
+            return True
+        if b.value > s.notable_value_threshold:
+            return True
+        if b.materials and _jt(b.materials):
+            return True
+        if b.unusual_body:
+            return True
+        return False
+
+    notable = [b for b in s.bodies if _is_notable(b)]
     if notable:
         notable.sort(key=lambda b: _natural_key(_short_name(b.name, s.system)))
         hdr = Text()
@@ -1932,11 +1970,11 @@ def _render_overview(s: AppState) -> RenderableType:
         tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1),
                     header_style="dim rgb(130,130,130)")
         tbl.add_column("BODY",  style="white", width=10, no_wrap=True)
-        tbl.add_column("TYPE",  width=10, no_wrap=True)
+        tbl.add_column("TYPE",  width=11, no_wrap=True)
         tbl.add_column("G",     width=6,  justify="right", no_wrap=True)
         tbl.add_column("SCAN",  width=9,  justify="right", no_wrap=True)
-        tbl.add_column("BIO",   width=13, justify="right", no_wrap=True)
-        tbl.add_column("",      width=3,  no_wrap=True)
+        tbl.add_column("BIO",   width=12, justify="right", no_wrap=True)
+        tbl.add_column("WHY",   width=18, no_wrap=True)
 
         # Pre-compute actual bio values and completion per body
         from collections import defaultdict as _dd2
@@ -1951,6 +1989,7 @@ def _render_overview(s: AppState) -> RenderableType:
             short  = _short_name(b.name, s.system)
             btype  = _abbrev_type(b.planet_class, b.star_type)
             body_col = _body_color(b.planet_class, b.star_type)
+            is_unusual = bool(b.unusual_body)
 
             # Bio completion state
             has_bio      = b.bio_signals > 0
@@ -1967,19 +2006,16 @@ def _render_overview(s: AppState) -> RenderableType:
             body_v = b.value if b.value > 0 else _estimated_value(b)
 
             if all_done:
-                # All done — show scan and bio values separately
                 val_s = _fmt_notable_val(body_v)
                 vcol  = P.GOLD
                 bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
-                # Bio done but body not yet mapped — show separate values
                 val_s = _fmt_notable_val(body_v)
                 vcol  = P.AMBER if b.value == 0 else P.GOLD
                 bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.GOLD
             else:
-                # In-progress — body value and bio estimate
                 val_s = _fmt_notable_val(body_v)
                 vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
@@ -2007,30 +2043,36 @@ def _render_overview(s: AppState) -> RenderableType:
             # Name/type style — dim when all done (already collected)
             dim_done = all_done
             name_style = "rgb(110,110,110)" if dim_done else "white"
-            type_style = f"rgb(110,110,110)" if dim_done else f"bold {body_col}"
+            type_prefix = "! " if is_unusual else ""
+            type_style  = "rgb(110,110,110)" if dim_done else (
+                f"bold rgb(220,140,0)" if is_unusual else f"bold {body_col}"
+            )
 
-            flags = ""
-            if b.terraform:        flags += "T"
-            if b.first_discovered: flags += "★"
-            if all_done:           flags += "✓"
-            elif bio_all_done:     flags += "B"  # bio done, body scan pending
+            # WHY column — build reason string
+            why_parts = []
+            if b.planet_class == "Earthlike body":  why_parts.append("ELW")
+            if b.planet_class == "Water world":      why_parts.append("WW")
+            if b.planet_class == "Ammonia world":    why_parts.append("AW")
+            if b.terraform:                           why_parts.append("Terraform")
+            if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}× bio")
+            if b.value > s.notable_value_threshold:  why_parts.append("High value")
+            jump_tier = _jt(b.materials) if b.materials else ""
+            if jump_tier:                             why_parts.append(f"Jump {jump_tier}")
+            if b.unusual_body:                        why_parts.append(b.unusual_body)
+            why_str = " · ".join(why_parts)
 
             tbl.add_row(
-                Text(short, style=name_style),
-                Text(btype, style=type_style),
-                Text(g_s,   style=g_col),
-                Text(val_s, style=vcol),
-                Text(bio_s, style=bio_c),
-                Text(flags, style=P.HUD_GREEN if not dim_done else "rgb(80,140,80)"),
+                Text(short,                  style=name_style),
+                Text(type_prefix + btype,    style=type_style),
+                Text(g_s,                    style=g_col),
+                Text(val_s,                  style=vcol),
+                Text(bio_s,                  style=bio_c),
+                Text(why_str,                style=P.LABEL),
             )
         parts.append(tbl)
 
     # System summary — when no notable bodies and system is inhabited
-    has_notable = any(True for b in s.bodies if (
-        b.bio_signals > 0 or b.terraform or
-        b.planet_class in ("Earthlike body", "Water world", "Ammonia world") or
-        b.value >= s.notable_value_threshold
-    ))
+    has_notable = any(_is_notable(b) for b in s.bodies) if s.bodies else False
     if not has_notable and s.economy and s.population > 0:
         sys_head = Text()
         sys_head.append("\nCURRENT SYSTEM\n", style=f"bold rgb(195,160,55)")
@@ -2051,6 +2093,38 @@ def _render_overview(s: AppState) -> RenderableType:
             sys_info.append("  Faction    ", style=P.LABEL)
             sys_info.append(faction_str + "\n", style="white")
         parts.append(sys_info)
+
+    # PowerPlay merits summary
+    if s.pp_power:
+        pp_head = Text()
+        pp_head.append("\nPOWERPLAY\n", style="bold rgb(130,80,200)")
+        parts.append(pp_head)
+        pp_info = Text()
+        rank_str = f" Rank {s.pp_rank}" if s.pp_rank > 0 else ""
+        pp_info.append("  Power      ", style=P.LABEL)
+        pp_info.append(f"{s.pp_power}{rank_str}\n", style="white")
+        if s.pp_total_merits > 0:
+            pp_info.append("  Merits     ", style=P.LABEL)
+            pp_info.append(f"{_de(s.pp_total_merits)}", style="rgb(180,130,255)")
+            if s.pp_session_merits > 0:
+                pp_info.append(f"  (+{_de(s.pp_session_merits)} session)", style=P.LABEL)
+            pp_info.append("\n", style="")
+        parts.append(pp_info)
+
+    # BGS activity summary (today's log)
+    if s.bgs_log:
+        bgs_head = Text()
+        bgs_head.append("\nBGS ACTIVITY\n", style="bold rgb(0,180,100)")
+        parts.append(bgs_head)
+        bgs_info = Text()
+        for sys_name, fac_map in list(s.bgs_log.items())[:3]:
+            short_sys = _short_name(sys_name, s.system) if sys_name == s.system else sys_name
+            for faction, acts in fac_map.items():
+                total = sum(acts.values())
+                act_str = ", ".join(f"{v}×{k}" for k, v in sorted(acts.items(), key=lambda x: -x[1]))
+                bgs_info.append(f"  {faction[:20]}\n", style="white")
+                bgs_info.append(f"    {act_str}\n", style=P.LABEL)
+        parts.append(bgs_info)
 
     # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
     if s.carriers_current_system:
@@ -2518,11 +2592,14 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "wealth", "bio", "missions", "engineers", "neutron", "galaxy", "stats")
+    _MODES           = ("auto", "overview", "wealth", "inventory", "bio", "missions", "engineers",
+                       "neutron", "galaxy", "stats", "docking", "bgs", "colonisation")
     _mode:   str     = "auto"
     _active: str     = "overview"
-    _galaxy_regional: bool = False
-    _neutron_scroll:  int  = 0
+    _galaxy_regional:    bool = False
+    _neutron_scroll:     int  = 0
+    _bgs_scroll:         int  = 0
+    _colonisation_scroll: int = 0
 
     DEFAULT_CSS = """
     SituationalPanel {
@@ -2552,12 +2629,23 @@ class SituationalPanel(_Panel):
         self._neutron_scroll = max(0, min(self._neutron_scroll + delta, max(0, route_len - 5)))
         self.refresh()
 
+    def scroll_bgs(self, delta: int) -> None:
+        self._bgs_scroll = max(0, self._bgs_scroll + delta)
+        self.refresh()
+
+    def scroll_colonisation(self, delta: int) -> None:
+        self._colonisation_scroll = max(0, self._colonisation_scroll + delta)
+        self.refresh()
+
     def _resolve(self, s: AppState) -> str:
         if self._mode != "auto":
             return self._mode
         # Offline: no live game data — show statistics
         if not s.client_online:
             return "stats"
+        # Docking granted — show pad diagram
+        if s.docked_pad > 0 and not s.docked:
+            return "docking"
         # Incomplete bio scans — player is actively scanning
         if any(not sc.complete for sc in s.bio_scans):
             return "bio"
@@ -2567,6 +2655,11 @@ class SituationalPanel(_Panel):
             idx = s._bodies_by_name.get(body_name, -1)
             if 0 <= idx < len(s.bodies) and s.bodies[idx].bio_genuses:
                 return "bio"
+        # Show colonisation when active sites exist and player is in system
+        if s.colonisation_sites and any(
+            site.get("system") == s.system for site in s.colonisation_sites.values()
+        ):
+            return "colonisation"
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return "missions"
@@ -2602,6 +2695,12 @@ class SituationalPanel(_Panel):
                                   panel_w=self.size.width, panel_h=self.size.height)
         if self._active == "stats":
             return _render_stats(s)
+        if self._active == "docking":
+            return _render_docking(s)
+        if self._active == "bgs":
+            return _render_bgs(s, scroll=self._bgs_scroll)
+        if self._active == "colonisation":
+            return _render_colonisation(s, scroll=self._colonisation_scroll)
         return _render_overview(s)
 
 
@@ -2685,6 +2784,174 @@ def _render_stats(s: AppState) -> RenderableType:
 
     return Panel(tbl, title="STATISTICS", title_align="left",
                  border_style=P.LABEL, padding=(0, 0), expand=True)
+
+
+def _render_docking(s: AppState) -> RenderableType:
+    """Docking pad diagram for Coriolis/Orbis stations (12 segments × 4 rings)."""
+    pad = s.docked_pad
+    stn = s.docked_station_name or s.station or "Unknown Station"
+    stype = s.docked_station_type or s.station_type or ""
+
+    parts: list[RenderableType] = []
+
+    head = Text()
+    head.append(f"\nDOCKING: {stn}\n", style="bold white")
+    if stype:
+        head.append(f"  {stype}\n", style=P.LABEL)
+    head.append(f"  Assigned pad: ", style=P.LABEL)
+    head.append(f"{pad}\n", style="bold rgb(0,255,150)")
+    parts.append(head)
+
+    # Coriolis/Orbis layout: pads 1–12 outer ring, 13–24 second ring, 25–36 third, 37–40 inner
+    # Simpler practical display: top-view table showing ring segments
+    # Pad numbering: outer 1–12 (large), 13–24 (large), 25–36 (medium), 37–40 (small inner)
+    # Segments: 12 clock positions
+    diag = Text()
+    diag.append("\n  Pad layout (outer → inner)\n", style=P.LABEL)
+
+    rings = [
+        ("Outer",  range(1,  13)),
+        ("Mid-1",  range(13, 25)),
+        ("Mid-2",  range(25, 37)),
+        ("Inner",  range(37, 41)),
+    ]
+
+    for ring_name, pad_range in rings:
+        row_t = Text()
+        row_t.append(f"  {ring_name:6} ", style="dim rgb(100,100,100)")
+        for p in pad_range:
+            if p == pad:
+                row_t.append(f"[{p:2}]", style="bold rgb(0,255,150)")
+            else:
+                row_t.append(f" {p:2} ", style="rgb(80,80,80)")
+        row_t.append("\n", style="")
+        diag.append_text(row_t)
+
+    parts.append(diag)
+
+    # Mail slot orientation hint
+    orient = Text()
+    orient.append("\n  Mail slot: ", style=P.LABEL)
+    # Pad 1 is roughly at bottom-center (facing the station entrance)
+    # High pads (37–40) are on the rotation axis
+    if 1 <= pad <= 12:
+        orient.append("Outer ring — enter aligned with slot\n", style="white")
+    elif 13 <= pad <= 24:
+        orient.append("Mid ring — enter aligned with slot\n", style="white")
+    elif 25 <= pad <= 36:
+        orient.append("Mid ring (smaller pad)\n", style="white")
+    else:
+        orient.append("Inner / axis — fly through center\n", style="white")
+    parts.append(orient)
+
+    if not parts:
+        return Text("No docking data.", style=P.LABEL)
+    return Group(*parts)
+
+
+def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
+    """BGS activity log: per-system per-faction activity counts (today's tick)."""
+    if not s.bgs_log:
+        t = Text()
+        t.append("No BGS activity recorded today.", style=P.LABEL)
+        return t
+
+    parts: list[RenderableType] = []
+    head = Text()
+    head.append(f"BGS ACTIVITY  ", style="bold rgb(0,180,100)")
+    head.append(f"({s.bgs_log_date})\n", style=P.LABEL)
+    parts.append(head)
+
+    rows: list[tuple] = []  # (system, faction, act_str, total)
+    for sys_name, fac_map in s.bgs_log.items():
+        for faction, acts in fac_map.items():
+            total   = sum(acts.values())
+            act_str = "  ".join(f"{v}×{k}" for k, v in sorted(acts.items(), key=lambda x: -x[1]))
+            rows.append((sys_name, faction, act_str, total))
+
+    rows.sort(key=lambda r: -r[3])
+    visible = rows[scroll:]
+
+    tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1),
+                header_style="dim rgb(130,130,130)")
+    tbl.add_column("System/Faction", no_wrap=True)
+    tbl.add_column("Activity",       no_wrap=True)
+    tbl.add_column("Total", width=5, justify="right", no_wrap=True)
+
+    for sys_name, faction, act_str, total in visible:
+        fac_short = faction[:28]
+        sys_str = sys_name if sys_name != s.system else f"● {sys_name}"
+        tbl.add_row(
+            Text(f"{sys_str}\n  {fac_short}", style="white"),
+            Text(act_str, style=P.LABEL),
+            Text(str(total), style=P.AMBER),
+        )
+    parts.append(tbl)
+    return Group(*parts)
+
+
+def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
+    """Colonisation construction sites with commodity progress."""
+    if not s.colonisation_sites:
+        t = Text()
+        t.append("No colonisation sites tracked.\n", style=P.LABEL)
+        t.append("Approach a construction depot to populate this view.", style="dim rgb(100,100,100)")
+        return t
+
+    import math as _math
+    parts: list[RenderableType] = []
+    head = Text()
+    head.append("COLONISATION SITES\n", style="bold rgb(255,200,0)")
+    parts.append(head)
+
+    # Sort sites: current system first, then by name
+    sites = sorted(
+        s.colonisation_sites.values(),
+        key=lambda x: (0 if x.get("system", "") == s.system else 1, x.get("system", "")),
+    )
+    visible = sites[scroll:]
+
+    for site in visible:
+        sys_name = site.get("system", "?")
+        mkt_id   = site.get("market_id", 0)
+        in_cur   = sys_name == s.system
+
+        site_head = Text()
+        site_head.append(f"  {sys_name}", style="bold white" if in_cur else "white")
+        if mkt_id:
+            site_head.append(f"  #{mkt_id}\n", style="dim rgb(100,100,100)")
+        else:
+            site_head.append("\n", style="")
+        parts.append(site_head)
+
+        commodities = site.get("commodities", [])
+        if commodities:
+            for com in commodities[:10]:
+                name     = com.get("name", "?")
+                required = com.get("required", 0)
+                provided = com.get("provided", 0)
+                if required > 0:
+                    pct    = min(1.0, provided / required)
+                    filled = int(8 * pct)
+                    bar    = "█" * filled + "░" * (8 - filled)
+                    pct_s  = f"{pct*100:.0f}%"
+                    bar_col = P.HUD_GREEN if pct >= 1.0 else P.AMBER
+                    row_t  = Text()
+                    row_t.append(f"    [{bar}] ", style=bar_col)
+                    row_t.append(f"{provided}/{required}", style="white")
+                    row_t.append(f"  {name}\n", style=P.LABEL)
+                    parts.append(row_t)
+                else:
+                    row_t = Text()
+                    row_t.append(f"    {name}: ", style=P.LABEL)
+                    row_t.append(f"{provided} t delivered\n", style="white")
+                    parts.append(row_t)
+        else:
+            t = Text()
+            t.append("    Approach depot for commodity details\n", style="dim rgb(100,100,100)")
+            parts.append(t)
+
+    return Group(*parts)
 
 
 # ── Event log panel ───────────────────────────────────────────────────────────
