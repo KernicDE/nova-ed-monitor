@@ -29,25 +29,17 @@ error()   { echo -e "${RED}  ${*}${NC}"; }
 
 detect_pm() {
     if [ -f /etc/os-release ]; then
-        # shellcheck disable=SC1091
         local _id _id_like
         _id=$(. /etc/os-release && echo "${ID:-}")
         _id_like=$(. /etc/os-release && echo "${ID_LIKE:-}")
-        case "$_id $id_like" in
-            *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) echo "dnf"; return ;;
-        esac
-        case "$_id_like $id_like" in
-            *fedora*|*rhel*|*centos*)                          echo "dnf"; return ;;
-            *debian*|*ubuntu*)                                 echo "apt"; return ;;
+        # Match against combined "ID ID_LIKE" string so either field can trigger
+        case "$_id $_id_like" in
+            *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) echo "dnf";    return ;;
+            *debian*|*ubuntu*)                                 echo "apt";    return ;;
             *arch*|*manjaro*)                                  echo "pacman"; return ;;
         esac
-        case "$_id" in
-            fedora|rhel|centos|rocky|almalinux|nobara)         echo "dnf"; return ;;
-            debian|ubuntu|linuxmint|pop|elementary|kali)       echo "apt"; return ;;
-            arch|manjaro|endeavouros|garuda|artix)             echo "pacman"; return ;;
-        esac
     fi
-    # Fallback: command presence (note: dnf checked before apt to avoid false matches)
+    # Fallback: command presence (dnf checked before apt to avoid false matches)
     command -v pacman  &>/dev/null && echo "pacman" && return
     command -v dnf     &>/dev/null && echo "dnf"    && return
     command -v apt-get &>/dev/null && echo "apt"    && return
