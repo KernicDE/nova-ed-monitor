@@ -1001,12 +1001,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                 unusual_flags  = []
                 if landable and not is_star and radius > 0 and radius < 500_000:
                     km = int(radius / 1000)
-                    unusual_flags.append(f"Tiny <{km} km")
+                    unusual_flags.append(f"Tiny<{km}km")
                 if not is_star and eccentricity > 0.8:
-                    unusual_flags.append(f"Eccentric ({eccentricity:.2f})")
+                    unusual_flags.append(f"Ecc {eccentricity:.2f}")
                 if not is_star and 0 < orbital_period < 7_200:
                     mins = int(orbital_period / 60)
-                    unusual_flags.append(f"Fast orbit ({mins} min)")
+                    unusual_flags.append(f"Orb {mins}m")
                 unusual_body = " · ".join(unusual_flags)
 
                 state.upsert_body(BodyInfo(

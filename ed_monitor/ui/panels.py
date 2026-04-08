@@ -2053,13 +2053,13 @@ def _render_overview(s: AppState) -> RenderableType:
             if b.planet_class == "Earthlike body":  why_parts.append("ELW")
             if b.planet_class == "Water world":      why_parts.append("WW")
             if b.planet_class == "Ammonia world":    why_parts.append("AW")
-            if b.terraform:                           why_parts.append("Terraform")
-            if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}× bio")
-            if b.value > s.notable_value_threshold:  why_parts.append("High value")
+            if b.terraform:                           why_parts.append("TF")
+            if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}B")
+            if b.value > s.notable_value_threshold:  why_parts.append("HV")
             jump_tier = _jt(b.materials) if b.materials else ""
-            if jump_tier:                             why_parts.append(f"Jump {jump_tier}")
+            if jump_tier:                             why_parts.append(f"J-{jump_tier[:4]}")
             if b.unusual_body:                        why_parts.append(b.unusual_body)
-            why_str = " · ".join(why_parts)
+            why_str = ", ".join(why_parts)
 
             tbl.add_row(
                 Text(short,                  style=name_style),
