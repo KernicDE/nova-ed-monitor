@@ -202,6 +202,151 @@ def _bio_value_lookup(species_loc: str) -> int:
     return v
 
 
+def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,
+                       surface_gravity: float, volcanism: str,
+                       primary_star_type: str = "") -> list[str]:
+    """Predict possible biological genera from planet FSS conditions.
+
+    Returns deduplicated list of genus names (title-case, matching _BIO_GENUS_VALUE_RANGE keys).
+    Only makes predictions for landable bodies with atmospheres; returns [] if conditions unknown.
+    """
+    if not planet_class and not atmosphere:
+        return []
+
+    atm = (atmosphere or "").lower()
+    pc  = (planet_class or "").lower()
+    g   = surface_gravity / 9.80665 if surface_gravity > 0 else 999.0
+    t   = surface_temp
+    vol = (volcanism or "").lower()
+
+    pst = (primary_star_type or "").upper()
+    # Electricae pluma requires type A (main sequence) or hotter
+    _a_or_hotter = pst in ("O", "B", "A") or pst.startswith(("O", "B", "A"))
+
+    predicted: list[str] = []
+
+    # ── Volcanism-dependent (Fumerola) ─────────────────────────────────────────
+    if vol and "no volcanism" not in vol and g < 0.27:
+        predicted.append("Fumerola")
+
+    # ── Helium ────────────────────────────────────────────────────────────────
+    if "helium" in atm:
+        predicted.append("Bacterium")
+
+    # ── Neon / Neon-rich ──────────────────────────────────────────────────────
+    if "neon" in atm:
+        predicted.append("Bacterium")
+        predicted.append("Fonticulua")
+        if _a_or_hotter:
+            predicted.append("Electricae")
+
+    # ── Argon / Argon-rich ────────────────────────────────────────────────────
+    if "argon" in atm:
+        predicted.append("Bacterium")
+        if "icy" in pc or "rocky ice" in pc:
+            predicted.append("Fonticulua")
+        if "rocky" in pc and "icy" not in pc:
+            predicted.append("Fungoida")
+            predicted.append("Osseus")
+            predicted.append("Tussock")
+        if _a_or_hotter:
+            predicted.append("Electricae")
+
+    # ── Methane / Methane-rich ────────────────────────────────────────────────
+    if "methane" in atm:
+        predicted.append("Bacterium")
+        predicted.append("Fungoida")
+        predicted.append("Osseus")
+        if "rocky" in pc and "icy" not in pc:
+            predicted.append("Tussock")
+        if "icy" in pc or "rocky ice" in pc:
+            predicted.append("Fonticulua")
+
+    # ── Nitrogen ──────────────────────────────────────────────────────────────
+    if "nitrogen" in atm and "sulphur" not in atm and "sulfur" not in atm:
+        predicted.append("Bacterium")
+        predicted.append("Concha")
+        if "icy" in pc or "rocky ice" in pc:
+            predicted.append("Fonticulua")
+
+    # ── Oxygen ────────────────────────────────────────────────────────────────
+    if "oxygen" in atm:
+        predicted.append("Bacterium")
+        if "icy" in pc or "rocky ice" in pc:
+            predicted.append("Fonticulua")
+        if "high metal content" in pc:
+            predicted.append("Stratum")
+
+    # ── Ammonia ───────────────────────────────────────────────────────────────
+    if "ammonia" in atm:
+        predicted.append("Bacterium")
+        predicted.append("Aleoida")
+        predicted.append("Cactoida")
+        predicted.append("Concha")
+        predicted.append("Frutexa")
+        predicted.append("Fungoida")
+        predicted.append("Osseus")
+        predicted.append("Tussock")
+        if g < 0.15:
+            predicted.append("Tubus")
+        if t > 165:
+            predicted.append("Stratum")
+
+    # ── Carbon dioxide / CO2-rich ─────────────────────────────────────────────
+    if "carbon dioxide" in atm:
+        predicted.append("Bacterium")
+        predicted.append("Concha")
+        predicted.append("Frutexa")
+        predicted.append("Fungoida")
+        predicted.append("Osseus")
+        predicted.append("Tussock")
+        if t > 190:
+            predicted.append("Clypeus")
+        if g < 0.15:
+            predicted.append("Tubus")
+        if t > 165:
+            predicted.append("Stratum")
+        if "high metal content" in pc:
+            predicted.append("Aleoida")
+            predicted.append("Cactoida")
+
+    # ── Water / Water-rich ────────────────────────────────────────────────────
+    if "water" in atm and "sulphur" not in atm and "sulfur" not in atm:
+        predicted.append("Bacterium")
+        predicted.append("Cactoida")
+        predicted.append("Clypeus")
+        predicted.append("Concha")
+        predicted.append("Fungoida")
+        predicted.append("Osseus")
+        if "rocky" in pc and "icy" not in pc:
+            predicted.append("Frutexa")
+            predicted.append("Tussock")
+        if t > 165:
+            predicted.append("Stratum")
+        if "icy" in pc or "rocky ice" in pc:
+            predicted.append("Fonticulua")
+
+    # ── Sulphur dioxide ───────────────────────────────────────────────────────
+    if "sulphur dioxide" in atm or "sulfur dioxide" in atm:
+        predicted.append("Bacterium")
+        predicted.append("Recepta")
+        if "rocky" in pc and "icy" not in pc:
+            predicted.append("Frutexa")
+            predicted.append("Tussock")
+            predicted.append("Stratum")
+        if ("icy" in pc or "rocky ice" in pc) and t > 165:
+            predicted.append("Stratum")
+
+    # Deduplicate preserving order
+    seen: set[str] = set()
+    result: list[str] = []
+    for genus in predicted:
+        if genus not in seen:
+            seen.add(genus)
+            result.append(genus)
+    return result
+
+
 # Default voices per language — overridable via set_voices()
 _LANG_VOICES: dict[str, str] = {
     "en": "en-GB-SoniaNeural",
@@ -1025,6 +1170,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     eccentricity=eccentricity,
                     orbital_inclination=_f(ev, "OrbitalInclination"),
                     surface_gravity=_f(ev, "SurfaceGravity"),
+                    surface_temp=_f(ev, "SurfaceTemperature"),
+                    volcanism=_s(ev, "Volcanism"),
                     materials=body_materials,
                     unusual_body=unusual_body,
                 ))
@@ -1146,6 +1293,19 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                     count    = _u(sig, "Count")
                     if "Biological"   in sig_type: _fss_b.bio_signals = count; bio_count = count
                     elif "Geological" in sig_type: _fss_b.geo_signals = count; geo_count = count
+                # Run bio genus prediction if we now have bio signals and no DSS genus data yet
+                if bio_count > 0 and not _fss_b.bio_genuses and _fss_b.planet_class:
+                    # Find primary star type for this system
+                    _pst = ""
+                    for _sb in state.bodies:
+                        if _sb.star_type and _sb.level == 0:
+                            _pst = _sb.star_type
+                            break
+                    _fss_b.bio_genuses_predicted = predict_bio_genera(
+                        _fss_b.planet_class, _fss_b.atmosphere,
+                        _fss_b.surface_temp, _fss_b.surface_gravity,
+                        _fss_b.volcanism, _pst,
+                    )
 
             parts = []
             if bio_count > 0:

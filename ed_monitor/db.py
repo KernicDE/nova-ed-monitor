@@ -69,6 +69,8 @@ class Database:
             "ALTER TABLE bodies ADD COLUMN orbital_inclination REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN surface_gravity REAL NOT NULL DEFAULT 0",
             "ALTER TABLE bodies ADD COLUMN materials TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE bodies ADD COLUMN surface_temp REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE bodies ADD COLUMN volcanism TEXT NOT NULL DEFAULT ''",
             """CREATE TABLE IF NOT EXISTS stats (
                 date  TEXT NOT NULL,
                 stat  TEXT NOT NULL,
@@ -224,8 +226,8 @@ class Database:
             "  first_discovered, first_mapped, mapped, fss_scanned, radius,"
             "  bio_value_min, bio_value_max,"
             "  semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,"
-            "  surface_gravity, materials)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            "  surface_gravity, materials, surface_temp, volcanism)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         )
         params = [
             (
@@ -241,6 +243,7 @@ class Database:
                 b.mean_anomaly, b.eccentricity, b.orbital_inclination,
                 b.surface_gravity,
                 _json.dumps(b.materials) if b.materials else "",
+                b.surface_temp, b.volcanism,
             )
             for b in bodies
         ]
@@ -317,10 +320,13 @@ class Database:
                           bio_value_min, bio_value_max,
                           semi_major_axis, orbital_period, mean_anomaly, eccentricity, orbital_inclination,
                           surface_gravity,
-                          COALESCE(materials, '')
+                          COALESCE(materials, ''),
+                          COALESCE(surface_temp, 0),
+                          COALESCE(volcanism, '')
                    FROM bodies WHERE system = ?""",
                 (system,),
             ).fetchall()
+        from .events import predict_bio_genera as _pbg
         result = []
         for row in rows:
             genuses = [g for g in row[10].split("|") if g]
@@ -329,7 +335,7 @@ class Database:
                 mats = _json.loads(mats_raw) if mats_raw else {}
             except Exception:
                 mats = {}
-            result.append(BodyInfo(
+            b = BodyInfo(
                 name=row[0],      body_id=int(row[1]),   level=int(row[2]),
                 planet_class=row[3], star_type=row[4],   atmosphere=row[5],
                 terraform=bool(row[6]), landable=bool(row[7]),
@@ -344,7 +350,18 @@ class Database:
                 orbital_inclination=float(row[24] or 0),
                 surface_gravity=float(row[25] or 0),
                 materials=mats,
-            ))
+                surface_temp=float(row[27] or 0),
+                volcanism=row[28] or "",
+            )
+            result.append(b)
+        # Re-run bio prediction on load (not stored in DB; derived field)
+        primary_star_type = next((b.star_type for b in result if b.star_type and b.level == 0), "")
+        for b in result:
+            if b.bio_signals > 0 and not b.bio_genuses and b.planet_class:
+                b.bio_genuses_predicted = _pbg(
+                    b.planet_class, b.atmosphere, b.surface_temp,
+                    b.surface_gravity, b.volcanism, primary_star_type,
+                )
         return result
 
     def increment_stat(self, stat: str, value: float = 1.0) -> None:

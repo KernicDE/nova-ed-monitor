@@ -107,14 +107,17 @@ class BodyInfo:
     mapped:           bool   # True = DSS complete
     fss_scanned:      bool   # True = player FSS'd this body
     radius:           float
-    bio_value_min:    int    = 0  # estimated min bio value (from genus range)
-    bio_value_max:    int    = 0  # estimated max bio value (from genus range)
+    bio_value_min:       int    = 0   # estimated min bio value (from genus range)
+    bio_value_max:       int    = 0   # estimated max bio value (from genus range)
+    bio_genuses_predicted: list = field(default_factory=list)  # predicted genera before DSS
     semi_major_axis:     float = 0.0   # metres
     orbital_period:      float = 0.0   # seconds
     mean_anomaly:        float = 0.0   # degrees at scan time
     eccentricity:        float = 0.0
     orbital_inclination: float = 0.0   # degrees
     surface_gravity:     float = 0.0   # m/s², from SurfaceGravity in Scan event
+    surface_temp:        float = 0.0   # K, from SurfaceTemperature in Scan event
+    volcanism:           str   = ""    # raw volcanism string from Scan event
     materials:           dict  = field(default_factory=dict)   # {name_lower: pct} from Scan Materials
     unusual_body:        str   = ""    # non-empty = unusual (e.g. "Tiny <300 km", "Eccentric")
 

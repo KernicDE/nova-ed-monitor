@@ -1135,11 +1135,24 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         b for b in s.bodies
         if b.bio_genuses and b.name not in scanned_bodies
     ]
+    dss_bodies = {b.name for b in prescan_bodies}
+
+    # Bodies with bio signals detected by FSS but not yet DSS'd — show predictions
+    predicted_bodies = [
+        b for b in s.bodies
+        if b.bio_signals > 0
+        and not b.bio_genuses
+        and b.bio_genuses_predicted
+        and b.name not in scanned_bodies
+        and b.name not in dss_bodies
+    ]
 
     total_known = sum(sc.value for sc in s.bio_scans if sc.complete and sc.value > 0)
 
     # Build flat list of body groups for scrolling
     groups: list[tuple[str, object]] = []
+    for b in predicted_bodies:
+        groups.append(("predicted", b))
     for b in prescan_bodies:
         groups.append(("prescan", b))
     for body_name in sorted(by_body):
@@ -1159,7 +1172,46 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         parts.append(more_t)
 
     for gtype, gdata in groups[effective_scroll:]:
-        if gtype == "prescan":
+        if gtype == "predicted":
+            b = gdata
+            short = _short_name(b.name, s.system) if b.name and s.system else b.name
+            hdr_t = Text()
+            hdr_t.append("─" * 3, style="rgb(60,80,100)")
+            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+            hdr_t.append(f"(FSS · {b.bio_signals} bio) ", style="rgb(120,120,80)")
+            hdr_t.append("─" * 8, style="rgb(60,80,100)")
+            hdr_t.append("\n")
+            parts.append(hdr_t)
+
+            tbl = Table(
+                show_header=True, show_edge=False, show_lines=False,
+                padding=(0, 0), box=None,
+            )
+            tbl.add_column("Predicted Genus",  width=22, header_style=HDR)
+            tbl.add_column("Est. Value Range", width=22, header_style=HDR)
+
+            total_pred_min = total_pred_max = 0
+            for g in b.bio_genuses_predicted:
+                key = g.lower().split()[0] if g else ""
+                lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                total_pred_min += lo
+                total_pred_max += hi
+                tbl.add_row(
+                    Text(f"? {g}", style="rgb(160,160,80)"),
+                    Text(val_s, style="rgb(160,130,60)"),
+                )
+            parts.append(tbl)
+
+            hint_t = Text()
+            hint_t.append("  DSS to confirm genera", style=P.LABEL)
+            if total_pred_min > 0 and b.bio_signals > 0:
+                # Scale estimate by signal count (each signal = one species)
+                hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
+            hint_t.append("\n")
+            parts.append(hint_t)
+
+        elif gtype == "prescan":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
             hdr_t = Text()
@@ -2121,8 +2173,24 @@ def _render_overview(s: AppState) -> RenderableType:
                 vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
                     if b.bio_value_max > 0:
+                        # DSS confirmed genus ranges
                         bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
                         bio_c = P.AMBER
+                    elif b.bio_genuses_predicted:
+                        # FSS prediction — compute rough range from predicted genera
+                        from ..events import _BIO_GENUS_VALUE_RANGE as _BGVR
+                        _pred_min = _pred_max = 0
+                        for _pg in b.bio_genuses_predicted:
+                            _pk = _pg.lower().split()[0] if _pg else ""
+                            _lo, _hi = _BGVR.get(_pk, (0, 0))
+                            _pred_min += _lo
+                            _pred_max += _hi
+                        if _pred_max > 0:
+                            bio_s = f"?~{_fmt_cr_compact(_pred_min)}–{_fmt_cr_compact(_pred_max)}"
+                            bio_c = "rgb(140,130,60)"  # dimmer gold — uncertain prediction
+                        else:
+                            bio_s = f"{b.bio_signals}×?"
+                            bio_c = P.LABEL
                     else:
                         bio_s = f"{b.bio_signals}×"
                         bio_c = P.HUD_GREEN
