@@ -39,6 +39,7 @@ class Config:
     screenshot_dir:           str  = ""    # ED screenshot source dir (auto-detected if empty)
     screenshot_dest:          str  = ""    # destination dir (default: ~/Pictures/Elite Dangerous)
     chat_lang:                str  = ""    # fallback language for chat TTS (empty = auto-detect)
+    situational_panels:       list = field(default_factory=list)  # [] = default order/all visible
 
 
 DEFAULT_CONFIG = """\
@@ -105,6 +106,12 @@ DEFAULT_CONFIG = """\
 # Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).
 # Enable when you need to diagnose a problem and send the log to the developer.
 # debug_log = false
+
+# ── Situational Panels ────────────────────────────────────────────────────────
+# Define visibility and order of SITUATION panel tabs (space-separated).
+# Panels not listed here will not appear in NOVA and auto mode won't switch to them.
+# Available: OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
 """
 
 
@@ -144,6 +151,7 @@ def load() -> Config:
     screenshot_dir           = ""
     screenshot_dest          = ""
     chat_lang                = ""
+    situational_panels: list = []
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
@@ -151,6 +159,7 @@ def load() -> Config:
         "tts_rate", "tts_lang", "overlay_dir",
         "default_volume", "notable_value_threshold", "carrier_lookup",
         "debug_log", "screenshot_dir", "screenshot_dest", "chat_lang",
+        "situational_panels",
     }
 
     try:
@@ -207,6 +216,16 @@ def load() -> Config:
                         _valid = {"en", "de", "fr", "it", "es", "pt", "ru"}
                         if v in _valid:
                             chat_lang = v
+                    case "situational_panels":
+                        _abbrev_to_mode = {
+                            "OVR": "overview", "BIO": "bio", "MAP": "galaxy",
+                            "MIS": "missions", "ENG": "engineers", "BGS": "bgs",
+                            "COL": "colonisation", "ROU": "route", "NTR": "neutron",
+                            "WLT": "wealth", "INV": "inventory", "DKG": "docking", "STS": "stats",
+                        }
+                        _panels = [_abbrev_to_mode[a.upper()] for a in v.split() if a.upper() in _abbrev_to_mode]
+                        if _panels:
+                            situational_panels = _panels
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -275,6 +294,7 @@ def load() -> Config:
         screenshot_dir=screenshot_dir,
         screenshot_dest=screenshot_dest,
         chat_lang=chat_lang,
+        situational_panels=situational_panels,
     )
 
 

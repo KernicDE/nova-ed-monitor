@@ -50,6 +50,7 @@ def main() -> None:
     with lock:
         state.volume                    = cfg.default_volume
         state.notable_value_threshold   = cfg.notable_value_threshold
+        state.situational_panels        = list(cfg.situational_panels)
         state.session_start             = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True
         state.client_online = False  # Start offline until we see LoadGame/Location event

@@ -66,6 +66,18 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
         with lock:
             state.route_next_stations = []
 
+    # EDSM enrichment for full route list (system presence + metadata)
+    with lock:
+        route = list(state.route_list)
+    if route:
+        names = [e.get("StarSystem", "") for e in route if e.get("StarSystem")]
+        edsm_data = db.get_systems_info_batch(names)
+        with lock:
+            state.route_list_edsm = edsm_data
+    else:
+        with lock:
+            state.route_list_edsm = {}
+
 # ── _get_latest cache ──────────────────────────────────────────────────────────
 _latest_cache_time: float = 0.0
 _latest_cache_path: Optional[Path] = None

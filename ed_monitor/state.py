@@ -385,6 +385,12 @@ class AppState:
     pp_session_merits: int = 0
     pp_rank:           int = 0
 
+    # Situational panel config (from config.toml; controls visibility/order)
+    situational_panels: list = field(default_factory=list)  # ["overview", "bio", ...]; [] = default order
+
+    # EDSM enrichment for nav route systems (populated by journal.py on route/system change)
+    route_list_edsm: dict = field(default_factory=dict)  # name → {x, y, z, population, allegiance}
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 

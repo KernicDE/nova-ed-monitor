@@ -67,6 +67,7 @@ class HelpScreen(Screen):
             ("?",                "This help screen"),
             ("Tab",              "Cycle situational panel forward"),
             ("Shift+Tab",        "Cycle situational panel backward"),
+            ("a",                "Toggle auto panel switching on/off"),
             ("↑ / k",            "Scroll situational panel up"),
             ("↓ / j",            "Scroll situational panel down"),
             ("PgUp / PgDn",      "Scroll event log by 20 lines"),
@@ -83,16 +84,20 @@ class HelpScreen(Screen):
         sm.add_column(width=14)
         sm.add_column()
         for mode, desc in [
-            ("Auto",        "Bio → Missions → Overview; Stats when offline"),
-            ("Overview",    "System diagram, notable bodies, session stats"),
-            ("Wealth",      "Credit balance, fleet, cargo, suit loadout"),
-            ("Inventory",   "Cargo and materials"),
-            ("Bio",         "Active bio scans with distances and bearings"),
-            ("Missions",    "Active mission list"),
-            ("Engineers",   "Engineer unlock progress and rank"),
-            ("Neutron",     "Local neutron route planner (n = new route)"),
-            ("Galaxy",      "Braille top-down galaxy map"),
-            ("Stats",       "Persistent statistics"),
+            ("*** / Auto",       "Auto-switches by context; a = toggle lock"),
+            ("OVR / Overview",   "System diagram, notable bodies, session stats"),
+            ("BIO / Biological", "Active bio scans with distances and bearings"),
+            ("MAP / Galaxy Map", "Braille top-down galaxy map (r = scale toggle)"),
+            ("MIS / Mission",    "Active mission list"),
+            ("ENG / Engineers",  "Engineer unlock progress and rank"),
+            ("BGS",              "BGS activity log"),
+            ("COL / Colonisation","Construction site progress"),
+            ("ROU / Route",      "Nav route with jump distances and EDSM info"),
+            ("NTR / Neutron",    "Local neutron route planner (n = new route)"),
+            ("WLT / Wallet",     "Credit balance, fleet, cargo, suit loadout"),
+            ("INV / Inventory",  "Cargo and materials"),
+            ("DKG / Docking",    "Docking pad diagram"),
+            ("STS / Statistics", "Persistent session statistics"),
         ]:
             sm.add_row(Text(mode, style=GOLD), Text(desc, style=WHITE))
 
@@ -373,11 +378,13 @@ class NOVAApp(App):
     def _snapshot(self) -> AppState:
         with self._lock:
             snap = copy.copy(self._state)
-            snap.events      = copy.copy(self._state.events)
-            snap.bodies      = list(self._state.bodies)
-            snap.bio_scans   = list(self._state.bio_scans)
-            snap.neutron_route = list(self._state.neutron_route)
-            snap.stored_ships  = list(self._state.stored_ships)
+            snap.events         = copy.copy(self._state.events)
+            snap.bodies         = list(self._state.bodies)
+            snap.bio_scans      = list(self._state.bio_scans)
+            snap.neutron_route  = list(self._state.neutron_route)
+            snap.stored_ships   = list(self._state.stored_ships)
+            snap.route_list     = list(self._state.route_list)
+            snap.route_list_edsm = dict(self._state.route_list_edsm)
         return snap
 
     def _refresh_all(self) -> None:
@@ -447,6 +454,8 @@ class NOVAApp(App):
                 sit.scroll_bgs(1)
             elif sit._active == "colonisation":
                 sit.scroll_colonisation(1)
+            elif sit._active == "route":
+                sit.scroll_route(1)
             else:
                 sit.scroll_general(1)
 
@@ -458,6 +467,8 @@ class NOVAApp(App):
                 sit.scroll_bgs(-1)
             elif sit._active == "colonisation":
                 sit.scroll_colonisation(-1)
+            elif sit._active == "route":
+                sit.scroll_route(-1)
             else:
                 sit.scroll_general(-1)
 
@@ -481,6 +492,9 @@ class NOVAApp(App):
 
         elif key == "shift+tab":
             self.query_one(SituationalPanel).back_cycle()
+
+        elif key == "a":
+            self.query_one(SituationalPanel).toggle_auto_lock()
 
         elif key == "r":
             self.query_one(SituationalPanel).toggle_galaxy_scale()

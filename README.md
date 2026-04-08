@@ -7,40 +7,57 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 
 **Guides:** [Installation & Update](docs/Installation.md) · [Settings](docs/Settings.md) · [Usage Guide](docs/Usage.md)
 
+---
+
 ## Features
 
+### Voice & TTS
 - **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
-- **NOVA voiceovers** — NOVA's own callouts are fully translated into all 7 supported languages with multiple random variants per event; user-editable TOML files per language
-- **Multi-language** — detects and voices EN, DE, FR, IT, ES, PT, RU automatically per message
+- **NOVA voiceovers** — fully translated into 7 languages with multiple random variants per event; user-editable TOML files per language
+- **Multi-language detection** — automatically detects and voices EN, DE, FR, IT, ES, PT, RU per message
 - **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
-- **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed) and announces messages via TTS
-- **EDSM enrichment** — fetches body data in the background (no API key needed); downloads EDSM nightly dumps once per day for offline lookups
-- **Power Play** — displays the controlling power and state (Exploited / Fortified / Control / etc.) for any system from the local EDSM cache
-- **Nearest inhabited system** — shows the closest populated system and distance (ly) when exploring uninhabited space
-- **Next-waypoint stations** — lists stations at the next jump destination in the Route panel (name, distance, services icons: M/S/O/R)
-- **Fleet carrier lookup** — optionally queries the Spansh API for fleet carriers in your current system (enable with `carrier_lookup = true`; results cached 5 min)
-- **High-G body warning** — TTS warning when approaching a body with ≥1.5 G; three repeated alerts and full orange border flash for extreme gravity (≥3 G); stops when the ship lands
-- **Screenshot processing** — monitors the ED screenshot folder, converts BMP → PNG, renames files to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`, and moves them to `~/Pictures/Elite Dangerous` automatically
-- **Neutron route planner** — local neutron star route calculator using a daily-refreshed Spansh dump; no live API calls; press `n` in the Neutron panel to enter a destination
-- **Wallet & fleet** — Wealth panel shows credit balance, fleet location across all stations, cargo, materials, suit loadout, and backpack contents
-- **Engineer progress** — enhanced Engineers panel with rank bars, rank-progress %, specialty, and system for all ~36 engineers; grouped by Unlocked / In Progress / Locked
-- **Keybindings backup** — automatically backs up your Elite Dangerous `.binds` file whenever it changes; last 5 versions kept in `~/.config/nova/bindings_backup/`; preset switches are detected and logged in the UI
-- **Debug logging** — enable `debug_log = true` in config to write a full session log to `~/.config/nova/nova-debug.log` for diagnostics
-- **Terminal UI** — System / Ship / Route / Bodies / Situational / Events / Chat panels
-  - **Power distribution (PIPs)** — live SYS/ENG/WEP pip display in the Ship panel with half-pip support (●◑○)
-  - **Two-column system info** — natural/exploration data on the left, human/BGS data on the right
-  - **Compact route** — hops, next distance, and total on a single line; carriers shown when available
-  - **Color-coded event log** — category abbreviation (NAV/EXP/COM/…) in category color, muted message color
-  - **Session stats in Overview** — jumps, first discoveries, mapped bodies, and total value
-- **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species
-- **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) in the Bodies panel before full scan
-- **Galaxy map** — Braille-rendered top-down map of the Milky Way with route waypoints
+- **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed)
+
+### Exploration
+- **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species; first footfall bonus announced when all 3 samples scanned
+- **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) before DSS, and predicted genera after FSS based on planet conditions
+- **First footfall inference** — announces first footfall bonus even when the journal flag is absent, based on first-discovery status
+- **High-G body warning** — TTS warning at ≥1.5 G; three repeated alerts and orange border flash for extreme gravity (≥3 G)
 - **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
-- **First footfall inference** — announces first footfall even when the journal flag is absent, based on first-discovery status
-- **Statistics** — persistent stats page: jumps, distance, credits, FSS/DSS/bio counts and values, enemies destroyed, ships lost — broken down by today / week / month / year / total
-- **Stream overlay** — writes a configurable text file for OBS/Streamlabs marquees
-- **Persistent event log** — replays journal history from SQLite across sessions, including bodies scanned in previous sessions
-- **Auto-installing launcher** — installs Python, NOVA, and all dependencies automatically; auto-updates on every launch
+- **EDSM enrichment** — downloads EDSM nightly dumps for offline lookups; no API key needed
+- **Power Play** — displays controlling power and state (Exploited / Fortified / Control / etc.) from local EDSM cache
+- **Nearest inhabited system** — shows closest populated system and distance when exploring uninhabited space
+
+### Navigation & Route
+- **Route situation panel** — shows each jump in the active nav route with star type, scoopable indicator, distance from current position, jump distance, and EDSM presence; scrollable
+- **Neutron route planner** — local neutron route calculator using a daily-refreshed Spansh dump; press `n` in Neutron panel to enter destination
+- **Next-waypoint stations** — lists stations at the next jump destination (name, distance, services icons: M/S/O/R)
+- **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; cached 5 min)
+
+### Terminal UI
+- **System / Ship / Route / Bodies / Situational / Events / Chat panels**
+- **Situational panel** (14 modes, cycle with `Tab` / `Shift+Tab`):
+  - Auto-switches by context; toggle auto-lock with `a`
+  - Panel visibility and order configurable via `situational_panels` in config
+  - Active mode shown with full name in the border title
+- **Power distribution (PIPs)** — live SYS/ENG/WEP pip display with half-pip support (●◑○)
+- **Two-column system info** — exploration/natural data left, BGS/human data right
+- **Galaxy map** — Braille top-down map of the Milky Way with route waypoints; `r` toggles scale
+- **Local time** — current system time shown in the footer bar
+- **Color-coded event log** — category abbreviation in category color
+
+### Ship & Commander
+- **Wallet & fleet** — Wealth panel: credit balance, fleet across all stations, cargo, materials, suit loadout, backpack
+- **Engineer progress** — rank bars, rank-progress %, specialty and system for all ~36 engineers; Odyssey engineers shown as X/1 (not X/5)
+- **Screenshot processing** — converts BMP→PNG, renames to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`, moves to `~/Pictures/Elite Dangerous`
+- **Statistics** — persistent stats: jumps, distance, credits, FSS/DSS/bio, enemies, ships lost — today / week / month / year / total
+
+### Data & Persistence
+- **Persistent event log** — replays journal history from SQLite across sessions, including bodies from previous sessions
+- **Keybindings backup** — backs up your ED `.binds` file on changes; last 5 versions kept
+- **Stream overlay** — writes `.txt` files per data field for OBS/Streamlabs
+- **Auto-installing launcher** — installs Python, NOVA, and dependencies automatically; auto-updates on every launch
+- **Debug logging** — enable `debug_log = true` to write a full session log for diagnostics
 
 ---
 
@@ -206,65 +223,31 @@ Open it with any text editor to adjust settings:
 # TTS voices per language (edge-tts voice names):
 # tts_voice_en = en-GB-SoniaNeural
 # tts_voice_de = de-DE-KatjaNeural
-# tts_voice_fr = fr-FR-DeniseNeural
-# tts_voice_it = it-IT-ElsaNeural
-# tts_voice_es = es-ES-ElviraNeural
-# tts_voice_pt = pt-PT-RaquelNeural
-# tts_voice_ru = ru-RU-SvetlanaNeural
 
-# Stream overlay — each overlay_line_N defines one segment, joined by the separator.
-# Lines whose variable evaluates to empty/zero are skipped automatically.
-#
-# Available variables:
-#   {commander}    — Commander name
-#   {ship_name}    — Ship name
-#   {ship_type}    — Ship type (e.g. "Krait Phantom")
-#   {system}       — Current star system
-#   {position}     — Station, approach body, or "Deep Space"
-#   {jumps_left}   — Remaining jumps in route (skipped when 0)
-#   {route_next}   — Next jump destination (skipped when empty)
-#   {hull_pct}     — Hull integrity percentage (e.g. "98%")
-#   {fuel_t}       — Current fuel in tonnes (e.g. "28.4t")
-#   {fuel_max_t}   — Max fuel capacity (e.g. "32t")
-#
-# overlay_line_1 = NOVA
-# overlay_line_2 = {ship_name} ({ship_type})
-# overlay_line_3 = {system} — {position}
-# overlay_line_4 = JUMPS: {jumps_left}
-# overlay_separator =      ////
-# overlay_uppercase = true
-# overlay_path = stream_info.txt
-
-# Notable Bodies threshold: minimum body value (Cr) to appear in the Overview notable list.
-# ELW / Water / Ammonia worlds, terraform candidates, and bio signals are always shown.
+# Notable Bodies threshold (Cr):
 # notable_value_threshold = 500000
 
-# Fleet carrier lookup via Spansh API (cached 5 min, max 1 req/3 sec):
+# Fleet carrier lookup via Spansh API:
 # carrier_lookup = false
 
-# Screenshot processing — auto-detected for Proton and native installs:
-# screenshot_dir  = /path/to/ED/screenshots     # source folder (leave empty to auto-detect)
-# screenshot_dest = ~/Pictures/Elite Dangerous   # destination folder
+# Situational panel visibility and order:
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
 
-# Debug log — writes full session log to ~/.config/nova/nova-debug.log:
+# Screenshot processing:
+# screenshot_dir  = /path/to/ED/screenshots
+# screenshot_dest = ~/Pictures/Elite Dangerous
+
+# Debug log:
 # debug_log = false
 ```
 
 ### Finding the Journal Directory Manually
-
-Elite Dangerous journals are usually at:
 
 | Platform | Path |
 |----------|------|
 | Linux (Steam / Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous` |
 | Windows | `C:\Users\YourName\Saved Games\Frontier Developments\Elite Dangerous` |
 | macOS | `~/Library/Application Support/Frontier Developments/Elite Dangerous` |
-
-Set it in config like this:
-
-```toml
-journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous
-```
 
 ---
 
@@ -274,102 +257,18 @@ journal_dir = /home/yourname/.local/share/Steam/steamapps/compatdata/359320/pfx/
 |-----|--------|
 | `q` / `Esc` | Quit |
 | `?` | Help & About screen |
-| `↑` / `k` | Scroll event log up |
-| `↓` / `j` | Scroll event log down |
-| `PgUp` / `PgDn` | Scroll by 20 lines |
+| `Tab` | Cycle situational panel forward |
+| `Shift+Tab` | Cycle situational panel backward |
+| `a` | Toggle auto panel switching on/off |
+| `↑` / `k` | Scroll situational panel up |
+| `↓` / `j` | Scroll situational panel down |
+| `PgUp` / `PgDn` | Scroll event log by 20 lines |
 | `Home` / `g` | Jump to latest events |
-| `Tab` | Cycle situational panel mode |
-| `n` | Open neutron route destination input (Neutron mode only) |
-| `r` | Toggle galaxy map scale (galactic ↔ regional ±1000 ly) |
+| `w` / `s` | Scroll bodies panel up / down |
+| `n` | Enter neutron route destination (Neutron panel) |
+| `r` | Toggle galaxy map scale (galactic ↔ regional) |
 | `+` / `=` | Volume up |
 | `-` | Volume down |
-
----
-
-## Stream Overlay for OBS/Streamlabs
-
-NOVA writes a text file (`stream_info.txt` by default, in the directory where NOVA is launched) that you can add as a **Text (GDI+)** or **Text** source in OBS/Streamlabs with "Read from file" enabled.
-
-**Custom format example** (in config.toml):
-
-```toml
-overlay_line_1 = MY STREAM
-overlay_line_2 = {commander} in {ship_name}
-overlay_line_3 = {system} / {position}
-overlay_line_4 = {jumps_left} jumps left
-overlay_separator =   |
-overlay_uppercase = false
-```
-
-**Available variables:**
-
-| Variable | Example output |
-|----------|---------------|
-| `{commander}` | `CMDR Hawk` |
-| `{ship_name}` | `Krait Phantom` |
-| `{ship_type}` | `KraitPhantom` |
-| `{system}` | `Sol` |
-| `{position}` | `Hutton Orbital` or `Deep Space` |
-| `{jumps_left}` | `4` (line skipped when 0) |
-| `{route_next}` | `Alpha Centauri` (line skipped when empty) |
-| `{hull_pct}` | `98%` |
-| `{fuel_t}` | `28.4t` |
-| `{fuel_max_t}` | `32t` |
-
----
-
-## Voiceline Customisation
-
-On first launch NOVA copies all voiceline files into your config directory so they are easy to find and edit:
-
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/nova/voicelines/` |
-| Windows | `%USERPROFILE%\.config\nova\voicelines\` |
-
-One file per language: `en.toml`, `de.toml`, `fr.toml`, `it.toml`, `es.toml`, `pt.toml`, `ru.toml`.
-
-Each event key maps to a list of phrase variants — NOVA picks one at random each time. All available `{variables}` are documented in comments above each event key. Example:
-
-```toml
-[FSDJump]
-# {system}  = destination star system name
-# {dist_ly} = jump distance formatted for speech
-# {suffix}  = optional extra info (star class, hops remaining, population)
-lines = [
-    "Arrived in {system}. Jump {dist_ly}.{suffix}",
-    "Hyperspace complete. Welcome to {system}.{suffix}",
-    "Jump complete. Now in {system}.{suffix}",
-]
-```
-
-Edit, add, or remove lines freely. On update, new event keys missing from your file fall back to the built-in automatically — your edits are never overwritten.
-
-Set the voiceover language in config.toml:
-
-```toml
-tts_lang = de
-```
-
-Supported codes: `en`, `de`, `fr`, `it`, `es`, `pt`, `ru`
-
----
-
-## TTS Languages
-
-Language is detected automatically per message:
-
-| Language   | Default Voice         | Chat verb  |
-|------------|-----------------------|------------|
-| English    | en-GB-SoniaNeural     | says       |
-| German     | de-DE-KatjaNeural     | sagt       |
-| French     | fr-FR-DeniseNeural    | dit        |
-| Italian    | it-IT-ElsaNeural      | dice       |
-| Spanish    | es-ES-ElviraNeural    | dice       |
-| Portuguese | pt-PT-RaquelNeural    | diz        |
-| Russian    | ru-RU-SvetlanaNeural  | говорит    |
-
-Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / **"User {name} on YouTube {verb}: {message}"**
 
 ---
 
@@ -379,35 +278,39 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 ┌─ System ─────────┬─ Ship ──────────────────────┬─ Route ────┐
 │ System/faction   │ Hull/Shield/Fuel gauges     │ Nav route  │
 ├──────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies   │ Overview / Bio / Missions /  │ Events     │
-│ (FSS, DSS,       │ Inventory / Engineers        ├────────────┤
-│  values, dist)   │                              │ Chat log   │
-├──────────────────┴──────────────────────────────┴────────────┤
-│ Keybindings                                     Vol 50% ●   │
-└───────────────────────────────────────────────────────────────┘
+│ Scanned Bodies   │ SITUATION panel             │ Events     │
+│ (FSS, DSS,       │ (14 modes, Tab to cycle)    ├────────────┤
+│  values, dist)   │                             │ Chat log   │
+├──────────────────┴─────────────────────────────┴────────────┤
+│ q Quit  Tab Mode  ? Help  ↑↓ Scroll  +/- Vol  HH:MM  v1.x  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**System panel** shows population, economy, security, government, allegiance, faction, body counts, FSS progress, station count, Power Play state, and nearest inhabited system (when exploring uninhabited space).
+### Situational Panel Modes
 
-**Route panel** shows the nav route, next-jump star type, distance, and — from the EDSM dump cache — a list of stations at the next waypoint with service icons (M=market, S=shipyard, O=outfitting, R=repair).
+The border title shows all modes as abbreviations; the active one expands to its full name.
+`***` = Auto mode indicator (dim blue when locked with `a`).
 
-**Situational panel modes** (cycle with `Tab`):
+| Abbrev | Full Name | Description |
+|--------|-----------|-------------|
+| `***` | AUTO | Auto-switches by context; lock/unlock with `a` |
+| `OVR` | OVERVIEW | System diagram, notable bodies, session stats |
+| `BIO` | BIOLOGICAL | Active bio scans with distances and bearings |
+| `MAP` | GALAXY MAP | Braille top-down galaxy map (`r` = scale toggle) |
+| `MIS` | MISSION | Active mission list |
+| `ENG` | ENGINEERS | Rank bars, progress %, specialty and system |
+| `BGS` | BGS | BGS activity log |
+| `COL` | COLONISATION | Construction site commodity progress |
+| `ROU` | ROUTE | Nav route: star type, scoopable, distances, EDSM |
+| `NTR` | NEUTRON | Local neutron route planner (`n` = new route) |
+| `WLT` | WALLET | Credits, fleet, cargo, suit loadout, backpack |
+| `INV` | INVENTORY | Cargo and materials |
+| `DKG` | DOCKING | Station pad diagram |
+| `STS` | STATISTICS | Persistent statistics |
 
-| Mode | Description |
-|------|-------------|
-| Auto | Switches automatically: Bio → Missions → Overview |
-| Overview | System diagram, notable bodies, session stats |
-| Wealth | Credit balance, fleet locations, cargo, suit loadout, backpack |
-| Inventory | Cargo and materials |
-| Bio | Active bio scans with distances and bearings |
-| Missions | Active mission list |
-| Engineers | Rank bars, progress %, specialty and system for all engineers |
-| Neutron | Local neutron route planner — press `n` to enter destination |
-| Galaxy | Braille top-down galaxy map — `r` toggles galactic (±65k ly) / regional (±1k ly) |
-| Stats | Persistent statistics: jumps, credits, FSS/DSS/bio, enemies, ships lost |
+**Auto mode priority:** Docking granted → Bio (active/pre-scan) → Colonisation → Missions → Overview; Stats when offline.
 
-**Bio scan indicators:**
-- `★` — first discovered species in the galaxy
+**Panel config:** Set `situational_panels = OVR BIO ROU MIS ...` in config.toml to control which panels appear and in what order. Omitted panels are hidden from the title bar and auto-switching.
 
 ---
 
@@ -415,15 +318,60 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 
 | Column | Meaning |
 |--------|---------|
-| Body   | Short name, indented: planet / ↳ moon |
-| Type   | Abbreviated body type |
-| Val    | Actual scan value (gold if >1M Cr), `~3.4M–12.9M` genus estimate in amber while bio unsolved, or `~est` for planet type estimate |
-| Dist   | Distance from arrival (ls) |
-| B      | Bio signal count; `3✓` (gold) when all bio scans complete |
-| G      | Geological signal count |
-| LTA    | Flags: `L`=Landable, `T`=Terraformable, `A`=Atmosphere |
-| F      | `●` = FSS scanned |
-| D      | `●` = DSS mapped |
+| Body | Short name, indented: planet / ↳ moon |
+| Type | Abbreviated body type |
+| Val | Actual scan value (gold), `~3.4M–12.9M` genus estimate (amber), or `~est` for planet type estimate |
+| Dist | Distance from arrival (ls) |
+| B | Bio signal count; `3✓` (gold) when all bio scans complete |
+| G | Geological signal count |
+| LTA | Flags: `L`=Landable, `T`=Terraformable, `A`=Atmosphere |
+| F | `●` = FSS scanned |
+| D | `●` = DSS mapped |
+
+---
+
+## Stream Overlay for OBS/Streamlabs
+
+NOVA writes individual `.txt` files to `~/.config/nova/overlay/` (configurable via `overlay_dir`). Add each file as a **Text** source in OBS/Streamlabs with "Read from file" enabled.
+
+Available files: `commander`, `ship_name`, `ship_type`, `ship_ident`, `system`, `position`, `station`, `approach_body`, `route_destination`, `route_next`, `jumps_left`, `hull`, `fuel`, `fuel_max`, `fuel_reservoir`, `cargo`, `heat`, `shields`, `status`, `supercruise`, `docked`, `landed`, `power`, `power_state`, `allegiance`, `economy`, `security`, `government`, `population`, `nearest_inhabited`, `heading`, `altitude`, `coordinates`
+
+---
+
+## Voiceline Customisation
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/nova/voicelines/` |
+| Windows | `%USERPROFILE%\.config\nova\voicelines\` |
+
+One file per language: `en.toml`, `de.toml`, `fr.toml`, `it.toml`, `es.toml`, `pt.toml`, `ru.toml`.
+
+Each event key maps to a list of phrase variants — NOVA picks one at random each time. Edit, add, or remove lines freely. On update, new event keys missing from your file fall back to the built-in automatically.
+
+```toml
+[FSDJump]
+# {system}  = destination star system name
+# {dist_ly} = jump distance formatted for speech
+lines = [
+    "Arrived in {system}. Jump {dist_ly}.{suffix}",
+    "Hyperspace complete. Welcome to {system}.{suffix}",
+]
+```
+
+---
+
+## TTS Languages
+
+| Language | Default Voice | Chat verb |
+|----------|---------------|-----------|
+| English | en-GB-SoniaNeural | says |
+| German | de-DE-KatjaNeural | sagt |
+| French | fr-FR-DeniseNeural | dit |
+| Italian | it-IT-ElsaNeural | dice |
+| Spanish | es-ES-ElviraNeural | dice |
+| Portuguese | pt-PT-RaquelNeural | diz |
+| Russian | ru-RU-SvetlanaNeural | говорит |
 
 ---
 
@@ -437,35 +385,33 @@ Chat messages are announced as: **"User {name} on Twitch {verb}: {message}"** / 
 | `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log |
 | `~/.local/share/nova/venv/` | Linux | Python virtual environment |
 | `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
-| `~/.config/nova/bindings_backup/` | Linux | Keybindings backups (last 5 per session) |
-| `%USERPROFILE%\.config\nova\bindings_backup\` | Windows | Keybindings backups (last 5 per session) |
+| `~/.config/nova/bindings_backup/` | Linux | Keybindings backups |
+| `%USERPROFILE%\.config\nova\bindings_backup\` | Windows | Keybindings backups |
 | `~/.config/nova/nova-debug.log` | Linux | Debug log (when `debug_log = true`) |
 | `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log (when `debug_log = true`) |
-| `stream_info.txt` | both | OBS/Streamlabs overlay (launch dir, configurable) |
 
 ---
 
 ## Troubleshooting
 
 **"No events are showing / journal not found"**
-→ Set `journal_dir` manually in config.toml (see above)
+→ Set `journal_dir` manually in config.toml
 
 **"No TTS voice / audio"**
-→ Make sure pygame works: on Arch try `yay -S python-pygame`; elsewhere `pip install --upgrade pygame` inside the NOVA venv
+→ On Arch: `yay -S python-pygame`; elsewhere: `pip install --upgrade pygame` inside the NOVA venv
 
 **"nova: command not found" (Linux)**
-→ Run `./nova.sh` once — it installs the `nova` command to `~/.local/bin/`
-→ Make sure `~/.local/bin` is in your PATH: add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` or `~/.zshrc`
+→ Run `./nova.sh` once; add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`
 
 **"Access denied" / execution policy error (Windows)**
-→ Right-click `nova.bat` and choose "Run as administrator" once, or open PowerShell and run:
+→ Right-click `nova.bat` → "Run as administrator" once, or run:
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 **TTS is too fast/slow**
-→ Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal speed, `tts_rate = +20%` for faster
+→ Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal, `tts_rate = +20%` for faster
 
-**Something is not working as expected / need to report a bug**
-→ Add `debug_log = true` to config.toml, reproduce the issue, then send `~/.config/nova/nova-debug.log` (Linux) or `%USERPROFILE%\.config\nova\nova-debug.log` (Windows) with your report
+**Something is broken / need to report a bug**
+→ Add `debug_log = true` to config.toml, reproduce the issue, then send `nova-debug.log` with your report
 
 ---
 

@@ -473,6 +473,27 @@ class Database:
             for r in rows
         ]
 
+    def get_systems_info_batch(self, names: list[str]) -> dict[str, dict]:
+        """Return EDSM data for multiple system names. name → {x, y, z, population, allegiance}."""
+        if not names:
+            return {}
+        placeholders = ",".join("?" * len(names))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT name, x, y, z, population, allegiance FROM edsm_systems WHERE name IN ({placeholders})",
+                names,
+            ).fetchall()
+        return {
+            row[0]: {
+                "x":          float(row[1] or 0),
+                "y":          float(row[2] or 0),
+                "z":          float(row[3] or 0),
+                "population": int(row[4] or 0),
+                "allegiance": row[5] or "",
+            }
+            for row in rows
+        }
+
     def get_stats(self) -> dict:
         today       = date.today()
         week_ago    = (today - timedelta(days=6)).isoformat()

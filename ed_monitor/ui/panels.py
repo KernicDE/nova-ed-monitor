@@ -318,9 +318,8 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        fss_done    = sum(1 for b in s.bodies if b.fss_scanned and b.planet_class)
-        stars_found = sum(1 for b in s.bodies if b.star_type)
-        fss_total   = max(0, s.fss_body_count - stars_found)
+        fss_done  = sum(1 for b in s.bodies if b.fss_scanned)
+        fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
         def _cell(label: str, value: str, vstyle: str = P.WHITE) -> Text:
@@ -1504,6 +1503,12 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
+# Odyssey (on-foot) engineers — they don't use the 1–5 grade system
+_ODY_ENGINEERS: frozenset = frozenset({
+    "Baltanos", "Eleanor Bresa", "Hero Ferrari", "Rosa Dayette",
+    "Yi Shen", "Domino Green", "Uma Laszlo", "Oden Geiger", "Terra Velasquez",
+})
+
 _ENGINEER_STATIC: dict[str, tuple[str, str]] = {
     # name → (specialty, system)
     "Elvira Martuuk":     ("FSD",             "Long Sight Base, Kwatee"),
@@ -1637,8 +1642,10 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
         sys_short = system.split("/")[0].strip()[:14] if system else ""
 
         if prog == "Unlocked":
-            rank_bar = _rank_bar(rank)
-            rank_bar.append(f" {rank}/5", style=P.LABEL)
+            max_r    = 1 if name in _ODY_ENGINEERS else 5
+            eff_rank = 1 if name in _ODY_ENGINEERS else rank
+            rank_bar = _rank_bar(eff_rank, max_r)
+            rank_bar.append(f" {eff_rank}/{max_r}", style=P.LABEL)
             rank_cell = rank_bar
         elif prog in ("Invited", "Acquainted", "Known"):
             rank_cell = _progress_bar(rp) if rp > 0 else Text(prog, style=P.AMBER)
@@ -2761,21 +2768,34 @@ class SituationalPanel(_Panel):
     """Context-aware panel: auto-switches between Bio / Missions / Inventory.
     Tab cycles through modes manually."""
 
-    _MODES           = ("auto", "overview", "wealth", "inventory", "bio", "missions", "engineers",
-                       "neutron", "galaxy", "stats", "docking", "bgs", "colonisation")
-    _mode:   str     = "auto"
-    _active: str     = "overview"
-    _galaxy_regional:    bool = False
-    _neutron_scroll:     int  = 0
-    _bgs_scroll:         int  = 0
-    _colonisation_scroll: int = 0
-    _general_scroll:     int  = 0
+    _MODES = (
+        "auto", "overview", "bio", "galaxy", "missions", "engineers",
+        "bgs", "colonisation", "route", "neutron", "wealth", "inventory",
+        "docking", "stats",
+    )
+    _mode:   str = "auto"
+    _active: str = "overview"
+    _galaxy_regional:     bool = False
+    _neutron_scroll:      int  = 0
+    _bgs_scroll:          int  = 0
+    _colonisation_scroll: int  = 0
+    _route_scroll:        int  = 0
+    _general_scroll:      int  = 0
+    _auto_locked:         bool = False
+    _visible_modes:       list = []  # populated in update() from snap.situational_panels
 
     _MODE_ABBREVS = {
-        "auto": "AUT", "overview": "OVR", "wealth": "WLT", "inventory": "INV",
-        "bio": "BIO", "missions": "MIS", "engineers": "ENG", "neutron": "NTR",
-        "galaxy": "GAL", "stats": "STS", "docking": "DKG", "bgs": "BGS",
-        "colonisation": "COL",
+        "auto": "***", "overview": "OVR", "bio": "BIO", "galaxy": "MAP",
+        "missions": "MIS", "engineers": "ENG", "bgs": "BGS", "colonisation": "COL",
+        "route": "ROU", "neutron": "NTR", "wealth": "WLT", "inventory": "INV",
+        "docking": "DKG", "stats": "STS",
+    }
+
+    _MODE_FULLNAMES = {
+        "auto": "AUTO", "overview": "OVERVIEW", "bio": "BIOLOGICAL", "galaxy": "GALAXY MAP",
+        "missions": "MISSION", "engineers": "ENGINEERS", "bgs": "BGS", "colonisation": "COLONISATION",
+        "route": "ROUTE", "neutron": "NEUTRON", "wealth": "WALLET", "inventory": "INVENTORY",
+        "docking": "DOCKING", "stats": "STATISTICS",
     }
 
     DEFAULT_CSS = """
@@ -2787,9 +2807,14 @@ class SituationalPanel(_Panel):
     }
     """
 
+    def _active_modes(self) -> list:
+        """Return the ordered list of visible modes (from config or default)."""
+        return self._visible_modes if self._visible_modes else list(self._MODES)
+
     def cycle(self) -> None:
-        idx = self._MODES.index(self._mode)
-        self._mode = self._MODES[(idx + 1) % len(self._MODES)]
+        modes = self._active_modes()
+        idx = modes.index(self._mode) if self._mode in modes else 0
+        self._mode = modes[(idx + 1) % len(modes)]
         self._general_scroll = 0
         if self._snap is not None:
             self._active = self._resolve(self._snap)
@@ -2797,11 +2822,18 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def back_cycle(self) -> None:
-        idx = self._MODES.index(self._mode)
-        self._mode = self._MODES[(idx - 1) % len(self._MODES)]
+        modes = self._active_modes()
+        idx = modes.index(self._mode) if self._mode in modes else 0
+        self._mode = modes[(idx - 1) % len(modes)]
         self._general_scroll = 0
         if self._snap is not None:
             self._active = self._resolve(self._snap)
+        self.border_title = self._make_title()
+        self.refresh()
+
+    def toggle_auto_lock(self) -> None:
+        """Toggle auto panel switching on/off (freezes current view when locked)."""
+        self._auto_locked = not self._auto_locked
         self.border_title = self._make_title()
         self.refresh()
 
@@ -2824,6 +2856,11 @@ class SituationalPanel(_Panel):
         self._colonisation_scroll = max(0, self._colonisation_scroll + delta)
         self.refresh()
 
+    def scroll_route(self, delta: int) -> None:
+        route_len = len(self._snap.route_list) if self._snap else 0
+        self._route_scroll = max(0, min(self._route_scroll + delta, max(0, route_len - 3)))
+        self.refresh()
+
     def scroll_general(self, delta: int) -> None:
         """Scroll the current situational panel up/down (for all non-specialised modes)."""
         self._general_scroll = max(0, self._general_scroll + delta)
@@ -2832,49 +2869,77 @@ class SituationalPanel(_Panel):
     def _resolve(self, s: AppState) -> str:
         if self._mode != "auto":
             return self._mode
+        # When auto-switching is locked, freeze on the current view
+        if self._auto_locked:
+            return self._active if self._active else "overview"
+        visible = set(self._active_modes())
+        def _v(m: str) -> str:
+            """Return m if visible, else 'overview'."""
+            return m if m in visible else "overview"
         # Offline: no live game data — show statistics
         if not s.client_online:
-            return "stats"
+            return _v("stats")
         # Docking granted — show pad diagram
         if s.docked_pad > 0 and not s.docked:
-            return "docking"
+            return _v("docking")
         # Incomplete bio scans — player is actively scanning
         if any(not sc.complete for sc in s.bio_scans):
-            return "bio"
+            return _v("bio")
         # Approaching or on a DSS'd body with bio signals — show pre-scan genus list
         body_name = s.approach_body or (s.nearest_body if (s.landed or s.in_srv) else "")
         if body_name:
             idx = s._bodies_by_name.get(body_name, -1)
             if 0 <= idx < len(s.bodies) and s.bodies[idx].bio_genuses:
-                return "bio"
+                return _v("bio")
         # Show colonisation when active sites exist and player is in system
         if s.colonisation_sites and any(
             site.get("system") == s.system for site in s.colonisation_sites.values()
         ):
-            return "colonisation"
+            return _v("colonisation")
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
-            return "missions"
+            return _v("missions")
         return "overview"
 
     def _make_title(self) -> str:
         parts = []
-        for m in self._MODES:
-            abbr = self._MODE_ABBREVS[m]
+        for m in self._active_modes():
+            abbr     = self._MODE_ABBREVS[m]
+            fullname = self._MODE_FULLNAMES[m]
             is_selected = (m == self._mode)
             is_resolved = (m == self._active) and (self._mode == "auto")
-            if is_selected and is_resolved:
-                parts.append(f"[bold rgb(255,220,80)]{abbr}[/]")
-            elif is_selected:
-                parts.append(f"[bold white]{abbr}[/]")
-            elif is_resolved:
-                parts.append(f"[bold rgb(0,200,150)]{abbr}[/]")
+
+            if m == "auto":
+                if is_selected and self._auto_locked:
+                    parts.append(f"[bold rgb(100,100,180)]***[/]")  # locked = blue-grey
+                elif is_selected:
+                    parts.append(f"[bold rgb(255,220,80)]***[/]")
+                else:
+                    parts.append(f"[dim]***[/]")
             else:
-                parts.append(f"[dim]{abbr}[/]")
+                display = fullname if (is_selected or is_resolved) else abbr
+                if is_selected and is_resolved:
+                    parts.append(f"[bold rgb(255,220,80)]{display}[/]")
+                elif is_selected:
+                    parts.append(f"[bold white]{display}[/]")
+                elif is_resolved:
+                    parts.append(f"[bold rgb(0,200,150)]{display}[/]")
+                else:
+                    parts.append(f"[dim]{abbr}[/]")
         return "◈ " + "|".join(parts)
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
+        # Update visible modes from config (rebuild each tick — cheap)
+        if snap.situational_panels:
+            self._visible_modes = ["auto"] + [
+                m for m in snap.situational_panels if m in self._MODES and m != "auto"
+            ]
+        else:
+            self._visible_modes = list(self._MODES)
+        # If current mode was removed from config, fall back to auto
+        if self._mode not in self._visible_modes:
+            self._mode = "auto"
         new_active = self._resolve(snap)
         if new_active != self._active:
             self._general_scroll = 0  # reset scroll when auto-mode switches
@@ -2910,6 +2975,8 @@ class SituationalPanel(_Panel):
             return _render_bgs(s, scroll=self._bgs_scroll)
         if self._active == "colonisation":
             return _render_colonisation(s, scroll=self._colonisation_scroll)
+        if self._active == "route":
+            return _render_route(s, scroll=self._route_scroll)
         return _render_overview(s)
 
 
@@ -3188,6 +3255,116 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
+def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
+    """Nav route panel: jump#, system, star class, scoopable, dist from here, jump dist, EDSM."""
+    import math as _math
+
+    route = s.route_list
+    if not route:
+        t = Text()
+        t.append("No nav route active.\n", style=P.LABEL)
+        t.append("Set a route in-game to populate this view.", style="dim rgb(100,100,100)")
+        return t
+
+    edsm    = getattr(s, "route_list_edsm", {})
+    cur_pos = s.star_pos  # (x, y, z) or None
+
+    _SCOOPABLE = frozenset("OBAFGKM")
+
+    def _fmt_ly(d: float) -> str:
+        if d <= 0:    return "—"
+        if d >= 1000: return f"{d/1000:.1f}k"
+        return f"{d:.1f}"
+
+    def _star_col(sc: str) -> str:
+        c = sc[:1] if sc else ""
+        if c == "O": return "rgb(140,160,255)"
+        if c == "B": return "rgb(180,210,255)"
+        if c == "A": return "white"
+        if c == "F": return "rgb(255,255,200)"
+        if c == "G": return "rgb(255,230,120)"
+        if c == "K": return "rgb(255,160,80)"
+        if c == "M": return P.HUD_CRIT
+        if c == "L": return "rgb(160,60,30)"
+        if c in ("T", "Y"): return "rgb(100,80,60)"
+        if c == "N": return "rgb(180,220,255)"
+        if c == "H": return P.LABEL
+        if sc.startswith("D"): return "rgb(200,230,255)"
+        return P.LABEL
+
+    parts: list[RenderableType] = []
+    effective_scroll = min(scroll, max(0, len(route) - 1))
+    if effective_scroll > 0:
+        more_t = Text()
+        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(more_t)
+
+    tbl = Table(show_header=True, show_edge=False, box=None,
+                padding=(0, 1), header_style=f"bold {P.LABEL}")
+    tbl.add_column("#",    width=3,  justify="right", no_wrap=True)
+    tbl.add_column("System", width=20, no_wrap=True)
+    tbl.add_column("★",    width=3,  no_wrap=True)
+    tbl.add_column("⛽",   width=1,  no_wrap=True)
+    tbl.add_column("Dist", width=7,  justify="right", no_wrap=True)
+    tbl.add_column("Jump", width=6,  justify="right", no_wrap=True)
+    tbl.add_column("EDSM", width=4,  justify="center", no_wrap=True)
+
+    prev_pos = cur_pos
+    visible  = route[effective_scroll:]
+
+    for i, entry in enumerate(visible, start=effective_scroll + 1):
+        name       = entry.get("StarSystem", "?")
+        pos_list   = entry.get("StarPos")   # [x, y, z] list or None
+        star_class = entry.get("StarClass", "?")
+
+        scoopable = star_class[:1] in _SCOOPABLE if star_class else False
+
+        if cur_pos and pos_list:
+            dx = pos_list[0] - cur_pos[0]
+            dy = pos_list[1] - cur_pos[1]
+            dz = pos_list[2] - cur_pos[2]
+            dist_cur = _math.sqrt(dx*dx + dy*dy + dz*dz)
+        else:
+            dist_cur = 0.0
+
+        if prev_pos and pos_list:
+            dx = pos_list[0] - prev_pos[0]
+            dy = pos_list[1] - prev_pos[1]
+            dz = pos_list[2] - prev_pos[2]
+            jump_d = _math.sqrt(dx*dx + dy*dy + dz*dz)
+        else:
+            jump_d = 0.0
+
+        in_edsm  = name in edsm
+        sc_short = star_class[:3] if star_class else "?"
+        sc_col   = _star_col(star_class or "")
+
+        tbl.add_row(
+            Text(str(i), style=P.LABEL),
+            Text(name[:20], style="white"),
+            Text(sc_short, style=sc_col),
+            Text("✓" if scoopable else "·", style=P.HUD_GREEN if scoopable else P.LABEL),
+            Text(_fmt_ly(dist_cur), style=P.WHITE),
+            Text(_fmt_ly(jump_d),   style=P.LABEL),
+            Text("✓" if in_edsm else "?", style=P.HUD_GREEN if in_edsm else P.LABEL),
+        )
+
+        if pos_list:
+            prev_pos = (pos_list[0], pos_list[1], pos_list[2])
+
+    parts.append(tbl)
+
+    # Footer summary
+    sum_t = Text()
+    sum_t.append(f"\n  {len(route)} jumps remaining", style=P.LABEL)
+    if s.route_destination:
+        sum_t.append(f" → ", style=P.LABEL)
+        sum_t.append(s.route_destination, style="white")
+    parts.append(sum_t)
+
+    return Group(*parts)
+
+
 # ── Event log panel ───────────────────────────────────────────────────────────
 
 class EventLogPanel(_Panel):
@@ -3347,6 +3524,9 @@ class FooterBar(_Panel):
         left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
         left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
 
+        center = Text(justify="center")
+        center.append(datetime.now().strftime("%H:%M:%S"), style="bold rgb(160,160,160)")
+
         right = Text(justify="right")
         if s is not None:
             if s.session_start:
@@ -3355,9 +3535,10 @@ class FooterBar(_Panel):
         right.append(f"  v{_NOVA_VERSION}", style="rgb(70,70,70)")
 
         tbl = Table.grid(expand=True)
-        tbl.add_column("left", no_wrap=True)
-        tbl.add_column("right", justify="right", no_wrap=True)
-        tbl.add_row(left, right)
+        tbl.add_column("left",   no_wrap=True)
+        tbl.add_column("center", justify="center", no_wrap=True)
+        tbl.add_column("right",  justify="right",  no_wrap=True)
+        tbl.add_row(left, center, right)
         return tbl
 
 
