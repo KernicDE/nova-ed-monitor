@@ -2926,7 +2926,13 @@ class SituationalPanel(_Panel):
                     parts.append(f"[bold rgb(0,200,150)]{display}[/]")
                 else:
                     parts.append(f"[dim]{abbr}[/]")
-        return "◈ " + "|".join(parts)
+        modes = self._active_modes()
+        joined = ""
+        for i, (m, p) in enumerate(zip(modes, parts)):
+            joined += p
+            if i < len(parts) - 1:
+                joined += "   " if m == "auto" else " "
+        return "◈ " + joined
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
