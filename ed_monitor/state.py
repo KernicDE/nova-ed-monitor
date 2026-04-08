@@ -389,7 +389,8 @@ class AppState:
     situational_panels: list = field(default_factory=list)  # ["overview", "bio", ...]; [] = default order
 
     # EDSM enrichment for nav route systems (populated by journal.py on route/system change)
-    route_list_edsm: dict = field(default_factory=dict)  # name → {x, y, z, population, allegiance}
+    route_list_edsm:   dict = field(default_factory=dict)  # name → {x, y, z, population, allegiance}
+    route_bodies_edsm: dict = field(default_factory=dict)  # name → {"bio": int, "geo": int}
 
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)

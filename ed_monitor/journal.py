@@ -24,7 +24,8 @@ _BODY_EVENTS = frozenset({
 })
 
 
-_route_edsm_lock = threading.Lock()
+_route_edsm_lock        = threading.Lock()
+_route_bodies_edsm_lock = threading.Lock()
 
 
 def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
@@ -71,8 +72,9 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
 
     # EDSM enrichment for full route list (system presence + metadata)
     with lock:
-        route      = list(state.route_list)
-        prev_edsm  = dict(state.route_list_edsm)   # preserve any previously live-fetched data
+        route         = list(state.route_list)
+        prev_edsm     = dict(state.route_list_edsm)   # preserve any previously live-fetched data
+        prev_bodies   = dict(state.route_bodies_edsm)
     if route:
         names     = [e.get("StarSystem", "") for e in route if e.get("StarSystem")]
         edsm_data = db.get_systems_info_batch(names)
@@ -80,9 +82,15 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
         preserved = {n: d for n, d in prev_edsm.items() if d.get("live_known") and n not in edsm_data}
         with lock:
             state.route_list_edsm = {**edsm_data, **preserved}
+        # Preserve already-fetched bodies data for systems still in route
+        route_names_set = set(names)
+        kept_bodies = {n: d for n, d in prev_bodies.items() if n in route_names_set}
+        with lock:
+            state.route_bodies_edsm = kept_bodies
     else:
         with lock:
-            state.route_list_edsm = {}
+            state.route_list_edsm   = {}
+            state.route_bodies_edsm = {}
 
     # Kick off background live EDSM lookup — only one fetch thread at a time
     if route and _route_edsm_lock.acquire(blocking=False):
@@ -93,6 +101,16 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
             name="nova-route-edsm",
         )
         t.start()
+
+    # Kick off background bodies fetch (bio/geo signal counts) — only one at a time
+    if route and _route_bodies_edsm_lock.acquire(blocking=False):
+        t2 = threading.Thread(
+            target=_fetch_route_bodies_live,
+            args=(route, state, lock, db),
+            daemon=True,
+            name="nova-route-bodies",
+        )
+        t2.start()
 
 
 # Cache TTL for route EDSM live lookup (7 days)
@@ -185,6 +203,91 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
 
     finally:
         _route_edsm_lock.release()
+
+
+def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -> None:
+    """Background: query EDSM /bodies per system for bio/geo signal totals.
+    Results cached for 7 days. Updates state.route_bodies_edsm progressively."""
+    import time as _time
+    from datetime import datetime, timedelta
+    from urllib.parse import quote as _quote
+
+    try:
+        try:
+            import httpx
+        except ImportError:
+            return
+
+        names = [e.get("StarSystem", "") for e in route if e.get("StarSystem")]
+        if not names:
+            return
+
+        cutoff = (datetime.utcnow() - timedelta(days=_ROUTE_EDSM_CACHE_DAYS)).strftime("%Y-%m-%dT%H:%M:%S")
+        cached = db.get_route_bodies_cache(names)
+        fresh  = {n: d for n, d in cached.items() if d.get("cached_at", "") >= cutoff}
+
+        # Apply fresh cache immediately
+        if fresh:
+            updates = {n: {"bio": d["bio_count"], "geo": d["geo_count"]} for n, d in fresh.items()}
+            with lock:
+                state.route_bodies_edsm = {**state.route_bodies_edsm, **updates}
+
+        to_fetch = [n for n in names if n not in fresh]
+        if not to_fetch:
+            return
+
+        _EDSM_BODIES_URL = "https://www.edsm.net/api-system-v1/bodies"
+        now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        new_cache_entries: list[dict] = []
+
+        try:
+            client = httpx.Client(timeout=15.0)
+            for i, name in enumerate(to_fetch):
+                enc = _quote(name, safe="")
+                bio_total = 0
+                geo_total = 0
+                try:
+                    resp = client.get(f"{_EDSM_BODIES_URL}?systemName={enc}")
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if isinstance(data, dict):
+                        for body in data.get("bodies") or []:
+                            sigs = body.get("signals") or {}
+                            for sig in sigs.get("signals") or []:
+                                stype = sig.get("type", "")
+                                count = int(sig.get("count", 0))
+                                if "Biological" in stype:
+                                    bio_total += count
+                                elif "Geological" in stype:
+                                    geo_total += count
+                except Exception:
+                    pass  # cache as 0/0
+
+                new_cache_entries.append({
+                    "system_name": name, "bio_count": bio_total,
+                    "geo_count": geo_total, "cached_at": now_str,
+                })
+                with lock:
+                    state.route_bodies_edsm = {
+                        **state.route_bodies_edsm,
+                        name: {"bio": bio_total, "geo": geo_total},
+                    }
+
+                if i < len(to_fetch) - 1:
+                    _time.sleep(1.0)  # be polite to EDSM API
+
+            client.close()
+        except Exception:
+            pass
+
+        if new_cache_entries:
+            try:
+                db.upsert_route_bodies_cache(new_cache_entries)
+            except Exception:
+                pass
+
+    finally:
+        _route_bodies_edsm_lock.release()
 
 
 # ── _get_latest cache ──────────────────────────────────────────────────────────

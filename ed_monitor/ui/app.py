@@ -384,7 +384,8 @@ class NOVAApp(App):
             snap.neutron_route  = list(self._state.neutron_route)
             snap.stored_ships   = list(self._state.stored_ships)
             snap.route_list     = list(self._state.route_list)
-            snap.route_list_edsm = dict(self._state.route_list_edsm)
+            snap.route_list_edsm   = dict(self._state.route_list_edsm)
+            snap.route_bodies_edsm = dict(self._state.route_bodies_edsm)
         return snap
 
     def _refresh_all(self) -> None:

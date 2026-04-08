@@ -3262,7 +3262,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
 
 
 def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
-    """Nav route panel: jump#, system, star class, scoopable, dist from here, jump dist, EDSM."""
+    """Nav route panel: jump#, system, star class, scoopable, dist from here, jump dist, EDSM, bio/geo."""
     import math as _math
 
     route = s.route_list
@@ -3272,7 +3272,8 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         t.append("Set a route in-game to populate this view.", style="dim rgb(100,100,100)")
         return t
 
-    edsm    = getattr(s, "route_list_edsm", {})
+    edsm   = getattr(s, "route_list_edsm",   {})
+    bodies = getattr(s, "route_bodies_edsm",  {})
     cur_pos = s.star_pos  # (x, y, z) or None
 
     _SCOOPABLE = frozenset("OBAFGKM")
@@ -3314,6 +3315,8 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
     tbl.add_column("Dist", width=7,  justify="right", no_wrap=True)
     tbl.add_column("Jump", width=6,  justify="right", no_wrap=True)
     tbl.add_column("EDSM", width=4,  justify="center", no_wrap=True)
+    tbl.add_column("🌿",   width=3,  justify="right",  no_wrap=True)
+    tbl.add_column("🔥",   width=3,  justify="right",  no_wrap=True)
 
     prev_pos = cur_pos
     visible  = route[effective_scroll:]
@@ -3342,9 +3345,19 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
             jump_d = 0.0
 
         edsm_entry = edsm.get(name, {})
-        in_edsm   = bool(edsm_entry) or edsm_entry.get("live_known", False)
-        sc_short  = star_class[:3] if star_class else "?"
-        sc_col    = _star_col(star_class or "")
+        in_edsm    = bool(edsm_entry) or edsm_entry.get("live_known", False)
+        sc_short   = star_class[:3] if star_class else "?"
+        sc_col     = _star_col(star_class or "")
+
+        body_entry = bodies.get(name)  # None = not fetched yet, dict = fetched
+        if body_entry is None:
+            bio_text = Text("…", style=P.LABEL)
+            geo_text = Text("…", style=P.LABEL)
+        else:
+            bio = body_entry.get("bio", 0)
+            geo = body_entry.get("geo", 0)
+            bio_text = Text(str(bio) if bio else "·", style=P.HUD_GREEN if bio else "dim")
+            geo_text = Text(str(geo) if geo else "·", style="rgb(255,140,0)" if geo else "dim")
 
         tbl.add_row(
             Text(str(i), style=P.LABEL),
@@ -3354,6 +3367,8 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
             Text(_fmt_ly(dist_cur), style=P.WHITE),
             Text(_fmt_ly(jump_d),   style=P.LABEL),
             Text("✓" if in_edsm else "?", style=P.HUD_GREEN if in_edsm else P.LABEL),
+            bio_text,
+            geo_text,
         )
 
         if pos_list:
