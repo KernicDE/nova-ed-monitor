@@ -2693,6 +2693,8 @@ class SituationalPanel(_Panel):
         if self._active == "galaxy":
             return _render_galaxy(s, regional=self._galaxy_regional,
                                   panel_w=self.size.width, panel_h=self.size.height)
+        if self._active == "inventory":
+            return _render_inventory(s)
         if self._active == "stats":
             return _render_stats(s)
         if self._active == "docking":
@@ -2787,7 +2789,16 @@ def _render_stats(s: AppState) -> RenderableType:
 
 
 def _render_docking(s: AppState) -> RenderableType:
-    """Docking pad diagram for Coriolis/Orbis stations (12 segments × 4 rings)."""
+    """Docking pad circular diagram — top-down view of the station.
+
+    Ring layout (Coriolis/Orbis):
+      Outer (1–12): large pads, outermost ring
+      Mid-1 (13–24): large pads, second ring
+      Mid-2 (25–36): medium pads, third ring
+      Inner (37–40): small pads, axis centre
+    """
+    import math as _math
+
     pad = s.docked_pad
     stn = s.docked_station_name or s.station or "Unknown Station"
     stype = s.docked_station_type or s.station_type or ""
@@ -2795,57 +2806,73 @@ def _render_docking(s: AppState) -> RenderableType:
     parts: list[RenderableType] = []
 
     head = Text()
-    head.append(f"\nDOCKING: {stn}\n", style="bold white")
+    head.append(f"DOCKING: {stn}\n", style="bold white")
     if stype:
-        head.append(f"  {stype}\n", style=P.LABEL)
-    head.append(f"  Assigned pad: ", style=P.LABEL)
+        head.append(f"{stype}  ", style=P.LABEL)
+    head.append("Pad ", style=P.LABEL)
     head.append(f"{pad}\n", style="bold rgb(0,255,150)")
     parts.append(head)
 
-    # Coriolis/Orbis layout: pads 1–12 outer ring, 13–24 second ring, 25–36 third, 37–40 inner
-    # Simpler practical display: top-view table showing ring segments
-    # Pad numbering: outer 1–12 (large), 13–24 (large), 25–36 (medium), 37–40 (small inner)
-    # Segments: 12 clock positions
-    diag = Text()
-    diag.append("\n  Pad layout (outer → inner)\n", style=P.LABEL)
+    # ── Circular grid diagram ────────────────────────────────────────────────
+    # Characters are ~2× taller than wide, so rx ≈ 2 × ry for a round circle.
+    W, H = 38, 13
+    cx, cy = W // 2, H // 2
 
-    rings = [
-        ("Outer",  range(1,  13)),
-        ("Mid-1",  range(13, 25)),
-        ("Mid-2",  range(25, 37)),
-        ("Inner",  range(37, 41)),
+    # grid[row][col] = (char, style)
+    BLANK = (" ", "")
+    grid: list[list[tuple]] = [[BLANK] * W for _ in range(H)]
+
+    def place(gx: int, gy: int, label: str, style: str) -> None:
+        """Place label centred at (gx, gy), clipping to grid bounds."""
+        sx = gx - len(label) // 2
+        for j, ch in enumerate(label):
+            x = sx + j
+            if 0 <= gy < H and 0 <= x < W:
+                grid[gy][x] = (ch, style)
+
+    # Ring definitions: (start_pad, count, rx, ry)
+    # Each ring has enough radius clearance so pad labels don't overlap.
+    ring_defs = [
+        ( 1, 12, 16, 5),  # outer large
+        (13, 12, 11, 3),  # mid large
+        (25, 12,  7, 2),  # mid medium
+        (37,  4,  4, 1),  # inner small
     ]
 
-    for ring_name, pad_range in rings:
-        row_t = Text()
-        row_t.append(f"  {ring_name:6} ", style="dim rgb(100,100,100)")
-        for p in pad_range:
-            if p == pad:
-                row_t.append(f"[{p:2}]", style="bold rgb(0,255,150)")
-            else:
-                row_t.append(f" {p:2} ", style="rgb(80,80,80)")
-        row_t.append("\n", style="")
-        diag.append_text(row_t)
+    for start, count, rx, ry in ring_defs:
+        for i in range(count):
+            p = start + i
+            # Angle 0 = top (pad 1 at 12 o'clock), clockwise
+            angle = i * 2 * _math.pi / count
+            gx = int(round(cx + rx * _math.sin(angle)))
+            gy = int(round(cy - ry * _math.cos(angle)))
+            is_mine = (p == pad)
+            label   = f"[{p}]" if is_mine else f"{p:2}"
+            style   = "bold rgb(0,255,150)" if is_mine else "dim rgb(65,65,65)"
+            place(gx, gy, label, style)
 
+    # Centre marker
+    place(cx, cy, "·", "rgb(80,80,120)")
+
+    diag = Text()
+    for row in grid:
+        for ch, sty in row:
+            diag.append(ch, style=sty) if sty else diag.append(ch)
+        diag.append("\n")
     parts.append(diag)
 
-    # Mail slot orientation hint
-    orient = Text()
-    orient.append("\n  Mail slot: ", style=P.LABEL)
-    # Pad 1 is roughly at bottom-center (facing the station entrance)
-    # High pads (37–40) are on the rotation axis
+    # Ring hint
+    hint = Text()
     if 1 <= pad <= 12:
-        orient.append("Outer ring — enter aligned with slot\n", style="white")
+        hint.append("Outer ring (large pad) — stay near the wall\n", style=P.LABEL)
     elif 13 <= pad <= 24:
-        orient.append("Mid ring — enter aligned with slot\n", style="white")
+        hint.append("Mid ring (large pad) — mid-distance from wall\n", style=P.LABEL)
     elif 25 <= pad <= 36:
-        orient.append("Mid ring (smaller pad)\n", style="white")
+        hint.append("Inner ring (medium pad)\n", style=P.LABEL)
     else:
-        orient.append("Inner / axis — fly through center\n", style="white")
-    parts.append(orient)
+        hint.append("Centre pad (small) — fly through the axis\n", style=P.LABEL)
+    parts.append(hint)
 
-    if not parts:
-        return Text("No docking data.", style=P.LABEL)
     return Group(*parts)
 
 
