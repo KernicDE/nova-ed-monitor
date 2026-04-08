@@ -854,6 +854,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
             state.route_next           = ""
             state.route_next_star      = ""
             state.route_next_scoopable = False
+            state.route_list           = []
+            state.route_list_edsm      = {}
+            state.route_bodies_edsm    = {}
             _say(tts_q, "NavRouteClear", False, fallback="Route cleared.")
             return LogEvent.new(EventCategory.Nav, "Route cleared.")
 

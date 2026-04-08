@@ -139,13 +139,15 @@ class Database:
                 scoopable  INTEGER NOT NULL DEFAULT -1,
                 cached_at  TEXT    NOT NULL DEFAULT ''
             )""",
-            # Route bodies cache: bio/geo signal sums per system
+            # Route bodies cache: bio/geo signal sums + body count per system
             """CREATE TABLE IF NOT EXISTS edsm_route_bodies_cache (
                 system_name TEXT PRIMARY KEY,
                 bio_count   INTEGER NOT NULL DEFAULT 0,
                 geo_count   INTEGER NOT NULL DEFAULT 0,
+                body_count  INTEGER NOT NULL DEFAULT 0,
                 cached_at   TEXT    NOT NULL DEFAULT ''
             )""",
+            "ALTER TABLE edsm_route_bodies_cache ADD COLUMN body_count INTEGER NOT NULL DEFAULT 0",
         ]
         with self._lock:
             for sql in migrations:
@@ -536,30 +538,30 @@ class Database:
             self._conn.commit()
 
     def get_route_bodies_cache(self, names: list[str]) -> dict[str, dict]:
-        """Return cached bio/geo signal sums for route systems. name → {bio_count, geo_count, cached_at}."""
+        """Return cached bio/geo/body data for route systems. name → {bio_count, geo_count, body_count, cached_at}."""
         if not names:
             return {}
         placeholders = ",".join("?" * len(names))
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT system_name, bio_count, geo_count, cached_at"
+                f"SELECT system_name, bio_count, geo_count, body_count, cached_at"
                 f" FROM edsm_route_bodies_cache WHERE system_name IN ({placeholders})",
                 names,
             ).fetchall()
         return {
-            row[0]: {"bio_count": row[1], "geo_count": row[2], "cached_at": row[3]}
+            row[0]: {"bio_count": row[1], "geo_count": row[2], "body_count": row[3], "cached_at": row[4]}
             for row in rows
         }
 
     def upsert_route_bodies_cache(self, entries: list[dict]) -> None:
-        """Insert or replace route bodies cache. Each entry: {system_name, bio_count, geo_count, cached_at}."""
+        """Insert or replace route bodies cache. Each entry: {system_name, bio_count, geo_count, body_count, cached_at}."""
         if not entries:
             return
         with self._lock:
             self._conn.executemany(
                 "INSERT OR REPLACE INTO edsm_route_bodies_cache"
-                " (system_name, bio_count, geo_count, cached_at)"
-                " VALUES (:system_name, :bio_count, :geo_count, :cached_at)",
+                " (system_name, bio_count, geo_count, body_count, cached_at)"
+                " VALUES (:system_name, :bio_count, :geo_count, :body_count, :cached_at)",
                 entries,
             )
             self._conn.commit()

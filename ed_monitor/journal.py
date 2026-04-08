@@ -228,7 +228,10 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
 
         # Apply fresh cache immediately
         if fresh:
-            updates = {n: {"bio": d["bio_count"], "geo": d["geo_count"]} for n, d in fresh.items()}
+            updates = {
+                n: {"bio": d["bio_count"], "bodies": d["body_count"]}
+                for n, d in fresh.items()
+            }
             with lock:
                 state.route_bodies_edsm = {**state.route_bodies_edsm, **updates}
 
@@ -244,33 +247,31 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
             client = httpx.Client(timeout=15.0)
             for i, name in enumerate(to_fetch):
                 enc = _quote(name, safe="")
-                bio_total = 0
-                geo_total = 0
+                bio_total  = 0
+                body_count = 0
                 try:
                     resp = client.get(f"{_EDSM_BODIES_URL}?systemName={enc}")
                     resp.raise_for_status()
                     data = resp.json()
                     if isinstance(data, dict):
-                        for body in data.get("bodies") or []:
+                        all_bodies = data.get("bodies") or []
+                        body_count = len(all_bodies)
+                        for body in all_bodies:
                             sigs = body.get("signals") or {}
                             for sig in sigs.get("signals") or []:
-                                stype = sig.get("type", "")
-                                count = int(sig.get("count", 0))
-                                if "Biological" in stype:
-                                    bio_total += count
-                                elif "Geological" in stype:
-                                    geo_total += count
+                                if "Biological" in sig.get("type", ""):
+                                    bio_total += int(sig.get("count", 0))
                 except Exception:
                     pass  # cache as 0/0
 
                 new_cache_entries.append({
                     "system_name": name, "bio_count": bio_total,
-                    "geo_count": geo_total, "cached_at": now_str,
+                    "geo_count": 0, "body_count": body_count, "cached_at": now_str,
                 })
                 with lock:
                     state.route_bodies_edsm = {
                         **state.route_bodies_edsm,
-                        name: {"bio": bio_total, "geo": geo_total},
+                        name: {"bio": bio_total, "bodies": body_count},
                     }
 
                 if i < len(to_fetch) - 1:
