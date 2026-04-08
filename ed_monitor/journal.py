@@ -78,6 +78,105 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
         with lock:
             state.route_list_edsm = {}
 
+    # Kick off background live EDSM lookup for any route systems not in local dump
+    if route:
+        t = threading.Thread(
+            target=_fetch_route_edsm_live,
+            args=(route, state, lock, db),
+            daemon=True,
+            name="nova-route-edsm",
+        )
+        t.start()
+
+
+# Cache TTL for route EDSM live lookup (7 days)
+_ROUTE_EDSM_CACHE_DAYS = 7
+
+
+def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> None:
+    """Background: query EDSM live API for route systems not in the local dump.
+    Results cached for 7 days in edsm_route_cache. Updates state.route_list_edsm."""
+    import time as _time
+    from datetime import datetime, timedelta
+
+    try:
+        import httpx
+    except ImportError:
+        return
+
+    names = [e.get("StarSystem", "") for e in route if e.get("StarSystem")]
+    if not names:
+        return
+
+    # Which systems are already in local dump? Those are already "known".
+    with lock:
+        local_known = set(state.route_list_edsm.keys())
+
+    need_check = [n for n in names if n not in local_known]
+    if not need_check:
+        return
+
+    # Check local cache first
+    cutoff = (datetime.utcnow() - timedelta(days=_ROUTE_EDSM_CACHE_DAYS)).strftime("%Y-%m-%dT%H:%M:%S")
+    cached = db.get_route_edsm_cache(need_check)
+    fresh_cached = {n: d for n, d in cached.items() if d.get("cached_at", "") >= cutoff}
+    to_fetch = [n for n in need_check if n not in fresh_cached]
+
+    # Apply fresh cache to state immediately
+    if fresh_cached:
+        updates = {n: {"live_known": d["known"]} for n, d in fresh_cached.items() if d["known"]}
+        if updates:
+            with lock:
+                state.route_list_edsm = {**state.route_list_edsm, **updates}
+
+    if not to_fetch:
+        return
+
+    # Batch query EDSM — up to 50 names per request
+    _EDSM_BATCH = 50
+    _EDSM_URL = "https://www.edsm.net/api-v1/systems"
+    now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    new_cache_entries: list[dict] = []
+
+    try:
+        client = httpx.Client(timeout=15.0)
+        for i in range(0, len(to_fetch), _EDSM_BATCH):
+            batch = to_fetch[i:i + _EDSM_BATCH]
+            params = [("systemName[]", n) for n in batch]
+            params.append(("showId", "1"))
+            try:
+                resp = client.get(_EDSM_URL, params=params)
+                resp.raise_for_status()
+                found = {s["name"] for s in resp.json() if isinstance(s, dict) and "name" in s}
+            except Exception:
+                found = set()
+
+            for name in batch:
+                known = name in found
+                new_cache_entries.append({
+                    "name": name, "known": int(known),
+                    "scoopable": -1, "cached_at": now_str,
+                })
+
+            if found:
+                updates = {n: {"live_known": True} for n in found}
+                with lock:
+                    state.route_list_edsm = {**state.route_list_edsm, **updates}
+
+            if i + _EDSM_BATCH < len(to_fetch):
+                _time.sleep(1.0)  # be polite to EDSM API
+
+        client.close()
+    except Exception:
+        pass
+
+    if new_cache_entries:
+        try:
+            db.upsert_route_edsm_cache(new_cache_entries)
+        except Exception:
+            pass
+
+
 # ── _get_latest cache ──────────────────────────────────────────────────────────
 _latest_cache_time: float = 0.0
 _latest_cache_path: Optional[Path] = None

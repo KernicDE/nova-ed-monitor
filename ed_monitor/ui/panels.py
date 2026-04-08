@@ -3335,9 +3335,10 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         else:
             jump_d = 0.0
 
-        in_edsm  = name in edsm
-        sc_short = star_class[:3] if star_class else "?"
-        sc_col   = _star_col(star_class or "")
+        edsm_entry = edsm.get(name, {})
+        in_edsm   = bool(edsm_entry) or edsm_entry.get("live_known", False)
+        sc_short  = star_class[:3] if star_class else "?"
+        sc_col    = _star_col(star_class or "")
 
         tbl.add_row(
             Text(str(i), style=P.LABEL),

@@ -132,6 +132,13 @@ class Database:
                 other_services TEXT  NOT NULL DEFAULT ''
             )""",
             "CREATE INDEX IF NOT EXISTS idx_edsm_stations_system ON edsm_stations(system_name)",
+            # Route EDSM live-lookup cache
+            """CREATE TABLE IF NOT EXISTS edsm_route_cache (
+                name       TEXT PRIMARY KEY,
+                known      INTEGER NOT NULL DEFAULT 0,
+                scoopable  INTEGER NOT NULL DEFAULT -1,
+                cached_at  TEXT    NOT NULL DEFAULT ''
+            )""",
         ]
         with self._lock:
             for sql in migrations:
@@ -493,6 +500,33 @@ class Database:
             }
             for row in rows
         }
+
+    def get_route_edsm_cache(self, names: list[str]) -> dict[str, dict]:
+        """Return cached EDSM live-lookup data for route systems. name → {known, scoopable, cached_at}."""
+        if not names:
+            return {}
+        placeholders = ",".join("?" * len(names))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT name, known, scoopable, cached_at FROM edsm_route_cache WHERE name IN ({placeholders})",
+                names,
+            ).fetchall()
+        return {
+            row[0]: {"known": bool(row[1]), "scoopable": row[2], "cached_at": row[3]}
+            for row in rows
+        }
+
+    def upsert_route_edsm_cache(self, entries: list[dict]) -> None:
+        """Insert or replace route EDSM cache entries. Each entry: {name, known, scoopable, cached_at}."""
+        if not entries:
+            return
+        with self._lock:
+            self._conn.executemany(
+                "INSERT OR REPLACE INTO edsm_route_cache (name, known, scoopable, cached_at)"
+                " VALUES (:name, :known, :scoopable, :cached_at)",
+                entries,
+            )
+            self._conn.commit()
 
     def get_stats(self) -> dict:
         today       = date.today()
