@@ -141,7 +141,7 @@ lines = ["Примечательно: {body_short}. {detail}"]
 lines = ["Сканирование: {body_short}. {detail}"]
 
 [SAAScanComplete]
-lines = ["Нанесено на карту: {body_short}."]
+lines = ["Нанесено на карту: {body_short}.{sig_txt}{eff_txt}"]
 
 [CodexEntry]
 lines = ["Кодекс: {name}."]
@@ -156,7 +156,7 @@ lines = ["Биологическое: {species}. Новый вид!"]
 lines = ["Биопроба {count} из 3: {species}."]
 
 [ScanOrganic_Analyse]
-lines = ["Биоисследование завершено: {species}. Ценность: {val_str}."]
+lines = ["Биоисследование завершено: {species}. Ценность: {val_str}.{ff_suffix}"]
 
 [ScanOrganic_Analyse_BodyLeft]
 lines = ["На этом теле ещё {body_left} {bio_word}."]

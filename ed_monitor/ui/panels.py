@@ -947,6 +947,13 @@ class BodiesPanel(_Panel):
     }
     """
 
+    _scroll: int = 0
+
+    def scroll_bodies(self, delta: int) -> None:
+        """Scroll the bodies list up (delta<0) or down (delta>0)."""
+        self._scroll = max(0, self._scroll + delta)
+        self.refresh()
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None or not s.bodies:
@@ -992,6 +999,16 @@ class BodiesPanel(_Panel):
             return (bucket, " ".join(key_parts))
 
         visible.sort(key=_body_sort_key)
+
+        # Apply scroll offset (w/s keys)
+        total_bodies = len(visible)
+        effective_scroll = min(self._scroll, max(0, total_bodies - 1))
+        if effective_scroll > 0:
+            # Update title to show scroll indicator
+            self.border_title = f"◈ Scanned Bodies  ▲{effective_scroll}"
+        else:
+            self.border_title = "◈ Scanned Bodies"
+        visible = visible[effective_scroll:]
 
         # Pre-compute bodies with all bio signals scanned
         bio_done: set[str] = set()
@@ -1101,7 +1118,7 @@ class BodiesPanel(_Panel):
 
 # ── Content render helpers ────────────────────────────────────────────────────
 
-def _render_bio(s: AppState) -> RenderableType:
+def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
     from ..events import _BIO_GENUS_VALUE_RANGE
 
     HDR = "bold rgb(195,160,55)"
@@ -1120,138 +1137,159 @@ def _render_bio(s: AppState) -> RenderableType:
     ]
 
     total_known = sum(sc.value for sc in s.bio_scans if sc.complete and sc.value > 0)
-    parts: list[RenderableType] = []
 
-    # Pre-scan section: show genus list + value estimates before first sample
+    # Build flat list of body groups for scrolling
+    groups: list[tuple[str, object]] = []
     for b in prescan_bodies:
-        short = _short_name(b.name, s.system) if b.name and s.system else b.name
-        hdr_t = Text()
-        hdr_t.append("─" * 3, style="rgb(60,80,100)")
-        hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
-        hdr_t.append("(DSS) ", style="rgb(100,140,180)")
-        hdr_t.append("─" * 14, style="rgb(60,80,100)")
-        hdr_t.append("\n")
-        parts.append(hdr_t)
+        groups.append(("prescan", b))
+    for body_name in sorted(by_body):
+        groups.append(("scan", (body_name, by_body[body_name])))
 
-        tbl = Table(
-            show_header=True, show_edge=False, show_lines=False,
-            padding=(0, 0), box=None,
-        )
-        tbl.add_column("Genus",       width=22, header_style=HDR)
-        tbl.add_column("Est. Value",  width=22, header_style=HDR)
-
-        for g in b.bio_genuses:
-            key = g.lower().split()[0] if g else ""
-            lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
-            val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-            tbl.add_row(
-                Text(g, style=P.HUD_CYAN),
-                Text(val_s, style=P.AMBER),
-            )
-        parts.append(tbl)
-
-        if b.bio_value_min > 0:
-            est_t = Text()
-            est_t.append("Est. total  ", style=P.LABEL)
-            est_t.append(
-                f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}",
-                style=f"bold {P.GOLD}",
-            )
-            est_t.append("\n")
-            parts.append(est_t)
-
-    if not by_body and not prescan_bodies:
+    if not groups:
         t = Text()
         t.append("No biological scans active.", style=P.LABEL)
         return t
 
-    for body_name in sorted(by_body):
-        # Body header row
-        short = _short_name(body_name, s.system) if body_name and s.system else body_name
-        hdr_t = Text()
-        hdr_t.append("─" * 3, style="rgb(60,80,100)")
-        hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
-        hdr_t.append("─" * 20, style="rgb(60,80,100)")
-        hdr_t.append("\n")
-        parts.append(hdr_t)
+    parts: list[RenderableType] = []
 
-        tbl = Table(
-            show_header=True, show_edge=False, show_lines=False,
-            padding=(0, 0), box=None,
-        )
-        tbl.add_column("Species",  width=21, header_style=HDR)
-        tbl.add_column("Genus",    width=13, header_style=HDR)
-        tbl.add_column("Smp",      width=5,  header_style=HDR)
-        tbl.add_column("MinDist",  width=8,  header_style=HDR)
-        tbl.add_column("Travel",   width=22, header_style=HDR)
-        tbl.add_column("Value",    width=14, header_style=HDR)
+    effective_scroll = min(scroll, max(0, len(groups) - 1))
+    if effective_scroll > 0:
+        more_t = Text()
+        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(more_t)
 
-        for sc in by_body[body_name]:
-            samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: "rgb(210,210,0)"}.get(sc.samples, P.LABEL)
-            if sc.first_footfall:
-                species_str = f"✦ {sc.species_localised}"
-            elif sc.first_discovered:
-                species_str = f"★ {sc.species_localised}"
-            else:
-                species_str = sc.species_localised
-            samples_str = f"{sc.samples}/3"
-            min_str     = _fmt_metres(sc.min_dist)
+    for gtype, gdata in groups[effective_scroll:]:
+        if gtype == "prescan":
+            b = gdata
+            short = _short_name(b.name, s.system) if b.name and s.system else b.name
+            hdr_t = Text()
+            hdr_t.append("─" * 3, style="rgb(60,80,100)")
+            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+            hdr_t.append("(DSS) ", style="rgb(100,140,180)")
+            hdr_t.append("─" * 14, style="rgb(60,80,100)")
+            hdr_t.append("\n")
+            parts.append(hdr_t)
 
-            if sc.value > 0:
-                value_str = _fmt_value(sc.value)
-            elif sc.complete:
-                value_str = "—"
-            else:
-                value_str = "?"
-
-            name_style = (
-                f"bold rgb(80,240,160)" if sc.first_footfall
-                else (f"bold {P.GOLD}" if sc.first_discovered
-                else (f"{P.DIM} strike" if sc.complete else "white"))
+            tbl = Table(
+                show_header=True, show_edge=False, show_lines=False,
+                padding=(0, 0), box=None,
             )
+            tbl.add_column("Genus",       width=22, header_style=HDR)
+            tbl.add_column("Est. Value",  width=22, header_style=HDR)
 
-            if sc.current_dist is not None:
-                ratio      = min(sc.current_dist / sc.min_dist, 1.0) if sc.min_dist > 0 else 1.0
-                filled     = int(ratio * 10)
-                bar        = "█" * filled + "░" * (10 - filled)
-                arrows     = " ".join(sc.sample_bearings) if sc.sample_bearings else (sc.current_bearing or "")
-                arrow_str  = f" {arrows}" if arrows else ""
-                travel_str = f"{bar} {sc.current_dist:.0f}m{arrow_str}"
-                travel_col = P.HUD_GREEN if ratio >= 1.0 else P.HUD_WARN
-            elif sc.samples == 0 or sc.complete:
-                travel_str, travel_col = "—", P.DIM
-            else:
-                travel_str, travel_col = "No position", P.LABEL
+            for g in b.bio_genuses:
+                key = g.lower().split()[0] if g else ""
+                lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                tbl.add_row(
+                    Text(g, style=P.HUD_CYAN),
+                    Text(val_s, style=P.AMBER),
+                )
+            parts.append(tbl)
 
-            tbl.add_row(
-                Text(species_str, style=name_style),
-                Text(sc.genus_localised, style=P.HUD_CYAN),
-                Text(samples_str, style=f"bold {samples_col}"),
-                Text(min_str),
-                Text(travel_str, style=travel_col),
-                Text(value_str, style=f"bold {P.GOLD}" if sc.value > 0 else P.LABEL),
+            if b.bio_value_min > 0:
+                est_t = Text()
+                est_t.append("Est. total  ", style=P.LABEL)
+                est_t.append(
+                    f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}",
+                    style=f"bold {P.GOLD}",
+                )
+                est_t.append("\n")
+                parts.append(est_t)
+
+        else:
+            body_name, scans = gdata
+            short = _short_name(body_name, s.system) if body_name and s.system else body_name
+            hdr_t = Text()
+            hdr_t.append("─" * 3, style="rgb(60,80,100)")
+            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+            hdr_t.append("─" * 20, style="rgb(60,80,100)")
+            hdr_t.append("\n")
+            parts.append(hdr_t)
+
+            tbl = Table(
+                show_header=True, show_edge=False, show_lines=False,
+                padding=(0, 0), box=None,
             )
+            tbl.add_column("Species",  width=21, header_style=HDR)
+            tbl.add_column("Genus",    width=13, header_style=HDR)
+            tbl.add_column("Smp",      width=5,  header_style=HDR)
+            tbl.add_column("MinDist",  width=8,  header_style=HDR)
+            tbl.add_column("Travel",   width=22, header_style=HDR)
+            tbl.add_column("Value",    width=14, header_style=HDR)
 
-        # Show any genuses from the DSS that haven't been scanned yet
-        _bidx2 = s._bodies_by_name.get(body_name, -1)
-        _binfo = s.bodies[_bidx2] if 0 <= _bidx2 < len(s.bodies) else None
-        if _binfo and _binfo.bio_genuses:
-            scanned_genera = {sc.genus_localised.lower() for sc in by_body[body_name]}
-            for g in _binfo.bio_genuses:
-                if g.lower() not in scanned_genera:
-                    _key = g.lower().split()[0] if g else ""
-                    lo, hi = _BIO_GENUS_VALUE_RANGE.get(_key, (0, 0))
-                    val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-                    tbl.add_row(
-                        Text("?", style=P.DIM),
-                        Text(g, style=P.HUD_CYAN),
-                        Text("—", style=P.DIM),
-                        Text("—", style=P.DIM),
-                        Text("—", style=P.DIM),
-                        Text(val_s, style=P.AMBER),
-                    )
+            for sc in scans:
+                samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: "rgb(210,210,0)"}.get(sc.samples, P.LABEL)
+                if sc.first_footfall:
+                    species_str = f"✦ {sc.species_localised}"
+                elif sc.first_discovered:
+                    species_str = f"★ {sc.species_localised}"
+                else:
+                    species_str = sc.species_localised
+                samples_str = f"{sc.samples}/3"
+                min_str     = _fmt_metres(sc.min_dist)
 
-        parts.append(tbl)
+                if sc.value > 0:
+                    value_str = _fmt_value(sc.value)
+                elif sc.complete:
+                    value_str = "—"
+                else:
+                    value_str = "?"
+
+                name_style = (
+                    f"bold rgb(80,240,160)" if sc.first_footfall
+                    else (f"bold {P.GOLD}" if sc.first_discovered
+                    else (f"{P.DIM} strike" if sc.complete else "white"))
+                )
+
+                if sc.current_dist is not None:
+                    ratio      = min(sc.current_dist / sc.min_dist, 1.0) if sc.min_dist > 0 else 1.0
+                    filled     = int(ratio * 10)
+                    bar        = "█" * filled + "░" * (10 - filled)
+                    arrows     = " ".join(sc.sample_bearings) if sc.sample_bearings else (sc.current_bearing or "")
+                    arrow_str  = f" {arrows}" if arrows else ""
+                    travel_str = f"{bar} {sc.current_dist:.0f}m{arrow_str}"
+                    travel_col = P.HUD_GREEN if ratio >= 1.0 else P.HUD_WARN
+                elif sc.samples == 0 or sc.complete:
+                    travel_str, travel_col = "—", P.DIM
+                else:
+                    travel_str, travel_col = "No position", P.LABEL
+
+                if sc.value > 0 and sc.first_footfall:
+                    val_style = "bold rgb(0,255,180)"  # bright teal — first footfall bonus
+                elif sc.value > 0:
+                    val_style = f"bold {P.GOLD}"
+                else:
+                    val_style = P.LABEL
+                tbl.add_row(
+                    Text(species_str, style=name_style),
+                    Text(sc.genus_localised, style=P.HUD_CYAN),
+                    Text(samples_str, style=f"bold {samples_col}"),
+                    Text(min_str),
+                    Text(travel_str, style=travel_col),
+                    Text(value_str, style=val_style),
+                )
+
+            # Show any genuses from the DSS that haven't been scanned yet
+            _bidx2 = s._bodies_by_name.get(body_name, -1)
+            _binfo = s.bodies[_bidx2] if 0 <= _bidx2 < len(s.bodies) else None
+            if _binfo and _binfo.bio_genuses:
+                scanned_genera = {sc.genus_localised.lower() for sc in scans}
+                for g in _binfo.bio_genuses:
+                    if g.lower() not in scanned_genera:
+                        _key = g.lower().split()[0] if g else ""
+                        lo, hi = _BIO_GENUS_VALUE_RANGE.get(_key, (0, 0))
+                        val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                        tbl.add_row(
+                            Text("?", style=P.DIM),
+                            Text(g, style=P.HUD_CYAN),
+                            Text("—", style=P.DIM),
+                            Text("—", style=P.DIM),
+                            Text("—", style=P.DIM),
+                            Text(val_s, style=P.AMBER),
+                        )
+
+            parts.append(tbl)
 
     if total_known > 0:
         footer = Text()
@@ -1269,49 +1307,82 @@ def _section_header(title: str) -> Text:
     return t
 
 
-def _render_inventory(s: AppState) -> RenderableType:
-    parts: list[RenderableType] = []
-
+def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
+    # Build flat list of all rows for scrolling: ("header", label) | ("cargo", item) | ("mat", name, cnt)
+    all_rows: list[tuple] = []
     if s.cargo_items:
-        parts.append(_section_header("CARGO"))
-        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-        tbl.add_column("name",  style="white")
-        tbl.add_column("count", justify="right", style=P.AMBER)
+        all_rows.append(("header", "CARGO"))
         for item in s.cargo_items:
-            style = "rgb(255,80,80)" if item.get("stolen") else "white"
-            tbl.add_row(
-                Text(item["name"], style=style),
-                Text(str(item["count"]), style=f"bold {P.AMBER}"),
-            )
-        parts.append(tbl)
-
+            all_rows.append(("cargo", item))
     for label, mdict in (
         ("RAW",          s.materials_raw),
         ("MANUFACTURED", s.materials_mfg),
         ("ENCODED",      s.materials_enc),
     ):
-        if not mdict:
-            continue
-        parts.append(Text("\n"))
-        parts.append(_section_header(label))
-        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-        tbl.add_column("name",  style="white")
-        tbl.add_column("count", justify="right")
-        for name in sorted(mdict):
-            cnt = mdict[name]
-            cnt_col = P.HUD_WARN if cnt >= 150 else ("white" if cnt >= 50 else P.LABEL)
-            tbl.add_row(name, Text(str(cnt), style=f"bold {cnt_col}"))
-        parts.append(tbl)
+        if mdict:
+            all_rows.append(("header", label))
+            for name in sorted(mdict):
+                all_rows.append(("mat", name, mdict[name]))
 
-    if not parts:
+    if not all_rows:
         t = Text()
         t.append("No inventory data yet.", style=P.LABEL)
         return t
 
+    effective_scroll = min(scroll, max(0, len(all_rows) - 1))
+    parts: list[RenderableType] = []
+    if effective_scroll > 0:
+        more_t = Text()
+        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(more_t)
+
+    visible_rows = all_rows[effective_scroll:]
+
+    # Group consecutive rows into sections for rendering
+    current_header: Optional[str] = None
+    current_tbl: Optional[Table] = None
+
+    def _flush_tbl() -> None:
+        nonlocal current_tbl
+        if current_tbl is not None:
+            parts.append(current_tbl)
+            current_tbl = None
+
+    for row in visible_rows:
+        if row[0] == "header":
+            _flush_tbl()
+            if parts:
+                parts.append(Text("\n"))
+            parts.append(_section_header(row[1]))
+            current_header = row[1]
+            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+            current_tbl.add_column("name",  style="white")
+            current_tbl.add_column("count", justify="right")
+        elif row[0] == "cargo":
+            if current_tbl is None:
+                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+                current_tbl.add_column("name",  style="white")
+                current_tbl.add_column("count", justify="right", style=P.AMBER)
+            item = row[1]
+            style = "rgb(255,80,80)" if item.get("stolen") else "white"
+            current_tbl.add_row(
+                Text(item["name"], style=style),
+                Text(str(item["count"]), style=f"bold {P.AMBER}"),
+            )
+        elif row[0] == "mat":
+            _, name, cnt = row
+            if current_tbl is None:
+                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+                current_tbl.add_column("name",  style="white")
+                current_tbl.add_column("count", justify="right")
+            cnt_col = P.HUD_WARN if cnt >= 150 else ("white" if cnt >= 50 else P.LABEL)
+            current_tbl.add_row(name, Text(str(cnt), style=f"bold {cnt_col}"))
+    _flush_tbl()
+
     return Group(*parts)
 
 
-def _render_missions(s: AppState) -> RenderableType:
+def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
     if not s.missions:
         t = Text()
         t.append("No active missions.", style=P.LABEL)
@@ -1345,6 +1416,14 @@ def _render_missions(s: AppState) -> RenderableType:
             pct_t.append(f"  {fac}\n", style=P.LABEL)
             parts.append(pct_t)
 
+    missions = s.missions
+    effective_scroll = min(scroll, max(0, len(missions) - 1))
+    if effective_scroll > 0:
+        more_t = Text()
+        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(more_t)
+    visible_missions = missions[effective_scroll:]
+
     tbl = Table(
         show_header=True, show_edge=False, show_lines=False,
         padding=(0, 1), box=None,
@@ -1354,7 +1433,7 @@ def _render_missions(s: AppState) -> RenderableType:
     tbl.add_column("Destination", width=20, header_style=HDR)
     tbl.add_column("Time left",   width=9,  header_style=HDR, justify="right")
 
-    for m in s.missions:
+    for m in visible_missions:
         remaining = _mission_time_remaining(m.expiry)
         if remaining == "Expired":
             time_col = P.HUD_CRIT
@@ -1415,7 +1494,7 @@ _ENGINEER_STATIC: dict[str, tuple[str, str]] = {
 }
 
 
-def _render_engineers(s: AppState) -> RenderableType:
+def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
     if not s.engineers:
         t = Text()
         t.append("No engineer data.", style=P.LABEL)
@@ -1444,6 +1523,16 @@ def _render_engineers(s: AppState) -> RenderableType:
         else:
             locked.append((name, rank, rp, prog))
 
+    # Build flat list: (section_label, (name, rank, rp, prog))
+    all_engs: list[tuple[str, tuple]] = []
+    for section_label, group in (
+        ("UNLOCKED", unlocked),
+        ("IN PROGRESS", in_progress),
+        ("LOCKED / UNKNOWN", locked),
+    ):
+        for entry in group:
+            all_engs.append((section_label, entry))
+
     parts: list[RenderableType] = []
 
     def _rank_bar(rank: int, max_rank: int = 5) -> Text:
@@ -1460,45 +1549,57 @@ def _render_engineers(s: AppState) -> RenderableType:
         t.append("░" * (width - filled), style=P.LABEL)
         return t
 
-    first_section = True
-    for section_label, group in (
-        ("UNLOCKED", unlocked),
-        ("IN PROGRESS", in_progress),
-        ("LOCKED / UNKNOWN", locked),
-    ):
-        if not group:
-            continue
-        if not first_section:
-            parts.append(Text("\n"))
-        first_section = False
-        parts.append(_section_header(section_label))
-        tbl = Table(show_header=False, show_edge=False, show_lines=False,
-                    padding=(0, 1), box=None)
-        tbl.add_column("name", style="white", no_wrap=True)
-        tbl.add_column("spec", style=P.LABEL, width=14, no_wrap=True)
-        tbl.add_column("sys",  style=P.HUD_CYAN, width=14, no_wrap=True)
-        tbl.add_column("rank", width=9, no_wrap=True)
+    effective_scroll = min(scroll, max(0, len(all_engs) - 1))
+    if effective_scroll > 0:
+        more_t = Text()
+        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(more_t)
 
-        for name, rank, rp, prog in group:
-            spec, system = _ENGINEER_STATIC.get(name, ("", ""))
-            sys_short = system.split("/")[0].strip()[:14] if system else ""
+    visible = all_engs[effective_scroll:]
 
-            if prog == "Unlocked":
-                rank_bar = _rank_bar(rank)
-                rank_bar.append(f" {rank}/5", style=P.LABEL)
-                rank_cell = rank_bar
-            elif prog in ("Invited", "Acquainted", "Known"):
-                rank_cell = _progress_bar(rp) if rp > 0 else Text(prog, style=P.AMBER)
-            else:
-                rank_cell = Text(prog or "Unknown", style=P.LABEL)
+    # Render grouped by section
+    current_section: Optional[str] = None
+    current_tbl: Optional[Table] = None
 
-            tbl.add_row(
-                Text(name, style="white"),
-                Text(spec, style=P.LABEL),
-                Text(sys_short, style=P.HUD_CYAN),
-                rank_cell,
-            )
-        parts.append(tbl)
+    def _flush_eng_tbl() -> None:
+        nonlocal current_tbl
+        if current_tbl is not None:
+            parts.append(current_tbl)
+            current_tbl = None
+
+    for section_label, (name, rank, rp, prog) in visible:
+        if section_label != current_section:
+            _flush_eng_tbl()
+            if current_section is not None:
+                parts.append(Text("\n"))
+            parts.append(_section_header(section_label))
+            current_section = section_label
+            current_tbl = Table(show_header=False, show_edge=False, show_lines=False,
+                                padding=(0, 1), box=None)
+            current_tbl.add_column("name", style="white", no_wrap=True)
+            current_tbl.add_column("spec", style=P.LABEL, width=14, no_wrap=True)
+            current_tbl.add_column("sys",  style=P.HUD_CYAN, width=14, no_wrap=True)
+            current_tbl.add_column("rank", width=9, no_wrap=True)
+
+        spec, system = _ENGINEER_STATIC.get(name, ("", ""))
+        sys_short = system.split("/")[0].strip()[:14] if system else ""
+
+        if prog == "Unlocked":
+            rank_bar = _rank_bar(rank)
+            rank_bar.append(f" {rank}/5", style=P.LABEL)
+            rank_cell = rank_bar
+        elif prog in ("Invited", "Acquainted", "Known"):
+            rank_cell = _progress_bar(rp) if rp > 0 else Text(prog, style=P.AMBER)
+        else:
+            rank_cell = Text(prog or "Unknown", style=P.LABEL)
+
+        current_tbl.add_row(
+            Text(name, style="white"),
+            Text(spec, style=P.LABEL),
+            Text(sys_short, style=P.HUD_CYAN),
+            rank_cell,
+        )
+    _flush_eng_tbl()
 
     if not parts:
         t = Text()
@@ -2600,6 +2701,14 @@ class SituationalPanel(_Panel):
     _neutron_scroll:     int  = 0
     _bgs_scroll:         int  = 0
     _colonisation_scroll: int = 0
+    _general_scroll:     int  = 0
+
+    _MODE_ABBREVS = {
+        "auto": "AUT", "overview": "OVR", "wealth": "WLT", "inventory": "INV",
+        "bio": "BIO", "missions": "MIS", "engineers": "ENG", "neutron": "NTR",
+        "galaxy": "GAL", "stats": "STS", "docking": "DKG", "bgs": "BGS",
+        "colonisation": "COL",
+    }
 
     DEFAULT_CSS = """
     SituationalPanel {
@@ -2613,6 +2722,16 @@ class SituationalPanel(_Panel):
     def cycle(self) -> None:
         idx = self._MODES.index(self._mode)
         self._mode = self._MODES[(idx + 1) % len(self._MODES)]
+        self._general_scroll = 0
+        if self._snap is not None:
+            self._active = self._resolve(self._snap)
+        self.border_title = self._make_title()
+        self.refresh()
+
+    def back_cycle(self) -> None:
+        idx = self._MODES.index(self._mode)
+        self._mode = self._MODES[(idx - 1) % len(self._MODES)]
+        self._general_scroll = 0
         if self._snap is not None:
             self._active = self._resolve(self._snap)
         self.border_title = self._make_title()
@@ -2635,6 +2754,11 @@ class SituationalPanel(_Panel):
 
     def scroll_colonisation(self, delta: int) -> None:
         self._colonisation_scroll = max(0, self._colonisation_scroll + delta)
+        self.refresh()
+
+    def scroll_general(self, delta: int) -> None:
+        """Scroll the current situational panel up/down (for all non-specialised modes)."""
+        self._general_scroll = max(0, self._general_scroll + delta)
         self.refresh()
 
     def _resolve(self, s: AppState) -> str:
@@ -2666,13 +2790,27 @@ class SituationalPanel(_Panel):
         return "overview"
 
     def _make_title(self) -> str:
-        if self._mode == "auto":
-            return f"◈ Situation: AUTO→{self._active.upper()}  [Tab]"
-        return f"◈ Situation: {self._mode.upper()}  [Tab]"
+        parts = []
+        for m in self._MODES:
+            abbr = self._MODE_ABBREVS[m]
+            is_selected = (m == self._mode)
+            is_resolved = (m == self._active) and (self._mode == "auto")
+            if is_selected and is_resolved:
+                parts.append(f"[bold rgb(255,220,80)]{abbr}[/]")
+            elif is_selected:
+                parts.append(f"[bold white]{abbr}[/]")
+            elif is_resolved:
+                parts.append(f"[bold rgb(0,200,150)]{abbr}[/]")
+            else:
+                parts.append(f"[dim]{abbr}[/]")
+        return "◈ " + "|".join(parts)
 
     def update(self, snap: AppState) -> None:
-        self._snap   = snap
-        self._active = self._resolve(snap)
+        self._snap = snap
+        new_active = self._resolve(snap)
+        if new_active != self._active:
+            self._general_scroll = 0  # reset scroll when auto-mode switches
+        self._active = new_active
         self.border_title = self._make_title()
         self.refresh()
 
@@ -2680,12 +2818,13 @@ class SituationalPanel(_Panel):
         s = self._snap
         if s is None:
             return Text("")
+        gs = self._general_scroll
         if self._active == "bio":
-            return _render_bio(s)
+            return _render_bio(s, scroll=gs)
         if self._active == "missions":
-            return _render_missions(s)
+            return _render_missions(s, scroll=gs)
         if self._active == "engineers":
-            return _render_engineers(s)
+            return _render_engineers(s, scroll=gs)
         if self._active == "wealth":
             return _render_wealth(s)
         if self._active == "neutron":
@@ -2694,7 +2833,7 @@ class SituationalPanel(_Panel):
             return _render_galaxy(s, regional=self._galaxy_regional,
                                   panel_w=self.size.width, panel_h=self.size.height)
         if self._active == "inventory":
-            return _render_inventory(s)
+            return _render_inventory(s, scroll=gs)
         if self._active == "stats":
             return _render_stats(s)
         if self._active == "docking":

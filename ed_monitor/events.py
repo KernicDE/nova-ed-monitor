@@ -1316,12 +1316,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                             sc.complete = True
                             matched_sc  = sc
                             break
-                    final_val = matched_sc.value if matched_sc else value
-                    val_str   = _tts_cr(final_val) if final_val > 0 else "unknown"
-                    msg_tts = f"Bio complete: {species_loc}. Value: {val_str}."
-                    msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(final_val) if final_val > 0 else '?'}."
+                    final_val      = matched_sc.value if matched_sc else value
+                    is_ff          = matched_sc.first_footfall if matched_sc else False
+                    val_str        = _tts_cr(final_val) if final_val > 0 else "unknown"
+                    ff_suffix      = " First footfall bonus applied." if is_ff else ""
+                    msg_tts = f"Bio complete: {species_loc}. Value: {val_str}.{ff_suffix}"
+                    msg_log = f"Bio complete: {species_loc}. Value: {_fmt_credits(final_val) if final_val > 0 else '?'}.{' ✦FF' if is_ff else ''}"
                     _say(tts_q, "ScanOrganic_Analyse", False,
-                         fallback=msg_tts, species=species_loc, val_str=val_str)
+                         fallback=msg_tts, species=species_loc, val_str=val_str, ff_suffix=ff_suffix)
                     # Bio completion contextual announcement
                     body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
                     _anl_idx   = state._bodies_by_name.get(body_name, -1)

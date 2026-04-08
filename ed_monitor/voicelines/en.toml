@@ -212,7 +212,9 @@ lines = ["Scan: {body_short}. {detail}"]
 
 [SAAScanComplete]
 # {body_short} = short body name
-lines = ["Mapped: {body_short}."]
+# {sig_txt}    = signal info e.g. " Signals: 2 bio." (empty string if none)
+# {eff_txt}    = efficiency info e.g. " Efficiency target reached." (empty string if none)
+lines = ["Mapped: {body_short}.{sig_txt}{eff_txt}"]
 
 [CodexEntry]
 # {name} = codex entry name
@@ -232,9 +234,10 @@ lines = ["Biological: {species}. New species!"]
 lines = ["Bio sample {count} of 3: {species}."]
 
 [ScanOrganic_Analyse]
-# {species} = species localised name
-# {val_str} = credit value formatted for speech
-lines = ["Bio complete: {species}. Value: {val_str}."]
+# {species}   = species localised name
+# {val_str}   = credit value formatted for speech
+# {ff_suffix} = " First footfall bonus applied." or empty string
+lines = ["Bio complete: {species}. Value: {val_str}.{ff_suffix}"]
 
 [ScanOrganic_Analyse_BodyLeft]
 # {body_left} = number of remaining bio signals on this body

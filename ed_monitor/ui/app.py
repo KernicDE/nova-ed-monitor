@@ -65,12 +65,14 @@ class HelpScreen(Screen):
         for key, desc in [
             ("q / Esc",          "Quit"),
             ("?",                "This help screen"),
-            ("Tab",              "Cycle situational panel mode"),
-            ("r",                "Toggle galaxy map scale (galactic ↔ regional)"),
-            ("↑ / k",            "Scroll event log up"),
-            ("↓ / j",            "Scroll event log down"),
+            ("Tab",              "Cycle situational panel forward"),
+            ("Shift+Tab",        "Cycle situational panel backward"),
+            ("↑ / k",            "Scroll situational panel up"),
+            ("↓ / j",            "Scroll situational panel down"),
             ("PgUp / PgDn",      "Scroll event log by 20 lines"),
             ("Home / g",         "Jump to latest events"),
+            ("w / s",            "Scroll bodies panel up / down"),
+            ("r",                "Toggle galaxy map scale (galactic ↔ regional)"),
             ("+ / =",            "Volume up"),
             ("−",                "Volume down"),
         ]:
@@ -446,7 +448,7 @@ class NOVAApp(App):
             elif sit._active == "colonisation":
                 sit.scroll_colonisation(1)
             else:
-                self._scroll = min(self._scroll + 1, self._max_scroll)
+                sit.scroll_general(1)
 
         elif key in ("up", "k"):
             sit = self.query_one(SituationalPanel)
@@ -457,43 +459,28 @@ class NOVAApp(App):
             elif sit._active == "colonisation":
                 sit.scroll_colonisation(-1)
             else:
-                self._scroll = max(self._scroll - 1, 0)
+                sit.scroll_general(-1)
 
         elif key == "pagedown":
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
-                sit.scroll_neutron(10)
-            elif sit._active == "bgs":
-                sit.scroll_bgs(10)
-            elif sit._active == "colonisation":
-                sit.scroll_colonisation(10)
-            else:
-                self._scroll = min(self._scroll + 20, self._max_scroll)
+            self._scroll = min(self._scroll + 20, self._max_scroll)
 
         elif key == "pageup":
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
-                sit.scroll_neutron(-10)
-            elif sit._active == "bgs":
-                sit.scroll_bgs(-10)
-            elif sit._active == "colonisation":
-                sit.scroll_colonisation(-10)
-            else:
-                self._scroll = max(self._scroll - 20, 0)
+            self._scroll = max(self._scroll - 20, 0)
 
         elif key in ("home", "g"):
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
-                sit.scroll_neutron(-9999)
-            elif sit._active == "bgs":
-                sit.scroll_bgs(-9999)
-            elif sit._active == "colonisation":
-                sit.scroll_colonisation(-9999)
-            else:
-                self._scroll = 0
+            self._scroll = 0
+
+        elif key == "s":
+            self.query_one(BodiesPanel).scroll_bodies(1)
+
+        elif key == "w":
+            self.query_one(BodiesPanel).scroll_bodies(-1)
 
         elif key == "tab":
             self.query_one(SituationalPanel).cycle()
+
+        elif key == "shift+tab":
+            self.query_one(SituationalPanel).back_cycle()
 
         elif key == "r":
             self.query_one(SituationalPanel).toggle_galaxy_scale()

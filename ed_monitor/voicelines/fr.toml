@@ -141,7 +141,7 @@ lines = ["Notable : {body_short}. {detail}"]
 lines = ["Scan : {body_short}. {detail}"]
 
 [SAAScanComplete]
-lines = ["Cartographié : {body_short}."]
+lines = ["Cartographié : {body_short}.{sig_txt}{eff_txt}"]
 
 [CodexEntry]
 lines = ["Codex : {name}."]
@@ -156,7 +156,7 @@ lines = ["Biologique : {species}. Nouvelle espèce !"]
 lines = ["Échantillon bio {count} sur 3 : {species}."]
 
 [ScanOrganic_Analyse]
-lines = ["Bio terminé : {species}. Valeur : {val_str}."]
+lines = ["Bio terminé : {species}. Valeur : {val_str}.{ff_suffix}"]
 
 [ScanOrganic_Analyse_BodyLeft]
 lines = ["Encore {body_left} {bio_word} sur ce corps."]
