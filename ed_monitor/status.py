@@ -476,11 +476,13 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             # mass_locked / supercruise guard: STATUS.JSON can briefly report
             # in_main_ship=False during liftoff transitions; those two flight-state
             # flags block false BioReady fires that slip through that window.
-            # Fire when on foot, in SRV, or landed in ship — but not while flying
-            # (supercruise, orbital cruise) or mass-locked (prevents liftoff false positives)
-            on_ground  = state.landed or not state.in_main_ship
-            can_sample = (on_ground and not state.supercruise and not state.orbital_cruise
-                          and not state.mass_locked and not unvisited_comp)
+            # Fire as soon as min_dist is crossed — on foot, SRV, or in the ship.
+            # Supercruise and orbital cruise (glide) are the only hard suppressors.
+            # The alerted flag prevents re-fires: it is only cleared when the player
+            # takes a new sample (events.py) or gets close to a sample on the surface,
+            # so a gravity-well-clear or FSD-ready moment can never re-trigger this.
+            can_sample = (not state.supercruise and not state.orbital_cruise
+                          and not unvisited_comp)
             if not sc.alerted and can_sample:
                 sc.alerted = True
                 try:
