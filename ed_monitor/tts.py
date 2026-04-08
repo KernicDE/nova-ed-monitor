@@ -55,27 +55,10 @@ _audio_backend_lock = threading.Lock()
 
 _CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500 MB
 _DUPLICATE_WINDOW = 10.0  # seconds - prevent duplicate messages within this window
-_BIOREADY_COOLDOWN = 30.0  # seconds - specific cooldown for BioReady messages
 
 # Store recent messages for deduplication
 _recent_messages: dict[str, float] = {}
 _recent_messages_lock = threading.Lock()
-
-# Specific cooldown for BioReady messages
-_last_bioready_time = 0.0
-_bioready_cooldown_lock = threading.Lock()
-
-
-def _check_bioready_cooldown() -> bool:
-    """Check if BioReady messages are allowed based on cooldown period."""
-    global _last_bioready_time
-    current_time = time.time()
-    with _bioready_cooldown_lock:
-        if current_time - _last_bioready_time < _BIOREADY_COOLDOWN:
-            _audio_logger.info(f"BioReady message suppressed by cooldown ({current_time - _last_bioready_time:.1f}s since last)")
-            return False
-        _last_bioready_time = current_time
-        return True
 
 
 def _cache_dir() -> Path:
@@ -219,16 +202,12 @@ def _worker(
 
         # Dedup check — single point covering both drain and blocking paths
         if msg.deduplication_key:
-            if msg.deduplication_key.startswith("BioReady-"):
-                if not _check_bioready_cooldown():
+            now = time.time()
+            with _recent_messages_lock:
+                last_time = _recent_messages.get(msg.deduplication_key)
+                if last_time and (now - last_time) < _DUPLICATE_WINDOW:
                     continue
-            else:
-                now = time.time()
-                with _recent_messages_lock:
-                    last_time = _recent_messages.get(msg.deduplication_key)
-                    if last_time and (now - last_time) < _DUPLICATE_WINDOW:
-                        continue
-                    _recent_messages[msg.deduplication_key] = now
+                _recent_messages[msg.deduplication_key] = now
 
         _play(msg.text, msg.voice or voice, rate, vol, msg.cacheable)
 

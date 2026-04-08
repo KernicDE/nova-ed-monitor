@@ -351,7 +351,7 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
 
             try:
                 with tmp_lock:
-                    handle(ev, tmp, silent_q)
+                    handle(ev, tmp, silent_q, live=False)
             except Exception:
                 continue
 
@@ -519,7 +519,7 @@ def _process_backlog(
             # Run the handler, sending TTS output to the silent queue
             try:
                 with lock:
-                    log_ev = handle(effective, state, silent_q)
+                    log_ev = handle(effective, state, silent_q, live=False)
             except Exception as exc:
                 continue
 
@@ -586,7 +586,7 @@ def _init_scan(
         if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump", "CarrierJump"):
             found_hull_event = True
             with lock:
-                handle(effective, state, silent_q)
+                handle(effective, state, silent_q, live=False)
         elif ev_name in (
             "Fileheader",
             "ShieldState", "NavRoute",
@@ -599,7 +599,7 @@ def _init_scan(
             "MaterialCollected", "MaterialDiscarded",
         ):
             with lock:
-                handle(effective, state, silent_q)
+                handle(effective, state, silent_q, live=False)
 
     if not found_hull_event:
         with lock:

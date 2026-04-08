@@ -693,7 +693,7 @@ def natural_key(s: str) -> list:
 
 # ── Main event handler ─────────────────────────────────────────────────────────
 
-def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
+def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> Optional[LogEvent]:
     event = _s(ev, "event")
 
     match event:
@@ -1018,9 +1018,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue) -> Optional[LogEvent]:
                                  any(b == state.first_footfall_body
                                      for b in state.first_footfall_bodies))
                 if not already_spoke:
-                    if key:
+                    if key and live:
+                        # Only track announced bodies in live mode — backlog replay
+                        # must not poison the set and block future live TTS fires
                         state.first_footfall_bodies.add(key)
-                    _say(tts_q, "FirstFootfall", True, fallback="First footfall on this world!")
+                    if live:
+                        _say(tts_q, "FirstFootfall", True, fallback="First footfall on this world!")
                     return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None
 
