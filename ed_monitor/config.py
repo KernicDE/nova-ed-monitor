@@ -123,9 +123,25 @@ def config_dir() -> Path:
     return Path.home() / ".config" / "nova"
 
 
+def _update_example_file(cfg_dir: Path) -> None:
+    """Always overwrite config.toml.example with the bundled version.
+    This ensures users always have an up-to-date reference as NOVA updates."""
+    try:
+        src = Path(__file__).parent / "config.toml.example"
+        dst = cfg_dir / "config.toml.example"
+        if src.exists():
+            cfg_dir.mkdir(parents=True, exist_ok=True)
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def load() -> Config:
     cfg_dir     = config_dir()
     config_path = cfg_dir / "config.toml"
+
+    # Always update the example file so users have the latest reference
+    _update_example_file(cfg_dir)
 
     # Migrate from old ed-monitor config dir if new one doesn't exist
     if not config_path.exists():

@@ -1,0 +1,174 @@
+# NOVA — config.toml.example
+# ─────────────────────────────────────────────────────────────────────────────
+# This file is a REFERENCE ONLY — do not use it as your actual config.
+# Your config file is: ~/.config/nova/config.toml
+#
+# This file is automatically updated alongside NOVA so it always shows all
+# available options including new ones added in recent versions.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# ── Journal ───────────────────────────────────────────────────────────────────
+# Path to your Elite Dangerous journal directory.
+# Leave commented to auto-detect (supports Steam/Proton, Flatpak, Heroic, native).
+#
+# Linux (Steam/Proton):
+#   journal_dir = ~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous
+# Windows:
+#   journal_dir = C:\Users\YourName\Saved Games\Frontier Developments\Elite Dangerous
+#
+# journal_dir = /path/to/Saved Games/Frontier Developments/Elite Dangerous
+
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+# Rate adjustment for edge-tts speech synthesis.
+# Format: +N% to speed up, -N% to slow down, +0% for default system speed.
+# Examples: +0%, +10%, +20%, -10%
+# Default: +10%
+#
+# tts_rate = +10%
+
+# Language for NOVA's own voiceover callouts.
+# Available: en (English), de (German), fr (French), it (Italian),
+#            es (Spanish), pt (Portuguese), ru (Russian)
+# Default: en
+#
+# tts_lang = en
+
+# Voice names per language — override the default edge-tts voice for any language.
+# Find available voices with: edge-tts --list-voices
+# Defaults:
+#   tts_voice_en = en-GB-SoniaNeural
+#   tts_voice_de = de-DE-KatjaNeural
+#   tts_voice_fr = fr-FR-DeniseNeural
+#   tts_voice_it = it-IT-ElsaNeural
+#   tts_voice_es = es-ES-ElviraNeural
+#   tts_voice_pt = pt-PT-RaquelNeural
+#   tts_voice_ru = ru-RU-SvetlanaNeural
+#
+# tts_voice_en = en-GB-SoniaNeural
+# tts_voice_de = de-DE-KatjaNeural
+# tts_voice_fr = fr-FR-DeniseNeural
+# tts_voice_it = it-IT-ElsaNeural
+# tts_voice_es = es-ES-ElviraNeural
+# tts_voice_pt = pt-PT-RaquelNeural
+# tts_voice_ru = ru-RU-SvetlanaNeural
+
+# Fallback language for chat TTS (in-game, Twitch, YouTube).
+# Language is auto-detected per message first. This applies when detection
+# returns English but you know your squad mainly uses a different language.
+# Same codes as tts_lang. Leave commented to rely entirely on auto-detection.
+# Example: set to "de" if your squad writes short German messages that look English.
+#
+# chat_lang = de
+
+# Default TTS/audio volume at startup (0–100).
+# Can be adjusted live with +/- keybindings.
+# Default: 50
+#
+# default_volume = 50
+
+
+# ── Integrations ──────────────────────────────────────────────────────────────
+# Twitch channel to monitor. Chat messages are shown in the Chat panel and
+# announced via TTS. Leave commented to disable Twitch integration.
+#
+# twitch_channel = yourchannel
+
+# YouTube channel handle to monitor live stream chat. No API key needed.
+# Include or omit the leading @. Leave commented to disable YouTube integration.
+#
+# youtube_channel = @yourchannel
+
+
+# ── Situational Panels ────────────────────────────────────────────────────────
+# Define which SITUATION panel tabs are visible and in what order.
+# Panels not listed will not appear in the title bar and auto-switching
+# will never jump to them.
+# Leave commented to show all panels in the default order.
+#
+# Available abbreviations (in default order):
+#   OVR  — OVERVIEW      System diagram, notable bodies, session stats
+#   BIO  — BIOLOGICAL    Active bio scans with distances and bearings
+#   MAP  — GALAXY MAP    Braille top-down galaxy map
+#   MIS  — MISSION       Active mission list
+#   ENG  — ENGINEERS     Rank bars, progress %, specialty and system
+#   BGS  — BGS           BGS activity log
+#   COL  — COLONISATION  Construction site commodity progress
+#   ROU  — ROUTE         Nav route: star type, scoopable, distances, EDSM
+#   NTR  — NEUTRON       Local neutron route planner
+#   WLT  — WALLET        Credits, fleet, cargo, suit loadout, backpack
+#   INV  — INVENTORY     Cargo and materials
+#   DKG  — DOCKING       Station pad diagram
+#   STS  — STATISTICS    Persistent session statistics
+#
+# Examples:
+#   Show all panels (default order):
+#   situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+#
+#   Exploration-focused (hide BGS, COL, WLT, INV, DKG):
+#   situational_panels = OVR BIO MAP MIS ENG ROU NTR STS
+#
+#   Minimal — only the most used panels:
+#   situational_panels = OVR BIO MIS ROU
+#
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+
+
+# ── Notable Bodies ────────────────────────────────────────────────────────────
+# Minimum estimated body value (Cr) to appear in the Notable Bodies section
+# of the OVERVIEW panel.
+# Bodies with bio signals, ELW / Water / Ammonia world type, and terraform
+# candidates are always shown regardless of this threshold.
+# Default: 500000 (500 K Cr)
+#
+# notable_value_threshold = 500000
+
+
+# ── Fleet Carriers ────────────────────────────────────────────────────────────
+# Enable Spansh API lookup for fleet carriers in your current system.
+# Results are cached for 5 minutes; at most 1 request every 3 seconds.
+# Carriers appear in the Route panel when you are in that system.
+# Default: false
+#
+# carrier_lookup = false
+
+
+# ── Screenshots ───────────────────────────────────────────────────────────────
+# Override the auto-detected source directory for Elite Dangerous screenshots.
+# Auto-detection covers Steam/Proton, Flatpak, Heroic, and native installs.
+# Leave commented to use auto-detection.
+#
+# screenshot_dir = /path/to/ED/screenshots
+
+# Destination directory for processed screenshots.
+# BMP files are converted to PNG and renamed to:
+#   YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png
+# Default: ~/Pictures/Elite Dangerous
+#
+# screenshot_dest = ~/Pictures/Elite Dangerous
+
+
+# ── Stream Overlay ────────────────────────────────────────────────────────────
+# Directory where NOVA writes individual .txt overlay files for OBS/Streamlabs.
+# Each file contains one piece of live game data (e.g. system.txt, hull.txt).
+# Add each file as a Text source in OBS with "Read from file" enabled.
+#
+# Available files: commander, ship_name, ship_type, ship_ident, system,
+#   position, station, approach_body, route_destination, route_next,
+#   jumps_left, hull, fuel, fuel_max, fuel_reservoir, cargo, heat, shields,
+#   status, supercruise, docked, landed, power, power_state, allegiance,
+#   economy, security, government, population, nearest_inhabited,
+#   heading, altitude, coordinates
+#
+# Default: ~/.config/nova/overlay/
+#
+# overlay_dir = ~/.config/nova/overlay
+
+
+# ── Debug Logging ─────────────────────────────────────────────────────────────
+# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).
+# Enable when you need to diagnose a problem and send the log to the developer.
+# Default: false
+#
+# debug_log = false

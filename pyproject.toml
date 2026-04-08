@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nova-ed-monitor"
-version = "1.21.0"
+version = "1.21.1"
 description = "NOVA — Navigation, Operations, and Vessel Assistance for Elite Dangerous"
 readme = "README.md"
 license = { text = "MIT" }
@@ -50,4 +50,4 @@ where = ["."]
 include = ["ed_monitor*"]
 
 [tool.setuptools.package-data]
-"ed_monitor" = ["voicelines/*.toml"]
+"ed_monitor" = ["voicelines/*.toml", "config.toml.example"]
