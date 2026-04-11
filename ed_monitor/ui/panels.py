@@ -1873,6 +1873,217 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
+def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType | None:
+    """System bodies diagram: *---O-o-o---O-o---O---*---O---
+    Returns None if no bodies are available yet.
+    standalone=True adds a system name header for the MAP sub-screen."""
+    _sys     = s.system
+    _s_stars   = sorted([b for b in s.bodies if b.star_type],
+                        key=lambda b: (0 if not _short_name(b.name, _sys).strip() else 1,
+                                       _natural_key(_short_name(b.name, _sys))))
+    _s_planets = sorted([b for b in s.bodies if b.planet_class and b.level <= 1],
+                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+    _s_moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2],
+                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+
+    if not (_s_stars or _s_planets):
+        if standalone:
+            t = Text()
+            t.append("No bodies scanned yet.\n", style=P.LABEL)
+            t.append("Use FSS to scan the system.", style="dim rgb(100,100,100)")
+            return t
+        return None
+
+    diag = Text()
+    if standalone:
+        diag.append(f"{_sys}\n", style="bold white")
+        diag.append("\nSYSTEM DIAGRAM\n", style="bold rgb(195,160,55)")
+    else:
+        diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
+
+    # Map star short-name key → BodyInfo
+    star_index: dict[str, BodyInfo] = {
+        _short_name(b.name, _sys).strip(): b for b in _s_stars
+    }
+    # Primary star key is "" (system name == body name); sort primary first
+    sorted_star_keys = sorted(star_index.keys(),
+                              key=lambda k: (1 if k else 0, _natural_key(k)))
+
+    # Which star does each planet belong to?  Match longest alpha prefix.
+    # Barycentre planets (multi-letter prefix like AB) are collected separately.
+    star_planets: dict[str, list[BodyInfo]] = {k: [] for k in star_index}
+    primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
+    barycentre_planets: list[BodyInfo] = []
+    for p in _s_planets:
+        p_short = _short_name(p.name, _sys).strip()
+        tok     = p_short.split()
+        if tok and tok[0].isalpha() and len(tok[0]) > 1:
+            barycentre_planets.append(p)
+            continue
+        assigned = False
+        for length in range(len(tok) - 1, 0, -1):
+            candidate = " ".join(tok[:length])
+            if candidate in star_index:
+                star_planets[candidate].append(p)
+                assigned = True
+                break
+        if not assigned:
+            star_planets.setdefault(primary_key, []).append(p)
+    barycentre_planets.sort(key=lambda b: _natural_key(_short_name(b.name, _sys)))
+
+    # Which planet does each moon belong to?  Remove last token.
+    planet_moons: dict[str, list[BodyInfo]] = {}
+    for m in _s_moons:
+        m_short = _short_name(m.name, _sys).strip()
+        mtok    = m_short.split()
+        pk      = " ".join(mtok[:-1]) if len(mtok) > 1 else primary_key
+        planet_moons.setdefault(pk, []).append(m)
+
+    # ── Build ruler ─────────────────────────────────────────────────────
+    ruler_chars: list[tuple[str, str]] = []
+    body_pos:    list[tuple[int, BodyInfo]] = []
+
+    def _emit(ch: str, style: str, body: BodyInfo | None = None) -> None:
+        idx = len(ruler_chars)
+        ruler_chars.append((ch, style))
+        if body is not None:
+            body_pos.append((idx, body))
+
+    def _sep(n: int) -> None:
+        for _ in range(n):
+            _emit("-", "rgb(55,55,55)")
+
+    def _planet_col(body: BodyInfo) -> str:
+        if body.landable and body.surface_gravity > 0:
+            g = body.surface_gravity / 9.80665
+            if g >= 3.0:
+                return "bold rgb(220,60,0)"
+            if g >= 1.5:
+                return "bold rgb(220,140,0)"
+        return f"bold {_body_color(body.planet_class, body.star_type)}"
+
+    first_star = True
+    for sk in sorted_star_keys:
+        sb  = star_index[sk]
+        col = _body_color(sb.planet_class, sb.star_type)
+        if not first_star:
+            _sep(3)
+        first_star = False
+        _emit("*", f"bold {col}", sb)
+
+        sp = sorted(star_planets.get(sk, []),
+                    key=lambda b: _natural_key(_short_name(b.name, _sys)))
+        for planet in sp:
+            _sep(3)
+            p_short = _short_name(planet.name, _sys).strip()
+            _emit("O", _planet_col(planet), planet)
+            for moon in sorted(planet_moons.get(p_short, []),
+                               key=lambda b: _natural_key(_short_name(b.name, _sys))):
+                _sep(1)
+                _emit("o", _planet_col(moon), moon)
+
+    for planet in barycentre_planets:
+        _sep(3)
+        p_short = _short_name(planet.name, _sys).strip()
+        _emit("O", _planet_col(planet), planet)
+        for moon in sorted(planet_moons.get(p_short, []),
+                           key=lambda b: _natural_key(_short_name(b.name, _sys))):
+            _sep(1)
+            _emit("o", _planet_col(moon), moon)
+
+    W = len(ruler_chars)
+    if W:
+        from collections import defaultdict as _dd_diag
+        _diag_bio_done: dict = _dd_diag(int)
+        for _dsc in s.bio_scans:
+            if _dsc.complete:
+                _diag_bio_done[_dsc.body] += 1
+        _bio_complete_bodies: set = {
+            b.name for b in s.bodies
+            if b.bio_signals > 0 and _diag_bio_done.get(b.name, 0) >= b.bio_signals
+        }
+
+        max_width = 60
+        num_parts = max(1, (W + max_width - 1) // max_width)
+
+        def _last_label(b: BodyInfo) -> str:
+            short = _short_name(b.name, _sys).strip()
+            return short.split()[-1] if short else "A"
+
+        for part_idx in range(num_parts):
+            start = part_idx * max_width
+            end = min((part_idx + 1) * max_width, W)
+
+            row1 = Text("  ")
+            for i in range(start, end):
+                ch, style = ruler_chars[i]
+                row1.append(ch, style=style)
+            row1.append("\n")
+
+            name_arr  = [" "] * (end - start)
+            name_body = [None] * (end - start)
+            for pos, b in body_pos:
+                if start <= pos < end:
+                    lbl = _last_label(b)
+                    rel_pos = pos - start
+                    for i, ch in enumerate(lbl):
+                        if rel_pos + i < len(name_arr) and name_arr[rel_pos + i] == " ":
+                            name_arr[rel_pos + i] = ch
+                            name_body[rel_pos + i] = b
+            row2 = Text("  ")
+            for ch, b in zip(name_arr, name_body):
+                style = (f"bold {P.HUD_GREEN}") if (b and b.mapped) else "rgb(160,160,160)"
+                row2.append(ch, style=style)
+            row2.append("\n")
+
+            notable_arr = [" "] * (end - start)
+            for pos, b in body_pos:
+                if start <= pos < end:
+                    if (b.planet_class in ("Earthlike body", "Water world", "Ammonia world")
+                            or b.terraform or b.value > 1_000_000):
+                        notable_arr[pos - start] = "+"
+            has_notable = any(c != " " for c in notable_arr)
+
+            bio_cells: list[tuple[str, bool]] = [(" ", False)] * (end - start)
+            has_bio = False
+            for pos, b in body_pos:
+                if start <= pos < end and b.bio_signals > 0:
+                    complete = b.name in _bio_complete_bodies
+                    bio_cells[pos - start] = ("✓" if complete else str(b.bio_signals), complete)
+                    has_bio = True
+
+            diag.append_text(row1)
+            diag.append_text(row2)
+            if has_notable:
+                row3 = Text("  ")
+                row3.append("".join(notable_arr) + "\n", style=f"bold {P.GOLD}")
+                diag.append_text(row3)
+            if has_bio:
+                row4 = Text("  ")
+                for ch, complete in bio_cells:
+                    if ch == " ":
+                        row4.append(ch)
+                    elif complete:
+                        row4.append(ch, style=f"bold {P.HUD_GREEN}")
+                    else:
+                        row4.append(ch, style="rgb(0,200,80)")
+                row4.append("\n")
+                diag.append_text(row4)
+
+            if part_idx < num_parts - 1:
+                diag.append("\n")
+
+    if standalone:
+        # Legend
+        legend = Text()
+        legend.append("\n  * star   O planet   o moon\n", style="dim rgb(100,100,100)")
+        legend.append("  + notable body   ✓/N bio signals\n", style="dim rgb(100,100,100)")
+        legend.append("  green = DSS mapped   orange/red = high-G\n", style="dim rgb(100,100,100)")
+        diag.append_text(legend)
+
+    return diag
+
+
 def _render_overview(s: AppState) -> RenderableType:
     """Travel overview: route + galaxy position + system diagram + notable bodies + session stats."""
     import math
@@ -1914,203 +2125,10 @@ def _render_overview(s: AppState) -> RenderableType:
         gal_text.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
         parts.append(gal_text)
 
-    # System bodies diagram — hierarchical: *---O-o-o---O-o---O---*---O---
-    _sys     = s.system
-    _s_stars   = sorted([b for b in s.bodies if b.star_type],
-                        key=lambda b: (0 if not _short_name(b.name, _sys).strip() else 1,
-                                       _natural_key(_short_name(b.name, _sys))))
-    _s_planets = sorted([b for b in s.bodies if b.planet_class and b.level <= 1],
-                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
-    _s_moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2],
-                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
-
-    if _s_stars or _s_planets:
-        diag = Text()
-        diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
-
-        # Map star short-name key → BodyInfo
-        star_index: dict[str, BodyInfo] = {
-            _short_name(b.name, _sys).strip(): b for b in _s_stars
-        }
-        # Primary star key is "" (system name == body name); sort primary first
-        sorted_star_keys = sorted(star_index.keys(),
-                                  key=lambda k: (1 if k else 0, _natural_key(k)))
-
-        # Which star does each planet belong to?  Match longest alpha prefix.
-        # Barycentre planets (multi-letter prefix like AB) are collected separately.
-        star_planets: dict[str, list[BodyInfo]] = {k: [] for k in star_index}
-        primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
-        barycentre_planets: list[BodyInfo] = []
-        for p in _s_planets:
-            p_short = _short_name(p.name, _sys).strip()
-            tok     = p_short.split()
-            if tok and tok[0].isalpha() and len(tok[0]) > 1:
-                barycentre_planets.append(p)
-                continue
-            assigned = False
-            for length in range(len(tok) - 1, 0, -1):
-                candidate = " ".join(tok[:length])
-                if candidate in star_index:
-                    star_planets[candidate].append(p)
-                    assigned = True
-                    break
-            if not assigned:
-                star_planets.setdefault(primary_key, []).append(p)
-        barycentre_planets.sort(key=lambda b: _natural_key(_short_name(b.name, _sys)))
-
-        # Which planet does each moon belong to?  Remove last token.
-        planet_moons: dict[str, list[BodyInfo]] = {}
-        for m in _s_moons:
-            m_short = _short_name(m.name, _sys).strip()
-            mtok    = m_short.split()
-            pk      = " ".join(mtok[:-1]) if len(mtok) > 1 else primary_key
-            planet_moons.setdefault(pk, []).append(m)
-
-        # ── Build ruler ─────────────────────────────────────────────────────
-        # ruler_chars: list of (char, rich_style)
-        # body_pos:    list of (ruler_index, BodyInfo)
-        ruler_chars: list[tuple[str, str]] = []
-        body_pos:    list[tuple[int, BodyInfo]] = []
-
-        def _emit(ch: str, style: str, body: BodyInfo | None = None) -> None:
-            idx = len(ruler_chars)
-            ruler_chars.append((ch, style))
-            if body is not None:
-                body_pos.append((idx, body))
-
-        def _sep(n: int) -> None:
-            for _ in range(n):
-                _emit("-", "rgb(55,55,55)")
-
-        def _planet_col(body: BodyInfo) -> str:
-            """Body color, overridden orange/red for high-G landable bodies."""
-            if body.landable and body.surface_gravity > 0:
-                g = body.surface_gravity / 9.80665
-                if g >= 3.0:
-                    return "bold rgb(220,60,0)"
-                if g >= 1.5:
-                    return "bold rgb(220,140,0)"
-            return f"bold {_body_color(body.planet_class, body.star_type)}"
-
-        first_star = True
-        for sk in sorted_star_keys:
-            sb  = star_index[sk]
-            col = _body_color(sb.planet_class, sb.star_type)
-            if not first_star:
-                _sep(3)
-            first_star = False
-            _emit("*", f"bold {col}", sb)
-
-            sp = sorted(star_planets.get(sk, []),
-                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
-            for planet in sp:
-                _sep(3)
-                p_short = _short_name(planet.name, _sys).strip()
-                _emit("O", _planet_col(planet), planet)
-                for moon in sorted(planet_moons.get(p_short, []),
-                                   key=lambda b: _natural_key(_short_name(b.name, _sys))):
-                    _sep(1)
-                    _emit("o", _planet_col(moon), moon)
-
-        # Barycentre planets at the end (orbit the binary, not a single star)
-        for planet in barycentre_planets:
-            _sep(3)
-            p_short = _short_name(planet.name, _sys).strip()
-            _emit("O", _planet_col(planet), planet)
-            for moon in sorted(planet_moons.get(p_short, []),
-                               key=lambda b: _natural_key(_short_name(b.name, _sys))):
-                _sep(1)
-                _emit("o", _planet_col(moon), moon)
-
-        W = len(ruler_chars)
-        if W:
-            # Pre-compute per-body bio completion for diagram markers
-            from collections import defaultdict as _dd_diag
-            _diag_bio_done: dict = _dd_diag(int)
-            for _dsc in s.bio_scans:
-                if _dsc.complete:
-                    _diag_bio_done[_dsc.body] += 1
-            _bio_complete_bodies: set = {
-                b.name for b in s.bodies
-                if b.bio_signals > 0 and _diag_bio_done.get(b.name, 0) >= b.bio_signals
-            }
-
-            # Split wide diagrams into multiple parts (max width per part)
-            max_width = 60  # Maximum width before splitting
-            num_parts = max(1, (W + max_width - 1) // max_width)
-
-            def _last_label(b: BodyInfo) -> str:
-                short = _short_name(b.name, _sys).strip()
-                return short.split()[-1] if short else "A"
-
-            for part_idx in range(num_parts):
-                start = part_idx * max_width
-                end = min((part_idx + 1) * max_width, W)
-
-                # ── Row 1: ruler (part) ──────────────────────────────────────
-                row1 = Text("  ")
-                for i in range(start, end):
-                    ch, style = ruler_chars[i]
-                    row1.append(ch, style=style)
-                row1.append("\n")
-
-                # ── Row 2: body name labels — DSS-scanned bodies in green ────
-                name_arr  = [" "] * (end - start)
-                name_body = [None] * (end - start)
-                for pos, b in body_pos:
-                    if start <= pos < end:
-                        lbl = _last_label(b)
-                        rel_pos = pos - start
-                        for i, ch in enumerate(lbl):
-                            if rel_pos + i < len(name_arr) and name_arr[rel_pos + i] == " ":
-                                name_arr[rel_pos + i] = ch
-                                name_body[rel_pos + i] = b
-                row2 = Text("  ")
-                for ch, b in zip(name_arr, name_body):
-                    style = (f"bold {P.HUD_GREEN}") if (b and b.mapped) else "rgb(160,160,160)"
-                    row2.append(ch, style=style)
-                row2.append("\n")
-
-                # ── Row 3: notable (+) (part) ────────────────────────────────
-                notable_arr = [" "] * (end - start)
-                for pos, b in body_pos:
-                    if start <= pos < end:
-                        if (b.planet_class in ("Earthlike body", "Water world", "Ammonia world")
-                                or b.terraform or b.value > 1_000_000):
-                            notable_arr[pos - start] = "+"
-                has_notable = any(c != " " for c in notable_arr)
-
-                # ── Row 4: bio counts — ✓ when all scans complete ────────────
-                bio_cells: list[tuple[str, bool]] = [(" ", False)] * (end - start)
-                has_bio = False
-                for pos, b in body_pos:
-                    if start <= pos < end and b.bio_signals > 0:
-                        complete = b.name in _bio_complete_bodies
-                        bio_cells[pos - start] = ("✓" if complete else str(b.bio_signals), complete)
-                        has_bio = True
-
-                diag.append_text(row1)
-                diag.append_text(row2)
-                if has_notable:
-                    row3 = Text("  ")
-                    row3.append("".join(notable_arr) + "\n", style=f"bold {P.GOLD}")
-                    diag.append_text(row3)
-                if has_bio:
-                    row4 = Text("  ")
-                    for ch, complete in bio_cells:
-                        if ch == " ":
-                            row4.append(ch)
-                        elif complete:
-                            row4.append(ch, style=f"bold {P.HUD_GREEN}")
-                        else:
-                            row4.append(ch, style="rgb(0,200,80)")
-                    row4.append("\n")
-                    diag.append_text(row4)
-
-                if part_idx < num_parts - 1:
-                    diag.append("\n")  # Add spacing between parts
-
-        parts.append(diag)
+    # System bodies diagram
+    sys_diag = _render_system_map(s)
+    if sys_diag is not None:
+        parts.append(sys_diag)
 
     # Notable bodies in current system
     from ..events import _jumponium_tier as _jt
@@ -2782,7 +2800,7 @@ class SituationalPanel(_Panel):
     )
     _mode:   str = "auto"
     _active: str = "overview"
-    _galaxy_regional:     bool = False
+    _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
     _colonisation_scroll: int  = 0
@@ -2799,7 +2817,7 @@ class SituationalPanel(_Panel):
     }
 
     _MODE_FULLNAMES = {
-        "auto": "AUTO", "overview": "OVERVIEW", "bio": "BIOLOGICAL", "galaxy": "GALAXY MAP",
+        "auto": "AUTO", "overview": "OVERVIEW", "bio": "BIOLOGICAL", "galaxy": "MAPS",
         "missions": "MISSION", "engineers": "ENGINEERS", "bgs": "BGS", "colonisation": "COLONISATION",
         "route": "ROUTE", "neutron": "NEUTRON", "wealth": "WALLET", "inventory": "INVENTORY",
         "docking": "DOCKING", "stats": "STATISTICS",
@@ -2845,8 +2863,10 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def toggle_galaxy_scale(self) -> None:
-        """Toggle between galactic and regional scale in galaxy mode."""
-        self._galaxy_regional = not self._galaxy_regional
+        """Cycle through MAP sub-screens: system diagram → regional map → galaxy map."""
+        _cycle = ("system", "regional", "galaxy")
+        idx = _cycle.index(self._galaxy_submode) if self._galaxy_submode in _cycle else 0
+        self._galaxy_submode = _cycle[(idx + 1) % len(_cycle)]
         self.refresh()
 
     def scroll_neutron(self, delta: int) -> None:
@@ -2976,7 +2996,11 @@ class SituationalPanel(_Panel):
         if self._active == "neutron":
             return _render_neutron(s, scroll=self._neutron_scroll)
         if self._active == "galaxy":
-            return _render_galaxy(s, regional=self._galaxy_regional,
+            sub = self._galaxy_submode
+            if sub == "system":
+                result = _render_system_map(s, standalone=True)
+                return result if result is not None else Text("No bodies scanned yet.", style=P.LABEL)
+            return _render_galaxy(s, regional=(sub == "regional"),
                                   panel_w=self.size.width, panel_h=self.size.height)
         if self._active == "inventory":
             return _render_inventory(s, scroll=gs)
