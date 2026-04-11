@@ -71,6 +71,21 @@ def monitor(
                 _log.debug(f"Status.json changed (age={age:.0f}s)")
                 _apply_status(status_path, state, lock, tts_q, last_status == 0.0)
                 last_status = mtime
+            else:
+                # Status.json hasn't changed but we still want bio distance checks
+                # to run at full poll rate (0.2 s) when the player is on a surface,
+                # so zone-entry/exit warnings fire promptly without waiting for the
+                # next Status.json write (~1 s in-game).
+                with lock:
+                    _on_surface = (state.landed or state.in_srv or
+                                   (not state.in_main_ship and not state.in_srv))
+                    _has_active = any(
+                        not sc.complete and sc.samples > 0
+                        for sc in state.bio_scans
+                    )
+                if _on_surface and _has_active:
+                    with lock:
+                        _check_bio_distance(state, tts_q)
 
             if is_recent:
                 # Game is active — restore online state if any ship/activity flags are set.
@@ -241,7 +256,10 @@ def _apply_status(
                 if new_gear:
                     _q("LandingGear_Deployed", "Landing gear deployed.")
                 else:
-                    _q("LandingGear_Retracted", "Landing gear retracted.")
+                    # Suppress retract callout when the game is shutting down — the
+                    # gear collapses as part of the shutdown sequence, not a player action.
+                    if not state.client_shutdown_pending:
+                        _q("LandingGear_Retracted", "Landing gear retracted.")
             if new_scoop != prev_scoop:
                 if new_scoop:
                     _q("CargoScoop_Deployed", "Cargo scoop deployed.")
@@ -467,27 +485,19 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
         # Keep current_bearing for backward compat (now points toward nearest target)
         sc.current_bearing = _compass_toward(lat, lon, best_slat, best_slon) if best_slat is not None else None
 
+        lang  = _ev._TTS_LANG
+        voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+
         if best_dist >= sc.min_dist:
-            # BioReady only fires when the player can actually take a foot sample:
-            # on foot or in SRV. Excludes main ship even if landed — FLAG_LANDED stays
-            # True during liftoff animation, which caused false BioReady callouts.
-            # Also suppressed while navigating to a COMP-scanned position (no foot
-            # samples taken yet) — the player needs to go TO the marker, not away.
-            # mass_locked / supercruise guard: STATUS.JSON can briefly report
-            # in_main_ship=False during liftoff transitions; those two flight-state
-            # flags block false BioReady fires that slip through that window.
-            # Fire as soon as min_dist is crossed — on foot, SRV, or in the ship.
+            # Player is outside the exclusion zone — may scan next sample.
             # Supercruise and orbital cruise (glide) are the only hard suppressors.
-            # The alerted flag prevents re-fires: it is only cleared when the player
-            # takes a new sample (events.py) or gets close to a sample on the surface,
-            # so a gravity-well-clear or FSD-ready moment can never re-trigger this.
+            # unvisited_comp guard: player still navigating to a COMP-scanned marker,
+            # not yet ready to sample.
             can_sample = (not state.supercruise and not state.orbital_cruise
                           and not unvisited_comp)
             if not sc.alerted and can_sample:
                 sc.alerted = True
                 try:
-                    lang    = _ev._TTS_LANG
-                    voice   = _ev._LANG_VOICES.get(lang) if lang != "en" else None
                     fallback = f"{sc.species_localised} ready. You may scan the next sample."
                     text = _vl.pick("BioReady", lang=lang,
                                     species=sc.species_localised) or fallback
@@ -501,11 +511,27 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                     ))
                 except Exception as e:
                     _audio_logger.error(f"BioReady TTS error: {e}")
-                    pass
         else:
-            # Only reset alerted flag when on surface — prevents re-arming while flying away
+            # Player is inside the exclusion zone (too close to a previous sample).
             if on_surface:
-                sc.alerted = False
+                if sc.alerted:
+                    # Player WAS outside (alerted=True) but moved back inside — warn.
+                    # Reset alerted so the ready TTS fires again when they move away.
+                    sc.alerted = False
+                    try:
+                        fallback = f"Too close to {sc.species_localised} sample. Move away before scanning."
+                        text = _vl.pick("BioTooClose", lang=lang,
+                                        species=sc.species_localised) or fallback
+                        dedup_key = f"BioTooClose-{sc.species}-{sc.body}-{sc.samples}"
+                        tts_q.put_nowait(TtsMsg(
+                            text=text,
+                            priority=False,
+                            voice=voice,
+                            deduplication_key=dedup_key,
+                        ))
+                    except Exception:
+                        pass
+                # else: already inside zone, alerted already False — do nothing
 
 
 def _apply_cargo(path: Path, state: AppState, lock: threading.RLock) -> None:

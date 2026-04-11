@@ -271,3 +271,6 @@ lines = ["Verrouillage de masse libéré."]
 
 [BioReady]
 lines = ["{species} prêt. Vous pouvez scanner le prochain échantillon."]
+
+[BioTooClose]
+lines = ["Trop proche de l'échantillon {species}. Éloignez-vous avant de scanner."]

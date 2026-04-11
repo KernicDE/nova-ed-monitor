@@ -388,6 +388,11 @@ lines = ["Mass lock released."]
 # {species} = species name
 lines = ["{species} ready. You may scan the next sample."]
 
+[BioTooClose]
+# {species} = species name
+# Fired when the player re-enters the exclusion zone around a previous sample.
+lines = ["Too close to {species} sample. Move away before scanning."]
+
 [SellExplorationData]
 # {value} = credit value formatted for speech
 lines = ["Exploration data sold: {value}."]

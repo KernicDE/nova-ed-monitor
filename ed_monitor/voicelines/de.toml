@@ -291,3 +291,6 @@ lines = ["Massesperre aufgehoben."]
 
 [BioReady]
 lines = ["{species} bereit. Nächste Probe kann gescannt werden."]
+
+[BioTooClose]
+lines = ["Zu nah an {species}-Probe. Bitte Abstand vergrößern."]

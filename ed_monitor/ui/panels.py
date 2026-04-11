@@ -318,7 +318,9 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        fss_done  = sum(1 for b in s.bodies if b.fss_scanned)
+        # Only count bodies that are actual stars/planets (exclude belt clusters which have
+        # neither planet_class nor star_type). Only "Detailed" FSS scans count, not AutoScan.
+        fss_done  = sum(1 for b in s.bodies if b.fss_scanned and (b.planet_class or b.star_type))
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
@@ -359,7 +361,7 @@ class SystemPanel(_Panel):
         if s.lat is not None and s.lon is not None:
             pos = f"{s.lat:.2f}, {s.lon:.2f}"
             if s.altitude is not None:
-                pos += f" alt{s.altitude:.0f}"
+                pos += f"  alt {s.altitude:,.0f} m"
             left_cells.append(_cell("Pos", pos))
 
         # Right column — human/BGS data
@@ -852,12 +854,6 @@ class RoutePanel(_Panel):
         if body.terraform:
             row("Terr", "Candidate", P.HUD_CYAN)
 
-        v = body.value if body.value > 0 else _estimated_value(body)
-        if v > 0:
-            v_col = P.GOLD if v > 1_000_000 else (P.AMBER if body.value == 0 else "white")
-            prefix = "~" if body.value == 0 else ""
-            row("Value", f"{prefix}{_fmt_value(v)}", v_col)
-
         if body.first_discovered:
             t.append("★ First discovered!\n", style=f"bold {P.GOLD}")
 
@@ -1137,24 +1133,30 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
     dss_bodies = {b.name for b in prescan_bodies}
 
     # Bodies with bio signals detected by FSS but not yet DSS'd — show predictions
+    # (even if no prediction is possible, show as ?unknown? so the body is visible)
     predicted_bodies = [
         b for b in s.bodies
         if b.bio_signals > 0
         and not b.bio_genuses
-        and b.bio_genuses_predicted
         and b.name not in scanned_bodies
         and b.name not in dss_bodies
     ]
 
+    # Sort predicted/prescan bodies the same way as the Bodies panel: by natural key on short name
+    _sys = s.system
+    predicted_bodies.sort(key=lambda b: _natural_key(_short_name(b.name, _sys)))
+    prescan_bodies.sort(   key=lambda b: _natural_key(_short_name(b.name, _sys)))
+
     total_known = sum(sc.value for sc in s.bio_scans if sc.complete and sc.value > 0)
 
     # Build flat list of body groups for scrolling
+    # Sort scanned bodies by natural key on body name (same order as Bodies panel)
     groups: list[tuple[str, object]] = []
     for b in predicted_bodies:
         groups.append(("predicted", b))
     for b in prescan_bodies:
         groups.append(("prescan", b))
-    for body_name in sorted(by_body):
+    for body_name in sorted(by_body, key=lambda n: _natural_key(_short_name(n, _sys))):
         groups.append(("scan", (body_name, by_body[body_name])))
 
     if not groups:
@@ -1182,33 +1184,38 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             hdr_t.append("\n")
             parts.append(hdr_t)
 
-            tbl = Table(
-                show_header=True, show_edge=False, show_lines=False,
-                padding=(0, 0), box=None,
-            )
-            tbl.add_column("Predicted Genus",  width=22, header_style=HDR)
-            tbl.add_column("Est. Value Range", width=22, header_style=HDR)
-
-            total_pred_min = total_pred_max = 0
-            for g in b.bio_genuses_predicted:
-                key = g.lower().split()[0] if g else ""
-                lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
-                val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-                total_pred_min += lo
-                total_pred_max += hi
-                tbl.add_row(
-                    Text(f"? {g}", style="rgb(160,160,80)"),
-                    Text(val_s, style="rgb(160,130,60)"),
+            if b.bio_genuses_predicted:
+                tbl = Table(
+                    show_header=True, show_edge=False, show_lines=False,
+                    padding=(0, 0), box=None,
                 )
-            parts.append(tbl)
+                tbl.add_column("Predicted Genus",  width=22, header_style=HDR)
+                tbl.add_column("Est. Value Range", width=22, header_style=HDR)
 
-            hint_t = Text()
-            hint_t.append("  DSS to confirm genera", style=P.LABEL)
-            if total_pred_min > 0 and b.bio_signals > 0:
-                # Scale estimate by signal count (each signal = one species)
-                hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
-            hint_t.append("\n")
-            parts.append(hint_t)
+                total_pred_min = total_pred_max = 0
+                for g in b.bio_genuses_predicted:
+                    key = g.lower().split()[0] if g else ""
+                    lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                    val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                    total_pred_min += lo
+                    total_pred_max += hi
+                    tbl.add_row(
+                        Text(f"? {g}", style="rgb(160,160,80)"),
+                        Text(val_s, style="rgb(160,130,60)"),
+                    )
+                parts.append(tbl)
+                hint_t = Text()
+                hint_t.append("  DSS to confirm genera", style=P.LABEL)
+                if total_pred_min > 0 and b.bio_signals > 0:
+                    hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
+                hint_t.append("\n")
+                parts.append(hint_t)
+            else:
+                unk_t = Text()
+                unk_t.append(f"  ? unknown  ", style="rgb(120,120,80)")
+                unk_t.append(f"({b.bio_signals} bio signal{'s' if b.bio_signals != 1 else ''})", style=P.LABEL)
+                unk_t.append("  DSS to identify\n", style=P.LABEL)
+                parts.append(unk_t)
 
         elif gtype == "prescan":
             b = gdata

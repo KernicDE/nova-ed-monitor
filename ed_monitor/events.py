@@ -955,10 +955,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.lat    = lat
             state.lon    = lon
             state.landed = True
-            # Infer first footfall from first discovery when journal flag is absent
+            # Infer first footfall from first discovery when journal flag is absent.
+            # Use case-insensitive + stripped comparison to handle barycentre body names.
             if not first_footfall and (body or body_td_id > 0):
+                body_lower = body.strip().lower() if body else ""
                 for b in state.bodies:
-                    if (b.name == body or b.body_id == body_td_id) and b.first_discovered:
+                    id_match   = body_td_id > 0 and b.body_id == body_td_id
+                    name_match = bool(body_lower and b.name.strip().lower() == body_lower)
+                    if (id_match or name_match) and b.first_discovered:
                         first_footfall = True
                         break
             if first_footfall and (body or body_td_id > 0):
@@ -968,7 +972,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     state.first_footfall_body_id = body_td_id
                 # Mark any bio scans already recorded on this body
                 for sc in state.bio_scans:
-                    if (body and sc.body == body):
+                    if (body and sc.body == body) or (body_td_id > 0 and sc.body and
+                            state._bodies_by_name.get(sc.body, -1) >= 0 and
+                            state.bodies[state._bodies_by_name[sc.body]].body_id == body_td_id):
                         sc.first_footfall = True
                 # Don't announce here — wait for Disembark (player actually stepping out)
             msg = f"Touchdown at {lat:.2f}, {lon:.2f}."
@@ -984,23 +990,36 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             # Odyssey: player leaves ship/SRV on foot.
             # Handle FirstFootfall — announce here (not on Touchdown) so it fires
             # exactly when the player steps onto the surface.
+            # Skip first-footfall detection when disembarking at a station/carrier.
+            if _b(ev, "OnStation") or _b(ev, "SRV"):
+                return None
+
             first_footfall = _b(ev, "FirstFootfall")
             body_dis       = _s(ev, "Body") or _s(ev, "BodyName")
             body_dis_id    = _u(ev, "BodyID")
-            # Inherit first footfall flag set by Touchdown for this body
+            body_dis_lower = body_dis.strip().lower() if body_dis else ""
+
+            # Inherit first footfall flag set by Touchdown for this body.
+            # Use case-insensitive match to handle barycentre naming edge cases.
             if not first_footfall and (body_dis or body_dis_id > 0):
-                if (body_dis and state.first_footfall_body == body_dis) or \
-                   (body_dis_id > 0 and state.first_footfall_body_id == body_dis_id):
+                id_match   = body_dis_id > 0 and state.first_footfall_body_id == body_dis_id
+                name_match = bool(body_dis_lower and
+                                  state.first_footfall_body.strip().lower() == body_dis_lower)
+                if id_match or name_match:
                     first_footfall = True
+
             # Infer first footfall from first discovery when journal flag is absent
             if not first_footfall and (body_dis or body_dis_id > 0):
                 _dis_b = None
-                if body_dis:
-                    _di = state._bodies_by_name.get(body_dis, -1)
-                    _dis_b = state.bodies[_di] if 0 <= _di < len(state.bodies) else None
-                if _dis_b is None and body_dis_id > 0:
+                if body_dis_id > 0:
                     _di2 = state._bodies_by_id.get(body_dis_id, -1)
                     _dis_b = state.bodies[_di2] if 0 <= _di2 < len(state.bodies) else None
+                if _dis_b is None and body_dis:
+                    # Case-insensitive fallback
+                    for _b_entry in state.bodies:
+                        if _b_entry.name.strip().lower() == body_dis_lower:
+                            _dis_b = _b_entry
+                            break
                 if _dis_b is not None and _dis_b.first_discovered:
                     first_footfall = True
             if first_footfall:
@@ -1168,7 +1187,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     dist_ls=dist_ls, value=value,
                     first_discovered=not _b(ev, "WasDiscovered"),
                     first_mapped=not _b(ev, "WasMapped"),
-                    mapped=False, fss_scanned=scan_type in ("Detailed", "AutoScan"),
+                    mapped=False, fss_scanned=scan_type == "Detailed",
                     radius=radius,
                     semi_major_axis=_f(ev, "SemiMajorAxis"),
                     orbital_period=orbital_period,
@@ -1197,6 +1216,22 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _body_info = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
             bio_count  = _body_info.bio_signals if _body_info else 0
             geo_count  = _body_info.geo_signals if _body_info else 0
+
+            # Run / refresh bio genus prediction now that we have planet details.
+            # FSSBodySignals may have arrived before the Scan event (live play), so
+            # prediction might not have been computed yet.  Also re-run if the body
+            # gained a planet_class it lacked when FSSBodySignals first fired.
+            if _body_info and bio_count > 0 and not _body_info.bio_genuses and planet_class:
+                _pst2 = ""
+                for _sb2 in state.bodies:
+                    if _sb2.star_type and _sb2.level == 0:
+                        _pst2 = _sb2.star_type
+                        break
+                _body_info.bio_genuses_predicted = predict_bio_genera(
+                    planet_class, atmosphere,
+                    _f(ev, "SurfaceTemperature"), _f(ev, "SurfaceGravity"),
+                    _s(ev, "Volcanism"), _pst2,
+                )
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
             rare_star  = star_type in ("N", "H", "D")
@@ -1482,6 +1517,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                             sc.complete = True
                             matched_sc  = sc
                             break
+                    # Fallback: if first_footfall wasn't captured on the BioScan at Log time
+                    # (e.g. body-name mismatch race), check current state here.
+                    if matched_sc and not matched_sc.first_footfall:
+                        is_ff_now = (
+                            (bool(state.first_footfall_body) and body_name == state.first_footfall_body)
+                            or (state.first_footfall_body_id > 0 and body_id == state.first_footfall_body_id)
+                        )
+                        if is_ff_now:
+                            matched_sc.first_footfall = True
                     final_val      = matched_sc.value if matched_sc else value
                     is_ff          = matched_sc.first_footfall if matched_sc else False
                     val_str        = _tts_cr(final_val) if final_val > 0 else "unknown"

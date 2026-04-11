@@ -271,3 +271,6 @@ lines = ["Bloqueo de masa liberado."]
 
 [BioReady]
 lines = ["{species} listo. Puedes escanear la siguiente muestra."]
+
+[BioTooClose]
+lines = ["Demasiado cerca de la muestra {species}. Aléjate antes de escanear."]
