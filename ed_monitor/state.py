@@ -394,6 +394,9 @@ class AppState:
     route_list_edsm:   dict = field(default_factory=dict)  # name → {x, y, z, population, allegiance}
     route_bodies_edsm: dict = field(default_factory=dict)  # name → {"bio": int, "geo": int}
 
+    # Timestamp of last FSDJump/CarrierJump (unix time); used for auto-switch to OVERVIEW
+    last_jump_at: float = 0.0
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
 

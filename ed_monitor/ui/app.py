@@ -249,10 +249,10 @@ class NOVAApp(App):
         height: 1fr;
     }
 
-    /* Focused panel: bright white border */
+    /* Focused panel: bright white border — overrides all mode borders */
     .focused {
-        border: heavy white;
-        border-title-color: white;
+        border: heavy white !important;
+        border-title-color: white !important;
     }
 
     FooterBar {
@@ -353,8 +353,6 @@ class NOVAApp(App):
         self._tts_q     = tts_q
         self._stop_evt  = stop_evt
         self._neutron_q = neutron_q
-        self._scroll    = 0
-        self._max_scroll = 0
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
 
     def compose(self) -> ComposeResult:
@@ -404,8 +402,6 @@ class NOVAApp(App):
         except Exception:
             pass
         snap = self._snapshot()
-        self._max_scroll = max(0, len(snap.events) - 1)
-        self._scroll     = min(self._scroll, self._max_scroll)
 
         # Apply mode border class to the main screen
         offline = not snap.client_online
@@ -436,9 +432,7 @@ class NOVAApp(App):
         self.query_one(SituationalPanel).update(snap)
         self.query_one(FooterBar).update(snap)
 
-        log = self.query_one(EventLogPanel)
-        log.update(snap)
-        log.set_scroll(self._scroll)
+        self.query_one(EventLogPanel).update(snap)
         self.query_one(ChatLogPanel).update(snap)
 
     def on_unmount(self) -> None:
@@ -554,16 +548,39 @@ class NOVAApp(App):
             if self._focused_panel in (4, 5, 6):
                 self._scroll_focused(5)
             else:
-                self._scroll = min(self._scroll + 20, self._max_scroll)
+                sit = self.query_one(SituationalPanel)
+                if sit._active == "neutron":
+                    sit.scroll_neutron(5)
+                elif sit._active == "bgs":
+                    sit.scroll_bgs(5)
+                elif sit._active == "colonisation":
+                    sit.scroll_colonisation(5)
+                elif sit._active == "route":
+                    sit.scroll_route(5)
+                else:
+                    sit.scroll_general(5)
 
         elif key == "pageup":
             if self._focused_panel in (4, 5, 6):
                 self._scroll_focused(-5)
             else:
-                self._scroll = max(self._scroll - 20, 0)
+                sit = self.query_one(SituationalPanel)
+                if sit._active == "neutron":
+                    sit.scroll_neutron(-5)
+                elif sit._active == "bgs":
+                    sit.scroll_bgs(-5)
+                elif sit._active == "colonisation":
+                    sit.scroll_colonisation(-5)
+                elif sit._active == "route":
+                    sit.scroll_route(-5)
+                else:
+                    sit.scroll_general(-5)
 
         elif key in ("home", "g"):
-            self._scroll = 0
+            if self._focused_panel == 5:
+                self.query_one(EventLogPanel).scroll_log(-9999)
+            elif self._focused_panel == 6:
+                self.query_one(ChatLogPanel).scroll_chat(-9999)
 
         elif key == "s":
             self.query_one(BodiesPanel).scroll_bodies(1)

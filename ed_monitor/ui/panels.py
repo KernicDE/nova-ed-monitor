@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import textwrap
+import time
 from datetime import datetime, timezone
 from importlib.metadata import version as _pkg_version
 from typing import Optional
@@ -821,7 +822,7 @@ class RoutePanel(_Panel):
         row("Type", btype, f"bold {col}")
         if body.dist_ls > 0.0:
             row("Arrival", _fmt_ls(body.dist_ls), P.LABEL)  # distance from system entry star
-        if s.altitude > 0 and s.nearest_body == body_name:
+        if s.altitude is not None and s.altitude > 0 and s.nearest_body == body_name:
             row("Alt", f"{s.altitude:,.0f} m", "white")
 
         atm = body.atmosphere
@@ -2128,13 +2129,8 @@ def _render_overview(s: AppState) -> RenderableType:
     hdr_grid = Table.grid(padding=(0, 2))
     hdr_grid.add_column(ratio=1)
     hdr_grid.add_column(ratio=1)
-    hdr_grid.add_row(route_col, pos_col)
+    hdr_grid.add_row(pos_col, route_col)
     parts.append(hdr_grid)
-
-    # System bodies diagram
-    sys_diag = _render_system_map(s)
-    if sys_diag is not None:
-        parts.append(sys_diag)
 
     # Notable bodies in current system
     def _is_notable(b: BodyInfo) -> bool:
@@ -2802,9 +2798,10 @@ class SituationalPanel(_Panel):
         "bgs", "colonisation", "route", "neutron", "wealth", "inventory",
         "docking", "stats",
     )
-    _mode:   str = "overview"   # current user-selected panel (never "auto")
-    _active: str = "overview"  # resolved panel being rendered
-    _auto:   bool = True       # auto-switching enabled (A key toggles)
+    _mode:            str  = "overview"   # current shown panel (user or auto-triggered)
+    _active:          str  = "overview"  # resolved panel being rendered (always == _mode)
+    _auto:            bool = True        # auto-switching enabled (A key toggles)
+    _last_auto_panel: str  = ""          # last panel returned by _auto_resolve; change triggers override
     _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
@@ -2847,9 +2844,8 @@ class SituationalPanel(_Panel):
             return
         idx = modes.index(self._mode) if self._mode in modes else -1
         self._mode = modes[(idx + 1) % len(modes)]
+        self._active = self._mode
         self._general_scroll = 0
-        if self._snap is not None:
-            self._active = self._resolve(self._snap)
         self.border_title = self._make_title()
         self.refresh()
 
@@ -2859,17 +2855,19 @@ class SituationalPanel(_Panel):
             return
         idx = modes.index(self._mode) if self._mode in modes else 0
         self._mode = modes[(idx - 1) % len(modes)]
+        self._active = self._mode
         self._general_scroll = 0
-        if self._snap is not None:
-            self._active = self._resolve(self._snap)
         self.border_title = self._make_title()
         self.refresh()
 
     def toggle_auto_lock(self) -> None:
         """Toggle automatic panel switching on/off."""
         self._auto = not self._auto
-        if self._snap is not None:
-            self._active = self._resolve(self._snap)
+        if self._auto and self._snap is not None:
+            # Re-sync last_auto_panel so the next real trigger overrides correctly
+            self._last_auto_panel = self._auto_resolve(self._snap)
+            self._mode = self._last_auto_panel
+            self._active = self._mode
         self.border_title = self._make_title()
         self.refresh()
 
@@ -2904,13 +2902,10 @@ class SituationalPanel(_Panel):
         self._general_scroll = max(0, self._general_scroll + delta)
         self.refresh()
 
-    def _resolve(self, s: AppState) -> str:
-        # Auto-mode OFF: always show user-selected panel
-        if not self._auto:
-            return self._mode if self._mode else "overview"
+    def _auto_resolve(self, s: AppState) -> str:
+        """Compute which panel auto-mode would switch to based on current game state."""
         visible = set(self._active_modes())
         def _v(m: str) -> str:
-            """Return m if visible, else 'overview'."""
             return m if m in visible else "overview"
         # Offline: no live game data — show statistics
         if not s.client_online:
@@ -2932,6 +2927,9 @@ class SituationalPanel(_Panel):
             site.get("system") == s.system for site in s.colonisation_sites.values()
         ):
             return _v("colonisation")
+        # Just jumped into a new system — show overview for 8 seconds
+        if s.last_jump_at > 0 and time.time() - s.last_jump_at < 8.0:
+            return _v("overview")
         # Active route + in supercruise — show route panel
         if s.route_list and s.supercruise:
             return _v("route")
@@ -2951,17 +2949,19 @@ class SituationalPanel(_Panel):
         for m in self._active_modes():
             abbr     = self._MODE_ABBREVS[m]
             fullname = self._MODE_FULLNAMES[m]
-            is_selected = (m == self._mode)
-            # When auto is ON, the resolved panel is highlighted teal even if not selected by user
-            is_resolved = self._auto and (m == self._active)
+            is_current = (m == self._mode)
+            is_auto_target = self._auto and (m == self._last_auto_panel)
 
-            display = fullname if (is_selected or is_resolved) else abbr
-            if is_selected and is_resolved:
-                parts.append(f"[bold rgb(255,220,80)]{display}[/]")
-            elif is_selected:
-                parts.append(f"[bold white]{display}[/]")
-            elif is_resolved:
-                parts.append(f"[bold rgb(0,200,150)]{display}[/]")
+            if is_current and is_auto_target:
+                # Auto is driving this panel
+                parts.append(f"[bold rgb(255,220,80)]{fullname}[/]")
+            elif is_current:
+                # User manually selected (auto ON or OFF)
+                col = "rgb(0,200,150)" if self._auto else "white"
+                parts.append(f"[bold {col}]{fullname}[/]")
+            elif is_auto_target:
+                # Auto wants this panel but user has browsed elsewhere
+                parts.append(f"[rgb(160,130,40)]{abbr}[/]")
             else:
                 parts.append(f"[dim]{abbr}[/]")
 
@@ -2980,9 +2980,20 @@ class SituationalPanel(_Panel):
         # If current mode was removed from config, fall back to first visible
         if self._mode not in self._visible_modes:
             self._mode = self._visible_modes[0] if self._visible_modes else "overview"
-        new_active = self._resolve(snap)
+
+        # Auto-switching: only override _mode when the suggested panel changes.
+        # This lets the user browse panels freely; a new trigger overrides.
+        if self._auto:
+            auto_panel = self._auto_resolve(snap)
+            if auto_panel != self._last_auto_panel:
+                self._last_auto_panel = auto_panel
+                if auto_panel != self._mode:
+                    self._mode = auto_panel
+                    self._general_scroll = 0
+
+        new_active = self._mode
         if new_active != self._active:
-            self._general_scroll = 0  # reset scroll when auto-mode switches
+            self._general_scroll = 0
         self._active = new_active
         self.border_title = self._make_title()
         self.refresh()

@@ -792,6 +792,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 tts_suffix += f" {hops} {hops_word} remaining."
             if pop > 0:
                 tts_suffix += f" Pop: {_fmt_pop(pop)}."
+            if live:
+                state.last_jump_at = time.time()
             _say(tts_q, "FSDJump", False,
                  fallback=f"Arrived in {system}. Jump {dist_ly_str}.{tts_suffix}",
                  cacheable=False,
@@ -1021,6 +1023,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                             _dis_b = _b_entry
                             break
                 if _dis_b is not None and _dis_b.first_discovered:
+                    first_footfall = True
+
+            # Final fallback: Touchdown already flagged this body as first footfall
+            # but Disembark journal entry omitted FirstFootfall or body fields.
+            if not first_footfall and state.first_footfall_body:
+                if not body_dis and not body_dis_id:
+                    # No body info in Disembark — use whatever Touchdown set
+                    body_dis    = state.first_footfall_body
+                    body_dis_id = state.first_footfall_body_id
                     first_footfall = True
             if first_footfall:
                 if body_dis:
