@@ -1,9 +1,22 @@
-# NOVA Voicelines — English (built-in standard)
+# NOVA Voicelines — English (built-in default)
 # ─────────────────────────────────────────────
-# Each event has exactly one line. To add variants or override any event,
-# create ~/.config/nova/voicelines/en.toml with only the events you want
-# to change. See that directory's README.md for format and rules.
-# Variables in {curly_braces} are replaced at runtime.
+# THIS FILE IS REPLACED ON EVERY NOVA UPDATE — do not edit it directly.
+#
+# To customise voicelines, create:
+#   ~/.config/nova/voicelines/en.toml
+#
+# User file format  (add or replace lines per event):
+#
+#   [EventKey]
+#   add     = ["Extra variant 1.", "Extra variant 2."]
+#   # OR
+#   replace = ["Only this.", "Or this."]
+#
+#   add     — appends your lines to the built-in pool (more random variety)
+#   replace — uses only your lines for this event (overrides the default)
+#   replace = []  — silences the event completely
+#
+# Variables in {curly_braces} are filled at runtime; see each event below.
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 

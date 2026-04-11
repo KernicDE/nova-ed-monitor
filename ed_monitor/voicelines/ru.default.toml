@@ -1,9 +1,22 @@
-# NOVA Voicelines — Русский (встроенный стандарт)
-# ──────────────────────────────────────────────
-# У каждого события ровно одна строка. Чтобы добавить варианты или заменить
-# событие, создайте ~/.config/nova/voicelines/ru.toml только с теми
-# событиями, которые хотите изменить.
-# Переменные в {фигурных_скобках} заменяются во время выполнения.
+# NOVA Voicelines — Русский (built-in default)
+# ─────────────────────────────────────────────
+# THIS FILE IS REPLACED ON EVERY NOVA UPDATE — do not edit it directly.
+#
+# To customise voicelines, create:
+#   ~/.config/nova/voicelines/ru.toml
+#
+# User file format  (add or replace lines per event):
+#
+#   [EventKey]
+#   add     = ["Extra variant 1.", "Extra variant 2."]
+#   # OR
+#   replace = ["Only this.", "Or this."]
+#
+#   add     — appends your lines to the built-in pool (more random variety)
+#   replace — uses only your lines for this event (overrides the default)
+#   replace = []  — silences the event completely
+#
+# Variables in {curly_braces} are filled at runtime; see each event below.
 
 [Nova_Startup]
 lines = ["NOVA активна."]

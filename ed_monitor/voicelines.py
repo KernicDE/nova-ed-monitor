@@ -1,22 +1,22 @@
 """
 NOVA Voicelines — random variant picker with per-language TOML support.
 
-Load order (built-in first, user overlays on top):
-  1. <package>/voicelines/{lang}.toml  (built-in standard — single line per event)
-  2. ~/.config/nova/voicelines/{lang}.toml  (user overrides — any number of lines)
+Load order:
+  1. <package>/voicelines/{lang}.default.toml  — built-in default (replaced on each update)
+  2. ~/.config/nova/voicelines/{lang}.toml      — user customisation (optional)
+
+User file format (different from the default file):
+  [EventKey]
+  add     = ["Extra variant 1.", "Extra variant 2."]
+  # OR
+  replace = ["Only this.", "Or this."]
+
+  add     — appends lines to the built-in pool (more random variety)
+  replace — uses only user lines for this event (overrides the default)
+  replace = []  — silences the event entirely
 
 Rules:
-  - If a key is present in the user file, NOVA uses those lines (no fallback).
-    Set lines = [] to silence an event entirely.
-  - If a key is absent from the user file, the built-in default is used.
   - If a key is absent from both, English is tried as a last resort (non-EN only).
-
-TOML format:
-  [EventKey]
-  lines = [
-      "Variant one with {variable}.",
-      "Variant two.",
-  ]
 
 Call pick(key, lang="en", **kwargs) to get a formatted random line.
 Returns None if the key is not found so callers can fall back gracefully.
@@ -102,16 +102,16 @@ def _migrate_user_voiceline_file(path: Path) -> None:
 def _load(lang: str) -> dict[str, list[str]]:
     """Load and cache voicelines for a language. Returns mapping key→[lines].
 
-    Built-in is loaded first; user file overlays on top.  A key present in the
-    user file (even with an empty list) is never overridden by the built-in.
+    Built-in default is loaded first; user file is applied on top using
+    add/replace semantics.
     """
     if lang in _CACHE:
         return _CACHE[lang]
 
     lines: dict[str, list[str]] = {}
 
-    # 1. Load built-in (standard, single line per event)
-    builtin_path = _builtin_dir() / f"{lang}.toml"
+    # 1. Load built-in default ({lang}.default.toml)
+    builtin_path = _builtin_dir() / f"{lang}.default.toml"
     if builtin_path.exists():
         for key, val in _read_toml(builtin_path).items():
             if isinstance(val, dict):
@@ -119,13 +119,27 @@ def _load(lang: str) -> dict[str, list[str]]:
                 if isinstance(raw, list):
                     lines[key] = [str(s) for s in raw if s]
 
-    # 2. Overlay user file — user keys win, including empty lists (= silence)
+    # 2. Apply user file ({lang}.toml) with add/replace semantics
     user_path = _config_dir() / "voicelines" / f"{lang}.toml"
     if user_path.exists():
         _migrate_user_voiceline_file(user_path)
         for key, val in _read_toml(user_path).items():
-            if isinstance(val, dict) and "lines" in val:
-                raw = val.get("lines", [])
+            if not isinstance(val, dict):
+                continue
+            if "replace" in val:
+                # replace: use only user lines (empty list = silence)
+                raw = val["replace"]
+                if isinstance(raw, list):
+                    lines[key] = [str(s) for s in raw if s]
+            elif "add" in val:
+                # add: append user lines to the default pool
+                raw = val["add"]
+                if isinstance(raw, list):
+                    extra = [str(s) for s in raw if s]
+                    lines[key] = lines.get(key, []) + extra
+            elif "lines" in val:
+                # Legacy format: treat as replace for backwards compat
+                raw = val["lines"]
                 if isinstance(raw, list):
                     lines[key] = [str(s) for s in raw if s]
 
@@ -174,36 +188,79 @@ def reload_all() -> None:
 _SUPPORTED_LANGS = ("en", "de", "fr", "it", "es", "pt", "ru")
 
 
+def _migrate_old_user_voicelines() -> None:
+    """One-time migration: back up old-style user voiceline files.
+
+    Before v1.22.4 the user override files used ``lines = [...]`` syntax and had
+    the same name as the built-in files (e.g. ``en.toml``).  The built-in files
+    are now named ``en.default.toml``; user files keep the ``en.toml`` name but
+    use ``add``/``replace`` syntax.
+
+    If old-format ``*.toml`` files are found and no migration sentinel exists,
+    they are moved to a ``backup/`` subdirectory so the user doesn't lose them.
+    A sentinel file ``.migrated_v2`` is written afterwards to prevent re-running.
+    """
+    dest_dir = _config_dir() / "voicelines"
+    sentinel = dest_dir / ".migrated_v2"
+    if sentinel.exists() or not dest_dir.is_dir():
+        return
+
+    old_files = [
+        p for p in dest_dir.glob("*.toml")
+        if not p.name.endswith(".default.toml")
+    ]
+    if old_files:
+        backup_dir = dest_dir / "backup"
+        try:
+            backup_dir.mkdir(exist_ok=True)
+            for f in old_files:
+                f.rename(backup_dir / f.name)
+        except OSError:
+            pass
+
+    try:
+        sentinel.touch()
+    except OSError:
+        pass
+
+
 def ensure_user_files() -> None:
     """Create the user voicelines directory and a README explaining the override system.
 
-    No built-in files are copied — the built-in TOML files are the standard
-    defaults and are always loaded automatically.  Users only need to create
-    their own {lang}.toml here for the events they want to customise.
+    Also performs a one-time migration of old-style user voiceline files.
     """
     dest_dir = _config_dir() / "voicelines"
     dest_dir.mkdir(parents=True, exist_ok=True)
+
+    _migrate_old_user_voicelines()
+
     readme = dest_dir / "README.md"
-    if not readme.exists():
-        try:
-            readme.write_text(
-                "# NOVA Voicelines — User Overrides\n\n"
-                "Place files named `en.toml`, `de.toml`, etc. in this directory\n"
-                "to override any built-in voicelines.  Only the events you define\n"
-                "here are affected; everything else uses the built-in defaults.\n\n"
-                "## Format\n\n"
-                "    [EventKey]\n"
-                "    lines = [\n"
-                "        \"Variant one.\",\n"
-                "        \"Variant two.\",\n"
-                "    ]\n\n"
-                "## Rules\n\n"
-                "- Key present in your file → NOVA uses your lines (any number of variants).\n"
-                "- Key absent from your file → built-in default is used.\n"
-                "- `lines = []` → event is silenced entirely (no fallback).\n\n"
-                "## Finding the built-in files\n\n"
-                "    python -c \"import ed_monitor.voicelines as v; print(v._builtin_dir())\"\n",
-                encoding="utf-8",
-            )
-        except OSError:
-            pass
+    readme_text = (
+        "# NOVA Voicelines — User Customisation\n\n"
+        "Place files named `en.toml`, `de.toml`, etc. here to customise\n"
+        "built-in voicelines.  Only the events you define are affected;\n"
+        "everything else uses the built-in defaults.\n\n"
+        "## Format\n\n"
+        "    [EventKey]\n"
+        "    add = [\n"
+        "        \"Extra variant one.\",\n"
+        "        \"Extra variant two.\",\n"
+        "    ]\n\n"
+        "    [AnotherEvent]\n"
+        "    replace = [\n"
+        "        \"Only this line is used now.\",\n"
+        "    ]\n\n"
+        "## Rules\n\n"
+        "- `add`     — appends your lines to the built-in pool (more random variety).\n"
+        "- `replace` — replaces the built-in lines entirely for this event.\n"
+        "- `replace = []` — silences the event completely.\n"
+        "- Keys absent from your file use the built-in default.\n\n"
+        "## Finding built-in defaults\n\n"
+        "    python -c \"import ed_monitor.voicelines as v; print(v._builtin_dir())\"\n\n"
+        "The default files are named `en.default.toml`, `de.default.toml`, etc.\n"
+        "They are replaced on every NOVA update — do not edit them directly.\n"
+    )
+    try:
+        readme.write_text(readme_text, encoding="utf-8")
+    except OSError:
+        pass
