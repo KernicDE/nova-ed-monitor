@@ -2092,15 +2092,16 @@ def _render_overview(s: AppState) -> RenderableType:
     parts: list[RenderableType] = []
 
     # ── Two-column header: ROUTE (left) + POSITION (right) ────────────────────
+    _R = "      "  # ~6-char indent for ROUTE column (visual separation from POSITION)
     route_col = Text()
-    route_col.append("ROUTE\n", style=f"bold {P.AMBER}")
+    route_col.append(f"{_R}ROUTE\n", style=f"bold {P.AMBER}")
     if s.route_destination:
-        route_col.append("→ ", style=P.LABEL)
+        route_col.append(f"{_R}→ ", style=P.LABEL)
         route_col.append(s.route_destination + "\n", style="bold white")
         word = "jump" if s.route_hops == 1 else "jumps"
-        route_col.append(f"  {s.route_hops} {word} remaining\n", style=P.AMBER)
+        route_col.append(f"{_R}  {s.route_hops} {word} remaining\n", style=P.AMBER)
         if s.route_next:
-            route_col.append("→ ", style=P.LABEL)
+            route_col.append(f"{_R}→ ", style=P.LABEL)
             route_col.append(s.route_next, style=P.HUD_CYAN)
             if s.route_next_star:
                 mark     = " ⛽" if s.route_next_scoopable else " ✗"
@@ -2108,7 +2109,7 @@ def _render_overview(s: AppState) -> RenderableType:
                 route_col.append(f"  {s.route_next_star}{mark}", style=f"bold {star_col}")
             route_col.append("\n")
     else:
-        route_col.append("No route set.\n", style=P.AMBER_DIM)
+        route_col.append(f"{_R}No route set.\n", style=P.AMBER_DIM)
 
     pos_col = Text()
     if s.star_pos:
@@ -2798,10 +2799,11 @@ class SituationalPanel(_Panel):
         "bgs", "colonisation", "route", "neutron", "wealth", "inventory",
         "docking", "stats",
     )
-    _mode:            str  = "overview"   # current shown panel (user or auto-triggered)
-    _active:          str  = "overview"  # resolved panel being rendered (always == _mode)
-    _auto:            bool = True        # auto-switching enabled (A key toggles)
-    _last_auto_panel: str  = ""          # last panel returned by _auto_resolve; change triggers override
+    _mode:            str   = "overview"  # current shown panel (user or auto-triggered)
+    _active:          str   = "overview" # resolved panel being rendered (always == _mode)
+    _auto:            bool  = True       # auto-switching enabled (A key toggles)
+    _last_auto_panel: str   = ""         # last panel returned by _auto_resolve; change triggers override
+    _jump_at_seen:    float = 0.0        # last state.last_jump_at we've acted on
     _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
@@ -2903,7 +2905,8 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def _auto_resolve(self, s: AppState) -> str:
-        """Compute which panel auto-mode would switch to based on current game state."""
+        """Compute which panel auto-mode would switch to based on current game state.
+        Jump → OVERVIEW is handled separately in update() for persistent behaviour."""
         visible = set(self._active_modes())
         def _v(m: str) -> str:
             return m if m in visible else "overview"
@@ -2927,12 +2930,6 @@ class SituationalPanel(_Panel):
             site.get("system") == s.system for site in s.colonisation_sites.values()
         ):
             return _v("colonisation")
-        # Just jumped into a new system — show overview for 8 seconds
-        if s.last_jump_at > 0 and time.time() - s.last_jump_at < 8.0:
-            return _v("overview")
-        # Active route + in supercruise — show route panel
-        if s.route_list and s.supercruise:
-            return _v("route")
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return _v("missions")
@@ -2984,6 +2981,15 @@ class SituationalPanel(_Panel):
         # Auto-switching: only override _mode when the suggested panel changes.
         # This lets the user browse panels freely; a new trigger overrides.
         if self._auto:
+            # New jump detected → immediately show OVERVIEW and keep it until a
+            # priority trigger fires (bio, docking, colonisation, missions, stats).
+            if snap.last_jump_at > 0 and snap.last_jump_at != self._jump_at_seen:
+                self._jump_at_seen    = snap.last_jump_at
+                self._last_auto_panel = "overview"
+                visible               = set(self._active_modes())
+                self._mode            = "overview" if "overview" in visible else self._mode
+                self._general_scroll  = 0
+
             auto_panel = self._auto_resolve(snap)
             if auto_panel != self._last_auto_panel:
                 self._last_auto_panel = auto_panel

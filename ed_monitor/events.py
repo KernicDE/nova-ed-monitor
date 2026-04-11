@@ -753,6 +753,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     # Remove current system from the start of the list
                     state.route_list.pop(0)
                     if len(state.route_list) > 1:
+                        # Update route_next to reflect the new next waypoint
+                        next_entry = state.route_list[1]
+                        state.route_next           = next_entry.get("StarSystem", "")
+                        state.route_next_star      = next_entry.get("StarClass", "")
+                        state.route_next_scoopable = is_scoopable(state.route_next_star)
                         # Re-calculate distance to the now-become-first jump
                         p1 = state.route_list[0].get("StarPos")
                         p2 = state.route_list[1].get("StarPos")
@@ -761,7 +766,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         else:
                             state.route_next_dist = 0.0
                     else:
-                        state.route_next_dist = 0.0
+                        # Last hop: arrived at destination
+                        state.route_next           = ""
+                        state.route_next_star      = ""
+                        state.route_next_scoopable = False
+                        state.route_next_dist      = 0.0
 
             if state.route_hops == 0:
                 state.route_destination    = ""

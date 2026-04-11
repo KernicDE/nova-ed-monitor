@@ -411,6 +411,24 @@ def monitor(
         except Exception:
             pass
 
+    # Restore nav route from previous session (journal replay will override if NavRoute present)
+    route_json = db.get_config("route_snapshot_json")
+    if route_json:
+        try:
+            snap = json.loads(route_json)
+            with lock:
+                if snap.get("destination") and not state.route_destination:
+                    state.route_destination    = snap.get("destination", "")
+                    state.route_hops           = snap.get("hops", 0)
+                    state.route_next           = snap.get("next", "")
+                    state.route_next_star      = snap.get("next_star", "")
+                    state.route_next_scoopable = snap.get("scoopable", False)
+                    state.route_dist           = snap.get("dist", 0.0)
+                    state.route_next_dist      = snap.get("next_dist", 0.0)
+                    state.route_list           = snap.get("list", [])
+        except Exception:
+            pass
+
     # Populate power/nearest/stations from local EDSM dump data right after startup
     try:
         _update_dump_lookups(state, lock, db)
@@ -842,10 +860,25 @@ def _follow(
                         ships_snap = list(state.stored_ships)
                     db.set_config("stored_ships_json", json.dumps(ships_snap))
 
-                # After route update: refresh next-waypoint stations
+                # After route update: refresh next-waypoint stations and persist route
                 if ev_name in ("NavRoute", "NavRouteClear"):
                     try:
                         _update_dump_lookups(state, lock, db)
+                    except Exception:
+                        pass
+                    try:
+                        with lock:
+                            route_snap = {
+                                "destination": state.route_destination,
+                                "hops":        state.route_hops,
+                                "next":        state.route_next,
+                                "next_star":   state.route_next_star,
+                                "scoopable":   state.route_next_scoopable,
+                                "dist":        state.route_dist,
+                                "next_dist":   state.route_next_dist,
+                                "list":        list(state.route_list),
+                            }
+                        db.set_config("route_snapshot_json", json.dumps(route_snap))
                     except Exception:
                         pass
 

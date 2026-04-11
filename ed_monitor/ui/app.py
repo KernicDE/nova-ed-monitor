@@ -249,10 +249,12 @@ class NOVAApp(App):
         height: 1fr;
     }
 
-    /* Focused panel: bright white border — overrides all mode borders */
+    /* Focused panel: bright white border with filled title — overrides all mode borders */
     .focused {
         border: heavy white !important;
-        border-title-color: white !important;
+        border-title-color: black !important;
+        border-title-background: white !important;
+        border-title-style: bold !important;
     }
 
     FooterBar {
