@@ -2803,15 +2803,15 @@ class SituationalPanel(_Panel):
         "bgs", "colonisation", "route", "neutron", "wealth", "inventory",
         "docking", "stats",
     )
-    _mode:   str = "auto"
-    _active: str = "overview"
+    _mode:   str = "overview"   # current user-selected panel (never "auto")
+    _active: str = "overview"  # resolved panel being rendered
+    _auto:   bool = True       # auto-switching enabled (A key toggles)
     _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
     _colonisation_scroll: int  = 0
     _route_scroll:        int  = 0
     _general_scroll:      int  = 0
-    _auto_locked:         bool = False
     _visible_modes:       list = []  # populated in update() from snap.situational_panels
 
     _MODE_ABBREVS = {
@@ -2838,12 +2838,15 @@ class SituationalPanel(_Panel):
     """
 
     def _active_modes(self) -> list:
-        """Return the ordered list of visible modes (from config or default)."""
-        return self._visible_modes if self._visible_modes else list(self._MODES)
+        """Return the ordered list of visible modes (from config or default), excluding 'auto'."""
+        base = self._visible_modes if self._visible_modes else list(self._MODES)
+        return [m for m in base if m != "auto"]
 
     def cycle(self) -> None:
         modes = self._active_modes()
-        idx = modes.index(self._mode) if self._mode in modes else 0
+        if not modes:
+            return
+        idx = modes.index(self._mode) if self._mode in modes else -1
         self._mode = modes[(idx + 1) % len(modes)]
         self._general_scroll = 0
         if self._snap is not None:
@@ -2853,6 +2856,8 @@ class SituationalPanel(_Panel):
 
     def back_cycle(self) -> None:
         modes = self._active_modes()
+        if not modes:
+            return
         idx = modes.index(self._mode) if self._mode in modes else 0
         self._mode = modes[(idx - 1) % len(modes)]
         self._general_scroll = 0
@@ -2862,8 +2867,10 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def toggle_auto_lock(self) -> None:
-        """Toggle auto panel switching on/off (freezes current view when locked)."""
-        self._auto_locked = not self._auto_locked
+        """Toggle automatic panel switching on/off."""
+        self._auto = not self._auto
+        if self._snap is not None:
+            self._active = self._resolve(self._snap)
         self.border_title = self._make_title()
         self.refresh()
 
@@ -2899,11 +2906,9 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def _resolve(self, s: AppState) -> str:
-        if self._mode != "auto":
-            return self._mode
-        # When auto-switching is locked, freeze on the current view
-        if self._auto_locked:
-            return self._active if self._active else "overview"
+        # Auto-mode OFF: always show user-selected panel
+        if not self._auto:
+            return self._mode if self._mode else "overview"
         visible = set(self._active_modes())
         def _v(m: str) -> str:
             """Return m if visible, else 'overview'."""
@@ -2928,56 +2933,54 @@ class SituationalPanel(_Panel):
             site.get("system") == s.system for site in s.colonisation_sites.values()
         ):
             return _v("colonisation")
+        # Active route + in supercruise — show route panel
+        if s.route_list and s.supercruise:
+            return _v("route")
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return _v("missions")
         return "overview"
 
     def _make_title(self) -> str:
+        # *** indicator: bright = auto ON, dim = auto OFF
+        if self._auto:
+            auto_tag = "[bold rgb(255,220,80)]***[/]"
+        else:
+            auto_tag = "[dim]***[/]"
+
         parts = []
         for m in self._active_modes():
             abbr     = self._MODE_ABBREVS[m]
             fullname = self._MODE_FULLNAMES[m]
             is_selected = (m == self._mode)
-            is_resolved = (m == self._active) and (self._mode == "auto")
+            # When auto is ON, the resolved panel is highlighted teal even if not selected by user
+            is_resolved = self._auto and (m == self._active)
 
-            if m == "auto":
-                if is_selected and self._auto_locked:
-                    parts.append(f"[bold rgb(100,100,180)]***[/]")  # locked = blue-grey
-                elif is_selected:
-                    parts.append(f"[bold rgb(255,220,80)]***[/]")
-                else:
-                    parts.append(f"[dim]***[/]")
+            display = fullname if (is_selected or is_resolved) else abbr
+            if is_selected and is_resolved:
+                parts.append(f"[bold rgb(255,220,80)]{display}[/]")
+            elif is_selected:
+                parts.append(f"[bold white]{display}[/]")
+            elif is_resolved:
+                parts.append(f"[bold rgb(0,200,150)]{display}[/]")
             else:
-                display = fullname if (is_selected or is_resolved) else abbr
-                if is_selected and is_resolved:
-                    parts.append(f"[bold rgb(255,220,80)]{display}[/]")
-                elif is_selected:
-                    parts.append(f"[bold white]{display}[/]")
-                elif is_resolved:
-                    parts.append(f"[bold rgb(0,200,150)]{display}[/]")
-                else:
-                    parts.append(f"[dim]{abbr}[/]")
-        modes = self._active_modes()
-        joined = ""
-        for i, (m, p) in enumerate(zip(modes, parts)):
-            joined += p
-            if i < len(parts) - 1:
-                joined += "   " if m == "auto" else " "
+                parts.append(f"[dim]{abbr}[/]")
+
+        joined = auto_tag + "   " + " ".join(parts)
         return "◈ " + joined
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
         # Update visible modes from config (rebuild each tick — cheap)
         if snap.situational_panels:
-            self._visible_modes = ["auto"] + [
+            self._visible_modes = [
                 m for m in snap.situational_panels if m in self._MODES and m != "auto"
             ]
         else:
-            self._visible_modes = list(self._MODES)
-        # If current mode was removed from config, fall back to auto
+            self._visible_modes = [m for m in self._MODES if m != "auto"]
+        # If current mode was removed from config, fall back to first visible
         if self._mode not in self._visible_modes:
-            self._mode = "auto"
+            self._mode = self._visible_modes[0] if self._visible_modes else "overview"
         new_active = self._resolve(snap)
         if new_active != self._active:
             self._general_scroll = 0  # reset scroll when auto-mode switches
