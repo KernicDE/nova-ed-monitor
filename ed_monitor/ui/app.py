@@ -251,7 +251,7 @@ class NOVAApp(App):
 
     /* Focused panel: bright white border */
     .focused {
-        border: bold white;
+        border: heavy white;
         border-title-color: white;
     }
 
