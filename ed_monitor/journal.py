@@ -344,9 +344,16 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
             if ev_name not in _BODY_EVENTS:
                 continue
 
-            # Save current bodies before FSDJump/CarrierJump clears them
-            if ev_name in ("FSDJump", "CarrierJump"):
+            # Save current bodies before system-changing events.
+            # FSDJump/CarrierJump clear bodies themselves in events.py.
+            # Location does NOT clear bodies in events.py, so we save + clear
+            # here to prevent bodies from the old system being stored under the
+            # new system name when Location crosses a system boundary.
+            if ev_name in ("FSDJump", "CarrierJump", "Location"):
                 _save_bodies_only(tmp, tmp_lock, db)
+                if ev_name == "Location":
+                    with tmp_lock:
+                        tmp.bodies.clear()
 
             try:
                 with tmp_lock:
@@ -355,7 +362,7 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
                 continue
 
             if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
-                           "SAAScanComplete", "Location"):
+                           "SAAScanComplete"):
                 _save_bodies_only(tmp, tmp_lock, db)
 
     # Final save for the last system processed

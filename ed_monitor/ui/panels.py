@@ -1566,113 +1566,112 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
         t.append("No engineer data.", style=P.LABEL)
         return t
 
-    HDR = "bold rgb(195,160,55)"
-
-    # Separate into groups
-    unlocked = []
-    in_progress = []
-    locked = []
+    # Classify engineers into Horizons vs Odyssey, then by progress status
+    horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
+    odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
 
     for name, info in sorted(s.engineers.items()):
         if isinstance(info, EngineerInfo):
-            prog = info.progress
-            rank = info.rank
-            rp   = info.rank_progress
+            prog, rank, rp = info.progress, info.rank, info.rank_progress
         else:
-            # Legacy tuple (rank, progress)
-            rank, prog = info
-            rp = 0.0
+            rank, prog = info; rp = 0.0
+
+        bucket = odyssey if name in _ODY_ENGINEERS else horizons
         if prog == "Unlocked":
-            unlocked.append((name, rank, rp, prog))
+            bucket["UNLOCKED"].append((name, rank, rp, prog))
         elif prog in ("Invited", "Acquainted", "Known"):
-            in_progress.append((name, rank, rp, prog))
+            bucket["IN PROGRESS"].append((name, rank, rp, prog))
         else:
-            locked.append((name, rank, rp, prog))
+            bucket["LOCKED"].append((name, rank, rp, prog))
 
-    # Build flat list: (section_label, (name, rank, rp, prog))
-    all_engs: list[tuple[str, tuple]] = []
-    for section_label, group in (
-        ("UNLOCKED", unlocked),
-        ("IN PROGRESS", in_progress),
-        ("LOCKED / UNKNOWN", locked),
-    ):
-        for entry in group:
-            all_engs.append((section_label, entry))
+    # Flatten: (era, section, entry)
+    all_engs: list[tuple[str, str, tuple]] = []
+    for era_label, era_dict in (("HORIZONS", horizons), ("ODYSSEY", odyssey)):
+        for section_label, group in era_dict.items():
+            for entry in group:
+                all_engs.append((era_label, section_label, entry))
 
-    parts: list[RenderableType] = []
-
-    def _rank_bar(rank: int, max_rank: int = 5) -> Text:
-        t = Text()
-        filled = min(rank, max_rank)
-        t.append("█" * filled, style=P.HUD_GREEN)
-        t.append("░" * (max_rank - filled), style=P.LABEL)
-        return t
-
-    def _progress_bar(pct: float, width: int = 8) -> Text:
-        filled = int(pct / 100.0 * width)
-        t = Text()
-        t.append("▓" * filled, style=P.AMBER)
-        t.append("░" * (width - filled), style=P.LABEL)
-        return t
-
-    effective_scroll = min(scroll, max(0, len(all_engs) - 1))
-    if effective_scroll > 0:
-        more_t = Text()
-        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(more_t)
-
-    visible = all_engs[effective_scroll:]
-
-    # Render grouped by section
-    current_section: Optional[str] = None
-    current_tbl: Optional[Table] = None
-
-    def _flush_eng_tbl() -> None:
-        nonlocal current_tbl
-        if current_tbl is not None:
-            parts.append(current_tbl)
-            current_tbl = None
-
-    for section_label, (name, rank, rp, prog) in visible:
-        if section_label != current_section:
-            _flush_eng_tbl()
-            if current_section is not None:
-                parts.append(Text("\n"))
-            parts.append(_section_header(section_label))
-            current_section = section_label
-            current_tbl = Table(show_header=False, show_edge=False, show_lines=False,
-                                padding=(0, 1), box=None)
-            current_tbl.add_column("name", style="white", no_wrap=True)
-            current_tbl.add_column("spec", style=P.LABEL, width=14, no_wrap=True)
-            current_tbl.add_column("sys",  style=P.HUD_CYAN, width=14, no_wrap=True)
-            current_tbl.add_column("rank", width=9, no_wrap=True)
-
-        spec, system = _ENGINEER_STATIC.get(name, ("", ""))
-        sys_short = system.split("/")[0].strip()[:14] if system else ""
-
-        if prog == "Unlocked":
-            max_r    = 1 if name in _ODY_ENGINEERS else 5
-            eff_rank = 1 if name in _ODY_ENGINEERS else rank
-            rank_bar = _rank_bar(eff_rank, max_r)
-            rank_bar.append(f" {eff_rank}/{max_r}", style=P.LABEL)
-            rank_cell = rank_bar
-        elif prog in ("Invited", "Acquainted", "Known"):
-            rank_cell = _progress_bar(rp) if rp > 0 else Text(prog, style=P.AMBER)
-        else:
-            rank_cell = Text(prog or "Unknown", style=P.LABEL)
-
-        current_tbl.add_row(
-            Text(name, style="white"),
-            Text(spec, style=P.LABEL),
-            Text(sys_short, style=P.HUD_CYAN),
-            rank_cell,
-        )
-    _flush_eng_tbl()
-
-    if not parts:
+    if not all_engs:
         t = Text()
         t.append("No engineer data.", style=P.LABEL)
         return t
+
+    effective_scroll = min(scroll, max(0, len(all_engs) - 1))
+    parts: list[RenderableType] = []
+
+    if effective_scroll > 0:
+        t = Text()
+        t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
+        parts.append(t)
+
+    current_era: Optional[str] = None
+    current_section: Optional[str] = None
+
+    for era, section, (name, rank, rp, prog) in all_engs[effective_scroll:]:
+        is_ody = name in _ODY_ENGINEERS
+        spec, location = _ENGINEER_STATIC.get(name, ("", ""))
+        if "," in location:
+            station, system = [x.strip() for x in location.split(",", 1)]
+        else:
+            station, system = location, ""
+
+        # Era header (HORIZONS / ODYSSEY)
+        if era != current_era:
+            if current_era is not None:
+                parts.append(Text(""))
+            parts.append(_section_header(era))
+            current_era = era
+            current_section = None
+
+        # Section sub-header (UNLOCKED / IN PROGRESS / LOCKED)
+        if section != current_section:
+            t = Text()
+            t.append(f"  {section}\n", style="bold rgb(195,160,55)")
+            parts.append(t)
+            current_section = section
+
+        # Card line 1: name + rank/status
+        card = Text()
+        card.append(f"  {name}", style="white")
+        padding = max(1, 26 - len(name))
+        card.append(" " * padding)
+
+        if prog == "Unlocked":
+            max_r = 1 if is_ody else 5
+            eff_r = min(1 if is_ody else rank, max_r)
+            card.append("█" * eff_r,          style=P.HUD_GREEN)
+            card.append("░" * (max_r - eff_r), style=P.LABEL)
+            card.append(f"  {eff_r}/{max_r}",  style=P.LABEL)
+        elif prog in ("Invited", "Acquainted", "Known"):
+            if rp > 0:
+                width  = 8
+                filled = int(rp / 100.0 * width)
+                card.append("▓" * filled,          style=P.AMBER)
+                card.append("░" * (width - filled), style=P.LABEL)
+                card.append(f"  {rp:.0f}%",         style=P.LABEL)
+            else:
+                card.append(prog, style=P.AMBER)
+        else:
+            card.append(prog or "Unknown", style=P.LABEL)
+        card.append("\n")
+
+        # Card line 2: specialty · system · station
+        card.append("    ")
+        sep = False
+        if spec:
+            card.append(spec, style=P.LABEL)
+            sep = True
+        if system:
+            if sep:
+                card.append("  ·  ", style=P.LABEL)
+            card.append(system, style=P.HUD_CYAN)
+            sep = True
+        if station:
+            if sep:
+                card.append("  ·  ", style=P.LABEL)
+            card.append(station, style=P.LABEL)
+        card.append("\n")
+        parts.append(card)
 
     return Group(*parts)
 
