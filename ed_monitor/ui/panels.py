@@ -3602,7 +3602,12 @@ class FooterBar(_Panel):
         left.append(" Tab",    style=key); left.append(" Mode ", style=lbl)
         left.append(" ?",      style=key); left.append(" Help ", style=lbl)
         left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
-        left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
+        left.append(" m",      style=key)
+        muted = s.muted if s is not None else False
+        if muted:
+            left.append(" MUTED ", style="bold rgb(220,60,0)")
+        else:
+            left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
 
         center = Text(justify="center")
         center.append(datetime.now().strftime("%H:%M:%S"), style="bold rgb(160,160,160)")

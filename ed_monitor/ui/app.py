@@ -501,17 +501,36 @@ class NOVAApp(App):
         elif key == "r":
             self.query_one(SituationalPanel).toggle_galaxy_scale()
 
+        elif key == "m":
+            with self._vol_lock:
+                with self._lock:
+                    if self._state.muted:
+                        # Unmute: restore pre-mute volume
+                        self._volume[0] = self._state.pre_mute_volume
+                        self._state.volume = self._volume[0]
+                        self._state.muted = False
+                    else:
+                        # Mute: save current volume, set to 0
+                        self._state.pre_mute_volume = self._volume[0]
+                        self._state.muted = True
+                        self._volume[0] = 0
+                        self._state.volume = 0
+
         elif key in ("plus", "equal", "+", "="):
             with self._vol_lock:
-                self._volume[0] = min(self._volume[0] + 5, 100)
-            with self._lock:
-                self._state.volume = self._volume[0]
+                with self._lock:
+                    if self._state.muted:
+                        # Unmute on volume-up
+                        self._state.muted = False
+                        self._state.pre_mute_volume = self._volume[0]
+                    self._volume[0] = min(self._volume[0] + 5, 100)
+                    self._state.volume = self._volume[0]
 
         elif key in ("minus", "-"):
             with self._vol_lock:
-                self._volume[0] = max(self._volume[0] - 5, 0)
-            with self._lock:
-                self._state.volume = self._volume[0]
+                with self._lock:
+                    self._volume[0] = max(self._volume[0] - 5, 0)
+                    self._state.volume = self._volume[0]
 
         elif key == "n":
             # Open neutron route input screen

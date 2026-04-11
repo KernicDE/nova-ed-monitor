@@ -339,8 +339,10 @@ class AppState:
     # Event log
     events: deque = field(default_factory=lambda: deque(maxlen=MAX_EVENTS))
 
-    # Volume 0–100
-    volume: int = 50
+    # Volume 0–100; muted flag + pre-mute restore value
+    volume:          int  = 50
+    muted:           bool = False
+    pre_mute_volume: int  = 50
 
     # Service status (EDSM connectivity indicator shown in footer)
     edsm_status: ServiceStatus = field(default_factory=ServiceStatus)
