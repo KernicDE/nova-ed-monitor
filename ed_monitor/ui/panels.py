@@ -3467,6 +3467,13 @@ class EventLogPanel(_Panel):
         self._scroll = scroll
         self.refresh()
 
+    def scroll_log(self, delta: int) -> None:
+        s = self._snap
+        events = [ev for ev in s.events if ev.category != EventCategory.Chat] if s else []
+        max_s = max(0, len(events) - 1)
+        self._scroll = max(0, min(self._scroll + delta, max_s))
+        self.refresh()
+
     _CAT_ABBR = {
         EventCategory.Nav:     "NAV",
         EventCategory.Combat:  "COM",
@@ -3523,6 +3530,15 @@ class ChatLogPanel(_Panel):
     }
     """
 
+    _scroll: int = 0
+
+    def scroll_chat(self, delta: int) -> None:
+        s = self._snap
+        chats = [ev for ev in s.events if ev.category == EventCategory.Chat] if s else []
+        max_s = max(0, len(chats) - 1)
+        self._scroll = max(0, min(self._scroll + delta, max_s))
+        self.refresh()
+
     # Source tag → (3-char abbrev, color)
     _SRC_TAGS: dict[str, tuple[str, str]] = {
         "[Twitch]":  ("TWI", "rgb(145,70,255)"),   # Twitch purple
@@ -3543,6 +3559,8 @@ class ChatLogPanel(_Panel):
             t = Text()
             t.append("No chat messages.", style=P.LABEL)
             return t
+        effective_scroll = min(self._scroll, max(0, len(chats) - 1))
+        chats = chats[effective_scroll:]
         prefix_w  = 11  # "HH:MM " (6) + "TWI " (4) + padding 1
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w

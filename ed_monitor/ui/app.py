@@ -249,6 +249,12 @@ class NOVAApp(App):
         height: 1fr;
     }
 
+    /* Focused panel: bright white border */
+    .focused {
+        border: bold white;
+        border-title-color: white;
+    }
+
     FooterBar {
         height: 1;
     }
@@ -349,6 +355,7 @@ class NOVAApp(App):
         self._neutron_q = neutron_q
         self._scroll    = 0
         self._max_scroll = 0
+        self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-row"):
@@ -438,6 +445,32 @@ class NOVAApp(App):
         if self._stop_evt is not None:
             self._stop_evt.set()
 
+    # Panel focus order: 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
+    _FOCUS_PANELS = [SystemPanel, ShipPanel, RoutePanel, BodiesPanel, EventLogPanel, ChatLogPanel]
+
+    def _set_focus(self, n: int) -> None:
+        """Focus panel n (1-6) or clear focus (0). Adds/removes 'focused' CSS class."""
+        for i, cls in enumerate(self._FOCUS_PANELS, start=1):
+            try:
+                p = self.query_one(cls)
+                if i == n:
+                    p.add_class("focused")
+                else:
+                    p.remove_class("focused")
+            except Exception:
+                pass
+        self._focused_panel = n
+
+    def _scroll_focused(self, delta: int) -> None:
+        """Scroll up/down in the currently focused numbered panel."""
+        n = self._focused_panel
+        if n == 4:
+            self.query_one(BodiesPanel).scroll_bodies(delta)
+        elif n == 5:
+            self.query_one(EventLogPanel).scroll_log(delta)
+        elif n == 6:
+            self.query_one(ChatLogPanel).scroll_chat(delta)
+
     def on_key(self, event: events.Key) -> None:
         key = event.key
 
@@ -445,40 +478,89 @@ class NOVAApp(App):
             self.push_screen(HelpScreen())
             return
 
-        if key in ("q", "escape"):
+        if key == "q":
             self.exit()
 
-        elif key in ("down", "j"):
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
-                sit.scroll_neutron(1)
-            elif sit._active == "bgs":
-                sit.scroll_bgs(1)
-            elif sit._active == "colonisation":
-                sit.scroll_colonisation(1)
-            elif sit._active == "route":
-                sit.scroll_route(1)
+        elif key == "escape":
+            # Clear panel focus if any, otherwise quit
+            if self._focused_panel != 0:
+                self._set_focus(0)
             else:
-                sit.scroll_general(1)
+                self.exit()
+
+        # ── Panel focus: number keys 1-6 ──────────────────────────────────────
+        elif key in ("1", "2", "3", "4", "5", "6"):
+            self._set_focus(int(key))
+
+        elif key == "0":
+            self._set_focus(0)
+
+        # ── Tab: cycle focused panels (1→2→3→…→6→1) ──────────────────────────
+        elif key == "tab":
+            n = self._focused_panel
+            if n == 0:
+                self._set_focus(1)
+            else:
+                self._set_focus((n % 6) + 1)
+
+        elif key == "shift+tab":
+            n = self._focused_panel
+            if n == 0:
+                self._set_focus(6)
+            else:
+                self._set_focus(((n - 2) % 6) + 1)
+
+        # ── Left/Right: cycle situational panel modes ─────────────────────────
+        elif key == "left":
+            self.query_one(SituationalPanel).back_cycle()
+
+        elif key == "right":
+            self.query_one(SituationalPanel).cycle()
+
+        # ── Up/Down: scroll focused panel or situational panel ────────────────
+        elif key in ("down", "j"):
+            if self._focused_panel in (4, 5, 6):
+                self._scroll_focused(1)
+            else:
+                sit = self.query_one(SituationalPanel)
+                if sit._active == "neutron":
+                    sit.scroll_neutron(1)
+                elif sit._active == "bgs":
+                    sit.scroll_bgs(1)
+                elif sit._active == "colonisation":
+                    sit.scroll_colonisation(1)
+                elif sit._active == "route":
+                    sit.scroll_route(1)
+                else:
+                    sit.scroll_general(1)
 
         elif key in ("up", "k"):
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
-                sit.scroll_neutron(-1)
-            elif sit._active == "bgs":
-                sit.scroll_bgs(-1)
-            elif sit._active == "colonisation":
-                sit.scroll_colonisation(-1)
-            elif sit._active == "route":
-                sit.scroll_route(-1)
+            if self._focused_panel in (4, 5, 6):
+                self._scroll_focused(-1)
             else:
-                sit.scroll_general(-1)
+                sit = self.query_one(SituationalPanel)
+                if sit._active == "neutron":
+                    sit.scroll_neutron(-1)
+                elif sit._active == "bgs":
+                    sit.scroll_bgs(-1)
+                elif sit._active == "colonisation":
+                    sit.scroll_colonisation(-1)
+                elif sit._active == "route":
+                    sit.scroll_route(-1)
+                else:
+                    sit.scroll_general(-1)
 
         elif key == "pagedown":
-            self._scroll = min(self._scroll + 20, self._max_scroll)
+            if self._focused_panel in (4, 5, 6):
+                self._scroll_focused(5)
+            else:
+                self._scroll = min(self._scroll + 20, self._max_scroll)
 
         elif key == "pageup":
-            self._scroll = max(self._scroll - 20, 0)
+            if self._focused_panel in (4, 5, 6):
+                self._scroll_focused(-5)
+            else:
+                self._scroll = max(self._scroll - 20, 0)
 
         elif key in ("home", "g"):
             self._scroll = 0
@@ -488,12 +570,6 @@ class NOVAApp(App):
 
         elif key == "w":
             self.query_one(BodiesPanel).scroll_bodies(-1)
-
-        elif key == "tab":
-            self.query_one(SituationalPanel).cycle()
-
-        elif key == "shift+tab":
-            self.query_one(SituationalPanel).back_cycle()
 
         elif key == "a":
             self.query_one(SituationalPanel).toggle_auto_lock()
