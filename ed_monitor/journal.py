@@ -147,12 +147,11 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
         fresh_cached = {n: d for n, d in cached.items() if d.get("cached_at", "") >= cutoff}
         to_fetch = [n for n in need_check if n not in fresh_cached]
 
-        # Apply fresh cache to state immediately
+        # Apply fresh cache to state immediately (both found and not-found)
         if fresh_cached:
-            updates = {n: {"live_known": d["known"]} for n, d in fresh_cached.items() if d["known"]}
-            if updates:
-                with lock:
-                    state.route_list_edsm = {**state.route_list_edsm, **updates}
+            updates = {n: {"live_known": bool(d["known"])} for n, d in fresh_cached.items()}
+            with lock:
+                state.route_list_edsm = {**state.route_list_edsm, **updates}
 
         if not to_fetch:
             return
@@ -183,10 +182,10 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
                         "scoopable": -1, "cached_at": now_str,
                     })
 
-                if found:
-                    updates = {n: {"live_known": True} for n in found}
-                    with lock:
-                        state.route_list_edsm = {**state.route_list_edsm, **updates}
+                # Mark all checked systems: True if found in EDSM, False if not
+                updates = {n: {"live_known": n in found} for n in batch}
+                with lock:
+                    state.route_list_edsm = {**state.route_list_edsm, **updates}
 
                 if i + _EDSM_BATCH < len(to_fetch):
                     _time.sleep(1.0)  # be polite to EDSM API

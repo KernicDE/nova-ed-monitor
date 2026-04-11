@@ -3269,7 +3269,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
 
 
 def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
-    """Nav route panel: jump#, system, star class, scoopable, dist, jump dist, EDSM, bio signals, body count."""
+    """Nav route panel: jump#, system, star class+scoopable, body count, dist, jump dist, EDSM, bio signals."""
     import math as _math
 
     route = s.route_list
@@ -3306,8 +3306,17 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         if sc.startswith("D"): return "rgb(200,230,255)"
         return P.LABEL
 
+    # Skip current system (route[0]); display route[1:]
+    display_route = route[1:]
+    if not display_route:
+        t = Text()
+        t.append("Last jump — route complete.\n", style=P.LABEL)
+        if s.route_destination:
+            t.append(s.route_destination, style="white")
+        return t
+
     parts: list[RenderableType] = []
-    effective_scroll = min(scroll, max(0, len(route) - 1))
+    effective_scroll = min(scroll, max(0, len(display_route) - 1))
     if effective_scroll > 0:
         more_t = Text()
         more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
@@ -3316,17 +3325,16 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
     tbl = Table(show_header=True, show_edge=False, box=None,
                 padding=(0, 1), header_style=f"bold {P.LABEL}")
     tbl.add_column("#",    width=3,  justify="right",  no_wrap=True)
-    tbl.add_column("System", width=20, no_wrap=True)
-    tbl.add_column("★",    width=3,  no_wrap=True)
-    tbl.add_column("SC",   width=2,  no_wrap=True)
+    tbl.add_column("System", width=18, no_wrap=True)
+    tbl.add_column("★",    width=5,  no_wrap=True)   # star class + scoopable fuel indicator
+    tbl.add_column("Bd",   width=2,  justify="right",  no_wrap=True)
     tbl.add_column("Dist", width=7,  justify="right",  no_wrap=True)
     tbl.add_column("Jump", width=6,  justify="right",  no_wrap=True)
-    tbl.add_column("EDSM", width=4,  justify="center", no_wrap=True)
+    tbl.add_column("✦",    width=1,  justify="center", no_wrap=True)  # EDSM presence
     tbl.add_column("Bio",  width=3,  justify="right",  no_wrap=True)
-    tbl.add_column("Bd",   width=3,  justify="right",  no_wrap=True)
 
     prev_pos = cur_pos
-    visible  = route[effective_scroll:]
+    visible  = display_route[effective_scroll:]
 
     for i, entry in enumerate(visible, start=effective_scroll + 1):
         name       = entry.get("StarSystem", "?")
@@ -3351,10 +3359,23 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         else:
             jump_d = 0.0
 
-        edsm_entry = edsm.get(name, {})
-        in_edsm    = bool(edsm_entry) or edsm_entry.get("live_known", False)
-        sc_short   = star_class[:3] if star_class else "?"
-        sc_col     = _star_col(star_class or "")
+        edsm_entry = edsm.get(name)  # None = not yet fetched
+        if edsm_entry is None:
+            edsm_text = Text("?", style=P.LABEL)
+        elif edsm_entry.get("live_known") is False and not edsm_entry.get("x"):
+            edsm_text = Text("✗", style=P.HUD_CRIT)
+        else:
+            edsm_text = Text("✓", style=P.HUD_GREEN)
+
+        sc_short  = (star_class[:3] if star_class else "?").ljust(3)
+        sc_col    = _star_col(star_class or "")
+        star_cell = Text()
+        star_cell.append(sc_short, style=sc_col)
+        star_cell.append(" ⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else "dim rgb(70,70,70)")
+
+        # Color system name: inhabited (population > 0) = warm white, else default white
+        population = (edsm_entry or {}).get("population", 0) or 0
+        name_style = "rgb(255,235,180)" if population > 0 else "white"
 
         body_entry = bodies.get(name)  # None = not fetched yet, dict = fetched
         if body_entry is None:
@@ -3368,14 +3389,13 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
 
         tbl.add_row(
             Text(str(i), style=P.LABEL),
-            Text(name[:20], style="white"),
-            Text(sc_short, style=sc_col),
-            Text("✓" if scoopable else "·", style=P.HUD_GREEN if scoopable else P.LABEL),
+            Text(name[:18], style=name_style),
+            star_cell,
+            bd_text,
             Text(_fmt_ly(dist_cur), style=P.WHITE),
             Text(_fmt_ly(jump_d),   style=P.LABEL),
-            Text("✓" if in_edsm else "?", style=P.HUD_GREEN if in_edsm else P.LABEL),
+            edsm_text,
             bio_text,
-            bd_text,
         )
 
         if pos_list:
@@ -3384,10 +3404,12 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
     parts.append(tbl)
 
     # Footer summary
+    hops = s.route_hops
+    word = "jump" if hops == 1 else "jumps"
     sum_t = Text()
-    sum_t.append(f"\n  {len(route)} jumps remaining", style=P.LABEL)
+    sum_t.append(f"\n  {hops} {word} remaining", style=P.LABEL)
     if s.route_destination:
-        sum_t.append(f" → ", style=P.LABEL)
+        sum_t.append(" → ", style=P.LABEL)
         sum_t.append(s.route_destination, style="white")
     parts.append(sum_t)
 

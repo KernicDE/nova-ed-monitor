@@ -238,6 +238,7 @@ class NOVAApp(App):
 
     RoutePanel {
         width: 3fr;
+        max-height: 40;
     }
 
     EventLogPanel {
