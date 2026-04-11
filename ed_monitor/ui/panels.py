@@ -820,7 +820,9 @@ class RoutePanel(_Panel):
 
         row("Type", btype, f"bold {col}")
         if body.dist_ls > 0.0:
-            row("Dist", _fmt_ls(body.dist_ls), P.LABEL)
+            row("Arrival", _fmt_ls(body.dist_ls), P.LABEL)  # distance from system entry star
+        if s.altitude > 0 and s.nearest_body == body_name:
+            row("Alt", f"{s.altitude:,.0f} m", "white")
 
         atm = body.atmosphere
         if atm and "No atmo" not in atm:
@@ -2089,41 +2091,46 @@ def _render_overview(s: AppState) -> RenderableType:
     import math
     parts: list[RenderableType] = []
 
-    # Route section
-    route_text = Text()
+    # ── Two-column header: ROUTE (left) + POSITION (right) ────────────────────
+    route_col = Text()
+    route_col.append("ROUTE\n", style=f"bold {P.AMBER}")
     if s.route_destination:
-        route_text.append("ROUTE  ", style=P.LABEL)
-        route_text.append(f"→ {s.route_destination}", style="bold white")
-        hops = f"  {s.route_hops} jump{'s' if s.route_hops != 1 else ''} remaining"
-        route_text.append(hops + "\n", style=P.AMBER)
+        route_col.append("→ ", style=P.LABEL)
+        route_col.append(s.route_destination + "\n", style="bold white")
+        word = "jump" if s.route_hops == 1 else "jumps"
+        route_col.append(f"  {s.route_hops} {word} remaining\n", style=P.AMBER)
         if s.route_next:
-            route_text.append("NEXT   ", style=P.LABEL)
-            route_text.append(s.route_next, style=P.HUD_CYAN)
+            route_col.append("→ ", style=P.LABEL)
+            route_col.append(s.route_next, style=P.HUD_CYAN)
             if s.route_next_star:
-                mark     = "⛽" if s.route_next_scoopable else "✗"
+                mark     = " ⛽" if s.route_next_scoopable else " ✗"
                 star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
-                route_text.append(f"  {s.route_next_star} {mark}", style=f"bold {star_col}")
-            route_text.append("\n")
+                route_col.append(f"  {s.route_next_star}{mark}", style=f"bold {star_col}")
+            route_col.append("\n")
     else:
-        route_text.append("No route set.\n", style=P.AMBER_DIM)
-    parts.append(route_text)
+        route_col.append("No route set.\n", style=P.AMBER_DIM)
 
-    # Galaxy position
+    pos_col = Text()
     if s.star_pos:
         x, y, z = s.star_pos
         dist_sol  = math.sqrt(x**2 + y**2 + z**2)
         core_x, core_y, core_z = 25.21875, -20.90625, 25899.96875
         dist_core = math.sqrt((x - core_x)**2 + (y - core_y)**2 + (z - core_z)**2)
-        
-        gal_text = Text()
-        gal_text.append("\nGALAXY POSITION\n", style="bold rgb(195,160,55)")
-        gal_text.append(f"  Sol   ", style=P.LABEL)
-        gal_text.append(f"{dist_sol:,.0f} ly\n".replace(",", _NNBSP), style="white")
-        gal_text.append(f"  Core  ", style=P.LABEL)
-        gal_text.append(f"{dist_core:,.0f} ly\n".replace(",", _NNBSP), style="white")
-        gal_text.append(f"  Pos   ", style=P.LABEL)
-        gal_text.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
-        parts.append(gal_text)
+        pos_col.append("POSITION\n", style=f"bold {P.AMBER}")
+        pos_col.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
+        pos_col.append("Sol   ", style=P.LABEL)
+        pos_col.append(f"{dist_sol:,.0f} ly\n".replace(",", _NNBSP), style="white")
+        pos_col.append("Core  ", style=P.LABEL)
+        pos_col.append(f"{dist_core:,.0f} ly\n".replace(",", _NNBSP), style="white")
+    else:
+        pos_col.append("POSITION\n", style=f"bold {P.AMBER}")
+        pos_col.append("No position data.\n", style=P.LABEL)
+
+    hdr_grid = Table.grid(padding=(0, 2))
+    hdr_grid.add_column(ratio=1)
+    hdr_grid.add_column(ratio=1)
+    hdr_grid.add_row(route_col, pos_col)
+    parts.append(hdr_grid)
 
     # System bodies diagram
     sys_diag = _render_system_map(s)
@@ -2131,15 +2138,12 @@ def _render_overview(s: AppState) -> RenderableType:
         parts.append(sys_diag)
 
     # Notable bodies in current system
-    from ..events import _jumponium_tier as _jt
     def _is_notable(b: BodyInfo) -> bool:
         if b.planet_class in ("Earthlike body", "Water world", "Ammonia world"):
             return True
         if b.terraform or b.bio_signals > 0:
             return True
         if b.value > s.notable_value_threshold:
-            return True
-        if b.materials and _jt(b.materials):
             return True
         if b.unusual_body:
             return True
@@ -2257,8 +2261,6 @@ def _render_overview(s: AppState) -> RenderableType:
             if b.terraform:                           why_parts.append("TF")
             if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}B")
             if b.value > s.notable_value_threshold:  why_parts.append("HV")
-            jump_tier = _jt(b.materials) if b.materials else ""
-            if jump_tier:                             why_parts.append(f"J-{jump_tier[:4]}")
             if b.unusual_body:                        why_parts.append(b.unusual_body)
             why_str = ", ".join(why_parts)
 
@@ -2331,7 +2333,7 @@ def _render_overview(s: AppState) -> RenderableType:
     if s.carriers_current_system:
         import math as _math
         car_head = Text()
-        car_head.append("\nFLEET CARRIER\n", style="bold rgb(100,180,255)")
+        car_head.append("\nNEAREST FLEET CARRIER\n", style="bold rgb(100,180,255)")
         parts.append(car_head)
 
         nearest = min(s.carriers_current_system, key=lambda c: c.get("dist_ls", float("inf")))
@@ -2372,13 +2374,16 @@ def _render_overview(s: AppState) -> RenderableType:
                     loc_txt.append(f"  {ago}", style="rgb(100,100,100)")
             loc_txt.append("\n", style="")
 
-            # Services line
-            icons = ""
-            if c.get("market"):     icons += "M"
-            if c.get("shipyard"):   icons += "S"
-            if c.get("outfitting"): icons += "O"
-            if icons:
-                loc_txt.append(f"  [{icons}]\n", style=P.AMBER)
+            # Services line — full names
+            svc_parts = []
+            if c.get("market"):     svc_parts.append("Market")
+            if c.get("shipyard"):   svc_parts.append("Shipyard")
+            if c.get("outfitting"): svc_parts.append("Outfitting")
+            if c.get("rearm"):      svc_parts.append("Rearm")
+            if c.get("refuel"):     svc_parts.append("Refuel")
+            if c.get("repair"):     svc_parts.append("Repair")
+            if svc_parts:
+                loc_txt.append(f"  {', '.join(svc_parts)}\n", style=P.AMBER)
 
             parts.append(loc_txt)
 
