@@ -740,7 +740,7 @@ def _strip_economy_label(s: str) -> str:
 
 
 class RoutePanel(_Panel):
-    BORDER_TITLE = "◈ Route"
+    BORDER_TITLE = "◈ Target"
 
     DEFAULT_CSS = """
     RoutePanel {
@@ -763,7 +763,7 @@ class RoutePanel(_Panel):
             short = _short_name(snap.target_body, snap.system)
             self.border_title = f"◈ Target: {short}"
         else:
-            self.border_title = "◈ Route"
+            self.border_title = "◈ Target"
         self.refresh()
 
     def render(self) -> RenderableType:
@@ -779,7 +779,7 @@ class RoutePanel(_Panel):
             result = self._render_target(s)
             if result is not None:
                 return result
-        return self._render_route(s)
+        return self._render_nearby(s)
 
     def _render_station(self, s: AppState) -> RenderableType:
         t = Text()
@@ -936,73 +936,102 @@ class RoutePanel(_Panel):
 
         return t
 
-    def _render_route(self, s: AppState) -> RenderableType:
+    def _render_nearby(self, s: AppState) -> RenderableType:
+        """Show nearest body (approach_body or nearest_body) or nearest station when nothing is targeted."""
         t = Text()
 
-        if not s.route_destination:
-            t.append("No route set\n", style=P.AMBER_DIM)
-            if s.jump_dist > 0.0:
-                t.append("Last ", style=P.LABEL)
-                t.append(f"{s.jump_dist:.1f} ly\n", style="white")
+        def row(label: str, value: str, vstyle: str = "white") -> None:
+            t.append(f"{label:<8}", style=P.LABEL)
+            t.append(value + "\n", style=vstyle)
+
+        # Prefer the body the player is actively approaching, then the nearest tracked body
+        near_name = s.approach_body or s.nearest_body
+        body = next((b for b in s.bodies if b.name == near_name), None) if near_name else None
+
+        if body:
+            short = _short_name(body.name, s.system) if body.name and s.system else body.name
+            btype = _abbrev_type(body.planet_class, body.star_type)
+            col   = _body_color(body.planet_class, body.star_type)
+
+            label = "APPROACHING" if s.approach_body else "NEARBY"
+            t.append(f"{label}\n", style=f"bold {P.HUD_CYAN}")
+            t.append(f"{short}\n", style=f"bold {col}")
+
+            row("Type", btype, f"bold {col}")
+            if body.dist_ls > 0.0:
+                row("Arrival", _fmt_ls(body.dist_ls), P.LABEL)
+            if s.altitude is not None and s.altitude > 0:
+                row("Alt", f"{s.altitude:,.0f} m", "white")
+
+            atm = body.atmosphere
+            if atm and "No atmo" not in atm:
+                row("Atm", atm)
+
+            if body.landable:
+                if body.surface_gravity > 0.0:
+                    g_val = body.surface_gravity / 9.80665
+                    g_col = P.HUD_CRIT if g_val >= 3.0 else (P.AMBER if g_val >= 1.5 else P.HUD_GREEN)
+                    row("Land", f"Yes  ({g_val:.2f}g)", g_col)
+                else:
+                    row("Land", "Yes", P.HUD_GREEN)
+
+            if body.bio_signals > 0:
+                complete_count = sum(
+                    1 for sc in s.bio_scans
+                    if sc.body == body.name and sc.complete
+                )
+                bio_str = f"{body.bio_signals} signals"
+                if complete_count > 0:
+                    bio_str += f"  ({complete_count} done)"
+                bio_col = P.GOLD if complete_count >= body.bio_signals else "bold rgb(0,220,80)"
+                row("Bio", bio_str, bio_col)
+                if body.bio_genuses:
+                    for g in body.bio_genuses[:4]:
+                        t.append(f"  · {g}\n", style="rgb(0,160,60)")
+
+            if body.geo_signals > 0:
+                row("Geo", f"{body.geo_signals} signals", P.PURPLE)
+
+            if body.terraform:
+                row("Terr", "Candidate", P.HUD_CYAN)
+
+            if body.first_discovered:
+                t.append("★ First discovered!\n", style=f"bold {P.GOLD}")
+
             return t
 
-        word = "jump" if s.route_hops == 1 else "jumps"
-        t.append("→ ", style=f"bold {P.AMBER}")
-        t.append(s.route_destination + "\n", style="bold white")
+        # No nearby body — show nearest station in the current system from EDSM data
+        stations = getattr(s, "nearest_populated_stations", [])
+        if stations:
+            t.append("NEAREST STATION\n", style=f"bold {P.LABEL}")
+            stn = stations[0]
+            stn_name = stn.get("name", "?")
+            if len(stn_name) > 22:
+                stn_name = stn_name[:21] + "…"
+            t.append(f"{stn_name}\n", style="bold white")
+            dist_ls = stn.get("dist_ls", 0)
+            if dist_ls > 0:
+                row("Dist", _fmt_ls(dist_ls), P.LABEL)
+            stn_type = stn.get("type", "")
+            if stn_type:
+                row("Type", stn_type)
+            icons = ""
+            if stn.get("market"):     icons += "M"
+            if stn.get("shipyard"):   icons += "S"
+            if stn.get("outfitting"): icons += "O"
+            svcs = stn.get("other_services") or stn.get("services") or []
+            if "Repair" in svcs:      icons += "R"
+            if icons:
+                row("Svcs", f"[{icons}]", P.AMBER)
+            return t
 
-        # Compact: hops · next dist · total on one line
-        t.append("  ")
-        t.append(f"{s.route_hops} {word}", style=P.AMBER)
-        if s.route_next_dist > 0:
-            t.append(f"  ·  {s.route_next_dist:.1f} ly", style="rgb(120,120,120)")
-        if s.route_dist > 0:
-            t.append(f"  ({s.route_dist:.1f} total)", style=P.DIM)
-        t.append("\n")
-
-        if s.route_next:
-            t.append("Next  ", style=P.LABEL)
-            if s.route_hops == 1:
-                t.append(s.route_next, style="bold white")
-            else:
-                t.append(s.route_next, style=P.HUD_CYAN)
-            if s.route_next_star:
-                star_desc = {
-                    "N": "Neutron",
-                    "H": "Black Hole",
-                }.get(s.route_next_star) or (
-                    "White Dwarf" if s.route_next_star.startswith("D")
-                    else f"{s.route_next_star}"
-                )
-                mark     = "⛽" if s.route_next_scoopable else "✗"
-                star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
-                t.append(f"  {star_desc} {mark}", style=f"bold {star_col}")
-            t.append("\n")
-
-        # Next-waypoint stations (from EDSM dump cache)
-        if s.route_next_stations:
-            t.append("Stations at next:\n", style=P.LABEL)
-            for stn in s.route_next_stations[:3]:
-                icons = ""
-                if stn.get("market"):     icons += "M"
-                if stn.get("shipyard"):   icons += "S"
-                if stn.get("outfitting"): icons += "O"
-                if "Repair" in stn.get("services", []):  icons += "R"
-                stn_name = stn["name"]
-                if len(stn_name) > 16:
-                    stn_name = stn_name[:15] + "…"
-                dist_s = _fmt_ls_compact(stn["dist_ls"]) if stn["dist_ls"] > 0 else ""
-                t.append(f"  {stn_name}", style="white")
-                if dist_s:
-                    t.append(f"  {dist_s}", style=P.LABEL)
-                if icons:
-                    t.append(f"  [{icons}]", style=P.AMBER)
-                t.append("\n")
-
-
+        # Nothing nearby at all
+        t.append("No target\n", style=P.LABEL)
+        if s.system:
+            t.append(s.system + "\n", style="white")
         if s.jump_dist > 0.0:
-            t.append("Jump ", style=P.LABEL)
+            t.append("Last jump  ", style=P.LABEL)
             t.append(f"{s.jump_dist:.1f} ly\n", style="white")
-
         return t
 
 
