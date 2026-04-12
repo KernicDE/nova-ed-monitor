@@ -1314,7 +1314,7 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
 
     for _gi, (gtype, gdata) in enumerate(groups[effective_scroll:]):
         if _gi > 0 or effective_scroll > 0:
-            parts.append(Text("\n\n"))
+            parts.append(Text("\n"))
         if gtype == "predicted":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
@@ -1323,7 +1323,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
             hdr_t.append(f"(FSS · {b.bio_signals} bio) ", style="rgb(120,120,80)")
             hdr_t.append("─" * 8, style="rgb(60,80,100)")
-            hdr_t.append("\n")
             parts.append(hdr_t)
 
             if b.bio_genuses_predicted:
@@ -1377,7 +1376,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             if _ff:
                 hdr_t.append("✦ FF ", style=P.HUD_GREEN)
             hdr_t.append("─" * 14, style="rgb(60,80,100)")
-            hdr_t.append("\n")
             parts.append(hdr_t)
 
             tbl = Table(
@@ -1420,7 +1418,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             if _scan_ff:
                 hdr_t.append("✦ FF ", style=P.HUD_GREEN)
             hdr_t.append("─" * 20, style="rgb(60,80,100)")
-            hdr_t.append("\n")
             parts.append(hdr_t)
 
             tbl = Table(
