@@ -1207,6 +1207,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     dist_ls=dist_ls, value=value,
                     first_discovered=not _b(ev, "WasDiscovered"),
                     first_mapped=not _b(ev, "WasMapped"),
+                    first_footfall="WasFootfalled" in ev and not ev["WasFootfalled"],
                     mapped=False, fss_scanned=scan_type == "Detailed",
                     radius=radius,
                     semi_major_axis=_f(ev, "SemiMajorAxis"),
@@ -1855,12 +1856,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
         case "FuelScoop":
             total      = _f(ev, "Total")
             state.fuel = total
-            # Use stricter threshold and check flag to avoid double messages
             is_full    = state.fuel_max > 0.0 and total >= (state.fuel_max - 0.05)
             if is_full and not state.fuel_announced:
                 state.fuel_announced = True
                 _say(tts_q, "FuelScoop_Full", False, fallback="Fuel tank full.")
-            return LogEvent.new(EventCategory.Status, f"Fuel: {total:.1f}/{state.fuel_max:.0f}t.")
+                return LogEvent.new(EventCategory.Status, f"Fuel full ({total:.0f}t).")
+            return None
 
         case "Interdicted":
             submitted   = _b(ev, "Submitted")

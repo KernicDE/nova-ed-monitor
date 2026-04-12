@@ -254,6 +254,14 @@ def _estimated_value(b: BodyInfo) -> int:
     return base
 
 
+def _body_value(b: BodyInfo) -> int:
+    """Body value including first-mapping bonus when applicable."""
+    v = b.value if b.value > 0 else _estimated_value(b)
+    if v > 0 and b.first_mapped and not b.mapped:
+        v = int(v * 3.3)
+    return v
+
+
 def _mission_time_remaining(expiry: str) -> str:
     if not expiry:
         return ""
@@ -319,9 +327,9 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        # Only count bodies that are actual stars/planets (exclude belt clusters which have
-        # neither planet_class nor star_type). Only "Detailed" FSS scans count, not AutoScan.
-        fss_done  = sum(1 for b in s.bodies if b.fss_scanned and (b.planet_class or b.star_type))
+        # Stars are auto-scanned by the game — count them as always done.
+        # Only "Detailed" FSS scans count for planets/moons, not AutoScan.
+        fss_done  = sum(1 for b in s.bodies if (b.star_type or b.fss_scanned) and (b.planet_class or b.star_type))
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
@@ -360,10 +368,9 @@ class SystemPanel(_Panel):
             left_cells.append(_cell("At", _short_name(s.nearest_body, s.system)))
 
         if s.lat is not None and s.lon is not None:
-            pos = f"{s.lat:.2f}, {s.lon:.2f}"
+            left_cells.append(_cell("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
             if s.altitude is not None:
-                pos += f"  alt {s.altitude:,.0f} m"
-            left_cells.append(_cell("Pos", pos))
+                left_cells.append(_cell("Alt", f"{s.altitude:,.0f} m"))
 
         # Right column — human/BGS data
         if s.population > 0:
@@ -1057,8 +1064,9 @@ class BodiesPanel(_Panel):
             name  = Text(indent + display_name, style=name_style)
             btype = _abbrev_type(b.planet_class, b.star_type)
 
-            val     = _fmt_value_short(b.value if b.value > 0 else _estimated_value(b))
-            val_col = (P.GOLD if b.value > 1_000_000
+            val     = _fmt_value_short(_body_value(b))
+            bv      = _body_value(b)
+            val_col = (P.GOLD if bv > 1_000_000
                        else ("white" if b.value > 0
                              else (P.AMBER if _estimated_value(b) > 0 else P.DIM)))
 
@@ -2139,7 +2147,7 @@ def _render_overview(s: AppState) -> RenderableType:
             return True
         if b.terraform or b.bio_signals > 0:
             return True
-        if b.value > s.notable_value_threshold:
+        if _body_value(b) > s.notable_value_threshold:
             return True
         if b.unusual_body:
             return True
@@ -2187,8 +2195,8 @@ def _render_overview(s: AppState) -> RenderableType:
             bio_done  = bio_all_done or not has_bio
             all_done  = scan_done and bio_done
 
-            # Body scan value
-            body_v = b.value if b.value > 0 else _estimated_value(b)
+            # Body scan value (includes first-mapping bonus when applicable)
+            body_v = _body_value(b)
 
             if all_done:
                 val_s = _fmt_notable_val(body_v)
@@ -2197,12 +2205,12 @@ def _render_overview(s: AppState) -> RenderableType:
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = P.AMBER if b.value == 0 else P.GOLD
+                vcol  = P.AMBER if body_v == 0 else P.GOLD
                 bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.GOLD
             else:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = P.GOLD if b.value > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
+                vcol  = P.GOLD if body_v > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
                     if b.bio_value_max > 0:
                         # DSS confirmed genus ranges
@@ -2256,7 +2264,7 @@ def _render_overview(s: AppState) -> RenderableType:
             if b.planet_class == "Ammonia world":    why_parts.append("AW")
             if b.terraform:                           why_parts.append("TF")
             if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}B")
-            if b.value > s.notable_value_threshold:  why_parts.append("HV")
+            if body_v > s.notable_value_threshold:  why_parts.append("HV")
             if b.unusual_body:                        why_parts.append(b.unusual_body)
             why_str = ", ".join(why_parts)
 

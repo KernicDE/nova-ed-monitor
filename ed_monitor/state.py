@@ -120,6 +120,7 @@ class BodyInfo:
     volcanism:           str   = ""    # raw volcanism string from Scan event
     materials:           dict  = field(default_factory=dict)   # {name_lower: pct} from Scan Materials
     unusual_body:        str   = ""    # non-empty = unusual (e.g. "Tiny <300 km", "Eccentric")
+    first_footfall:      bool  = False # True when WasFootfalled=false in Scan event
 
 
 @dataclass
@@ -438,7 +439,8 @@ class AppState:
             if b.dist_ls == 0.0 and dist > 0.0:  b.dist_ls      = dist
             b.mapped      = mapped or b.mapped
             b.fss_scanned = fss    or b.fss_scanned
-            if first: b.first_discovered = True
+            if first:    b.first_discovered = True
+            if existing.first_footfall: b.first_footfall = True
             if b.bio_value_min == 0: b.bio_value_min = bvmin
             if b.bio_value_max == 0: b.bio_value_max = bvmax
             if not b.materials and mats:    b.materials    = mats
