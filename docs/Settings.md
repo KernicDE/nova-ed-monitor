@@ -91,7 +91,7 @@ No configuration required. NOVA automatically downloads and refreshes EDSM and S
 |------|---------------|
 | `systemsPopulated.json.gz` | Nearest inhabited system, allegiance, population |
 | `powerPlay.json.gz` | Power Play controlling power and state per system |
-| `stations.json.gz` | Stations at next route waypoint (market, shipyard, outfitting, refuel) |
+| `stations.json.gz` | Stations at next route waypoint and at nearest inhabited system (market, shipyard, outfitting, refuel, repair, rearm) |
 | `systems_neutron.json.gz` | Neutron star positions for the local route planner (~50 k systems) |
 
 Data is stored in the local SQLite database (`events.db`). The database grows by roughly 50–80 MB after the first download (EDSM + neutron stars). Downloads happen in the background — NOVA starts immediately and populates data as soon as the import is complete.

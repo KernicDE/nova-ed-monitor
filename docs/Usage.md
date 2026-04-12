@@ -60,8 +60,8 @@ Press `Tab` to cycle through modes. In **Auto** mode NOVA switches automatically
 
 | Mode | Auto? | Description |
 |------|-------|-------------|
-| **Auto** | — | Bio → Missions → Overview; Stats when offline |
-| Overview | ✓ | System diagram, notable bodies, session totals |
+| **Auto** | — | Docking → Bio → Colonisation → Missions → Overview; Stats when offline |
+| Overview | ✓ | System diagram, notable bodies, session totals; nearest inhabited system (with station count and services) when in uninhabited space |
 | Wealth | — | Credit balance, fleet locations, cargo, suit loadout, backpack |
 | Inventory | — | Cargo hold and materials |
 | Bio | ✓ | Active bio scans — distances, bearings, sample counts |
@@ -80,10 +80,13 @@ Shows current system info in a two-column layout: natural/exploration data on th
 | Left column | Right column |
 |-------------|--------------|
 | Bodies (stars/planets/moons) | Economy |
-| FSS scan progress | Security |
+| FSS scan progress (stars always count as done) | Security |
 | Power Play affiliation | Government / Allegiance |
-| Nearest inhabited (uninhabited only) | Controlling faction |
-| Current position / coordinates | Station count |
+| | Controlling faction |
+| | Station count |
+
+Below the two-column table, a single position line is shown when on a surface:
+`At <nearest body>     Pos <lat, lon>     Alt <altitude m>`
 
 Power Play state colour coding:
 - Cyan — Control
@@ -126,15 +129,17 @@ Shows all scanned bodies in the current system.
 |--------|---------|
 | Body | Short name — indented moons shown as ↳ child |
 | Type | Abbreviated body type |
-| Val | Scan value (gold if >1M Cr); `~3.4M–12.9M` estimate in amber before full scan |
+| Val | Scan value (gold if >1M Cr); ×3.3 mapping bonus included when body is unmapped; `~3.4M–12.9M` estimate in amber before full scan |
 | Dist | Distance from arrival (ls) |
 | B | Bio signal count; `3✓` in gold when all scans complete |
 | G | Geological signal count |
 | LTA | `L`=Landable `T`=Terraformable `A`=Atmosphere |
-| F | `●` = FSS scanned |
+| F | `●` = FSS scanned (stars always count as done) |
 | D | `●` = DSS mapped |
 
 **`★`** next to a species name = first discovered in the galaxy.
+
+Bodies where `WasFootfalled=false` is set in the FSS scan data are pre-flagged for first footfall — NOVA announces the bonus as soon as you disembark, without waiting for the `FirstFootfall` journal flag.
 
 ---
 

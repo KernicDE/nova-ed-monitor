@@ -21,12 +21,13 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 ### Exploration
 - **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species; first footfall bonus announced when all 3 samples scanned
 - **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) before DSS, and predicted genera after FSS based on planet conditions
-- **First footfall inference** — announces first footfall bonus even when the journal flag is absent, based on first-discovery status
+- **First footfall inference** — announces first footfall bonus even when the journal flag is absent; pre-flags bodies from FSS scan data (`WasFootfalled=false`)
+- **First-mapping bonus** — body values include ×3.3 mapping bonus when a body has never been mapped (`WasMapped=false`) and is not yet DSS'd; shown in Bodies panel, Overview, and notable-body threshold
 - **High-G body warning** — TTS warning at ≥1.5 G; three repeated alerts and orange border flash for extreme gravity (≥3 G)
 - **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
 - **EDSM enrichment** — downloads EDSM nightly dumps for offline lookups; no API key needed
 - **Power Play** — displays controlling power and state (Exploited / Fortified / Control / etc.) from local EDSM cache
-- **Nearest inhabited system** — shows closest populated system and distance when exploring uninhabited space
+- **Nearest inhabited system** — shows closest populated system, distance, station count, and available services in the Overview when in uninhabited space
 
 ### Navigation & Route
 - **Route situation panel** — shows each jump in the active nav route with star type, scoopable indicator, distance from current position, jump distance, and EDSM presence; scrollable
@@ -320,12 +321,12 @@ The border title shows all modes as abbreviations; the active one expands to its
 |--------|---------|
 | Body | Short name, indented: planet / ↳ moon |
 | Type | Abbreviated body type |
-| Val | Actual scan value (gold), `~3.4M–12.9M` genus estimate (amber), or `~est` for planet type estimate |
+| Val | Actual scan value (gold); ×3.3 mapping bonus applied when unmapped; `~3.4M–12.9M` genus estimate (amber); or `~est` for planet type estimate |
 | Dist | Distance from arrival (ls) |
 | B | Bio signal count; `3✓` (gold) when all bio scans complete |
 | G | Geological signal count |
 | LTA | Flags: `L`=Landable, `T`=Terraformable, `A`=Atmosphere |
-| F | `●` = FSS scanned |
+| F | `●` = FSS scanned (stars always count as done) |
 | D | `●` = DSS mapped |
 
 ---
