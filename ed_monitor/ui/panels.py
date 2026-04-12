@@ -1314,7 +1314,7 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
 
     for _gi, (gtype, gdata) in enumerate(groups[effective_scroll:]):
         if _gi > 0 or effective_scroll > 0:
-            parts.append(Text("\n"))
+            parts.append(Text("\n\n"))
         if gtype == "predicted":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
@@ -1507,6 +1507,7 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             parts.append(tbl)
 
     if total_known > 0:
+        parts.append(Text("\n"))
         footer = Text()
         footer.append("Total confirmed: ", style=P.LABEL)
         footer.append(_fmt_value(total_known), style=f"bold {P.GOLD}")
