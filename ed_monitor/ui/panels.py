@@ -408,6 +408,7 @@ class SystemPanel(_Panel):
                 pos_parts.append(_cell("Alt", f"{s.altitude:,.0f} m"))
         if pos_parts:
             pos_line = Text()
+            pos_line.append("\n ")   # blank line + 1-space left margin matching table padding
             for i, p in enumerate(pos_parts):
                 if i > 0:
                     pos_line.append("     ")
