@@ -2349,9 +2349,24 @@ def _render_overview(s: AppState) -> RenderableType:
         dist_str = f"{s.nearest_populated_dist:.0f} ly"
         inh_info.append(f"  {s.nearest_populated_name}", style="white")
         inh_info.append(f"  ({dist_str})", style=P.LABEL)
+        stn_count = len(s.nearest_populated_stations)
+        if stn_count:
+            inh_info.append(f"  ·  {stn_count} station{'s' if stn_count != 1 else ''}", style=P.LABEL)
         if s.nearest_populated_allegiance:
             inh_info.append(f"  ·  {s.nearest_populated_allegiance}", style=P.LABEL)
         inh_info.append("\n")
+        # Consolidated services across all stations
+        if stn_count:
+            svcs: set[str] = set()
+            for _stn in s.nearest_populated_stations:
+                if _stn.get("market"):     svcs.add("Market")
+                if _stn.get("shipyard"):   svcs.add("Shipyard")
+                if _stn.get("outfitting"): svcs.add("Outfitting")
+                for _sv in _stn.get("services", []):
+                    if _sv in ("Repair", "Refuel", "Rearm", "BlackMarket"):
+                        svcs.add(_sv)
+            if svcs:
+                inh_info.append("  " + "  ·  ".join(sorted(svcs)) + "\n", style=P.LABEL)
         parts.append(inh_info)
 
     # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
@@ -2382,11 +2397,11 @@ def _render_overview(s: AppState) -> RenderableType:
 
             # Location line
             loc_txt = Text()
-            loc_txt.append("  " + c_name + "\n", style="bold white")
+            loc_txt.append("  " + c_name + "\n", style=f"bold {P.AMBER}")
             loc_txt.append("  ", style="")
             in_current = c_system and c_system.lower() == s.system.lower()
             if c_system:
-                loc_txt.append(c_system, style=P.HUD_CYAN if in_current else P.AMBER)
+                loc_txt.append(c_system, style="white")
             if in_current and c_dist_ls > 0:
                 loc_txt.append(f"  {_fmt_ls_compact(c_dist_ls)}", style=P.LABEL)
             elif ly_dist is not None:
@@ -2408,7 +2423,7 @@ def _render_overview(s: AppState) -> RenderableType:
             if c.get("refuel"):     svc_parts.append("Refuel")
             if c.get("repair"):     svc_parts.append("Repair")
             if svc_parts:
-                loc_txt.append(f"  {', '.join(svc_parts)}\n", style=P.AMBER)
+                loc_txt.append(f"  {', '.join(svc_parts)}\n", style="white")
 
             parts.append(loc_txt)
 

@@ -48,18 +48,22 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
     if pos and sys_name and pop == 0:
         nearest = db.get_nearest_populated(pos[0], pos[1], pos[2], exclude=sys_name)
         if nearest:
+            near_stations = db.get_system_stations(nearest[0], limit=50)
             with lock:
                 state.nearest_populated_name       = nearest[0]
                 state.nearest_populated_dist       = nearest[1]
                 state.nearest_populated_allegiance = nearest[2]
+                state.nearest_populated_stations   = near_stations
         else:
             with lock:
-                state.nearest_populated_name = ""
-                state.nearest_populated_dist = 0.0
+                state.nearest_populated_name     = ""
+                state.nearest_populated_dist     = 0.0
+                state.nearest_populated_stations = []
     else:
         with lock:
-            state.nearest_populated_name = ""
-            state.nearest_populated_dist = 0.0
+            state.nearest_populated_name     = ""
+            state.nearest_populated_dist     = 0.0
+            state.nearest_populated_stations = []
 
     # Stations at next waypoint
     if route_next:

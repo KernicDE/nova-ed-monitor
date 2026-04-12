@@ -184,6 +184,7 @@ class AppState:
     jump_dist_total: float = 0.0
     star_pos:   Optional[tuple] = None
     discovery_announced: bool = False
+    fss_honk_pending:    bool = False  # True from FSSDiscoveryScan until FSSAllBodiesFound fires
 
     # Commander & Ship
     commander:  str = ""
@@ -361,6 +362,7 @@ class AppState:
     nearest_populated_name:       str   = ""
     nearest_populated_dist:       float = 0.0
     nearest_populated_allegiance: str   = ""
+    nearest_populated_stations:   list  = field(default_factory=list)  # list[dict] from EDSM
     route_next_stations:          list  = field(default_factory=list)  # list[dict]
 
     # Spansh carrier lookup (populated by spansh.py after each system change)

@@ -722,8 +722,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.fuel       = fuel
             if dist > 0.0:
                 state.jump_range_last = dist  # actual laden range for this jump
-            state.fuel_announced = False
+            state.fuel_announced  = False
             state.discovery_announced = False
+            state.fss_honk_pending    = False
             state.hull       = _f(ev, "Health") if "Health" in ev else state.hull
             state.lat        = None
             state.lon        = None
@@ -1331,7 +1332,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
         case "FSSDiscoveryScan":
             total = _u(ev, "BodyCount")
-            state.fss_body_count = total
+            state.fss_body_count  = total
+            state.fss_honk_pending = True
             msg   = f"Honk complete. {total} bodies detected."
             _say(tts_q, "FSSDiscoveryScan", False, fallback=msg, total=total)
             return LogEvent.new(EventCategory.Explore, msg)
@@ -1960,10 +1962,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 return None
 
         case "FSSAllBodiesFound":
-            system = _s(ev, "SystemName")
-            msg    = f"System scan complete. All signals accounted for in {system}."
-            _say(tts_q, "FSSAllBodiesFound", False, fallback=msg, system=system)
-            return LogEvent.new(EventCategory.Explore, f"System scan complete: {system}")
+            # Only announce when triggered by a player honk; suppress auto-scan firings.
+            if state.fss_honk_pending:
+                state.fss_honk_pending = False
+                system = _s(ev, "SystemName")
+                msg    = f"System scan complete. All signals accounted for in {system}."
+                _say(tts_q, "FSSAllBodiesFound", False, fallback=msg, system=system)
+                return LogEvent.new(EventCategory.Explore, f"System scan complete: {system}")
+            state.fss_honk_pending = False
+            return None
 
         case "Scanned":
             scan_type = _s(ev, "ScanType")
