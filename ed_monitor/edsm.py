@@ -50,12 +50,13 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
                 _log.debug(f"EDSM request: {kind} for '{system}'")
                 try:
                     if kind in ("fetch_system", "fetch_system_silent"):
-                        data = _fetch_system_data(client, system, state, lock)
-                        bodies = data.get("bodies") if isinstance(data, dict) else None
-                        known  = isinstance(data, dict) and data.get("id64") is not None
+                        data   = _fetch_system_data(client, system, state, lock)
+                        bodies = data.get("bodies") if data is not None else None
 
-                        # Only announce "unknown to EDSM" for live jumps, not on startup
-                        if kind == "fetch_system":
+                        # Only announce "unknown to EDSM" for live jumps, not on startup,
+                        # and only when the API actually responded (data is not None).
+                        if kind == "fetch_system" and data is not None:
+                            known = data.get("id64") is not None
                             with lock:
                                 current_system    = state.system
                                 already_announced = state.system_edsm_known is not None
@@ -104,8 +105,13 @@ def _fetch_system_data(
     system: str,
     state:  AppState,
     lock:   threading.RLock,
-) -> dict:
-    """Fetch system bodies from EDSM. Returns the full response dict (may be empty on error)."""
+) -> Optional[dict]:
+    """Fetch system bodies from EDSM.
+
+    Returns the API response dict on success (id64 will be None when EDSM
+    genuinely does not know the system), or None on network/HTTP error.
+    Callers must treat None as "no determination possible".
+    """
     enc     = _url_encode(system)
     tx_time = _now_hms()
     try:
@@ -117,12 +123,12 @@ def _fetch_system_data(
             state.edsm_status.last_rx    = rx_time
             state.edsm_status.connected  = True
             state.edsm_status.last_error = None
-        return data if isinstance(data, dict) else {}
+        return data if isinstance(data, dict) else None
     except Exception as e:
         with lock:
             state.edsm_status.last_tx    = tx_time
             state.edsm_status.last_error = _fmt_err(e)
-        return {}
+        return None  # network/parse error — cannot determine EDSM status
 
 
 def _fetch_station_count(
