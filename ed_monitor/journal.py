@@ -400,7 +400,9 @@ def monitor(
     )
 
     with lock:
-        state.stats = db.get_stats()
+        commander = state.commander
+    with lock:
+        state.stats = db.get_stats(commander=commander)
 
     # Restore stored fleet from previous session
     ships_json = db.get_config("stored_ships_json")
@@ -547,12 +549,15 @@ def _process_backlog(
             except Exception as exc:
                 continue
 
+            with lock:
+                commander = state.commander  # updated by LoadGame handler
+
             # After entering a system, restore saved bodies from DB
             if ev_name in ("FSDJump", "CarrierJump", "Location"):
                 _load_system_bodies(state, lock, db)
 
             if log_ev is not None:
-                db.insert(log_ev, sys_name)
+                db.insert(log_ev, sys_name, commander=commander)
 
                 if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
                     with lock:
@@ -711,7 +716,8 @@ def _follow(
                     effective = _read_navroute_json(journal_dir) or ev
 
                 with lock:
-                    sys_name = state.system
+                    sys_name  = state.system
+                    prev_cmdr = state.commander
 
                 # Before jump: save current bodies
                 if ev_name in ("FSDJump", "CarrierJump"):
@@ -737,6 +743,14 @@ def _follow(
                         _lines_since_save = 0
                     continue
 
+                # Read commander after handle (LoadGame updates it)
+                with lock:
+                    commander = state.commander
+
+                # Detect commander switch (different commander logged in mid-session)
+                if ev_name == "LoadGame" and commander and prev_cmdr and commander != prev_cmdr:
+                    _handle_commander_switch(commander, state, lock, db)
+
                 # Session stats (live events only, not replayed during init)
                 if ev_name in ("FSDJump", "CarrierJump"):
                     with lock:
@@ -755,30 +769,30 @@ def _follow(
                 # Persistent statistics (live events only)
                 _stat_changed = False
                 if ev_name == "FSDJump":
-                    db.increment_stat("jump_count")
+                    db.increment_stat("jump_count", commander=commander)
                     dist_ly = float(effective.get("JumpDist") or 0.0)
-                    if dist_ly: db.increment_stat("jump_dist_ly", dist_ly)
+                    if dist_ly: db.increment_stat("jump_dist_ly", dist_ly, commander=commander)
                     _stat_changed = True
                 elif ev_name == "Scan" and effective.get("ScanType") == "Detailed":
                     if effective.get("PlanetClass") or effective.get("StarType"):
-                        db.increment_stat("fss_count")
+                        db.increment_stat("fss_count", commander=commander)
                         if not effective.get("WasDiscovered"):
-                            db.increment_stat("fss_undiscovered")
+                            db.increment_stat("fss_undiscovered", commander=commander)
                         val = int(effective.get("EstimatedValue") or 0)
-                        if val: db.increment_stat("fss_value", val)
+                        if val: db.increment_stat("fss_value", val, commander=commander)
                         _stat_changed = True
                 elif ev_name == "SAAScanComplete":
                     body_nm = effective.get("BodyName", "")
-                    db.increment_stat("dss_count")
+                    db.increment_stat("dss_count", commander=commander)
                     with lock:
                         _bidx = state._bodies_by_name.get(body_nm, -1)
                         _b = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
                     if _b:
-                        if _b.first_discovered: db.increment_stat("dss_undiscovered")
-                        if _b.value > 0:        db.increment_stat("dss_value", _b.value)
+                        if _b.first_discovered: db.increment_stat("dss_undiscovered", commander=commander)
+                        if _b.value > 0:        db.increment_stat("dss_value", _b.value, commander=commander)
                     _stat_changed = True
                 elif ev_name == "ScanOrganic" and effective.get("ScanType") == "Analyse":
-                    db.increment_stat("bio_count")
+                    db.increment_stat("bio_count", commander=commander)
                     _sp  = effective.get("Species", "")
                     _bid = int(effective.get("Body") or 0)
                     with lock:
@@ -787,48 +801,48 @@ def _follow(
                         _sc = next((s for s in state.bio_scans
                                     if s.species == _sp and (_bn is None or s.body == _bn) and s.complete), None)
                     if _sc:
-                        if _sc.first_footfall:  db.increment_stat("bio_first_footfall")
-                        if _sc.value > 0:       db.increment_stat("bio_value", _sc.value)
+                        if _sc.first_footfall:  db.increment_stat("bio_first_footfall", commander=commander)
+                        if _sc.value > 0:       db.increment_stat("bio_value", _sc.value, commander=commander)
                     _stat_changed = True
                 elif ev_name in ("Bounty", "FactionKillBond"):
-                    db.increment_stat("enemies_destroyed")
+                    db.increment_stat("enemies_destroyed", commander=commander)
                     _stat_changed = True
                 elif ev_name == "Died":
-                    db.increment_stat("ships_lost")
+                    db.increment_stat("ships_lost", commander=commander)
                     _stat_changed = True
                 elif ev_name in ("MultiSellExplorationData", "SellExplorationData"):
                     _e = int((effective.get("BaseValue") or 0) + (effective.get("Bonus") or 0))
-                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                    if _e: db.increment_stat("credits_earned", _e, commander=commander); _stat_changed = True
                 elif ev_name == "SellOrganicData":
                     _e = int(effective.get("TotalEarnings") or 0)
-                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                    if _e: db.increment_stat("credits_earned", _e, commander=commander); _stat_changed = True
                 elif ev_name == "RedeemVoucher":
                     _e = int(effective.get("Amount") or 0)
-                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                    if _e: db.increment_stat("credits_earned", _e, commander=commander); _stat_changed = True
                 elif ev_name == "MissionCompleted":
                     _e = int(effective.get("Reward") or 0)
-                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                    if _e: db.increment_stat("credits_earned", _e, commander=commander); _stat_changed = True
                 elif ev_name == "MarketSell":
                     _e = int(effective.get("TotalSale") or 0)
-                    if _e: db.increment_stat("credits_earned", _e); _stat_changed = True
+                    if _e: db.increment_stat("credits_earned", _e, commander=commander); _stat_changed = True
                 elif ev_name == "MarketBuy":
                     _s = int(effective.get("TotalCost") or 0)
-                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                    if _s: db.increment_stat("credits_spent", _s, commander=commander); _stat_changed = True
                 elif ev_name == "ShipyardBuy":
                     _s = int(effective.get("ShipPrice") or 0)
-                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                    if _s: db.increment_stat("credits_spent", _s, commander=commander); _stat_changed = True
                 elif ev_name == "ModuleBuy":
                     _s = int(effective.get("BuyPrice") or 0)
-                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                    if _s: db.increment_stat("credits_spent", _s, commander=commander); _stat_changed = True
                 elif ev_name in ("BuyAmmo", "RepairAll", "Repair"):
                     _s = int(effective.get("Cost") or 0)
-                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                    if _s: db.increment_stat("credits_spent", _s, commander=commander); _stat_changed = True
                 elif ev_name == "BuyDrones":
                     _s = int(effective.get("TotalCost") or 0)
-                    if _s: db.increment_stat("credits_spent", _s); _stat_changed = True
+                    if _s: db.increment_stat("credits_spent", _s, commander=commander); _stat_changed = True
                 if _stat_changed:
                     with lock:
-                        state.stats = db.get_stats()
+                        state.stats = db.get_stats(commander=commander)
 
                 # After jump or start: load saved bodies, trigger EDSM fetch
                 if ev_name in ("FSDJump", "CarrierJump", "Location"):
@@ -888,7 +902,7 @@ def _follow(
                     _save_current_bodies(state, lock, db)
 
                 if log_ev is not None:
-                    db.insert(log_ev, sys_name)
+                    db.insert(log_ev, sys_name, commander=commander)
 
                     if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
                         with lock:
@@ -913,17 +927,94 @@ def _follow(
         fd.close()
 
 
+# ── Commander switch ──────────────────────────────────────────────────────────
+
+def _handle_commander_switch(
+    new_cmdr: str,
+    state:    AppState,
+    lock:     threading.RLock,
+    db:       Database,
+) -> None:
+    """Called when a different commander logs in during the live tail.
+    Clears all in-memory commander-specific state and reloads from DB."""
+    from .state import MAX_EVENTS
+    _log.info(f"Commander switch → {new_cmdr}")
+
+    with lock:
+        state.bodies.clear()
+        state._bodies_by_name.clear()
+        state._bodies_by_id.clear()
+        state.bio_scans.clear()
+        state.events.clear()
+        state.missions.clear()
+        state.engineers.clear()
+        state.stored_ships.clear()
+        state.bgs_log.clear()
+        state.massacre_kills.clear()
+        state.colonisation_sites.clear()
+        state.credits = 0
+        state.hull    = 1.0
+        state.first_footfall_bodies.clear()
+        state.route_destination    = ""
+        state.route_hops           = 0
+        state.route_next           = ""
+        state.route_next_star      = ""
+        state.route_next_scoopable = False
+        state.route_dist           = 0.0
+        state.route_next_dist      = 0.0
+        state.route_list.clear()
+
+    # Reload events, hull, stats for the new commander
+    recent = db.get_recent_events(MAX_EVENTS, commander=new_cmdr)
+    with lock:
+        for ev in recent:
+            state.events.appendleft(ev)
+        state.hull  = db.get_hull()
+        state.stats = db.get_stats(commander=new_cmdr)
+
+    # Restore persisted route (global key; will be overridden quickly by journal replay)
+    route_json = db.get_config("route_snapshot_json")
+    if route_json:
+        try:
+            snap = json.loads(route_json)
+            with lock:
+                if snap.get("destination"):
+                    state.route_destination    = snap.get("destination", "")
+                    state.route_hops           = snap.get("hops", 0)
+                    state.route_next           = snap.get("next", "")
+                    state.route_next_star      = snap.get("next_star", "")
+                    state.route_next_scoopable = snap.get("scoopable", False)
+                    state.route_dist           = snap.get("dist", 0.0)
+                    state.route_next_dist      = snap.get("next_dist", 0.0)
+                    state.route_list           = snap.get("list", [])
+        except Exception:
+            pass
+
+    # Restore stored fleet (global key)
+    ships_json = db.get_config("stored_ships_json")
+    if ships_json:
+        try:
+            with lock:
+                state.stored_ships = json.loads(ships_json)
+        except Exception:
+            pass
+
+    # Load current system bodies/bio_scans for the new commander
+    _load_system_bodies(state, lock, db)
+
+
 # ── Body DB helpers ────────────────────────────────────────────────────────────
 
 def _save_current_bodies(state: AppState, lock: threading.RLock, db: Database) -> None:
     with lock:
-        system = state.system
-        bodies = list(state.bodies)
+        system    = state.system
+        commander = state.commander
+        bodies    = list(state.bodies)
         bio_scans = list(state.bio_scans)
     if not system or system == "—":
         return
     db.save_bodies_batch(system, bodies)
-    db.save_bio_scans(system, bio_scans)
+    db.save_bio_scans(system, bio_scans, commander=commander)
 
 
 def _save_bodies_only(state: AppState, lock: threading.RLock, db: Database) -> None:
@@ -938,7 +1029,8 @@ def _save_bodies_only(state: AppState, lock: threading.RLock, db: Database) -> N
 
 def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) -> None:
     with lock:
-        system = state.system
+        system    = state.system
+        commander = state.commander
     if not system or system == "—":
         return
     saved = db.load_bodies(system)
@@ -946,7 +1038,7 @@ def _load_system_bodies(state: AppState, lock: threading.RLock, db: Database) ->
         with lock:
             for body in saved:
                 state.upsert_body(body)
-    saved_scans = db.load_bio_scans(system)
+    saved_scans = db.load_bio_scans(system, commander=commander)
     if saved_scans:
         with lock:
             for sc in saved_scans:

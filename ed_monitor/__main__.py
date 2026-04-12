@@ -16,6 +16,32 @@ def _db_path() -> Path:
     return p
 
 
+def _detect_initial_commander(journal_dir: Path) -> str:
+    """Scan the most recent journal file for the last logged-in commander name."""
+    import json as _json
+    try:
+        candidates = sorted(
+            [p for p in journal_dir.iterdir()
+             if p.name.startswith("Journal.") and p.name.endswith(".log")],
+            key=lambda p: p.stat().st_mtime,
+        )
+        if not candidates:
+            return ""
+        with open(candidates[-1], "rb") as f:
+            raw = f.read()
+        cmdr = ""
+        for line in raw.decode("utf-8", errors="replace").splitlines():
+            try:
+                ev = _json.loads(line.strip())
+                if ev.get("event") == "LoadGame":
+                    cmdr = ev.get("Commander", "") or ""
+            except Exception:
+                pass
+        return cmdr
+    except Exception:
+        return ""
+
+
 def main() -> None:
     cfg = config.load()
     debug_log.setup(cfg.debug_log, config.config_dir())
@@ -27,12 +53,14 @@ def main() -> None:
     voicelines.ensure_user_files()   # copy built-ins to config dir if missing
     voicelines._load(cfg.tts_lang)   # pre-warm cache
 
+    initial_commander = _detect_initial_commander(cfg.journal_dir)
+
     database = db.Database(_db_path())
     state    = AppState()
     lock     = threading.RLock()
 
     with lock:
-        state.events.extendleft(database.get_recent_events(MAX_EVENTS))
+        state.events.extendleft(database.get_recent_events(MAX_EVENTS, initial_commander))
 
     volume    = [cfg.default_volume]
     vol_lock  = threading.Lock()

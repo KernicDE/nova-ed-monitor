@@ -8,6 +8,11 @@ from pathlib import Path
 from .state import BioScan, BodyInfo, LogEvent
 
 
+def _safe_cmdr(cmdr: str) -> str:
+    """Sanitise a commander name for use as a config key suffix."""
+    return "".join(c if c.isalnum() else "_" for c in cmdr)
+
+
 class Database:
     def __init__(self, path: str | Path) -> None:
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
@@ -148,6 +153,10 @@ class Database:
                 cached_at   TEXT    NOT NULL DEFAULT ''
             )""",
             "ALTER TABLE edsm_route_bodies_cache ADD COLUMN body_count INTEGER NOT NULL DEFAULT 0",
+            # Multi-commander support: add commander column to per-commander tables
+            "ALTER TABLE events ADD COLUMN commander TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE bio_scans ADD COLUMN commander TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE stats ADD COLUMN commander TEXT NOT NULL DEFAULT ''",
         ]
         with self._lock:
             for sql in migrations:
@@ -156,14 +165,91 @@ class Database:
                 except sqlite3.OperationalError:
                     pass  # column already exists
             self._conn.commit()
+        # Recreate bio_scans and stats with commander in primary key (run once each)
+        self._migrate_stats_v2()
+        self._migrate_bio_scans_v2()
 
-    def insert(self, ev: LogEvent, system: str) -> None:
+    def _migrate_stats_v2(self) -> None:
+        """Recreate stats with (date, stat, commander) primary key — one-time migration."""
+        if self.get_config("_migration_stats_v2") == "1":
+            return
+        with self._lock:
+            try:
+                self._conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS stats_v2 (
+                        date      TEXT NOT NULL,
+                        stat      TEXT NOT NULL,
+                        commander TEXT NOT NULL DEFAULT '',
+                        value     REAL NOT NULL DEFAULT 0,
+                        PRIMARY KEY (date, stat, commander)
+                    );
+                    INSERT OR IGNORE INTO stats_v2 (date, stat, commander, value)
+                        SELECT date, stat, IFNULL(commander, ''), value FROM stats;
+                    DROP TABLE stats;
+                    ALTER TABLE stats_v2 RENAME TO stats;
+                    CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date);
+                """)
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO config(key, value) VALUES('_migration_stats_v2', '1')"
+                )
+                self._conn.commit()
+            except Exception:
+                pass
+
+    def _migrate_bio_scans_v2(self) -> None:
+        """Recreate bio_scans with (system, body, species, commander) primary key — one-time migration."""
+        if self.get_config("_migration_bio_scans_v2") == "1":
+            return
+        with self._lock:
+            try:
+                self._conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS bio_scans_v2 (
+                        system            TEXT    NOT NULL,
+                        body              TEXT    NOT NULL,
+                        species           TEXT    NOT NULL,
+                        commander         TEXT    NOT NULL DEFAULT '',
+                        species_localised TEXT    NOT NULL DEFAULT '',
+                        genus_localised   TEXT    NOT NULL DEFAULT '',
+                        samples           INTEGER NOT NULL DEFAULT 1,
+                        min_dist          REAL    NOT NULL DEFAULT 0,
+                        body_radius       REAL    NOT NULL DEFAULT 0,
+                        value             INTEGER NOT NULL DEFAULT 0,
+                        complete          INTEGER NOT NULL DEFAULT 0,
+                        first_discovered  INTEGER NOT NULL DEFAULT 0,
+                        first_footfall    INTEGER NOT NULL DEFAULT 0,
+                        sample_lats       TEXT    NOT NULL DEFAULT '',
+                        sample_lons       TEXT    NOT NULL DEFAULT '',
+                        last_lat          REAL,
+                        last_lon          REAL,
+                        comp_lats         TEXT    NOT NULL DEFAULT '',
+                        comp_lons         TEXT    NOT NULL DEFAULT '',
+                        PRIMARY KEY (system, body, species, commander)
+                    );
+                    INSERT OR IGNORE INTO bio_scans_v2
+                        SELECT system, body, species, IFNULL(commander, ''),
+                               species_localised, genus_localised,
+                               samples, min_dist, body_radius, value, complete,
+                               first_discovered, first_footfall,
+                               sample_lats, sample_lons, last_lat, last_lon,
+                               comp_lats, comp_lons
+                        FROM bio_scans;
+                    DROP TABLE bio_scans;
+                    ALTER TABLE bio_scans_v2 RENAME TO bio_scans;
+                """)
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO config(key, value) VALUES('_migration_bio_scans_v2', '1')"
+                )
+                self._conn.commit()
+            except Exception:
+                pass
+
+    def insert(self, ev: LogEvent, system: str, commander: str = "") -> None:
         event_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self._lock:
             self._conn.execute(
-                "INSERT INTO events (timestamp, category, message, system, event_date)"
-                " VALUES (?,?,?,?,?)",
-                (ev.time, ev.category.label(), ev.message, system, event_date),
+                "INSERT INTO events (timestamp, category, message, system, event_date, commander)"
+                " VALUES (?,?,?,?,?,?)",
+                (ev.time, ev.category.label(), ev.message, system, event_date, commander),
             )
             self._conn.commit()
 
@@ -178,15 +264,22 @@ class Database:
             self._conn.commit()
         return cur.rowcount
 
-    def get_recent_events(self, limit: int) -> list[LogEvent]:
+    def get_recent_events(self, limit: int, commander: str = "") -> list[LogEvent]:
         from .state import EventCategory
         label_to_cat = {c.value: c for c in EventCategory}
 
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT timestamp, category, message FROM events ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            if commander:
+                rows = self._conn.execute(
+                    "SELECT timestamp, category, message FROM events"
+                    " WHERE (commander = ? OR commander = '') ORDER BY id DESC LIMIT ?",
+                    (commander, limit),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT timestamp, category, message FROM events ORDER BY id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
 
         result = []
         for ts, cat_label, msg in reversed(rows):
@@ -269,18 +362,19 @@ class Database:
             self._conn.executemany(_SQL, params)
             self._conn.commit()
 
-    def save_bio_scans(self, system: str, scans: list[BioScan]) -> None:
+    def save_bio_scans(self, system: str, scans: list[BioScan], commander: str = "") -> None:
         _SQL = (
             "INSERT INTO bio_scans"
-            " (system, body, species, species_localised, genus_localised,"
+            " (system, body, species, commander, species_localised, genus_localised,"
             "  samples, min_dist, body_radius, value, complete,"
             "  first_discovered, first_footfall, sample_lats, sample_lons,"
             "  last_lat, last_lon, comp_lats, comp_lons)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         )
         params = [
             (
-                system, sc.body, sc.species, sc.species_localised, sc.genus_localised,
+                system, sc.body, sc.species, commander,
+                sc.species_localised, sc.genus_localised,
                 sc.samples, sc.min_dist, sc.body_radius, sc.value, int(sc.complete),
                 int(sc.first_discovered), int(sc.first_footfall),
                 "|".join(str(v) for v in sc.sample_lats),
@@ -292,22 +386,37 @@ class Database:
             for sc in scans
         ]
         with self._lock:
-            self._conn.execute("DELETE FROM bio_scans WHERE system = ?", (system,))
+            self._conn.execute(
+                "DELETE FROM bio_scans WHERE system = ? AND commander = ?",
+                (system, commander),
+            )
             if params:
                 self._conn.executemany(_SQL, params)
             self._conn.commit()
 
-    def load_bio_scans(self, system: str) -> list[BioScan]:
+    def load_bio_scans(self, system: str, commander: str = "") -> list[BioScan]:
         with self._lock:
-            rows = self._conn.execute(
-                """SELECT body, species, species_localised, genus_localised,
-                          samples, min_dist, body_radius, value, complete,
-                          first_discovered, first_footfall,
-                          sample_lats, sample_lons, last_lat, last_lon,
-                          comp_lats, comp_lons
-                   FROM bio_scans WHERE system = ?""",
-                (system,),
-            ).fetchall()
+            if commander:
+                rows = self._conn.execute(
+                    """SELECT body, species, species_localised, genus_localised,
+                              samples, min_dist, body_radius, value, complete,
+                              first_discovered, first_footfall,
+                              sample_lats, sample_lons, last_lat, last_lon,
+                              comp_lats, comp_lons
+                       FROM bio_scans
+                       WHERE system = ? AND (commander = ? OR commander = '')""",
+                    (system, commander),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """SELECT body, species, species_localised, genus_localised,
+                              samples, min_dist, body_radius, value, complete,
+                              first_discovered, first_footfall,
+                              sample_lats, sample_lons, last_lat, last_lon,
+                              comp_lats, comp_lons
+                       FROM bio_scans WHERE system = ?""",
+                    (system,),
+                ).fetchall()
         result = []
         for row in rows:
             lats  = [float(v) for v in row[11].split("|") if v]
@@ -380,13 +489,13 @@ class Database:
                 )
         return result
 
-    def increment_stat(self, stat: str, value: float = 1.0) -> None:
+    def increment_stat(self, stat: str, value: float = 1.0, commander: str = "") -> None:
         today = date.today().isoformat()
         with self._lock:
             self._conn.execute(
-                "INSERT INTO stats (date, stat, value) VALUES (?, ?, ?) "
-                "ON CONFLICT(date, stat) DO UPDATE SET value = value + excluded.value",
-                (today, stat, float(value)),
+                "INSERT INTO stats (date, stat, value, commander) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(date, stat, commander) DO UPDATE SET value = value + excluded.value",
+                (today, stat, float(value), commander),
             )
             self._conn.commit()
 
@@ -566,14 +675,21 @@ class Database:
             )
             self._conn.commit()
 
-    def get_stats(self) -> dict:
+    def get_stats(self, commander: str = "") -> dict:
         today       = date.today()
         week_ago    = (today - timedelta(days=6)).isoformat()
         month_start = today.replace(day=1).isoformat()
         year_start  = today.replace(month=1, day=1).isoformat()
         today_s     = today.isoformat()
         with self._lock:
-            rows = self._conn.execute("SELECT date, stat, value FROM stats").fetchall()
+            if commander:
+                rows = self._conn.execute(
+                    "SELECT date, stat, value FROM stats"
+                    " WHERE (commander = ? OR commander = '')",
+                    (commander,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute("SELECT date, stat, value FROM stats").fetchall()
         result: dict = {}
         for date_s, stat, value in rows:
             if stat not in result:
