@@ -244,21 +244,21 @@ _BODY_EST_VALUES: dict[str, int] = {
 
 
 def _estimated_value(b: BodyInfo) -> int:
+    """Base estimated value without bonuses (used as fallback when no scan data)."""
     base = _BODY_EST_VALUES.get(b.planet_class, 0)
-    if base > 0:
-        if b.terraform:
-            base = int(base * 2.5)
-        # Apply discovery bonus (approx +50%)
-        if b.first_discovered:
-            base = int(base * 1.5)
+    if base > 0 and b.terraform:
+        base = int(base * 2.5)
     return base
 
 
 def _body_value(b: BodyInfo) -> int:
-    """Body value including first-mapping bonus when applicable."""
+    """Body value including first-discovery (2.6×) and first-mapping (3.3×) bonuses."""
     v = b.value if b.value > 0 else _estimated_value(b)
-    if v > 0 and b.first_mapped and not b.mapped:
-        v = int(v * 3.3)
+    if v > 0:
+        if b.first_discovered:
+            v = int(v * 2.6)
+        if b.first_mapped and not b.mapped:
+            v = int(v * 3.3)
     return v
 
 
