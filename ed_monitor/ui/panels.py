@@ -327,8 +327,8 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        # Count all bodies that have been scanned (FSS, auto-scan, or proximity scan)
-        fss_done  = sum(1 for b in s.bodies if b.planet_class or b.star_type)
+        # Count all bodies that the player has received a Scan event for
+        fss_done  = sum(1 for b in s.bodies if b.fss_scanned)
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
@@ -2345,27 +2345,12 @@ def _render_overview(s: AppState) -> RenderableType:
         inh_head = Text()
         inh_head.append("\nNEAREST INHABITED SYSTEM\n", style="bold rgb(100,180,255)")
         parts.append(inh_head)
-        inh_info = Text()
         dist_ly   = s.nearest_populated_dist
         dist_str  = f"{dist_ly:.0f} ly"
         jrange    = s.jump_range_last or s.jump_range
         jumps_est = _imath.ceil(dist_ly / jrange) if jrange > 0 and dist_ly > 0 else None
         jumps_str = f"~{jumps_est} jump{'s' if jumps_est != 1 else ''}" if jumps_est else ""
         stn_count = len(s.nearest_populated_stations)
-        # Row 1: [System]  [Distance]  [Jumps]
-        inh_info.append(f"  {s.nearest_populated_name}", style="white")
-        inh_info.append(f"      {dist_str}", style=P.LABEL)
-        if jumps_str:
-            inh_info.append(f"      {jumps_str}", style="rgb(130,130,130)")
-        inh_info.append("\n")
-        # Row 2: [Allegiance]  [N stations]  [Services]
-        if s.nearest_populated_allegiance or stn_count:
-            if s.nearest_populated_allegiance:
-                inh_info.append(f"  {s.nearest_populated_allegiance}", style=P.LABEL)
-            else:
-                inh_info.append("  ", style="")
-            if stn_count:
-                inh_info.append(f"      {stn_count} stn", style=P.LABEL)
         svcs: set[str] = set()
         for _stn in s.nearest_populated_stations:
             if _stn.get("market"):     svcs.add("Market")
@@ -2374,10 +2359,20 @@ def _render_overview(s: AppState) -> RenderableType:
             for _sv in _stn.get("services", []):
                 if _sv in ("Repair", "Refuel", "Rearm", "BlackMarket"):
                     svcs.add(_sv)
-        if svcs:
-            inh_info.append(f"      {', '.join(sorted(svcs))}", style=P.LABEL)
-        inh_info.append("\n")
-        parts.append(inh_info)
+        inh_tbl = Table(show_header=False, show_edge=False, box=None,
+                        padding=(0, 1), expand=False)
+        inh_tbl.add_column("name",   style="white",           no_wrap=True)
+        inh_tbl.add_column("dist",   style=P.LABEL,           no_wrap=True, justify="right")
+        inh_tbl.add_column("jumps",  style="rgb(130,130,130)", no_wrap=True, justify="right")
+        inh_tbl.add_row(
+            s.nearest_populated_name, dist_str, jumps_str,
+        )
+        row2_col1 = Text(s.nearest_populated_allegiance or "", style=P.LABEL)
+        row2_col2 = Text(f"{stn_count} stn" if stn_count else "", style=P.LABEL)
+        row2_col3 = Text(", ".join(sorted(svcs)) if svcs else "", style=P.LABEL)
+        inh_tbl.add_row(row2_col1, row2_col2, row2_col3)
+        parts.append(inh_tbl)
+        parts.append(Text(""))
 
     # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
     if s.carriers_current_system:
@@ -2387,56 +2382,70 @@ def _render_overview(s: AppState) -> RenderableType:
         parts.append(car_head)
 
         nearest = min(s.carriers_current_system, key=lambda c: c.get("dist_ls", float("inf")))
-        for c in [nearest]:
-            c_name     = c.get("name", "")
-            c_system   = c.get("system_name", "")
-            c_dist_ls  = c.get("dist_ls", 0.0)
-            c_updated  = c.get("updated_at", "")
-            c_x        = c.get("sys_x", 0.0)
-            c_y        = c.get("sys_y", 0.0)
-            c_z        = c.get("sys_z", 0.0)
+        c          = nearest
+        c_name     = c.get("name", "")
+        c_system   = c.get("system_name", "")
+        c_dist_ls  = c.get("dist_ls", 0.0)
+        c_updated  = c.get("updated_at", "")
+        c_x        = c.get("sys_x", 0.0)
+        c_y        = c.get("sys_y", 0.0)
+        c_z        = c.get("sys_z", 0.0)
 
-            # Compute Ly distance from current position
-            ly_dist: Optional[float] = None
-            jumps_est: Optional[int] = None
-            if s.star_pos and (c_x or c_y or c_z):
-                px, py, pz = s.star_pos
-                ly_dist = _math.sqrt((px-c_x)**2 + (py-c_y)**2 + (pz-c_z)**2)
-                if s.jump_dist > 0 and ly_dist > 0:
-                    jumps_est = _math.ceil(ly_dist / s.jump_dist)
+        ly_dist: Optional[float] = None
+        car_jumps_est: Optional[int] = None
+        if s.star_pos and (c_x or c_y or c_z):
+            px, py, pz = s.star_pos
+            ly_dist = _math.sqrt((px-c_x)**2 + (py-c_y)**2 + (pz-c_z)**2)
+            if s.jump_dist > 0 and ly_dist > 0:
+                car_jumps_est = _math.ceil(ly_dist / s.jump_dist)
 
-            # Row 1: [Carrier name]  [Distance]  [~Jumps]
-            loc_txt = Text()
-            loc_txt.append("  " + c_name, style=f"bold {P.AMBER}")
-            in_current = c_system and c_system.lower() == s.system.lower()
-            if in_current and c_dist_ls > 0:
-                loc_txt.append(f"      {_fmt_ls_compact(c_dist_ls)}", style=P.LABEL)
-            elif ly_dist is not None:
-                loc_txt.append(f"      {ly_dist:.0f} ly", style=P.LABEL)
-                if jumps_est is not None:
-                    loc_txt.append(f"      ~{jumps_est} jump{'s' if jumps_est != 1 else ''}", style="rgb(130,130,130)")
-            loc_txt.append("\n")
-            # Row 2: [Last seen / system]  [Services]
-            loc_txt.append("  ", style="")
-            if c_updated:
-                ago = _fmt_ago(c_updated)
-                if ago:
-                    loc_txt.append(ago, style="rgb(100,100,100)")
-                elif c_system:
-                    loc_txt.append(c_system, style="white")
-            elif c_system:
-                loc_txt.append(c_system, style="white")
-            svc_parts = []
-            if c.get("market"):     svc_parts.append("Market")
-            if c.get("shipyard"):   svc_parts.append("Shipyard")
-            if c.get("outfitting"): svc_parts.append("Outfitting")
-            if c.get("rearm"):      svc_parts.append("Rearm")
-            if c.get("refuel"):     svc_parts.append("Refuel")
-            if c.get("repair"):     svc_parts.append("Repair")
-            if svc_parts:
-                loc_txt.append(f"      {', '.join(svc_parts)}", style="white")
-            loc_txt.append("\n")
-            parts.append(loc_txt)
+        in_current = c_system and c_system.lower() == s.system.lower()
+        if in_current and c_dist_ls > 0:
+            c_dist_str  = _fmt_ls_compact(c_dist_ls)
+            c_jumps_str = ""
+        elif ly_dist is not None:
+            c_dist_str  = f"{ly_dist:.0f} ly"
+            c_jumps_str = f"~{car_jumps_est} jump{'s' if car_jumps_est != 1 else ''}" if car_jumps_est else ""
+        else:
+            c_dist_str  = ""
+            c_jumps_str = ""
+
+        if c_updated:
+            ago = _fmt_ago(c_updated)
+            c_location_str = ago if ago else (c_system or "")
+            c_location_style = "rgb(100,100,100)" if ago else "white"
+        elif c_system:
+            c_location_str  = c_system
+            c_location_style = "white"
+        else:
+            c_location_str  = ""
+            c_location_style = P.LABEL
+
+        svc_parts = []
+        if c.get("market"):     svc_parts.append("Market")
+        if c.get("shipyard"):   svc_parts.append("Shipyard")
+        if c.get("outfitting"): svc_parts.append("Outfitting")
+        if c.get("rearm"):      svc_parts.append("Rearm")
+        if c.get("refuel"):     svc_parts.append("Refuel")
+        if c.get("repair"):     svc_parts.append("Repair")
+
+        car_tbl = Table(show_header=False, show_edge=False, box=None,
+                        padding=(0, 1), expand=False)
+        car_tbl.add_column("name",  no_wrap=True)
+        car_tbl.add_column("dist",  no_wrap=True, justify="right")
+        car_tbl.add_column("jumps", no_wrap=True, justify="right")
+        car_tbl.add_row(
+            Text(c_name, style=f"bold {P.AMBER}"),
+            Text(c_dist_str, style=P.LABEL),
+            Text(c_jumps_str, style="rgb(130,130,130)"),
+        )
+        car_tbl.add_row(
+            Text(c_location_str, style=c_location_style),
+            Text(""),
+            Text(", ".join(svc_parts) if svc_parts else "", style="white"),
+        )
+        parts.append(car_tbl)
+        parts.append(Text(""))
 
     if not parts:
         return Text("No data.", style=P.LABEL)
@@ -2991,6 +3000,9 @@ class SituationalPanel(_Panel):
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return _v("missions")
+        # Route set with no other priority task — show route panel
+        if s.route_hops > 0:
+            return _v("route")
         return "overview"
 
     def _make_title(self) -> str:
@@ -3477,7 +3489,7 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         sc_col    = _star_col(star_class or "")
         star_cell = Text()
         star_cell.append(sc_short, style=sc_col)
-        star_cell.append(" ⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else "dim rgb(70,70,70)")
+        star_cell.append("⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else "dim rgb(70,70,70)")
 
         # Color system name: inhabited (population > 0) = warm white, else default white
         population = (edsm_entry or {}).get("population", 0) or 0

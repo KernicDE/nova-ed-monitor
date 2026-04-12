@@ -512,39 +512,34 @@ class NOVAApp(App):
         elif key == "right":
             self.query_one(SituationalPanel).cycle()
 
-        # ── Up/Down: scroll focused panel or situational panel ────────────────
+        # ── Up/Down: always scroll situational panel ──────────────────────────
         elif key in ("down", "j"):
-            if self._focused_panel in (4, 5, 6):
-                self._scroll_focused(1)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(1)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(1)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(1)
+            elif sit._active == "route":
+                sit.scroll_route(1)
             else:
-                sit = self.query_one(SituationalPanel)
-                if sit._active == "neutron":
-                    sit.scroll_neutron(1)
-                elif sit._active == "bgs":
-                    sit.scroll_bgs(1)
-                elif sit._active == "colonisation":
-                    sit.scroll_colonisation(1)
-                elif sit._active == "route":
-                    sit.scroll_route(1)
-                else:
-                    sit.scroll_general(1)
+                sit.scroll_general(1)
 
         elif key in ("up", "k"):
-            if self._focused_panel in (4, 5, 6):
-                self._scroll_focused(-1)
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "neutron":
+                sit.scroll_neutron(-1)
+            elif sit._active == "bgs":
+                sit.scroll_bgs(-1)
+            elif sit._active == "colonisation":
+                sit.scroll_colonisation(-1)
+            elif sit._active == "route":
+                sit.scroll_route(-1)
             else:
-                sit = self.query_one(SituationalPanel)
-                if sit._active == "neutron":
-                    sit.scroll_neutron(-1)
-                elif sit._active == "bgs":
-                    sit.scroll_bgs(-1)
-                elif sit._active == "colonisation":
-                    sit.scroll_colonisation(-1)
-                elif sit._active == "route":
-                    sit.scroll_route(-1)
-                else:
-                    sit.scroll_general(-1)
+                sit.scroll_general(-1)
 
+        # ── PgUp/PgDn: scroll focused panel when focused, else situational ───
         elif key == "pagedown":
             if self._focused_panel in (4, 5, 6):
                 self._scroll_focused(5)

@@ -1030,6 +1030,18 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 if _dis_b is not None and _dis_b.first_discovered:
                     first_footfall = True
 
+            # Fallback: check BodyInfo.first_footfall flag set by Scan (WasFootfalled=false)
+            if not first_footfall and (body_dis or body_dis_id > 0):
+                _dis_bi = state._bodies_by_id.get(body_dis_id, -1) if body_dis_id > 0 else -1
+                _dis_bfi = state.bodies[_dis_bi] if 0 <= _dis_bi < len(state.bodies) else None
+                if _dis_bfi is None and body_dis:
+                    for _bfe in state.bodies:
+                        if _bfe.name.strip().lower() == body_dis_lower:
+                            _dis_bfi = _bfe
+                            break
+                if _dis_bfi is not None and _dis_bfi.first_footfall:
+                    first_footfall = True
+
             # Final fallback: Touchdown already flagged this body as first footfall
             # but Disembark journal entry omitted FirstFootfall or body fields.
             if not first_footfall and state.first_footfall_body:
@@ -1204,7 +1216,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     first_discovered=not _b(ev, "WasDiscovered"),
                     first_mapped=not _b(ev, "WasMapped"),
                     first_footfall="WasFootfalled" in ev and not ev["WasFootfalled"],
-                    mapped=False, fss_scanned=scan_type == "Detailed",
+                    mapped=False, fss_scanned=True,
                     radius=radius,
                     semi_major_axis=_f(ev, "SemiMajorAxis"),
                     orbital_period=orbital_period,
@@ -1293,14 +1305,16 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             short             = _short_body(body_name, state.system)
             probes_used       = _u(ev, "ProbesUsed")
             efficiency_target = _u(ev, "EfficiencyTarget")
-            bio_count = 0
-            geo_count = 0
+            bio_count   = 0
+            geo_count   = 0
+            first_map   = False
             _bidx2 = state._bodies_by_name.get(body_name, -1)
             if 0 <= _bidx2 < len(state.bodies):
                 _bm = state.bodies[_bidx2]
                 _bm.mapped = True
                 bio_count  = _bm.bio_signals
                 geo_count  = _bm.geo_signals
+                first_map  = _bm.first_mapped
             state.dss_recently_completed.add(body_name)
 
             sig_parts = []
@@ -1309,8 +1323,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if geo_count > 0:
                 sig_parts.append(f"{geo_count} geo")
             msg = f"Mapped: {short}."
-            sig_txt = ""
-            eff_txt = ""
+            sig_txt  = ""
+            eff_txt  = ""
+            map_txt  = " First map!" if first_map else ""
             if sig_parts:
                 sig_txt = f" Signals: {', '.join(sig_parts)}."
                 msg += sig_txt
@@ -1320,9 +1335,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 else:
                     eff_txt = f" Efficiency target missed: {probes_used} probes, target {efficiency_target}."
                 msg += eff_txt
+            if first_map:
+                msg += map_txt
             _say(tts_q, "SAAScanComplete", False,
                  fallback=msg, body_short=short,
-                 sig_txt=sig_txt, eff_txt=eff_txt)
+                 sig_txt=sig_txt, eff_txt=eff_txt, map_txt=map_txt)
             return LogEvent.new(EventCategory.Explore, msg)
 
         case "FSSDiscoveryScan":

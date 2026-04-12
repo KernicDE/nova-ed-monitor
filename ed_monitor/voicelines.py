@@ -224,15 +224,36 @@ def _migrate_old_user_voicelines() -> None:
         pass
 
 
+def _copy_defaults_to_config() -> None:
+    """Copy built-in default TOML files to ~/.config/nova/voicelines/default/.
+
+    Always overwrites so users always have a current reference copy.
+    """
+    import shutil
+    builtin = _builtin_dir()
+    dest = _config_dir() / "voicelines" / "default"
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    for src in builtin.glob("*.default.toml"):
+        try:
+            shutil.copy2(src, dest / src.name)
+        except OSError:
+            pass
+
+
 def ensure_user_files() -> None:
     """Create the user voicelines directory and a README explaining the override system.
 
-    Also performs a one-time migration of old-style user voiceline files.
+    Also performs a one-time migration of old-style user voiceline files and
+    copies the built-in default files to a reference directory.
     """
     dest_dir = _config_dir() / "voicelines"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     _migrate_old_user_voicelines()
+    _copy_defaults_to_config()
 
     readme = dest_dir / "README.md"
     readme_text = (
@@ -256,9 +277,9 @@ def ensure_user_files() -> None:
         "- `replace = []` — silences the event completely.\n"
         "- Keys absent from your file use the built-in default.\n\n"
         "## Finding built-in defaults\n\n"
-        "    python -c \"import ed_monitor.voicelines as v; print(v._builtin_dir())\"\n\n"
-        "The default files are named `en.default.toml`, `de.default.toml`, etc.\n"
-        "They are replaced on every NOVA update — do not edit them directly.\n"
+        "The current default files are copied to the `default/` subfolder here\n"
+        "on every NOVA launch — use them as a reference for available keys and formats.\n"
+        "Do **not** edit the files in `default/` directly; they are overwritten each launch.\n"
     )
     try:
         readme.write_text(readme_text, encoding="utf-8")
