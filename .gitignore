@@ -20,6 +20,9 @@ CLAUDE.md
 .vscode/
 *.sublime-project
 *.sublime-workspace
+PLAN_*.md
+# Claude Code session summary files
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
 
 # NOVA runtime files
 stream_info.txt

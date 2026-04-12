@@ -33,10 +33,10 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Route situation panel** — shows each jump in the active nav route with star type, scoopable indicator, distance from current position, jump distance, and EDSM presence; scrollable
 - **Neutron route planner** — local neutron route calculator using a daily-refreshed Spansh dump; press `n` in Neutron panel to enter destination
 - **Next-waypoint stations** — lists stations at the next jump destination (name, distance, services icons: M/S/O/R)
-- **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; cached 5 min)
+- **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; shown in Overview; cached 5 min)
 
 ### Terminal UI
-- **System / Ship / Route / Bodies / Situational / Events / Chat panels**
+- **System / Ship / Target / Bodies / Situational / Events / Chat panels**
 - **Situational panel** (14 modes, cycle with `Tab` / `Shift+Tab`):
   - Auto-switches by context; toggle auto-lock with `a`
   - Panel visibility and order configurable via `situational_panels` in config
@@ -263,21 +263,22 @@ Open it with any text editor to adjust settings:
 | `a` | Toggle auto panel switching on/off |
 | `↑` / `k` | Scroll situational panel up |
 | `↓` / `j` | Scroll situational panel down |
-| `PgUp` / `PgDn` | Scroll event log by 20 lines |
+| `PgUp` / `PgDn` | Scroll focused panel (or situational when none focused) |
 | `Home` / `g` | Jump to latest events |
 | `w` / `s` | Scroll bodies panel up / down |
 | `n` | Enter neutron route destination (Neutron panel) |
 | `r` | Toggle galaxy map scale (galactic ↔ regional) |
 | `+` / `=` | Volume up |
-| `-` | Volume down |
+| `−` | Volume down |
 
 ---
 
 ## UI Layout
 
 ```
-┌─ System ─────────┬─ Ship ──────────────────────┬─ Route ────┐
-│ System/faction   │ Hull/Shield/Fuel gauges     │ Nav route  │
+┌─ System ─────────┬─ Ship ──────────────────────┬─ Target ───┐
+│ System/faction   │ Hull/Shield/Fuel gauges     │ Nearby /   │
+│                  │                             │ targeted   │
 ├──────────────────┴─────────────────────────────┴────────────┤
 │ Scanned Bodies   │ SITUATION panel             │ Events     │
 │ (FSS, DSS,       │ (14 modes, Tab to cycle)    ├────────────┤
@@ -309,7 +310,7 @@ The border title shows all modes as abbreviations; the active one expands to its
 | `DKG` | DOCKING | Station pad diagram |
 | `STS` | STATISTICS | Persistent statistics |
 
-**Auto mode priority:** Docking granted → Bio (active/pre-scan) → Colonisation → Missions → Overview; Stats when offline.
+**Auto mode priority (highest first):** offline → Stats · docking granted → Docking · active/pre-scan bio → Bio · colonisation active → Colonisation · missions → Missions · route set → Route · default → Overview.
 
 **Panel config:** Set `situational_panels = OVR BIO ROU MIS ...` in config.toml to control which panels appear and in what order. Omitted panels are hidden from the title bar and auto-switching.
 
@@ -341,24 +342,31 @@ Available files: `commander`, `ship_name`, `ship_type`, `ship_ident`, `system`, 
 
 ## Voiceline Customisation
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/nova/voicelines/` |
-| Windows | `%USERPROFILE%\.config\nova\voicelines\` |
+Built-in defaults are copied to `~/.config/nova/voicelines/default/` on every launch as a reference. Create your own override file in the parent folder — only define what you want to change:
 
-One file per language: `en.toml`, `de.toml`, `fr.toml`, `it.toml`, `es.toml`, `pt.toml`, `ru.toml`.
-
-Each event key maps to a list of phrase variants — NOVA picks one at random each time. Edit, add, or remove lines freely. On update, new event keys missing from your file fall back to the built-in automatically.
+| Platform | User override path |
+|----------|--------------------|
+| Linux | `~/.config/nova/voicelines/en.toml` (or `de.toml`, `fr.toml`, …) |
+| Windows | `%USERPROFILE%\.config\nova\voicelines\en.toml` |
 
 ```toml
 [FSDJump]
-# {system}  = destination star system name
-# {dist_ly} = jump distance formatted for speech
-lines = [
-    "Arrived in {system}. Jump {dist_ly}.{suffix}",
-    "Hyperspace complete. Welcome to {system}.{suffix}",
+add = [
+    "Another jump complete, heading to {system}.",
 ]
+
+[FuelScoop]
+replace = [
+    "Fuel collected.",
+]
+
+[UnwantedEvent]
+replace = []   # silence this event entirely
 ```
+
+- **`add`** — appends lines to the built-in pool (more variety).
+- **`replace`** — replaces built-in lines entirely; `replace = []` silences the event.
+- Keys absent from your file keep the built-in default. Your file is never overwritten by updates.
 
 ---
 
