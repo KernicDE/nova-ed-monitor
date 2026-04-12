@@ -284,7 +284,7 @@ def _play_audio(path: str, volume: int) -> None:
             py_script = (
                 f"import pygame, time; "
                 f"pygame.mixer.init(); "
-                f"pygame.mixer.music.load('{path}'); "
+                f"pygame.mixer.music.load({repr(str(path))}); "
                 f"pygame.mixer.music.set_volume({volume / 100.0}); "
                 f"pygame.mixer.music.play(); "
                 f"while pygame.mixer.music.get_busy(): time.sleep(0.05)"
@@ -310,9 +310,10 @@ def _play_audio(path: str, volume: int) -> None:
         # Wait for HasAudio (confirms load), play, then sleep for actual duration.
         # Note: HasAudio stays True during playback — do NOT use it as loop condition.
         try:
+            ps_path = str(path).replace('"', '`"')  # escape double-quotes for PowerShell
             ps_script = (
                 f'$mp = New-Object System.Windows.Media.MediaPlayer; '
-                f'$mp.Open("{path}"); '
+                f'$mp.Open("{ps_path}"); '
                 f'$mp.Volume = {volume / 100.0}; '
                 f'while (-not $mp.HasAudio) {{ Start-Sleep -Milliseconds 50 }}; '
                 f'$mp.Play(); '

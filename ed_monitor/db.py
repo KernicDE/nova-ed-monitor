@@ -246,12 +246,16 @@ class Database:
     def insert(self, ev: LogEvent, system: str, commander: str = "") -> None:
         event_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self._lock:
-            self._conn.execute(
-                "INSERT INTO events (timestamp, category, message, system, event_date, commander)"
-                " VALUES (?,?,?,?,?,?)",
-                (ev.time, ev.category.label(), ev.message, system, event_date, commander),
-            )
-            self._conn.commit()
+            try:
+                self._conn.execute(
+                    "INSERT INTO events (timestamp, category, message, system, event_date, commander)"
+                    " VALUES (?,?,?,?,?,?)",
+                    (ev.time, ev.category.label(), ev.message, system, event_date, commander),
+                )
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def prune_events(self, days: int = 180) -> int:
         """Delete events older than `days` days. Returns number of rows deleted."""
@@ -301,11 +305,15 @@ class Database:
 
     def set_hull(self, hull: float) -> None:
         with self._lock:
-            self._conn.execute(
-                "INSERT OR REPLACE INTO config(key, value) VALUES('hull', ?)",
-                (str(hull),),
-            )
-            self._conn.commit()
+            try:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO config(key, value) VALUES('hull', ?)",
+                    (str(hull),),
+                )
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def get_config(self, key: str, default: str = "") -> str:
         with self._lock:
@@ -316,11 +324,15 @@ class Database:
 
     def set_config(self, key: str, value: str) -> None:
         with self._lock:
-            self._conn.execute(
-                "INSERT OR REPLACE INTO config(key, value) VALUES(?, ?)",
-                (key, value),
-            )
-            self._conn.commit()
+            try:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO config(key, value) VALUES(?, ?)",
+                    (key, value),
+                )
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def save_body(self, system: str, body: BodyInfo) -> None:
         self.save_bodies_batch(system, [body])
@@ -359,8 +371,12 @@ class Database:
         if not params:
             return
         with self._lock:
-            self._conn.executemany(_SQL, params)
-            self._conn.commit()
+            try:
+                self._conn.executemany(_SQL, params)
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def save_bio_scans(self, system: str, scans: list[BioScan], commander: str = "") -> None:
         _SQL = (
@@ -386,13 +402,17 @@ class Database:
             for sc in scans
         ]
         with self._lock:
-            self._conn.execute(
-                "DELETE FROM bio_scans WHERE system = ? AND commander = ?",
-                (system, commander),
-            )
-            if params:
-                self._conn.executemany(_SQL, params)
-            self._conn.commit()
+            try:
+                self._conn.execute(
+                    "DELETE FROM bio_scans WHERE system = ? AND commander = ?",
+                    (system, commander),
+                )
+                if params:
+                    self._conn.executemany(_SQL, params)
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def load_bio_scans(self, system: str, commander: str = "") -> list[BioScan]:
         with self._lock:
@@ -492,12 +512,16 @@ class Database:
     def increment_stat(self, stat: str, value: float = 1.0, commander: str = "") -> None:
         today = date.today().isoformat()
         with self._lock:
-            self._conn.execute(
-                "INSERT INTO stats (date, stat, value, commander) VALUES (?, ?, ?, ?) "
-                "ON CONFLICT(date, stat, commander) DO UPDATE SET value = value + excluded.value",
-                (today, stat, float(value), commander),
-            )
-            self._conn.commit()
+            try:
+                self._conn.execute(
+                    "INSERT INTO stats (date, stat, value, commander) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(date, stat, commander) DO UPDATE SET value = value + excluded.value",
+                    (today, stat, float(value), commander),
+                )
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     # ── EDSM dump import ───────────────────────────────────────────────────────
 

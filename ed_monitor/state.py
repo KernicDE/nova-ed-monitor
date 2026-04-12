@@ -381,6 +381,13 @@ class AppState:
     bgs_log:      dict = field(default_factory=dict)
     bgs_log_date: str  = ""   # ISO date string of last reset (YYYY-MM-DD)
 
+    # FSD hyperspace jump in progress (StartJump → FSDJump)
+    in_hyperspace: bool = False
+
+    # Background thread heartbeats (updated each loop iteration; 0.0 = never seen)
+    journal_heartbeat: float = 0.0
+    status_heartbeat:  float = 0.0
+
     # Colonisation construction sites: {market_id: site_dict}
     colonisation_sites: dict = field(default_factory=dict)
 

@@ -1,9 +1,28 @@
 from __future__ import annotations
 
+import logging
 import queue
 import threading
+import time
+import traceback
 from pathlib import Path
 from datetime import datetime
+
+_wlog = logging.getLogger("nova.watchdog")
+
+
+def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
+    """Start a daemon thread that restarts itself after a 5-second delay on crash."""
+    def wrapper():
+        while True:
+            try:
+                target(*args)
+            except Exception:
+                _wlog.error("Thread '%s' crashed:\n%s", name, traceback.format_exc())
+                time.sleep(5)
+    t = threading.Thread(target=wrapper, name=name, daemon=True)
+    t.start()
+    return t
 
 from . import bindings, config, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
@@ -109,54 +128,32 @@ def main() -> None:
     except Exception:
         pass
 
-    # Journal monitor thread
-    threading.Thread(
-        target=journal.monitor,
-        args=(state, lock, tts_q, database, cfg.journal_dir, edsm_q, spansh_q),
-        daemon=True,
-    ).start()
+    # Journal monitor thread (guarded: restarts on crash after 5s)
+    _spawn_guarded(journal.monitor,
+                   (state, lock, tts_q, database, cfg.journal_dir, edsm_q, spansh_q),
+                   "nova-journal")
 
-    # Status.json monitor thread
-    threading.Thread(
-        target=status.monitor,
-        args=(state, lock, cfg.journal_dir, tts_q),
-        daemon=True,
-    ).start()
+    # Status.json monitor thread (guarded: restarts on crash after 5s)
+    _spawn_guarded(status.monitor,
+                   (state, lock, cfg.journal_dir, tts_q),
+                   "nova-status")
 
     # Twitch chat thread (no-op if twitch_channel not set in config)
-    threading.Thread(
-        target=twitch.monitor,
-        args=(state, lock, tts_q, cfg),
-        daemon=True,
-    ).start()
+    _spawn_guarded(twitch.monitor, (state, lock, tts_q, cfg), "nova-twitch")
 
     # YouTube live chat thread (no-op if youtube_channel not set in config)
-    threading.Thread(
-        target=youtube.monitor,
-        args=(state, lock, tts_q, cfg),
-        daemon=True,
-    ).start()
+    _spawn_guarded(youtube.monitor, (state, lock, tts_q, cfg), "nova-youtube")
 
     # Stream overlay thread
-    threading.Thread(
-        target=overlay.monitor,
-        args=(state, lock, cfg),
-        daemon=True,
-    ).start()
+    _spawn_guarded(overlay.monitor, (state, lock, cfg), "nova-overlay")
 
     # Keybindings monitor thread
-    threading.Thread(
-        target=bindings.monitor,
-        args=(state, lock, cfg.journal_dir, config.config_dir()),
-        daemon=True,
-    ).start()
+    _spawn_guarded(bindings.monitor,
+                   (state, lock, cfg.journal_dir, config.config_dir()),
+                   "nova-bindings")
 
     # Screenshot processing thread
-    threading.Thread(
-        target=screenshots.monitor,
-        args=(state, lock, cfg),
-        daemon=True,
-    ).start()
+    _spawn_guarded(screenshots.monitor, (state, lock, cfg), "nova-screenshots")
 
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q).run()
 

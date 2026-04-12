@@ -543,18 +543,14 @@ def _process_backlog(
             if ev_name == "NavRoute":
                 effective = _read_navroute_json(journal_dir) or ev
 
-            with lock:
-                sys_name = state.system
-            
-            # Run the handler, sending TTS output to the silent queue
+            # Run the handler and capture pre-handle system + post-handle commander in one lock
             try:
                 with lock:
-                    log_ev = handle(effective, state, silent_q, live=False)
-            except Exception as exc:
+                    sys_name  = state.system
+                    log_ev    = handle(effective, state, silent_q, live=False)
+                    commander = state.commander  # updated by LoadGame handler
+            except Exception:
                 continue
-
-            with lock:
-                commander = state.commander  # updated by LoadGame handler
 
             # After entering a system, restore saved bodies from DB
             if ev_name in ("FSDJump", "CarrierJump", "Location"):
@@ -566,10 +562,11 @@ def _process_backlog(
                 if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
                     with lock:
                         hull = state.hull
+                        state.push_event(log_ev)
                     db.set_hull(hull)
-
-                with lock:
-                    state.push_event(log_ev)
+                else:
+                    with lock:
+                        state.push_event(log_ev)
 
     # Merge DB bio_scans (completed scans from prior sessions) into state,
     # then persist — prevents overwriting completed entries with partial replay data
@@ -700,6 +697,8 @@ def _follow(
                     return
                 if cur_ino != initial_ino:
                     return
+                with lock:
+                    state.journal_heartbeat = time.time()
                 time.sleep(0.2)
                 continue
 

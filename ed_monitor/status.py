@@ -129,6 +129,8 @@ def monitor(
                 pass
 
         tick += 1
+        with lock:
+            state.status_heartbeat = time.time()
         time.sleep(0.2)
 
 

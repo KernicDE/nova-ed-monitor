@@ -535,19 +535,6 @@ def _tts_ly(ly: float) -> str:
     return f"{ly:.1f} light years"
 
 
-# ── Jumponium material sets ───────────────────────────────────────────────────
-_JUMP_BASIC    = {"sulphur", "carbon", "phosphorus"}
-_JUMP_STANDARD = _JUMP_BASIC    | {"manganese", "arsenic"}
-_JUMP_PREMIUM  = _JUMP_STANDARD | {"niobium", "yttrium", "polonium"}
-
-def _jumponium_tier(materials: dict) -> str:
-    """Return 'Premium', 'Standard', 'Basic' or '' for a body's material set."""
-    mats = {k.lower() for k in materials}
-    if _JUMP_PREMIUM.issubset(mats):  return "Premium"
-    if _JUMP_STANDARD.issubset(mats): return "Standard"
-    if _JUMP_BASIC.issubset(mats):    return "Basic"
-    return ""
-
 
 # ── BGS activity helpers ──────────────────────────────────────────────────────
 def _bgs_tick(state: AppState) -> None:
@@ -559,12 +546,19 @@ def _bgs_tick(state: AppState) -> None:
         state.bgs_log_date = today
 
 
+_BGS_LOG_CAP = 50  # max faction×activity pairs per system per day
+
 def _bgs_add(state: AppState, faction: str, activity: str, count: int = 1) -> None:
     """Record BGS activity for the current system's faction."""
     if not faction or not state.system:
         return
     _bgs_tick(state)
     sys_log = state.bgs_log.setdefault(state.system, {})
+    fac_log = sys_log.get(faction, {})
+    if activity not in fac_log:
+        total = sum(len(acts) for acts in sys_log.values())
+        if total >= _BGS_LOG_CAP:
+            return
     fac_log = sys_log.setdefault(faction, {})
     fac_log[activity] = fac_log.get(activity, 0) + count
 
@@ -737,6 +731,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.first_footfall_body_id = -1
             state.first_footfall_bodies.clear()
             state.orbital_cruise         = False
+            state.in_hyperspace          = False
             state.docked_pad          = 0
             state.docked_station_name = ""
             state.docked_station_type = ""
@@ -1954,6 +1949,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             j_type = _s(ev, "JumpType")
             dest   = _s(ev, "StarSystem")
             if j_type == "Hyperspace":
+                state.in_hyperspace = True
                 _say(tts_q, "StartJump_Hyperspace", False, fallback="Engaging hyperspace.")
                 return LogEvent.new(EventCategory.Nav, f"Jumping to {dest}.")
             else:

@@ -327,9 +327,8 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        # Stars are auto-scanned by the game — count them as always done.
-        # Only "Detailed" FSS scans count for planets/moons, not AutoScan.
-        fss_done  = sum(1 for b in s.bodies if (b.star_type or b.fss_scanned) and (b.planet_class or b.star_type))
+        # Count all bodies that have been scanned (FSS, auto-scan, or proximity scan)
+        fss_done  = sum(1 for b in s.bodies if b.planet_class or b.star_type)
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
@@ -2342,31 +2341,42 @@ def _render_overview(s: AppState) -> RenderableType:
 
     # Nearest inhabited system — shown only when current system is uninhabited
     if s.nearest_populated_name and s.population == 0:
+        import math as _imath
         inh_head = Text()
         inh_head.append("\nNEAREST INHABITED SYSTEM\n", style="bold rgb(100,180,255)")
         parts.append(inh_head)
         inh_info = Text()
-        dist_str = f"{s.nearest_populated_dist:.0f} ly"
-        inh_info.append(f"  {s.nearest_populated_name}", style="white")
-        inh_info.append(f"  ({dist_str})", style=P.LABEL)
+        dist_ly   = s.nearest_populated_dist
+        dist_str  = f"{dist_ly:.0f} ly"
+        jrange    = s.jump_range_last or s.jump_range
+        jumps_est = _imath.ceil(dist_ly / jrange) if jrange > 0 and dist_ly > 0 else None
+        jumps_str = f"~{jumps_est} jump{'s' if jumps_est != 1 else ''}" if jumps_est else ""
         stn_count = len(s.nearest_populated_stations)
-        if stn_count:
-            inh_info.append(f"  ·  {stn_count} station{'s' if stn_count != 1 else ''}", style=P.LABEL)
-        if s.nearest_populated_allegiance:
-            inh_info.append(f"  ·  {s.nearest_populated_allegiance}", style=P.LABEL)
+        # Row 1: [System]  [Distance]  [Jumps]
+        inh_info.append(f"  {s.nearest_populated_name}", style="white")
+        inh_info.append(f"      {dist_str}", style=P.LABEL)
+        if jumps_str:
+            inh_info.append(f"      {jumps_str}", style="rgb(130,130,130)")
         inh_info.append("\n")
-        # Consolidated services across all stations
-        if stn_count:
-            svcs: set[str] = set()
-            for _stn in s.nearest_populated_stations:
-                if _stn.get("market"):     svcs.add("Market")
-                if _stn.get("shipyard"):   svcs.add("Shipyard")
-                if _stn.get("outfitting"): svcs.add("Outfitting")
-                for _sv in _stn.get("services", []):
-                    if _sv in ("Repair", "Refuel", "Rearm", "BlackMarket"):
-                        svcs.add(_sv)
-            if svcs:
-                inh_info.append("  " + "  ·  ".join(sorted(svcs)) + "\n", style=P.LABEL)
+        # Row 2: [Allegiance]  [N stations]  [Services]
+        if s.nearest_populated_allegiance or stn_count:
+            if s.nearest_populated_allegiance:
+                inh_info.append(f"  {s.nearest_populated_allegiance}", style=P.LABEL)
+            else:
+                inh_info.append("  ", style="")
+            if stn_count:
+                inh_info.append(f"      {stn_count} stn", style=P.LABEL)
+        svcs: set[str] = set()
+        for _stn in s.nearest_populated_stations:
+            if _stn.get("market"):     svcs.add("Market")
+            if _stn.get("shipyard"):   svcs.add("Shipyard")
+            if _stn.get("outfitting"): svcs.add("Outfitting")
+            for _sv in _stn.get("services", []):
+                if _sv in ("Repair", "Refuel", "Rearm", "BlackMarket"):
+                    svcs.add(_sv)
+        if svcs:
+            inh_info.append(f"      {', '.join(sorted(svcs))}", style=P.LABEL)
+        inh_info.append("\n")
         parts.append(inh_info)
 
     # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
@@ -2395,26 +2405,27 @@ def _render_overview(s: AppState) -> RenderableType:
                 if s.jump_dist > 0 and ly_dist > 0:
                     jumps_est = _math.ceil(ly_dist / s.jump_dist)
 
-            # Location line
+            # Row 1: [Carrier name]  [Distance]  [~Jumps]
             loc_txt = Text()
-            loc_txt.append("  " + c_name + "\n", style=f"bold {P.AMBER}")
-            loc_txt.append("  ", style="")
+            loc_txt.append("  " + c_name, style=f"bold {P.AMBER}")
             in_current = c_system and c_system.lower() == s.system.lower()
-            if c_system:
-                loc_txt.append(c_system, style="white")
             if in_current and c_dist_ls > 0:
-                loc_txt.append(f"  {_fmt_ls_compact(c_dist_ls)}", style=P.LABEL)
+                loc_txt.append(f"      {_fmt_ls_compact(c_dist_ls)}", style=P.LABEL)
             elif ly_dist is not None:
-                loc_txt.append(f"  {ly_dist:.0f} ly", style=P.LABEL)
+                loc_txt.append(f"      {ly_dist:.0f} ly", style=P.LABEL)
                 if jumps_est is not None:
-                    loc_txt.append(f"  ~{jumps_est} jump{'s' if jumps_est != 1 else ''}", style="rgb(130,130,130)")
+                    loc_txt.append(f"      ~{jumps_est} jump{'s' if jumps_est != 1 else ''}", style="rgb(130,130,130)")
+            loc_txt.append("\n")
+            # Row 2: [Last seen / system]  [Services]
+            loc_txt.append("  ", style="")
             if c_updated:
                 ago = _fmt_ago(c_updated)
                 if ago:
-                    loc_txt.append(f"  {ago}", style="rgb(100,100,100)")
-            loc_txt.append("\n", style="")
-
-            # Services line — full names
+                    loc_txt.append(ago, style="rgb(100,100,100)")
+                elif c_system:
+                    loc_txt.append(c_system, style="white")
+            elif c_system:
+                loc_txt.append(c_system, style="white")
             svc_parts = []
             if c.get("market"):     svc_parts.append("Market")
             if c.get("shipyard"):   svc_parts.append("Shipyard")
@@ -2423,8 +2434,8 @@ def _render_overview(s: AppState) -> RenderableType:
             if c.get("refuel"):     svc_parts.append("Refuel")
             if c.get("repair"):     svc_parts.append("Repair")
             if svc_parts:
-                loc_txt.append(f"  {', '.join(svc_parts)}\n", style="white")
-
+                loc_txt.append(f"      {', '.join(svc_parts)}", style="white")
+            loc_txt.append("\n")
             parts.append(loc_txt)
 
     if not parts:
@@ -2957,6 +2968,9 @@ class SituationalPanel(_Panel):
         # Offline: no live game data — show statistics
         if not s.client_online:
             return _v("stats")
+        # Hyperspace jump in progress — show route so remaining hops are visible
+        if s.in_hyperspace and s.route_hops > 0:
+            return _v("route")
         # Docking granted — show pad diagram
         if s.docked_pad > 0 and not s.docked:
             return _v("docking")
@@ -3508,6 +3522,39 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
+# ── Shared log-line renderer ──────────────────────────────────────────────────
+
+def _render_log_lines(
+    events: list,
+    prefix_w: int,
+    msg_w: int,
+    format_prefix,  # Callable[[ev], Iterable[(str, str)]] → (text, style) pairs before message
+    format_message,  # Callable[[ev], (lines: list[str], style: str, first_line_prefix: list)]
+) -> Text:
+    """Shared renderer: timestamp + prefix + wrapped message for any log panel.
+
+    format_prefix(ev)  → list of (text, style) to append after the timestamp.
+    format_message(ev) → (lines: list[str], msg_style: str, first_extra: list[(str,str)])
+                         first_extra is appended on the first line before the message text.
+    """
+    t = Text()
+    for ev in events:
+        time_str = ev.time[:5]
+        prefix_parts = format_prefix(ev)
+        lines_text, msg_style, first_extra = format_message(ev)
+        for i, line in enumerate(lines_text):
+            if i == 0:
+                t.append(f"{time_str} ", style="rgb(100,100,100)")
+                for txt, sty in prefix_parts:
+                    t.append(txt, style=sty)
+                for txt, sty in first_extra:
+                    t.append(txt, style=sty)
+                t.append(line + "\n", style=msg_style)
+            else:
+                t.append(" " * prefix_w + line + "\n", style=msg_style)
+    return t
+
+
 # ── Event log panel ───────────────────────────────────────────────────────────
 
 class EventLogPanel(_Panel):
@@ -3551,7 +3598,6 @@ class EventLogPanel(_Panel):
         if s is None:
             return Text("")
 
-        t       = Text()
         events  = [ev for ev in s.events if ev.category != EventCategory.Chat]
         visible = events[self._scroll:]
 
@@ -3559,22 +3605,18 @@ class EventLogPanel(_Panel):
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w
 
-        for ev in visible:
+        def _prefix(ev):
             col  = ev.category.rich_color()
-            warn = ev.category == EventCategory.Warn
-            msg_style = f"bold {P.HUD_CRIT}" if warn else "white"
-            abbr      = self._CAT_ABBR.get(ev.category, "   ")
-            time_str  = ev.time[:5]  # "HH:MM" (trim seconds)
-            lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
-            for i, line in enumerate(lines):
-                if i == 0:
-                    t.append(f"{time_str} ", style="rgb(100,100,100)")
-                    t.append(f"{abbr} ", style=col)
-                else:
-                    t.append(" " * prefix_w)
-                t.append(line + "\n", style=msg_style)
+            abbr = self._CAT_ABBR.get(ev.category, "   ")
+            return [(f"{abbr} ", col)]
 
-        return t
+        def _message(ev):
+            warn      = ev.category == EventCategory.Warn
+            msg_style = f"bold {P.HUD_CRIT}" if warn else "white"
+            lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
+            return lines, msg_style, []
+
+        return _render_log_lines(visible, prefix_w, msg_w, _prefix, _message)
 
 
 # ── Chat log panel ────────────────────────────────────────────────────────────
@@ -3624,42 +3666,40 @@ class ChatLogPanel(_Panel):
         prefix_w  = 11  # "HH:MM " (6) + "TWI " (4) + padding 1
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w
-        t = Text()
-        for ev in chats:
+
+        def _strip_tag(ev):
             msg = ev.message
-            # Detect and strip source tag from message
-            src_abbr  = "MSG"
-            src_col   = "rgb(160,160,160)"
+            src_abbr, src_col = "MSG", "rgb(160,160,160)"
             for tag, (abbr, col) in self._SRC_TAGS.items():
                 if msg.startswith(tag + " "):
-                    src_abbr = abbr
-                    src_col  = col
-                    msg = msg[len(tag) + 1:]  # strip tag + space
+                    src_abbr, src_col = abbr, col
+                    msg = msg[len(tag) + 1:]
                     break
-            time_str = ev.time[:5]  # HH:MM
-            # Split "Username: message" — make username italic
+            return msg, src_abbr, src_col
+
+        def _prefix(ev):
+            _, src_abbr, src_col = _strip_tag(ev)
+            return [(f"{src_abbr} ", f"bold {src_col}")]
+
+        def _message(ev):
+            msg, _, src_col = _strip_tag(ev)
             colon_idx = msg.find(": ")
             if colon_idx > 0:
-                username    = msg[:colon_idx]
-                msg_body    = msg[colon_idx + 2:]
+                username = msg[:colon_idx]
+                msg_body = msg[colon_idx + 2:]
             else:
-                username    = ""
-                msg_body    = msg
-            display     = f"{username}: {msg_body}" if username else msg_body
-            lines = textwrap.wrap(display, width=msg_w) or [""]
-            for i, line in enumerate(lines):
-                if i == 0:
-                    t.append(f"{time_str} ", style="rgb(100,100,100)")
-                    t.append(f"{src_abbr} ", style=f"bold {src_col}")
-                    if username and line.startswith(username + ": "):
-                        t.append(username, style=f"italic {src_col}")
-                        t.append(": " + line[len(username)+2:] + "\n", style="white")
-                    else:
-                        t.append(line + "\n", style="white")
-                else:
-                    t.append(" " * prefix_w)
-                    t.append(line + "\n", style="white")
-        return t
+                username, msg_body = "", msg
+            display = f"{username}: {msg_body}" if username else msg_body
+            lines   = textwrap.wrap(display, width=msg_w) or [""]
+            # Build first-line username prefix (italic) if present
+            first_extra = []
+            if username and lines and lines[0].startswith(username + ": "):
+                first_extra = [(username, f"italic {src_col}"),
+                               (": " + lines[0][len(username)+2:], "white")]
+                lines = ([""] + lines[1:]) if len(lines) > 1 else [""]
+            return lines, "white", first_extra
+
+        return _render_log_lines(chats, prefix_w, msg_w, _prefix, _message)
 
 
 
@@ -3679,13 +3719,32 @@ class FooterBar(_Panel):
         left = Text()
         key  = f"bold {P.AMBER}"
         lbl  = P.AMBER_DIM
-        left.append(" q",      style=key); left.append(" Quit ", style=lbl)
-        left.append(" Tab",    style=key); left.append(" Mode ", style=lbl)
-        left.append(" ?",      style=key); left.append(" Help ", style=lbl)
-        left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
-        left.append(" m",      style=key)
+
+        # Thread stall warning: show if journal or status thread silent >60s while online
+        stall_msg = ""
+        if s is not None and s.client_online:
+            now = time.time()
+            stalled = []
+            if 0 < s.journal_heartbeat < now - 60:
+                stalled.append("journal")
+            if 0 < s.status_heartbeat < now - 60:
+                stalled.append("status")
+            if stalled:
+                stall_msg = f"⚠ {'+'.join(stalled)} thread stalled"
+
+        if stall_msg:
+            left.append(f" {stall_msg} ", style="bold rgb(220,60,0)")
+        else:
+            left.append(" q",      style=key); left.append(" Quit ", style=lbl)
+            left.append(" Tab",    style=key); left.append(" Mode ", style=lbl)
+            left.append(" ?",      style=key); left.append(" Help ", style=lbl)
+            left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
+            left.append(" m",      style=key)
+
         muted = s.muted if s is not None else False
-        if muted:
+        if stall_msg:
+            pass  # stall takes over left side; still show volume on the right
+        elif muted:
             left.append(" MUTED ", style="bold rgb(220,60,0)")
         else:
             left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
