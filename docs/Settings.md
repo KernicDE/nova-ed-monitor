@@ -152,7 +152,7 @@ Route accuracy: the planner uses a greedy A* algorithm — results are good for 
 # carrier_lookup = false
 ```
 
-When enabled, NOVA queries the [Spansh](https://spansh.co.uk) API each time you jump to a new system and displays any fleet carriers found in the Route panel. Results are cached for 5 minutes and at most one API call is made every 3 seconds. **Disabled by default** — enable if you actively use carriers.
+When enabled, NOVA queries the [Spansh](https://spansh.co.uk) API each time you jump to a new system and displays any fleet carriers found in the Overview panel. Results are cached for 5 minutes and at most one API call is made every 3 seconds. **Disabled by default** — enable if you actively use carriers.
 
 ---
 
@@ -223,27 +223,49 @@ Lines whose variable evaluates to empty/zero are skipped automatically.
 
 ## Voiceline Customisation
 
-On first launch NOVA copies all voiceline files to your config directory:
+On first launch NOVA copies the built-in voiceline files to a **reference folder** in your config directory. Do not edit those — they are overwritten on every launch.
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/nova/voicelines/` |
-| Windows | `%USERPROFILE%\.config\nova\voicelines\` |
+| Purpose | Path |
+|---------|------|
+| Reference (read-only) | `~/.config/nova/voicelines/default/` (Linux) |
+| User overrides | `~/.config/nova/voicelines/` (Linux) |
 
-One file per language: `en.toml`, `de.toml`, `fr.toml`, `it.toml`, `es.toml`, `pt.toml`, `ru.toml`.
+**Windows:** replace `~/.config` with `%USERPROFILE%\.config`.
 
-Each event key maps to a list of phrase variants — NOVA picks one at random. Example:
+Create a file named `en.toml` (or `de.toml`, `fr.toml`, etc.) in the user overrides folder. Only define the events you want to change — everything else uses the built-in defaults.
+
+### Format
 
 ```toml
 [FSDJump]
-# {system}  = destination star system name
-# {dist_ly} = jump distance formatted for speech
-# {suffix}  = optional extra info (star class, hops remaining, population)
-lines = [
-    "Arrived in {system}. Jump {dist_ly}.{suffix}",
-    "Hyperspace complete. Welcome to {system}.{suffix}",
-    "Jump complete. Now in {system}.{suffix}",
+add = [
+    "Extra variant one.",
+    "Another jump complete, heading to {system}.",
 ]
+
+[FuelScoop]
+replace = [
+    "Fuel collected.",
+]
+
+[SomeEvent]
+replace = []   # empty list = silence this event entirely
 ```
 
-Edit, add, or remove lines freely. On update, new event keys missing from your file fall back to the built-in automatically — **your edits are never overwritten**.
+- **`add`** — appends your lines to the built-in pool (more random variety).
+- **`replace`** — replaces the built-in lines entirely for this event.
+- **`replace = []`** — silences the event completely.
+
+Keys absent from your file continue to use the built-in defaults. Your file is never overwritten by NOVA updates.
+
+### Available template variables
+
+Variables differ per event key — see the reference files in `default/` for the full list. Common ones:
+
+| Variable | Meaning |
+|----------|---------|
+| `{system}` | Destination or current system name |
+| `{dist_ly}` | Jump distance formatted for speech |
+| `{station}` | Station name |
+| `{body}` | Body name |
+| `{name}` | Commander / pilot / species name |

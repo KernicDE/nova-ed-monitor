@@ -15,8 +15,9 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 ## Interface Overview
 
 ```
-┌─ System ─────────┬─ Ship ──────────────────────┬─ Route ────┐
-│ System/faction   │ Hull/Shield/Fuel gauges     │ Nav route  │
+┌─ System ─────────┬─ Ship ──────────────────────┬─ Target ───┐
+│ System/faction   │ Hull/Shield/Fuel gauges     │ Nearby /   │
+│                  │                             │ targeted   │
 ├──────────────────┴─────────────────────────────┴────────────┤
 │ Scanned Bodies   │ Overview / Wealth / Bio /    │ Events     │
 │ (FSS, DSS,       │ Missions / Engineers /       ├────────────┤
@@ -42,13 +43,16 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 |-----|--------|
 | `q` / `Esc` | Quit |
 | `?` | Help & About screen |
-| `Tab` | Cycle situational panel mode |
+| `Tab` | Cycle situational panel forward |
+| `Shift+Tab` | Cycle situational panel backward |
+| `a` | Toggle auto panel switching on/off |
+| `↑` / `k` | Scroll situational panel up |
+| `↓` / `j` | Scroll situational panel down |
+| `PgUp` / `PgDn` | Scroll focused panel by 5 (or situational panel when none focused) |
+| `Home` / `g` | Jump to latest events (event log) |
+| `w` / `s` | Scroll bodies panel up / down |
+| `r` | Toggle galaxy map scale (galactic ↔ regional) |
 | `n` | Open neutron route destination input (Neutron mode only) |
-| `r` | Toggle galaxy map scale (galactic ↔ regional ±1000 ly) |
-| `↑` / `k` | Scroll event log up |
-| `↓` / `j` | Scroll event log down |
-| `PgUp` / `PgDn` | Scroll event log by 20 lines |
-| `Home` / `g` | Jump to latest events |
 | `+` / `=` | Volume up (+5%) |
 | `−` | Volume down (−5%) |
 
@@ -56,20 +60,26 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 
 ## Situational Panel (centre)
 
-Press `Tab` to cycle through modes. In **Auto** mode NOVA switches automatically:
+Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-switching.
 
-| Mode | Auto? | Description |
-|------|-------|-------------|
-| **Auto** | — | Docking → Bio → Colonisation → Missions → Overview; Stats when offline |
-| Overview | ✓ | System diagram, notable bodies, session totals; nearest inhabited system (with station count and services) when in uninhabited space |
-| Wealth | — | Credit balance, fleet locations, cargo, suit loadout, backpack |
-| Inventory | — | Cargo hold and materials |
-| Bio | ✓ | Active bio scans — distances, bearings, sample counts |
-| Missions | ✓ | Active mission list |
-| Engineers | — | Rank bars, rank-progress %, specialty and system per engineer |
-| Neutron | — | Neutron route planner — press `n` to enter destination |
-| Galaxy | — | Braille top-down galaxy map (`r` to toggle scale) |
-| Stats | ✓ (offline) | Persistent statistics by today / week / month / year / total |
+| Mode | Abbrev | Auto? | Description |
+|------|--------|-------|-------------|
+| **Auto** | `***` | — | Switches by context; `a` to toggle lock |
+| Overview | `OVR` | ✓ | System diagram, notable bodies, session totals; nearest inhabited when in uninhabited space |
+| Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
+| Galaxy Map | `MAP` | — | Braille top-down galaxy map (`r` to toggle scale) |
+| Missions | `MIS` | ✓ | Active mission list |
+| Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
+| BGS | `BGS` | — | BGS activity log for the current system |
+| Colonisation | `COL` | ✓ | Construction site progress |
+| Route | `ROU` | ✓ | Nav route with jump distances and EDSM body/station info |
+| Neutron | `NTR` | — | Neutron route planner — press `n` to enter destination |
+| Wallet | `WLT` | — | Credit balance, fleet locations, cargo, suit loadout, backpack |
+| Inventory | `INV` | — | Cargo hold and materials |
+| Docking | `DKG` | ✓ | Docking pad diagram |
+| Statistics | `STS` | ✓ (offline) | Persistent statistics by today / week / month / year / total |
+
+**Auto-switch priority (highest first):** offline → Stats · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
 
 ---
 
@@ -99,25 +109,22 @@ Power Play and nearest-inhabited data is sourced from EDSM nightly dumps, refres
 
 ---
 
-## Route Panel (top right)
+## Target Panel (top right)
+
+Shows the most relevant target or nearby object. Priority order:
 
 | Context | Content |
 |---------|---------|
-| Docked | Station name, type, and services (market, shipyard, outfitting, refuel/repair) |
-| Approaching body | Body info from FSS scan |
-| In flight | Nav route: destination, jumps · next dist (total); next waypoint with star class; **Stations** at next waypoint; **Carriers** if `carrier_lookup` is enabled |
+| Docked | Station name, type, economy, allegiance, distance, and services |
+| Ship targeted | Ship type, pilot + rank, faction, legal status, bounty, shield/hull %, scan stage |
+| Body targeted | Body type, arrival distance, atmosphere, landability + gravity, bio/geo signals, terraform flag |
+| Approaching / nearby body | Same body details as above, labelled `APPROACHING` or `NEARBY` |
+| Nearest station | Name, distance, type, and service icons from EDSM data |
+| Nothing | Current system name and last jump distance |
 
-The **Stations** section shows up to 3 closest stations at your next route waypoint:
+**Ship target scan stages:** targeting a ship and keeping the lock progressively reveals more info — shield/hull at stage 1, faction and legal status at stage 2, full scan at stage 3.
 
-```
-Stations at next:
-Galileo             490ls [MSO ]
-Titan City         4529ls [M  R]
-```
-
-Icon legend: `M` = Market · `S` = Shipyard · `O` = Outfitting · `R` = Refuel/Repair
-
-Station data is sourced from EDSM nightly dumps. Fleet carrier data (when enabled) is sourced from the Spansh API and cached for 5 minutes.
+**Legal status colours:** green = Clean · amber = Lawless · red = Wanted / Hostile / Enemy
 
 ---
 

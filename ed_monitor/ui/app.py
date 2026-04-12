@@ -70,10 +70,11 @@ class HelpScreen(Screen):
             ("a",                "Toggle auto panel switching on/off"),
             ("↑ / k",            "Scroll situational panel up"),
             ("↓ / j",            "Scroll situational panel down"),
-            ("PgUp / PgDn",      "Scroll event log by 20 lines"),
+            ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
             ("Home / g",         "Jump to latest events"),
             ("w / s",            "Scroll bodies panel up / down"),
             ("r",                "Toggle galaxy map scale (galactic ↔ regional)"),
+            ("n",                "Neutron route destination input (Neutron mode only)"),
             ("+ / =",            "Volume up"),
             ("−",                "Volume down"),
         ]:
@@ -110,7 +111,7 @@ class HelpScreen(Screen):
 
         edsm_note = Text()
         edsm_note.append("Power Play state and nearest inhabited system shown in System panel.\n", style=DIM)
-        edsm_note.append("Stations at next route waypoint shown in Route panel.\n", style=DIM)
+        edsm_note.append("Stations at next route waypoint shown in Route situational panel.\n", style=DIM)
         edsm_note.append("Data sourced from EDSM nightly dumps, refreshed automatically once per day.", style=DIM)
 
         content = Panel(
