@@ -1304,7 +1304,9 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
         parts.append(more_t)
 
-    for gtype, gdata in groups[effective_scroll:]:
+    for _gi, (gtype, gdata) in enumerate(groups[effective_scroll:]):
+        if _gi > 0 or effective_scroll > 0:
+            parts.append(Text("\n"))
         if gtype == "predicted":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
@@ -1359,10 +1361,13 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         elif gtype == "prescan":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
+            _ff = getattr(b, "first_footfall", False)
             hdr_t = Text()
             hdr_t.append("─" * 3, style="rgb(60,80,100)")
             hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
             hdr_t.append("(DSS) ", style="rgb(100,140,180)")
+            if _ff:
+                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
             hdr_t.append("─" * 14, style="rgb(60,80,100)")
             hdr_t.append("\n")
             parts.append(hdr_t)
@@ -1387,24 +1392,24 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             if b.bio_value_min > 0:
                 est_t = Text()
                 est_t.append("Est. total  ", style=P.LABEL)
-                _ff = getattr(b, "first_footfall", False)
                 _vmin = b.bio_value_min * 5 if _ff else b.bio_value_min
                 _vmax = b.bio_value_max * 5 if _ff else b.bio_value_max
                 est_t.append(
                     f"~{_fmt_cr_compact(_vmin)}–{_fmt_cr_compact(_vmax)}",
                     style=f"bold {P.GOLD}",
                 )
-                if _ff:
-                    est_t.append("  (First Footfall applied)", style=P.HUD_GREEN)
                 est_t.append("\n")
                 parts.append(est_t)
 
         else:
             body_name, scans = gdata
             short = _short_name(body_name, s.system) if body_name and s.system else body_name
+            _scan_ff = any(sc.first_footfall for sc in scans)
             hdr_t = Text()
             hdr_t.append("─" * 3, style="rgb(60,80,100)")
             hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+            if _scan_ff:
+                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
             hdr_t.append("─" * 20, style="rgb(60,80,100)")
             hdr_t.append("\n")
             parts.append(hdr_t)
@@ -1497,8 +1502,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         footer = Text()
         footer.append("Total confirmed: ", style=P.LABEL)
         footer.append(_fmt_value(total_known), style=f"bold {P.GOLD}")
-        if any(sc.first_footfall for sc in s.bio_scans if sc.complete):
-            footer.append("  (First Footfall applied)", style=P.HUD_GREEN)
         parts.append(footer)
 
     return Group(*parts)
