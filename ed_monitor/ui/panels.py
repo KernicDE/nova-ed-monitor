@@ -762,6 +762,14 @@ class RoutePanel(_Panel):
         elif snap.target_body:
             short = _short_name(snap.target_body, snap.system)
             self.border_title = f"◈ Target: {short}"
+        elif snap.approach_body:
+            short = _short_name(snap.approach_body, snap.system)
+            self.border_title = f"◈ Approaching: {short}"
+        elif snap.nearest_body:
+            short = _short_name(snap.nearest_body, snap.system)
+            self.border_title = f"◈ Nearby: {short}"
+        elif getattr(snap, "nearest_populated_stations", []):
+            self.border_title = "◈ Nearby"
         else:
             self.border_title = "◈ Target"
         self.refresh()
@@ -886,7 +894,6 @@ class RoutePanel(_Panel):
                 t.append(f"{label:<8}", style=P.LABEL)
                 t.append(value + "\n", style=vstyle)
 
-            t.append("TARGETING\n", style=f"bold {P.HUD_CYAN}")
             t.append(f"{body_name}\n", style="bold white")
             if body_name == s.route_next:
                 if s.route_next_dist > 0:
@@ -912,7 +919,6 @@ class RoutePanel(_Panel):
         btype = _abbrev_type(body.planet_class, body.star_type)
         col   = _body_color(body.planet_class, body.star_type)
 
-        t.append("TARGETING\n", style=f"bold {P.HUD_CYAN}")
         t.append(f"{short}\n", style=f"bold {col}")
 
         row("Type", btype, f"bold {col}")
@@ -975,8 +981,6 @@ class RoutePanel(_Panel):
             btype = _abbrev_type(body.planet_class, body.star_type)
             col   = _body_color(body.planet_class, body.star_type)
 
-            label = "APPROACHING" if s.approach_body else "NEARBY"
-            t.append(f"{label}\n", style=f"bold {P.HUD_CYAN}")
             t.append(f"{short}\n", style=f"bold {col}")
 
             row("Type", btype, f"bold {col}")
@@ -1025,7 +1029,6 @@ class RoutePanel(_Panel):
         # No nearby body — show nearest station in the current system from EDSM data
         stations = getattr(s, "nearest_populated_stations", [])
         if stations:
-            t.append("NEAREST STATION\n", style=f"bold {P.LABEL}")
             stn = stations[0]
             stn_name = stn.get("name", "?")
             if len(stn_name) > 22:
