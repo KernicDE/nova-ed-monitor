@@ -327,8 +327,16 @@ class SystemPanel(_Panel):
         stars   = sum(1 for b in s.bodies if b.star_type)
         planets = sum(1 for b in s.bodies if b.planet_class and b.level <= 1)
         moons   = sum(1 for b in s.bodies if b.planet_class and b.level == 2)
-        # Count all bodies that the player has received a Scan event for
-        fss_done  = sum(1 for b in s.bodies if b.fss_scanned)
+        # Count all bodies that the player has received a Scan event for.
+        # Only count bodies with a known type (planet_class or star_type) — this
+        # matches FSSDiscoveryScan.BodyCount which excludes asteroid belt clusters.
+        # Belt clusters have no planet_class/star_type but can produce Scan events,
+        # which would otherwise inflate fss_done above fss_total.
+        # Set comprehension on name deduplicates any edge-case double entries.
+        fss_done = len({
+            b.name for b in s.bodies
+            if b.fss_scanned and (b.planet_class or b.star_type)
+        })
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
