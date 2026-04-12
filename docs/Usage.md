@@ -65,19 +65,19 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Mode | Abbrev | Auto? | Description |
 |------|--------|-------|-------------|
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
-| Overview | `OVR` | ✓ | Notable bodies, nearest inhabited system, session totals |
+| Overview | `OVR` | ✓ | Route summary + galactic position · notable bodies · PowerPlay/BGS · nearest inhabited system |
 | Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
 | Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` to cycle) |
-| Missions | `MIS` | ✓ | Active mission list |
+| Missions | `MIS` | ✓ | Active missions and massacre kill progress bars |
 | Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
-| BGS | `BGS` | — | BGS activity log for the current system |
-| Colonisation | `COL` | ✓ | Construction site progress |
-| Route | `ROU` | ✓ | Nav route with jump distances and EDSM body/station info |
+| BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |
+| Colonisation | `COL` | ✓ | Construction site commodity progress |
+| Route | `ROU` | ✓ | Nav route: star class, scoopable, distances, EDSM body/bio counts |
 | Neutron | `NTR` | — | Neutron route planner — press `n` to enter destination |
-| Wallet | `WLT` | — | Credit balance, fleet locations, cargo, suit loadout, backpack |
-| Inventory | `INV` | — | Cargo hold and materials |
-| Docking | `DKG` | ✓ | Docking pad diagram |
-| Statistics | `STS` | ✓ (offline) | Persistent statistics by today / week / month / year / total |
+| Wallet | `WLT` | — | Balance · fleet · cargo · suit loadout + weapons · backpack |
+| Inventory | `INV` | — | Cargo · raw / manufactured / encoded materials |
+| Docking | `DKG` | ✓ | Station pad diagram (top-down) |
+| Statistics | `STS` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
 **Auto-switch priority (highest first):** offline → Stats · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
 

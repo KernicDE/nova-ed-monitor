@@ -38,7 +38,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 ### Terminal UI
 - **System / Ship / Target / Bodies / Situational / Events / Chat panels**
 - **Situational panel** (14 modes, cycle with `Tab` / `Shift+Tab`):
-  - Auto-switches by context; toggle auto-lock with `a`
+  - Auto-switches by context (route, bio, missions, docking, etc.); toggle lock with `a`
   - Panel visibility and order configurable via `situational_panels` in config
   - Active mode shown with full name in the border title
 - **Power distribution (PIPs)** — live SYS/ENG/WEP pip display with half-pip support (●◑○)
@@ -296,19 +296,19 @@ The border title shows all modes as abbreviations; the active one expands to its
 | Abbrev | Full Name | Description |
 |--------|-----------|-------------|
 | `***` | AUTO | Auto-switches by context; lock/unlock with `a` |
-| `OVR` | OVERVIEW | Notable bodies, nearest inhabited, session stats |
-| `BIO` | BIOLOGICAL | Active bio scans with distances and bearings |
+| `OVR` | OVERVIEW | Route summary + galactic position · notable bodies · PowerPlay/BGS summary · nearest inhabited system |
+| `BIO` | BIOLOGICAL | Active bio scans with distances, bearings, and sample counts |
 | `MAP` | MAPS | System diagram → regional map → galaxy map (`r` cycles) |
-| `MIS` | MISSION | Active mission list |
-| `ENG` | ENGINEERS | Rank bars, progress %, specialty and system |
-| `BGS` | BGS | BGS activity log |
+| `MIS` | MISSION | Active missions and massacre kill progress bars |
+| `ENG` | ENGINEERS | Rank bars, progress %, specialty and system per engineer |
+| `BGS` | BGS | Per-faction BGS activity counts for the current system (today's tick) |
 | `COL` | COLONISATION | Construction site commodity progress |
-| `ROU` | ROUTE | Nav route: star type, scoopable, distances, EDSM |
+| `ROU` | ROUTE | Nav route: star class, scoopable, distances, EDSM body/bio counts |
 | `NTR` | NEUTRON | Local neutron route planner (`n` = new route) |
-| `WLT` | WALLET | Credits, fleet, cargo, suit loadout, backpack |
-| `INV` | INVENTORY | Cargo and materials |
-| `DKG` | DOCKING | Station pad diagram |
-| `STS` | STATISTICS | Persistent statistics |
+| `WLT` | WALLET | Balance · fleet · cargo (with stolen flag) · suit loadout + weapons · backpack |
+| `INV` | INVENTORY | Cargo · raw / manufactured / encoded materials |
+| `DKG` | DOCKING | Station pad diagram (top-down view) |
+| `STS` | STATISTICS | Persistent stats: today / week / month / year / total |
 
 **Auto mode priority (highest first):** offline → Stats · docking granted → Docking · active/pre-scan bio → Bio · colonisation active → Colonisation · missions → Missions · route set → Route · default → Overview.
 

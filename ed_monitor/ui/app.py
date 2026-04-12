@@ -86,19 +86,19 @@ class HelpScreen(Screen):
         sm.add_column()
         for mode, desc in [
             ("*** / Auto",       "Auto-switches by context; a = toggle lock"),
-            ("OVR / Overview",   "Notable bodies, nearest inhabited, session stats"),
+            ("OVR / Overview",   "Route + position · notable bodies · PP/BGS · nearest inhabited"),
             ("BIO / Biological", "Active bio scans with distances and bearings"),
             ("MAP / Maps",       "System diagram → regional → galaxy map (r = cycle)"),
-            ("MIS / Mission",    "Active mission list"),
+            ("MIS / Mission",    "Active missions and massacre kill progress"),
             ("ENG / Engineers",  "Engineer unlock progress and rank"),
-            ("BGS",              "BGS activity log"),
-            ("COL / Colonisation","Construction site progress"),
-            ("ROU / Route",      "Nav route with jump distances and EDSM info"),
+            ("BGS",              "BGS activity log — per-faction activity counts"),
+            ("COL / Colonisation","Construction site commodity progress"),
+            ("ROU / Route",      "Nav route with star class, distances, EDSM body/bio data"),
             ("NTR / Neutron",    "Local neutron route planner (n = new route)"),
-            ("WLT / Wallet",     "Credit balance, fleet, cargo, suit loadout"),
-            ("INV / Inventory",  "Cargo and materials"),
-            ("DKG / Docking",    "Docking pad diagram"),
-            ("STS / Statistics", "Persistent session statistics"),
+            ("WLT / Wallet",     "Balance · fleet · cargo · suit loadout · backpack"),
+            ("INV / Inventory",  "Cargo and raw / manufactured / encoded materials"),
+            ("DKG / Docking",    "Station pad diagram (top-down)"),
+            ("STS / Statistics", "Persistent statistics: today / week / month / year / total"),
         ]:
             sm.add_row(Text(mode, style=GOLD), Text(desc, style=WHITE))
 
