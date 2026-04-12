@@ -1387,10 +1387,15 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             if b.bio_value_min > 0:
                 est_t = Text()
                 est_t.append("Est. total  ", style=P.LABEL)
+                _ff = getattr(b, "first_footfall", False)
+                _vmin = b.bio_value_min * 5 if _ff else b.bio_value_min
+                _vmax = b.bio_value_max * 5 if _ff else b.bio_value_max
                 est_t.append(
-                    f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}",
+                    f"~{_fmt_cr_compact(_vmin)}–{_fmt_cr_compact(_vmax)}",
                     style=f"bold {P.GOLD}",
                 )
+                if _ff:
+                    est_t.append("  (First Footfall applied)", style=P.HUD_GREEN)
                 est_t.append("\n")
                 parts.append(est_t)
 
@@ -1492,6 +1497,8 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         footer = Text()
         footer.append("Total confirmed: ", style=P.LABEL)
         footer.append(_fmt_value(total_known), style=f"bold {P.GOLD}")
+        if any(sc.first_footfall for sc in s.bio_scans if sc.complete):
+            footer.append("  (First Footfall applied)", style=P.HUD_GREEN)
         parts.append(footer)
 
     return Group(*parts)
