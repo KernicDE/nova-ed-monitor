@@ -692,13 +692,13 @@ def _follow(
     else:
         fd.seek(0, 2)
 
-    # On startup: fetch EDSM bodies for current system
+    # On startup: fetch EDSM bodies for current system (silent — no unknown-to-EDSM announcement)
     if edsm_q is not None:
         with lock:
             sys_name = state.system
         if sys_name and sys_name != "—":
             try:
-                edsm_q.put_nowait(("fetch_system", sys_name))
+                edsm_q.put_nowait(("fetch_system_silent", sys_name))
             except Exception:
                 pass
 

@@ -49,30 +49,32 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
             for kind, system in pending:
                 _log.debug(f"EDSM request: {kind} for '{system}'")
                 try:
-                    if kind == "fetch_system":
+                    if kind in ("fetch_system", "fetch_system_silent"):
                         data = _fetch_system_data(client, system, state, lock)
                         bodies = data.get("bodies") if isinstance(data, dict) else None
                         known  = isinstance(data, dict) and data.get("id64") is not None
 
-                        with lock:
-                            current_system    = state.system
-                            already_announced = state.system_edsm_known is not None
-
-                        if current_system.lower() == system.lower() and not already_announced:
+                        # Only announce "unknown to EDSM" for live jumps, not on startup
+                        if kind == "fetch_system":
                             with lock:
-                                state.system_edsm_known = known
+                                current_system    = state.system
+                                already_announced = state.system_edsm_known is not None
+
+                            if current_system.lower() == system.lower() and not already_announced:
+                                with lock:
+                                    state.system_edsm_known = known
+                                    if not known:
+                                        state.push_event(LogEvent.new(
+                                            EventCategory.System, "System unknown to EDSM."
+                                        ))
                                 if not known:
-                                    state.push_event(LogEvent.new(
-                                        EventCategory.System, "System unknown to EDSM."
-                                    ))
-                            if not known:
-                                lang  = _ev._TTS_LANG
-                                voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
-                                text  = _vl.pick("System_EDSM_Unknown", lang=lang) or "System unknown to EDSM."
-                                try:
-                                    tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-                                except Exception:
-                                    pass
+                                    lang  = _ev._TTS_LANG
+                                    voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+                                    text  = _vl.pick("System_EDSM_Unknown", lang=lang) or "System unknown to EDSM."
+                                    try:
+                                        tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
+                                    except Exception:
+                                        pass
 
                         if bodies:
                             _merge_bodies(state, lock, bodies)
