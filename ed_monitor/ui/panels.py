@@ -1304,7 +1304,7 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         t.append("No biological scans active.", style=P.LABEL)
         return t
 
-    parts: list[RenderableType] = []
+    parts: list[RenderableType] = [Text("\n")]
 
     effective_scroll = min(scroll, max(0, len(groups) - 1))
     if effective_scroll > 0:
@@ -1390,6 +1390,8 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             for g in b.bio_genuses:
                 key = g.lower().split()[0] if g else ""
                 lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                if _ff and lo > 0:
+                    lo, hi = lo * 5, hi * 5
                 val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
                 tbl.add_row(
                     Text(g, style=P.HUD_CYAN),
@@ -1406,7 +1408,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                     f"~{_fmt_cr_compact(_vmin)}–{_fmt_cr_compact(_vmax)}",
                     style=f"bold {P.GOLD}",
                 )
-                est_t.append("\n")
                 parts.append(est_t)
 
         else:
