@@ -51,7 +51,7 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `PgUp` / `PgDn` | Scroll focused panel by 5 (or situational panel when none focused) |
 | `Home` / `g` | Jump to latest events (event log) |
 | `w` / `s` | Scroll bodies panel up / down |
-| `r` | Toggle galaxy map scale (galactic ↔ regional) |
+| `r` | Cycle Maps sub-screen (system diagram → regional → galaxy) |
 | `n` | Open neutron route destination input (Neutron mode only) |
 | `+` / `=` | Volume up (+5%) |
 | `−` | Volume down (−5%) |
@@ -65,9 +65,9 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Mode | Abbrev | Auto? | Description |
 |------|--------|-------|-------------|
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
-| Overview | `OVR` | ✓ | System diagram, notable bodies, session totals; nearest inhabited when in uninhabited space |
+| Overview | `OVR` | ✓ | Notable bodies, nearest inhabited system, session totals |
 | Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
-| Galaxy Map | `MAP` | — | Braille top-down galaxy map (`r` to toggle scale) |
+| Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` to cycle) |
 | Missions | `MIS` | ✓ | Active mission list |
 | Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | BGS activity log for the current system |

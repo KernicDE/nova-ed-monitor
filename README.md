@@ -267,7 +267,7 @@ Open it with any text editor to adjust settings:
 | `Home` / `g` | Jump to latest events |
 | `w` / `s` | Scroll bodies panel up / down |
 | `n` | Enter neutron route destination (Neutron panel) |
-| `r` | Toggle galaxy map scale (galactic ↔ regional) |
+| `r` | Cycle Maps sub-screen (system diagram → regional → galaxy) |
 | `+` / `=` | Volume up |
 | `−` | Volume down |
 
@@ -296,9 +296,9 @@ The border title shows all modes as abbreviations; the active one expands to its
 | Abbrev | Full Name | Description |
 |--------|-----------|-------------|
 | `***` | AUTO | Auto-switches by context; lock/unlock with `a` |
-| `OVR` | OVERVIEW | System diagram, notable bodies, session stats |
+| `OVR` | OVERVIEW | Notable bodies, nearest inhabited, session stats |
 | `BIO` | BIOLOGICAL | Active bio scans with distances and bearings |
-| `MAP` | GALAXY MAP | Braille top-down galaxy map (`r` = scale toggle) |
+| `MAP` | MAPS | System diagram → regional map → galaxy map (`r` cycles) |
 | `MIS` | MISSION | Active mission list |
 | `ENG` | ENGINEERS | Rank bars, progress %, specialty and system |
 | `BGS` | BGS | BGS activity log |

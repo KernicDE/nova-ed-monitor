@@ -73,7 +73,7 @@ class HelpScreen(Screen):
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
             ("Home / g",         "Jump to latest events"),
             ("w / s",            "Scroll bodies panel up / down"),
-            ("r",                "Toggle galaxy map scale (galactic ↔ regional)"),
+            ("r",                "Cycle Maps sub-screen (system → regional → galaxy)"),
             ("n",                "Neutron route destination input (Neutron mode only)"),
             ("+ / =",            "Volume up"),
             ("−",                "Volume down"),
@@ -86,9 +86,9 @@ class HelpScreen(Screen):
         sm.add_column()
         for mode, desc in [
             ("*** / Auto",       "Auto-switches by context; a = toggle lock"),
-            ("OVR / Overview",   "System diagram, notable bodies, session stats"),
+            ("OVR / Overview",   "Notable bodies, nearest inhabited, session stats"),
             ("BIO / Biological", "Active bio scans with distances and bearings"),
-            ("MAP / Galaxy Map", "Braille top-down galaxy map (r = scale toggle)"),
+            ("MAP / Maps",       "System diagram → regional → galaxy map (r = cycle)"),
             ("MIS / Mission",    "Active mission list"),
             ("ENG / Engineers",  "Engineer unlock progress and rank"),
             ("BGS",              "BGS activity log"),
