@@ -1342,7 +1342,10 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                 if b.bio_signals > 0:
                     hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
                 if _rng_hi:
-                    _est = f"~{_fmt_cr_compact(min(_rng_lo) if _rng_lo else 0)}–{_fmt_cr_compact(max(_rng_hi))}"
+                    _n = max(1, b.bio_signals)
+                    _total_lo = sum(sorted(_rng_lo)[:_n])
+                    _total_hi = sum(sorted(_rng_hi, reverse=True)[:_n])
+                    _est = f"~{_fmt_cr_compact(_total_lo)}–{_fmt_cr_compact(_total_hi)}"
                     hint_t.append(f"  ·  pot. {_est}", style="rgb(140,130,60)")
                 hint_t.append("\n")
                 parts.append(hint_t)
@@ -2356,7 +2359,10 @@ def _render_overview(s: AppState) -> RenderableType:
                             if _lo > 0: _pred_lo.append(_lo)
                             if _hi > 0: _pred_hi.append(_hi)
                         if _pred_hi:
-                            bio_s = f"?~{_fmt_cr_compact(min(_pred_lo) if _pred_lo else 0)}–{_fmt_cr_compact(max(_pred_hi))}"
+                            _n = max(1, b.bio_signals)
+                            _total_lo = sum(sorted(_pred_lo)[:_n])
+                            _total_hi = sum(sorted(_pred_hi, reverse=True)[:_n])
+                            bio_s = f"?~{_fmt_cr_compact(_total_lo)}–{_fmt_cr_compact(_total_hi)}"
                             bio_c = "rgb(140,130,60)"  # dimmer gold — uncertain prediction
                         else:
                             bio_s = f"{b.bio_signals}×?"
