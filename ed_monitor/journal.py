@@ -23,6 +23,34 @@ _BODY_EVENTS = frozenset({
     "Scan", "SAAScanComplete", "FSSBodySignals", "SAASignalsFound",
 })
 
+# Estimated base values by planet class — fallback when body value is 0 (e.g. EDSM pre-populated)
+_STAT_EST_VALUES: dict[str, int] = {
+    "Earthlike body":                    2_500_000,
+    "Water world":                         170_000,
+    "Ammonia world":                       235_000,
+    "Metal rich body":                     100_000,
+    "High metal content body":              22_000,
+    "Rocky body":                            3_500,
+    "Rocky ice body":                        4_000,
+    "Icy body":                              2_500,
+    "Sudarsky class I gas giant":            3_500,
+    "Sudarsky class II gas giant":          15_000,
+    "Sudarsky class III gas giant":          4_500,
+    "Sudarsky class IV gas giant":           5_500,
+    "Sudarsky class V gas giant":            6_000,
+    "Helium rich gas giant":                 3_500,
+    "Gas giant with water-based life":      19_000,
+    "Gas giant with water based life":      19_000,
+    "Gas giant with ammonia-based life":    22_000,
+    "Gas giant with ammonia based life":    22_000,
+    "Water giant":                           4_000,
+}
+
+
+def _stat_est_value(b) -> int:
+    """Estimate body base value when b.value == 0 (EDSM-populated bodies without scan data)."""
+    return _STAT_EST_VALUES.get(b.planet_class, 0)
+
 
 _route_edsm_lock        = threading.Lock()
 _route_bodies_edsm_lock = threading.Lock()
@@ -779,20 +807,38 @@ def _follow(
                 elif ev_name == "Scan" and effective.get("ScanType") == "Detailed":
                     if effective.get("PlanetClass") or effective.get("StarType"):
                         db.increment_stat("fss_count", commander=commander)
-                        if not effective.get("WasDiscovered"):
+                        first_disc = not effective.get("WasDiscovered")
+                        if first_disc:
                             db.increment_stat("fss_undiscovered", commander=commander)
                         val = int(effective.get("EstimatedValue") or 0)
-                        if val: db.increment_stat("fss_value", val, commander=commander)
+                        if val:
+                            # Apply first-discovery bonus (2.6×) to match payout at cartographics
+                            if first_disc:
+                                val = int(val * 2.6)
+                            db.increment_stat("fss_value", val, commander=commander)
                         _stat_changed = True
                 elif ev_name == "SAAScanComplete":
-                    body_nm = effective.get("BodyName", "")
+                    body_nm  = effective.get("BodyName", "")
+                    # Use WasDiscovered/WasMapped from the event directly — more reliable than body lookup
+                    dss_disc = not effective.get("WasDiscovered")
+                    dss_map  = not effective.get("WasMapped")
+                    probes   = int(effective.get("ProbesUsed") or 0)
+                    eff_tgt  = int(effective.get("EfficiencyTarget") or 0)
                     db.increment_stat("dss_count", commander=commander)
+                    if dss_disc:
+                        db.increment_stat("dss_undiscovered", commander=commander)
                     with lock:
                         _bidx = state._bodies_by_name.get(body_nm, -1)
                         _b = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
                     if _b:
-                        if _b.first_discovered: db.increment_stat("dss_undiscovered", commander=commander)
-                        if _b.value > 0:        db.increment_stat("dss_value", _b.value, commander=commander)
+                        _bval = _b.value or _stat_est_value(_b)
+                        if _bval > 0:
+                            # Apply first-mapping bonus (3.3×) and optional efficiency bonus (+25%)
+                            if dss_map:
+                                _bval = int(_bval * 3.3)
+                            if eff_tgt > 0 and probes <= eff_tgt:
+                                _bval = int(_bval * 1.25)
+                            db.increment_stat("dss_value", _bval, commander=commander)
                     _stat_changed = True
                 elif ev_name == "ScanOrganic" and effective.get("ScanType") == "Analyse":
                     db.increment_stat("bio_count", commander=commander)

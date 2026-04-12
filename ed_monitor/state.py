@@ -360,6 +360,9 @@ class AppState:
     # Service status (EDSM connectivity indicator shown in footer)
     edsm_status: ServiceStatus = field(default_factory=ServiceStatus)
 
+    # EDSM system lookup result: None = pending, True = known, False = not in EDSM
+    system_edsm_known: Optional[bool] = None
+
     # DSS suppression: body names where SAAScanComplete fired, awaiting the
     # subsequent game-triggered Scan event to suppress its duplicate message.
     dss_recently_completed: set = field(default_factory=set)

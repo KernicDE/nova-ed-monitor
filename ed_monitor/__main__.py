@@ -89,7 +89,7 @@ def main() -> None:
     primary_voice = cfg.tts_voices.get("en", "en-GB-SoniaNeural")
     tts_q = tts.spawn_worker(primary_voice, cfg.tts_rate, volume, vol_lock, stop_evt)
 
-    edsm_q    = edsm.spawn(state, lock)
+    edsm_q    = edsm.spawn(state, lock, tts_q)
     edsm_dumps.spawn(state, lock, database)
     spansh_q  = spansh.spawn(state, lock) if cfg.carrier_lookup else None
     neutron_q = neutron.spawn(state, lock)

@@ -8,19 +8,22 @@ from datetime import datetime
 from typing import Optional
 from urllib.parse import quote
 
-from .state import AppState, BodyInfo
+from .state import AppState, BodyInfo, LogEvent, EventCategory
+from .tts import TtsMsg
 
 _log = logging.getLogger("nova.edsm")
 
 
-def spawn(state: AppState, lock: threading.RLock) -> queue.Queue:
+def spawn(state: AppState, lock: threading.RLock, tts_q: queue.Queue) -> queue.Queue:
     q: queue.Queue = queue.Queue()
-    t = threading.Thread(target=_run, args=(q, state, lock), daemon=True)
+    t = threading.Thread(target=_run, args=(q, state, lock, tts_q), daemon=True)
     t.start()
     return q
 
 
-def _run(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
+def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Queue) -> None:
+    from . import events as _ev
+    from . import voicelines as _vl
     import httpx
     client = httpx.Client(timeout=15.0)
 
@@ -47,7 +50,30 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock) -> None:
                 _log.debug(f"EDSM request: {kind} for '{system}'")
                 try:
                     if kind == "fetch_system":
-                        bodies = _fetch_system_bodies(client, system, state, lock)
+                        data = _fetch_system_data(client, system, state, lock)
+                        bodies = data.get("bodies") if isinstance(data, dict) else None
+                        known  = isinstance(data, dict) and data.get("id64") is not None
+
+                        with lock:
+                            current_system    = state.system
+                            already_announced = state.system_edsm_known is not None
+
+                        if current_system.lower() == system.lower() and not already_announced:
+                            with lock:
+                                state.system_edsm_known = known
+                                if not known:
+                                    state.push_event(LogEvent.new(
+                                        EventCategory.System, "System unknown to EDSM."
+                                    ))
+                            if not known:
+                                lang  = _ev._TTS_LANG
+                                voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+                                text  = _vl.pick("System_EDSM_Unknown", lang=lang) or "System unknown to EDSM."
+                                try:
+                                    tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
+                                except Exception:
+                                    pass
+
                         if bodies:
                             _merge_bodies(state, lock, bodies)
                             _log.debug(f"EDSM merged {len(bodies)} body/bodies for '{system}'")
@@ -71,12 +97,13 @@ def _url_encode(s: str) -> str:
     return quote(s, safe="")
 
 
-def _fetch_system_bodies(
+def _fetch_system_data(
     client: "httpx.Client",
     system: str,
     state:  AppState,
     lock:   threading.RLock,
-) -> Optional[list]:
+) -> dict:
+    """Fetch system bodies from EDSM. Returns the full response dict (may be empty on error)."""
     enc     = _url_encode(system)
     tx_time = _now_hms()
     try:
@@ -88,12 +115,12 @@ def _fetch_system_bodies(
             state.edsm_status.last_rx    = rx_time
             state.edsm_status.connected  = True
             state.edsm_status.last_error = None
-        return data.get("bodies") if isinstance(data, dict) else None
+        return data if isinstance(data, dict) else {}
     except Exception as e:
         with lock:
             state.edsm_status.last_tx    = tx_time
             state.edsm_status.last_error = _fmt_err(e)
-        return None
+        return {}
 
 
 def _fetch_station_count(

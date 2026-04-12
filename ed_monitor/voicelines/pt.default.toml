@@ -287,3 +287,7 @@ lines = ["{species} pronto. Pode scanear a próxima amostra."]
 
 [BioTooClose]
 lines = ["Demasiado perto da amostra {species}. Afaste-se antes de scanear."]
+
+[System_EDSM_Unknown]
+# No variables.
+lines = ["Sistema desconhecido no EDSM."]

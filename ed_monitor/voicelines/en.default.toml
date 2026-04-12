@@ -409,3 +409,7 @@ lines = ["Too close to {species} sample. Move away before scanning."]
 [SellExplorationData]
 # {value} = credit value formatted for speech
 lines = ["Exploration data sold: {value}."]
+
+[System_EDSM_Unknown]
+# No variables.
+lines = ["System unknown to EDSM."]

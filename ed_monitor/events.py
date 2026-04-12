@@ -719,6 +719,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.fuel_announced  = False
             state.discovery_announced = False
             state.fss_honk_pending    = False
+            state.system_edsm_known  = None  # reset for new system
             state.hull       = _f(ev, "Health") if "Health" in ev else state.hull
             state.lat        = None
             state.lon        = None
@@ -1283,10 +1284,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if scan_type not in ("Detailed", "AutoScan"):
                 return None
 
-            if scan_type == "AutoScan" and is_star and not _b(ev, "WasDiscovered"):
-                if not state.discovery_announced:
-                    state.discovery_announced = True
-                    _say(tts_q, "Scan_Undiscovered", False, fallback="Undiscovered system.")
+            _is_undiscovered = scan_type == "AutoScan" and is_star and not _b(ev, "WasDiscovered")
+            if _is_undiscovered and not state.discovery_announced:
+                state.discovery_announced = True
+                _say(tts_q, "Scan_Undiscovered", False, fallback="Undiscovered system.")
 
             if just_dss_scanned:
                 return None
@@ -1322,6 +1323,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if geo_count > 0:
                 sig_parts.append(f"{geo_count} geo signal{'s' if geo_count != 1 else ''}")
 
+            undiscov_prefix = "Undiscovered! " if _is_undiscovered else ""
+
             if valuable or terraformable or rare_star or high_value:
                 parts = []
                 if planet_class: parts.append(planet_class)
@@ -1333,7 +1336,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 if landable:      parts.append("Landable.")
                 parts.extend(sig_parts)
                 detail = " ".join(parts)
-                msg    = f"Notable: {short}. {detail}"
+                msg    = f"{undiscov_prefix}Notable: {short}. {detail}"
                 _say(tts_q, "Scan_Notable", valuable or star_type in ("N", "H"),
                      fallback=msg, body_short=short, detail=detail)
                 return LogEvent.new(EventCategory.Explore, msg)
@@ -1347,6 +1350,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 _say(tts_q, "Scan_Detailed", False,
                      fallback=msg, body_short=short, detail=detail)
                 return LogEvent.new(EventCategory.Explore, msg)
+            elif _is_undiscovered:
+                # AutoScan of undiscovered non-notable star: emit log entry
+                return LogEvent.new(EventCategory.Explore, "Undiscovered system!")
             else:
                 return None
 

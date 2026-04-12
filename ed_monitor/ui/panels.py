@@ -1114,7 +1114,14 @@ class BodiesPanel(_Panel):
         system  = s.system
         visible = [b for b in s.bodies if b.planet_class or b.star_type]
         
-        # Sort bodies: single-star children first (A, B...), barycentre bodies last (AB, BC...)
+        # Sort bodies: single-star children first (A, B...), barycentre PLANETS last (AB 4...)
+        # Exception: if "AB 1" is itself a star, its children "AB 1 a" sort directly after it.
+        _star_short_names: set[str] = set()
+        for _sb in visible:
+            if _sb.star_type:
+                _sn = _short_name(_sb.name, system).strip() or "A"
+                _star_short_names.add(_sn)
+
         def _body_sort_key(b: BodyInfo) -> tuple:
             short = _short_name(b.name, system).strip()
             if not short and b.star_type and " " in b.name:
@@ -1125,8 +1132,15 @@ class BodiesPanel(_Panel):
                 return (0, "")  # Primary star always first
 
             parts = short.split()
-            is_barycentre = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
-            bucket = 1 if is_barycentre else 0
+            # A body is a barycentre-orbit body (bucket 1) when its short name starts with
+            # a multi-char alpha prefix (like "AB") AND its root parent is NOT a star.
+            # e.g. "AB 4" → root_parent="AB 4" (not a star) → bucket 1
+            #      "AB 1 a" where AB 1 is a star → root_parent="AB 1" (IS a star) → bucket 0
+            if not b.star_type and parts[0].isalpha() and len(parts[0]) > 1:
+                root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
+                bucket = 0 if root_parent in _star_short_names else 1
+            else:
+                bucket = 0
 
             # Zero-pad numbers for correct lexicographic ordering
             key_parts = [f"{int(p):04d}" if p.isdigit() else p.lower() for p in parts]
@@ -1166,12 +1180,18 @@ class BodiesPanel(_Panel):
             parts = display_name.split()
 
             # Hierarchical indentation:
-            # Stars / primary bodies:   level 0 (no indent)
-            # Single-star planets:      level 1  (A 1, B 2, 1...)
-            # Single-star moons:        level 2+ (A 1 a, 1 a...)
-            # Barycentre planets:       level 0  (AB 4 — orbits the binary, not A)
-            # Barycentre moons:         level 1  (AB 4 a)
-            is_barycentre_body = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+            # Stars / primary bodies:         level 0 (no indent)
+            # Single-star planets:            level 1  (A 1, B 2, 1...)
+            # Single-star moons:              level 2+ (A 1 a, 1 a...)
+            # Barycentre planets:             level 0  (AB 4 — orbits the binary, not A)
+            # Barycentre planet moons:        level 1  (AB 4 a)
+            # Children of barycentre STARS:   like normal children (AB 1 a → level 2)
+            is_barycentric_prefix = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+            if is_barycentric_prefix:
+                root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
+                is_barycentre_body = root_parent not in _star_short_names
+            else:
+                is_barycentre_body = False
             if b.star_type:
                 level = 0
             elif parts[0][0].isdigit():
@@ -2497,7 +2517,10 @@ def _render_overview(s: AppState) -> RenderableType:
         jrange    = s.jump_range_last or s.jump_range
         jumps_est = _imath.ceil(dist_ly / jrange) if jrange > 0 and dist_ly > 0 else None
         jumps_str = f"~{jumps_est} jump{'s' if jumps_est != 1 else ''}" if jumps_est else ""
-        stn_count = len(s.nearest_populated_stations)
+        stn_count = sum(
+            1 for _s in s.nearest_populated_stations
+            if _s.get("type", "") != "Drake-Class Carrier"
+        )
         svcs: set[str] = set()
         for _stn in s.nearest_populated_stations:
             if _stn.get("market"):     svcs.add("Market")
@@ -2515,7 +2538,7 @@ def _render_overview(s: AppState) -> RenderableType:
             s.nearest_populated_name, dist_str, jumps_str,
         )
         row2_col1 = Text(s.nearest_populated_allegiance or "", style=P.LABEL)
-        row2_col2 = Text(f"{stn_count} stn" if stn_count else "", style=P.LABEL)
+        row2_col2 = Text(f"{stn_count} Station{'s' if stn_count != 1 else ''}" if stn_count else "", style=P.LABEL)
         row2_col3 = Text(", ".join(sorted(svcs)) if svcs else "", style=P.LABEL)
         inh_tbl.add_row(row2_col1, row2_col2, row2_col3)
         parts.append(inh_tbl)
@@ -2589,7 +2612,7 @@ def _render_overview(s: AppState) -> RenderableType:
         car_tbl.add_row(
             Text(c_location_str, style=c_location_style),
             Text(""),
-            Text(", ".join(svc_parts) if svc_parts else "", style="white"),
+            Text(", ".join(svc_parts) if svc_parts else "", style=P.LABEL),
         )
         parts.append(car_tbl)
         parts.append(Text(""))
@@ -3329,8 +3352,15 @@ def _render_stats(s: AppState) -> RenderableType:
     row("Enemies",    "enemies_destroyed",   _fmt_count)
     row("Ships Lost", "ships_lost",          _fmt_count)
 
-    return Panel(tbl, title="STATISTICS", title_align="left",
-                 border_style=P.LABEL, padding=(0, 0), expand=True)
+    disclaimer = Text(
+        "* Estimated payouts incl. bonuses. Unsold data is retained if killed.",
+        style="rgb(70,70,70)",
+    )
+    return Group(
+        Panel(tbl, title="STATISTICS", title_align="left",
+              border_style=P.LABEL, padding=(0, 0), expand=True),
+        disclaimer,
+    )
 
 
 def _render_docking(s: AppState) -> RenderableType:
