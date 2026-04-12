@@ -271,6 +271,17 @@ class AppState:
     # Current destination target
     target_body: str = ""
 
+    # Ship target (ShipTargeted journal event)
+    target_ship:         str   = ""    # ship type
+    target_ship_pilot:   str   = ""    # pilot name
+    target_ship_rank:    str   = ""    # pilot rank
+    target_ship_faction: str   = ""    # faction
+    target_ship_legal:   str   = ""    # LegalStatus
+    target_ship_shield:  float = -1.0  # 0-100, -1 = unknown
+    target_ship_hull:    float = -1.0  # 0-100, -1 = unknown
+    target_ship_bounty:  int   = 0
+    target_ship_stage:   int   = 0     # scan stage 0-3
+
     # Station details (populated on Docked, cleared on Undocked)
     station_type:       str  = ""
     station_economy:    str  = ""

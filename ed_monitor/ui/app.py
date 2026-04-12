@@ -373,7 +373,7 @@ class NOVAApp(App):
 
     def on_mount(self) -> None:
         # Refresh every 0.5s is plenty for ED data and saves massive CPU
-        self.set_interval(0.25, self._refresh_all)
+        self.set_interval(0.5, self._refresh_all)
         # Force-hide the terminal cursor (Textual hides it in the driver, but
         # some terminals / focus events can restore it; belt-and-suspenders fix)
         try:

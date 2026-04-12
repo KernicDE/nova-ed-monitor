@@ -757,6 +757,8 @@ class RoutePanel(_Panel):
         self._snap = snap
         if snap.docked:
             self.border_title = f"◈ Docked: {snap.station}" if snap.station else "◈ Station"
+        elif snap.target_ship:
+            self.border_title = f"◈ Target: {snap.target_ship}"
         elif snap.target_body:
             short = _short_name(snap.target_body, snap.system)
             self.border_title = f"◈ Target: {short}"
@@ -771,6 +773,8 @@ class RoutePanel(_Panel):
 
         if s.docked:
             return self._render_station(s)
+        if s.target_ship:
+            return self._render_ship_target(s)
         if s.target_body:
             result = self._render_target(s)
             if result is not None:
@@ -809,6 +813,63 @@ class RoutePanel(_Panel):
                 for i in range(0, len(services), 2):
                     pair = services[i:i+2]
                     t.append("  " + "  ·  ".join(pair) + "\n", style="rgb(160,160,160)")
+
+        return t
+
+    def _render_ship_target(self, s: AppState) -> RenderableType:
+        """Show info for currently targeted ship (ShipTargeted event)."""
+        t = Text()
+
+        def row(label: str, value: str, vstyle: str = "white") -> None:
+            t.append(f"{label:<8}", style=P.LABEL)
+            t.append(value + "\n", style=vstyle)
+
+        # Legal status colour
+        _legal_col = {
+            "Clean":      P.HUD_GREEN,
+            "Lawless":    P.AMBER,
+            "Wanted":     P.HUD_CRIT,
+            "Enemy":      P.HUD_CRIT,
+            "Hostile":    P.HUD_CRIT,
+        }
+        legal_c = _legal_col.get(s.target_ship_legal, "white")
+
+        header_style = P.HUD_CRIT if s.target_ship_legal in ("Wanted", "Hostile", "Enemy") else P.HUD_CYAN
+        t.append("TARGETING\n", style=f"bold {header_style}")
+        t.append(s.target_ship + "\n", style="bold white")
+
+        if s.target_ship_pilot:
+            pilot_s = s.target_ship_pilot
+            if s.target_ship_rank:
+                pilot_s += f"  ({s.target_ship_rank})"
+            row("Pilot", pilot_s)
+
+        if s.target_ship_faction:
+            row("Faction", s.target_ship_faction, P.LABEL)
+
+        if s.target_ship_legal:
+            row("Legal", s.target_ship_legal, legal_c)
+
+        if s.target_ship_bounty > 0:
+            from ..events import _fmt_credits as _fmtcr
+            row("Bounty", _fmtcr(s.target_ship_bounty), P.HUD_CRIT)
+
+        if s.target_ship_shield >= 0:
+            sh_pct = s.target_ship_shield
+            sh_col = P.HUD_GREEN if sh_pct > 50 else (P.AMBER if sh_pct > 0 else P.HUD_CRIT)
+            row("Shield", f"{sh_pct:.0f}%", sh_col)
+
+        if s.target_ship_hull >= 0:
+            hu_pct = s.target_ship_hull
+            hu_col = P.HUD_GREEN if hu_pct > 50 else (P.AMBER if hu_pct > 25 else P.HUD_CRIT)
+            row("Hull", f"{hu_pct:.0f}%", hu_col)
+
+        stage_label = ("basic", "shields/hull", "modules", "full scan")
+        stage_s = stage_label[min(s.target_ship_stage, 3)]
+        t.append(f"\n  scan: {stage_s}", style=P.LABEL)
+        if s.target_ship_stage < 3:
+            t.append("  (target to advance)", style="dim rgb(80,80,80)")
+        t.append("\n")
 
         return t
 
@@ -1209,13 +1270,14 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                 tbl.add_column("Predicted Genus",  width=22, header_style=HDR)
                 tbl.add_column("Est. Value Range", width=22, header_style=HDR)
 
-                total_pred_min = total_pred_max = 0
+                _rng_lo: list[int] = []
+                _rng_hi: list[int] = []
                 for g in b.bio_genuses_predicted:
                     key = g.lower().split()[0] if g else ""
                     lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
                     val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-                    total_pred_min += lo
-                    total_pred_max += hi
+                    if lo > 0: _rng_lo.append(lo)
+                    if hi > 0: _rng_hi.append(hi)
                     tbl.add_row(
                         Text(f"? {g}", style="rgb(160,160,80)"),
                         Text(val_s, style="rgb(160,130,60)"),
@@ -1223,8 +1285,11 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                 parts.append(tbl)
                 hint_t = Text()
                 hint_t.append("  DSS to confirm genera", style=P.LABEL)
-                if total_pred_min > 0 and b.bio_signals > 0:
+                if b.bio_signals > 0:
                     hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
+                if _rng_hi:
+                    _est = f"~{_fmt_cr_compact(min(_rng_lo) if _rng_lo else 0)}–{_fmt_cr_compact(max(_rng_hi))}"
+                    hint_t.append(f"  ·  pot. {_est}", style="rgb(140,130,60)")
                 hint_t.append("\n")
                 parts.append(hint_t)
             else:
@@ -2219,20 +2284,25 @@ def _render_overview(s: AppState) -> RenderableType:
                 vcol  = P.GOLD if body_v > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
                 if has_bio:
                     if b.bio_value_max > 0:
-                        # DSS confirmed genus ranges
+                        # DSS confirmed genus ranges (sum of all confirmed genera)
                         bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
                         bio_c = P.AMBER
+                    elif b.bio_genuses:
+                        # DSS confirmed genera but no value estimate (unknown genera)
+                        bio_s = f"{len(b.bio_genuses)}×✓"
+                        bio_c = P.AMBER
                     elif b.bio_genuses_predicted:
-                        # FSS prediction — compute rough range from predicted genera
+                        # FSS prediction — show range: cheapest to most expensive predicted genus
                         from ..events import _BIO_GENUS_VALUE_RANGE as _BGVR
-                        _pred_min = _pred_max = 0
+                        _pred_lo: list[int] = []
+                        _pred_hi: list[int] = []
                         for _pg in b.bio_genuses_predicted:
                             _pk = _pg.lower().split()[0] if _pg else ""
                             _lo, _hi = _BGVR.get(_pk, (0, 0))
-                            _pred_min += _lo
-                            _pred_max += _hi
-                        if _pred_max > 0:
-                            bio_s = f"?~{_fmt_cr_compact(_pred_min)}–{_fmt_cr_compact(_pred_max)}"
+                            if _lo > 0: _pred_lo.append(_lo)
+                            if _hi > 0: _pred_hi.append(_hi)
+                        if _pred_hi:
+                            bio_s = f"?~{_fmt_cr_compact(min(_pred_lo) if _pred_lo else 0)}–{_fmt_cr_compact(max(_pred_hi))}"
                             bio_c = "rgb(140,130,60)"  # dimmer gold — uncertain prediction
                         else:
                             bio_s = f"{b.bio_signals}×?"
@@ -3452,7 +3522,8 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
     tbl.add_column("Bio",  width=3,  justify="right",  no_wrap=True)
 
     prev_pos = cur_pos
-    visible  = display_route[effective_scroll:]
+    _MAX_ROUTE_ROWS = 20
+    visible  = display_route[effective_scroll:effective_scroll + _MAX_ROUTE_ROWS]
 
     for i, entry in enumerate(visible, start=effective_scroll + 1):
         name       = entry.get("StarSystem", "?")
@@ -3520,6 +3591,12 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
             prev_pos = (pos_list[0], pos_list[1], pos_list[2])
 
     parts.append(tbl)
+
+    remaining_below = len(display_route) - (effective_scroll + len(visible))
+    if remaining_below > 0:
+        more_b = Text()
+        more_b.append(f"  ▼ {remaining_below} more below\n", style=P.LABEL)
+        parts.append(more_b)
 
     # Footer summary
     hops = s.route_hops

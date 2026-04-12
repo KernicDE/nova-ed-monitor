@@ -735,6 +735,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.docked_pad          = 0
             state.docked_station_name = ""
             state.docked_station_type = ""
+            state.target_ship         = ""
+            state.target_ship_pilot   = ""
+            state.target_ship_rank    = ""
+            state.target_ship_faction = ""
+            state.target_ship_legal   = ""
+            state.target_ship_shield  = -1.0
+            state.target_ship_hull    = -1.0
+            state.target_ship_bounty  = 0
+            state.target_ship_stage   = 0
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -919,6 +928,47 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
         case "LeaveBody":
             state.approach_body = ""
             state.high_g_extreme = False
+            return None
+
+        case "ShipTargeted":
+            if not ev.get("TargetLocked", True):
+                # Target lost — clear ship target
+                state.target_ship         = ""
+                state.target_ship_pilot   = ""
+                state.target_ship_rank    = ""
+                state.target_ship_faction = ""
+                state.target_ship_legal   = ""
+                state.target_ship_shield  = -1.0
+                state.target_ship_hull    = -1.0
+                state.target_ship_bounty  = 0
+                state.target_ship_stage   = 0
+            else:
+                stage = _u(ev, "ScanStage")
+                state.target_ship_stage = stage
+                ship = _s(ev, "Ship_Localised") or _s(ev, "Ship")
+                if ship:
+                    state.target_ship = ship
+                pilot = _loc(ev, "PilotName")
+                if pilot:
+                    state.target_ship_pilot = pilot
+                rank = _s(ev, "PilotRank")
+                if rank:
+                    state.target_ship_rank = rank
+                if stage >= 1:
+                    if "ShieldHealth" in ev:
+                        state.target_ship_shield = _f(ev, "ShieldHealth")
+                    if "HullHealth" in ev:
+                        state.target_ship_hull = _f(ev, "HullHealth")
+                if stage >= 2:
+                    faction = _s(ev, "Faction")
+                    if faction:
+                        state.target_ship_faction = faction
+                    legal = _s(ev, "LegalStatus")
+                    if legal:
+                        state.target_ship_legal = legal
+                    bounty = _u(ev, "Bounty")
+                    if bounty:
+                        state.target_ship_bounty = bounty
             return None
 
         case "Docked":
@@ -1434,6 +1484,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     elif "Geological" in sig_type: _saa_b.geo_signals = count
                 genus_names = [n for n in (_loc(g, "Genus") for g in genuses) if n]
                 _saa_b.bio_genuses = genus_names
+                _saa_b.bio_genuses_predicted = []  # DSS confirmed — clear FSS predictions
                 if genus_names:
                     bvmin = bvmax = 0
                     for g in genus_names:

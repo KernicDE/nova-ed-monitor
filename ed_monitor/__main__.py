@@ -12,14 +12,14 @@ _wlog = logging.getLogger("nova.watchdog")
 
 
 def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
-    """Start a daemon thread that restarts itself after a 5-second delay on crash."""
+    """Start a daemon thread that restarts itself after a 5-second delay on crash or normal return."""
     def wrapper():
         while True:
             try:
                 target(*args)
             except Exception:
                 _wlog.error("Thread '%s' crashed:\n%s", name, traceback.format_exc())
-                time.sleep(5)
+            time.sleep(5)
     t = threading.Thread(target=wrapper, name=name, daemon=True)
     t.start()
     return t
