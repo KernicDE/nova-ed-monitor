@@ -874,11 +874,33 @@ class RoutePanel(_Panel):
         return t
 
     def _render_target(self, s: AppState) -> Optional[RenderableType]:
-        """Show body details for currently targeted body. Returns None if body not found."""
+        """Show body details for currently targeted body.
+        When the target is a system (next route hop), shows route info instead."""
         body_name = s.target_body
         body = next((b for b in s.bodies if b.name == body_name), None)
         if body is None:
-            return None
+            # System target (e.g. next route hop) — not a scanned body in this system
+            t = Text()
+
+            def _row(label: str, value: str, vstyle: str = "white") -> None:
+                t.append(f"{label:<8}", style=P.LABEL)
+                t.append(value + "\n", style=vstyle)
+
+            t.append("TARGETING\n", style=f"bold {P.HUD_CYAN}")
+            t.append(f"{body_name}\n", style="bold white")
+            if body_name == s.route_next:
+                if s.route_next_dist > 0:
+                    _row("Jump", f"{s.route_next_dist:.1f} ly")
+                if s.route_next_star:
+                    scoopable = s.route_next_scoopable
+                    mark = "⛽" if scoopable else "✗"
+                    col  = P.HUD_GREEN if scoopable else P.HUD_CRIT
+                    _row("Star", f"{s.route_next_star}  {mark}", col)
+                word = "jump" if s.route_hops == 1 else "jumps"
+                _row("Hops", f"{s.route_hops} {word} remaining")
+                if s.route_destination and s.route_destination != body_name:
+                    _row("Dest", s.route_destination)
+            return t
 
         t = Text()
 
@@ -3068,8 +3090,7 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def _auto_resolve(self, s: AppState) -> str:
-        """Compute which panel auto-mode would switch to based on current game state.
-        Jump → OVERVIEW is handled separately in update() for persistent behaviour."""
+        """Compute which panel auto-mode would switch to based on current game state."""
         visible = set(self._active_modes())
         def _v(m: str) -> str:
             return m if m in visible else "overview"
@@ -3099,9 +3120,6 @@ class SituationalPanel(_Panel):
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return _v("missions")
-        # Route set with no other priority task — show route panel
-        if s.route_hops > 0:
-            return _v("route")
         return "overview"
 
     def _make_title(self) -> str:
@@ -3150,14 +3168,11 @@ class SituationalPanel(_Panel):
         # Auto-switching: only override _mode when the suggested panel changes.
         # This lets the user browse panels freely; a new trigger overrides.
         if self._auto:
-            # New jump detected → immediately show OVERVIEW and keep it until a
-            # priority trigger fires (bio, docking, colonisation, missions, stats).
+            # New jump detected → reset scroll; _auto_resolve handles mode naturally
+            # (in_hyperspace → route; arrived → overview/bio/missions/etc.)
             if snap.last_jump_at > 0 and snap.last_jump_at != self._jump_at_seen:
-                self._jump_at_seen    = snap.last_jump_at
-                self._last_auto_panel = "overview"
-                visible               = set(self._active_modes())
-                self._mode            = "overview" if "overview" in visible else self._mode
-                self._general_scroll  = 0
+                self._jump_at_seen   = snap.last_jump_at
+                self._general_scroll = 0
 
             auto_panel = self._auto_resolve(snap)
             if auto_panel != self._last_auto_panel:
