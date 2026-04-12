@@ -360,17 +360,6 @@ class SystemPanel(_Panel):
                 pp += f" [{s.system_power_state}]"
             left_cells.append(_cell("Power", pp, pp_col))
 
-        if s.nearest_populated_name and s.population == 0:
-            dist_str = f"{s.nearest_populated_dist:.0f} ly"
-            left_cells.append(_cell("Nearest", f"{s.nearest_populated_name} ({dist_str})"))
-
-        if s.nearest_body:
-            left_cells.append(_cell("At", _short_name(s.nearest_body, s.system)))
-
-        if s.lat is not None and s.lon is not None:
-            left_cells.append(_cell("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
-            if s.altitude is not None:
-                left_cells.append(_cell("Alt", f"{s.altitude:,.0f} m"))
 
         # Right column — human/BGS data
         if s.population > 0:
@@ -407,6 +396,23 @@ class SystemPanel(_Panel):
                 rc = right_cells[i] if i < len(right_cells) else Text("")
                 tbl.add_row(lc, rc)
             parts.append(tbl)
+
+        # Position footer — single line below the table:
+        # [At nearest_body]     [Pos x, y]     [Alt n m]
+        pos_parts: list[Text] = []
+        if s.nearest_body:
+            pos_parts.append(_cell("At", _short_name(s.nearest_body, s.system)))
+        if s.lat is not None and s.lon is not None:
+            pos_parts.append(_cell("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
+            if s.altitude is not None:
+                pos_parts.append(_cell("Alt", f"{s.altitude:,.0f} m"))
+        if pos_parts:
+            pos_line = Text()
+            for i, p in enumerate(pos_parts):
+                if i > 0:
+                    pos_line.append("     ")
+                pos_line.append_text(p)
+            parts.append(pos_line)
 
         return Group(*parts) if len(parts) > 1 else (parts[0] if parts else Text(""))
 
@@ -2332,6 +2338,20 @@ def _render_overview(s: AppState) -> RenderableType:
                 bgs_info.append(f"  {faction[:20]}\n", style="white")
                 bgs_info.append(f"    {act_str}\n", style=P.LABEL)
         parts.append(bgs_info)
+
+    # Nearest inhabited system — shown only when current system is uninhabited
+    if s.nearest_populated_name and s.population == 0:
+        inh_head = Text()
+        inh_head.append("\nNEAREST INHABITED SYSTEM\n", style="bold rgb(100,180,255)")
+        parts.append(inh_head)
+        inh_info = Text()
+        dist_str = f"{s.nearest_populated_dist:.0f} ly"
+        inh_info.append(f"  {s.nearest_populated_name}", style="white")
+        inh_info.append(f"  ({dist_str})", style=P.LABEL)
+        if s.nearest_populated_allegiance:
+            inh_info.append(f"  ·  {s.nearest_populated_allegiance}", style=P.LABEL)
+        inh_info.append("\n")
+        parts.append(inh_info)
 
     # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
     if s.carriers_current_system:
