@@ -1101,7 +1101,7 @@ class BodiesPanel(_Panel):
             row_styles=["", "on rgb(38,38,38)"],
         )
         HDR = "bold rgb(195,160,55)"
-        tbl.add_column("Body", style="white", width=11, header_style=HDR)
+        tbl.add_column("Body", style="white", width=11, header_style=HDR, no_wrap=True)
         tbl.add_column("Type", width=8,  header_style=HDR)
         tbl.add_column("Val",  width=11, header_style=HDR, justify="right")
         tbl.add_column("Dist", width=11, header_style=HDR, justify="right")
@@ -1151,11 +1151,14 @@ class BodiesPanel(_Panel):
         # Apply scroll offset (w/s keys)
         total_bodies = len(visible)
         effective_scroll = min(self._scroll, max(0, total_bodies - 1))
-        if effective_scroll > 0:
-            # Update title to show scroll indicator
-            self.border_title = f"◈ Scanned Bodies  ▲{effective_scroll}"
-        else:
-            self.border_title = "◈ Scanned Bodies"
+
+        above = effective_scroll
+        panel_h = self.size.height or 0
+        below = max(0, total_bodies - effective_scroll - max(1, panel_h - 2))
+
+        self.border_title = (f"◈ Scanned Bodies  ▲{above}" if above > 0
+                             else "◈ Scanned Bodies")
+        self.border_subtitle = (f"▼{below}" if below > 0 else "")
         visible = visible[effective_scroll:]
 
         # Pre-compute bodies with all bio signals scanned
@@ -1327,10 +1330,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
     parts: list[RenderableType] = [Text("\n")]
 
     effective_scroll = min(scroll, max(0, len(groups) - 1))
-    if effective_scroll > 0:
-        more_t = Text()
-        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(more_t)
 
     for _gi, (gtype, gdata) in enumerate(groups[effective_scroll:]):
         if _gi > 0 or effective_scroll > 0:
@@ -1565,11 +1564,6 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
 
     effective_scroll = min(scroll, max(0, len(all_rows) - 1))
     parts: list[RenderableType] = []
-    if effective_scroll > 0:
-        more_t = Text()
-        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(more_t)
-
     visible_rows = all_rows[effective_scroll:]
 
     # Group consecutive rows into sections for rendering
@@ -1652,10 +1646,6 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
 
     missions = s.missions
     effective_scroll = min(scroll, max(0, len(missions) - 1))
-    if effective_scroll > 0:
-        more_t = Text()
-        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(more_t)
     visible_missions = missions[effective_scroll:]
 
     tbl = Table(
@@ -1772,11 +1762,6 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
 
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
     parts: list[RenderableType] = []
-
-    if effective_scroll > 0:
-        t = Text()
-        t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(t)
 
     current_era: Optional[str] = None
     current_section: Optional[str] = None
@@ -3169,6 +3154,9 @@ class SituationalPanel(_Panel):
         # Show missions when active (not in supercruise)
         if s.missions and not s.supercruise:
             return _v("missions")
+        # Route set — show route when no higher-priority context is active
+        if s.route_hops > 0:
+            return _v("route")
         return "overview"
 
     def _make_title(self) -> str:
@@ -3237,10 +3225,45 @@ class SituationalPanel(_Panel):
         self.border_title = self._make_title()
         self.refresh()
 
+    def _update_scroll_indicators(self, s: AppState) -> None:
+        """Update border_title / border_subtitle with ▲N / ▼N scroll indicators."""
+        mode = self._active
+
+        if mode == "galaxy":
+            _subs = ("system", "regional", "galaxy")
+            idx   = _subs.index(self._galaxy_submode) + 1 if self._galaxy_submode in _subs else 1
+            self.border_subtitle = f"{idx}/3  "
+            return
+        elif mode == "route":
+            route  = s.route_list or []
+            total  = max(0, len(route) - 1)
+            scroll = self._route_scroll
+        elif mode == "bgs":
+            total  = 9999
+            scroll = self._bgs_scroll
+        elif mode == "colonisation":
+            total  = 9999
+            scroll = self._colonisation_scroll
+        elif mode == "neutron":
+            total  = 9999
+            scroll = self._neutron_scroll
+        else:
+            total  = 9999
+            scroll = self._general_scroll
+
+        above = scroll
+        panel_h = self.size.height or 0
+        below = max(0, total - scroll - max(1, panel_h - 2)) if total < 9999 else (1 if scroll > 0 else 0)
+
+        base = self._make_title()
+        self.border_title    = f"{base}  ▲{above}" if above > 0 else base
+        self.border_subtitle = f"▼{below}" if below > 0 else ""
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
             return Text("")
+        self._update_scroll_indicators(s)
         gs = self._general_scroll
         if self._active == "bio":
             return _render_bio(s, scroll=gs)
@@ -3270,7 +3293,8 @@ class SituationalPanel(_Panel):
         if self._active == "colonisation":
             return _render_colonisation(s, scroll=self._colonisation_scroll)
         if self._active == "route":
-            return _render_route(s, scroll=self._route_scroll)
+            return _render_route(s, scroll=self._route_scroll,
+                                 panel_height=self.size.height)
         return _render_overview(s)
 
 
@@ -3556,8 +3580,8 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
-def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
-    """Nav route panel: jump#, system, star class+scoopable, body count, dist, jump dist, EDSM, bio signals."""
+def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> RenderableType:
+    """Nav route panel: jump#, system, star class+scoopable, body count, dist, jump dist, EDSM."""
     import math as _math
 
     route = s.route_list
@@ -3603,31 +3627,52 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
             t.append(s.route_destination, style="white")
         return t
 
-    parts: list[RenderableType] = []
+    # Compute total remaining distance (cur_pos → last waypoint)
+    total_ly = 0.0
+    if cur_pos:
+        prev = cur_pos
+        for entry in display_route:
+            sp = entry.get("StarPos")
+            if sp and isinstance(sp, list) and len(sp) >= 3:
+                dx = sp[0] - prev[0]; dy = sp[1] - prev[1]; dz = sp[2] - prev[2]
+                total_ly += _math.sqrt(dx*dx + dy*dy + dz*dz)
+                prev = (sp[0], sp[1], sp[2])
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    hops = s.route_hops
+    word = "jump" if hops == 1 else "jumps"
+    hdr = Text()
+    hdr.append(f"  {hops} {word} remaining", style=P.AMBER)
+    if total_ly > 0:
+        hdr.append(f" ({_fmt_ly(total_ly)} ly)", style=P.LABEL)
+    if s.route_destination:
+        hdr.append(" → ", style=P.LABEL)
+        hdr.append(s.route_destination, style="bold white")
+    hdr.append("\n")
+
+    parts: list[RenderableType] = [hdr]
+
     effective_scroll = min(scroll, max(0, len(display_route) - 1))
-    if effective_scroll > 0:
-        more_t = Text()
-        more_t.append(f"  ▲ {effective_scroll} more above\n", style=P.LABEL)
-        parts.append(more_t)
 
     tbl = Table(show_header=True, show_edge=False, box=None,
                 padding=(0, 1), header_style=f"bold {P.LABEL}")
-    tbl.add_column("#",    width=3,  justify="right",  no_wrap=True)
+    tbl.add_column("#",      width=3,  justify="right",  no_wrap=True)
     tbl.add_column("System", width=18, no_wrap=True)
-    tbl.add_column("★",    width=5,  no_wrap=True)   # star class + scoopable fuel indicator
-    tbl.add_column("Bd",   width=2,  justify="right",  no_wrap=True)
-    tbl.add_column("Dist", width=7,  justify="right",  no_wrap=True)
-    tbl.add_column("Jump", width=6,  justify="right",  no_wrap=True)
-    tbl.add_column("✦",    width=1,  justify="center", no_wrap=True)  # EDSM presence
-    tbl.add_column("Bio",  width=3,  justify="right",  no_wrap=True)
+    tbl.add_column("★",      width=5,  no_wrap=True)
+    tbl.add_column("Bd",     width=2,  justify="right",  no_wrap=True)
+    tbl.add_column("Dist",   width=7,  justify="right",  no_wrap=True)
+    tbl.add_column("Jump",   width=6,  justify="right",  no_wrap=True)
+    tbl.add_column("✦",      width=1,  justify="center", no_wrap=True)
+
+    # Dynamic rows: panel height minus header (1) + table header (1) + footer indicator (1) = 3
+    max_rows = max(5, panel_height - 5)
 
     prev_pos = cur_pos
-    _MAX_ROUTE_ROWS = 20
-    visible  = display_route[effective_scroll:effective_scroll + _MAX_ROUTE_ROWS]
+    visible  = display_route[effective_scroll:effective_scroll + max_rows]
 
     for i, entry in enumerate(visible, start=effective_scroll + 1):
         name       = entry.get("StarSystem", "?")
-        pos_list   = entry.get("StarPos")   # [x, y, z] list or None
+        pos_list   = entry.get("StarPos")
         star_class = entry.get("StarClass", "?")
 
         scoopable = star_class[:1] in _SCOOPABLE if star_class else False
@@ -3648,7 +3693,7 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         else:
             jump_d = 0.0
 
-        edsm_entry = edsm.get(name)  # None = not yet fetched
+        edsm_entry = edsm.get(name)
         if edsm_entry is None:
             edsm_text = Text("?", style=P.LABEL)
         elif edsm_entry.get("live_known") is False and not edsm_entry.get("x"):
@@ -3662,19 +3707,15 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
         star_cell.append(sc_short, style=sc_col)
         star_cell.append("⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else "dim rgb(70,70,70)")
 
-        # Color system name: inhabited (population > 0) = warm white, else default white
         population = (edsm_entry or {}).get("population", 0) or 0
         name_style = "rgb(255,235,180)" if population > 0 else "white"
 
-        body_entry = bodies.get(name)  # None = not fetched yet, dict = fetched
+        body_entry = bodies.get(name)
         if body_entry is None:
-            bio_text = Text("…", style=P.LABEL)
-            bd_text  = Text("…", style=P.LABEL)
+            bd_text = Text("…", style=P.LABEL)
         else:
-            bio = body_entry.get("bio", 0)
-            bd  = body_entry.get("bodies", 0)
-            bio_text = Text(str(bio) if bio else "·", style=P.HUD_GREEN if bio else "dim")
-            bd_text  = Text(str(bd)  if bd  else "·", style=P.WHITE     if bd  else "dim")
+            bd = body_entry.get("bodies", 0)
+            bd_text = Text(str(bd) if bd else "·", style=P.WHITE if bd else "dim")
 
         tbl.add_row(
             Text(str(i), style=P.LABEL),
@@ -3684,29 +3725,12 @@ def _render_route(s: AppState, scroll: int = 0) -> RenderableType:
             Text(_fmt_ly(dist_cur), style=P.WHITE),
             Text(_fmt_ly(jump_d),   style=P.LABEL),
             edsm_text,
-            bio_text,
         )
 
         if pos_list:
             prev_pos = (pos_list[0], pos_list[1], pos_list[2])
 
     parts.append(tbl)
-
-    remaining_below = len(display_route) - (effective_scroll + len(visible))
-    if remaining_below > 0:
-        more_b = Text()
-        more_b.append(f"  ▼ {remaining_below} more below\n", style=P.LABEL)
-        parts.append(more_b)
-
-    # Footer summary
-    hops = s.route_hops
-    word = "jump" if hops == 1 else "jumps"
-    sum_t = Text()
-    sum_t.append(f"\n  {hops} {word} remaining", style=P.LABEL)
-    if s.route_destination:
-        sum_t.append(" → ", style=P.LABEL)
-        sum_t.append(s.route_destination, style="white")
-    parts.append(sum_t)
 
     return Group(*parts)
 
@@ -3790,6 +3814,12 @@ class EventLogPanel(_Panel):
         events  = [ev for ev in s.events if ev.category != EventCategory.Chat]
         visible = events[self._scroll:]
 
+        above = self._scroll
+        panel_h = self.size.height or 0
+        below = max(0, len(events) - self._scroll - max(1, panel_h - 2))
+        self.border_title    = (f"◈ Event Log  ▲{above}" if above > 0 else "◈ Event Log")
+        self.border_subtitle = (f"▼{below}" if below > 0 else "")
+
         prefix_w  = 10  # "HH:MM " (6) + "NAV " (4)
         content_w = max(prefix_w + 10, self.size.width - 2)
         msg_w     = content_w - prefix_w
@@ -3851,6 +3881,13 @@ class ChatLogPanel(_Panel):
             t.append("No chat messages.", style=P.LABEL)
             return t
         effective_scroll = min(self._scroll, max(0, len(chats) - 1))
+
+        above = effective_scroll
+        panel_h = self.size.height or 0
+        below = max(0, len(chats) - effective_scroll - max(1, panel_h - 2))
+        self.border_title    = (f"◈ Chat  ▲{above}" if above > 0 else "◈ Chat")
+        self.border_subtitle = (f"▼{below}" if below > 0 else "")
+
         chats = chats[effective_scroll:]
         prefix_w  = 11  # "HH:MM " (6) + "TWI " (4) + padding 1
         content_w = max(prefix_w + 10, self.size.width - 2)
