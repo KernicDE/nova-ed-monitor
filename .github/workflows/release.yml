@@ -45,7 +45,7 @@ jobs:
 
       - name: Extract release notes from commit message
         run: |
-          git log -1 --pretty=format:"%b" | grep -v "^Co-Authored-By:" > /tmp/release_notes.md
+          git log -1 --pretty=format:"%b" | grep -v "^Co-Authored-By:" > /tmp/release_notes.md || true
           if [ ! -s /tmp/release_notes.md ]; then
             echo "No release notes provided." > /tmp/release_notes.md
           fi
