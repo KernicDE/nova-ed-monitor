@@ -355,6 +355,9 @@ class AppState:
 
     # Event log
     events: deque = field(default_factory=lambda: deque(maxlen=MAX_EVENTS))
+    # Monotonically-increasing counter; bumped on every push_event() call so UI
+    # can detect new log entries without comparing deque contents.
+    events_version: int = 0
 
     # Volume 0–100; muted flag + pre-mute restore value
     volume:          int  = 50
@@ -427,6 +430,7 @@ class AppState:
 
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
+        self.events_version += 1
 
     def clear_bodies(self) -> None:
         """Clear bodies list and both lookup indices."""

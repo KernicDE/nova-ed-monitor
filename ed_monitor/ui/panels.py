@@ -289,6 +289,14 @@ def _mission_time_remaining(expiry: str) -> str:
 
 class _Panel(Widget):
     _snap: Optional[AppState] = None
+    _last_key: tuple = ()
+
+    def _key_changed(self, new_key: tuple) -> bool:
+        """Return True (and store new_key) if new_key differs from the last seen key."""
+        if new_key != self._last_key:
+            self._last_key = new_key
+            return True
+        return False
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -316,6 +324,20 @@ class SystemPanel(_Panel):
     def scroll_system(self, delta: int) -> None:
         self._scroll = max(0, self._scroll + delta)
         self.refresh()
+
+    def update(self, snap: AppState) -> None:
+        self._snap = snap
+        key = (
+            snap.system, snap.population, snap.economy, snap.security, snap.government,
+            snap.allegiance, snap.bodies_version, snap.fss_body_count,
+            snap.route_hops, snap.route_destination,
+            snap.nearest_populated_name, snap.nearest_populated_dist,
+            snap.system_power, snap.system_power_state,
+            snap.pp_power, snap.pp_total_merits, snap.pp_rank,
+            snap.client_online, snap.in_hyperspace,
+        )
+        if self._key_changed(key):
+            self.refresh()
 
     def render(self) -> RenderableType:
         s = self._snap
@@ -475,7 +497,25 @@ class ShipPanel(_Panel):
                 self.border_title = "◈ Ship — Flying"
         else:
             self.border_title = "◈ Ship"
-        self.refresh()
+        key = (
+            snap.client_online, snap.in_main_ship, snap.in_srv,
+            snap.ship_type, snap.ship_name, snap.ship_ident,
+            snap.commander,
+            snap.hull, snap.shields_up, snap.fuel, snap.fuel_max, snap.heat,
+            snap.pips_sys, snap.pips_eng, snap.pips_wep,
+            snap.docked, snap.landed, snap.supercruise, snap.orbital_cruise,
+            snap.cargo, snap.cargo_capacity, snap.credits,
+            snap.high_g_extreme, snap.overheating, snap.low_fuel,
+            snap.hardpoints, snap.analysis_mode, snap.silent_running,
+            snap.lights_on, snap.night_vision, snap.flight_assist_off,
+            snap.mass_locked, snap.landing_gear,
+            # on-foot / SRV fields
+            snap.suit_health, snap.suit_oxygen, snap.selected_weapon,
+            snap.on_foot_gravity, snap.low_oxygen, snap.low_health_suit,
+            snap.srv_handbrake, snap.srv_drive_assist,
+        )
+        if self._key_changed(key):
+            self.refresh()
 
     def render(self) -> RenderableType:
         s = self._snap
@@ -798,7 +838,21 @@ class RoutePanel(_Panel):
             self.border_title = "◈ Nearby"
         else:
             self.border_title = "◈ Target"
-        self.refresh()
+        key = (
+            snap.docked, snap.station, snap.station_type, snap.station_economy,
+            snap.station_services, snap.station_dist_ls,
+            snap.target_ship, snap.target_body, snap.approach_body, snap.nearest_body,
+            snap.route_destination, snap.route_hops, snap.route_next, snap.route_next_star,
+            snap.route_next_scoopable, snap.route_dist, snap.route_next_dist,
+            snap.bodies_version,
+            len(snap.route_next_stations),
+            len(snap.carriers_current_system),
+            snap.nearest_populated_name, snap.nearest_populated_dist,
+            len(snap.nearest_populated_stations),
+            snap.client_online,
+        )
+        if self._key_changed(key):
+            self.refresh()
 
     def render(self) -> RenderableType:
         s = self._snap
@@ -1104,6 +1158,12 @@ class BodiesPanel(_Panel):
     _sorted_cache:         list  = []
     _sorted_cache_version: int   = -1
     _sorted_cache_system:  str   = ""
+
+    def update(self, snap: AppState) -> None:
+        self._snap = snap
+        key = (snap.bodies_version, snap.system)
+        if self._key_changed(key):
+            self.refresh()
 
     def scroll_bodies(self, delta: int) -> None:
         """Scroll the bodies list up (delta<0) or down (delta>0)."""
@@ -3328,7 +3388,71 @@ class SituationalPanel(_Panel):
         if new_active != self._active:
             self._general_scroll = 0
         self._active = new_active
-        self.refresh()
+
+        # Build a mode-specific key so only the active sub-panel's data triggers a redraw.
+        # Always refresh when the active mode itself changes (new_active != self._active above).
+        mode = new_active
+        if mode == "overview":
+            mode_key = (
+                snap.system, snap.bodies_version, snap.route_hops, snap.route_destination,
+                snap.population, snap.nearest_populated_name, snap.nearest_populated_dist,
+                snap.system_power, snap.system_power_state,
+                len(snap.carriers_current_system),
+                snap.controlling_faction, snap.controlling_state, len(snap.factions),
+                snap.pp_power, snap.pp_total_merits,
+            )
+        elif mode == "bio":
+            mode_key = (
+                snap.bodies_version,
+                len(snap.bio_scans),
+                tuple((sc.body, sc.samples, sc.complete, sc.current_dist) for sc in snap.bio_scans),
+                snap.lat, snap.lon,
+            )
+        elif mode == "galaxy":
+            mode_key = (snap.system, snap.bodies_version, self._galaxy_submode)
+        elif mode == "route":
+            mode_key = (
+                snap.route_destination, snap.route_hops, snap.route_next,
+                snap.route_next_star, snap.route_next_scoopable,
+                snap.route_dist, snap.route_next_dist,
+                len(snap.route_list), len(snap.route_next_stations),
+                snap.neutron_route_to, snap.neutron_route_status,
+            )
+        elif mode == "missions":
+            mode_key = (snap.system, len(snap.missions), tuple(m.mission_id for m in snap.missions))
+        elif mode == "bgs":
+            mode_key = (snap.system, len(snap.bgs_log), snap.controlling_faction, snap.controlling_state)
+        elif mode == "colonisation":
+            mode_key = (snap.system, len(snap.colonisation_sites))
+        elif mode == "engineers":
+            mode_key = tuple(
+                (name, info.rank, info.rank_progress, info.progress)
+                for name, info in snap.engineers.items()
+            )
+        elif mode == "neutron":
+            mode_key = (
+                snap.neutron_route_to, snap.neutron_route_status,
+                len(snap.neutron_route), snap.route_hops,
+                snap.system, snap.jump_range,
+            )
+        elif mode == "wealth":
+            mode_key = (snap.credits, snap.cargo, len(snap.stored_ships))
+        elif mode == "inventory":
+            mode_key = (
+                len(snap.cargo_items), snap.cargo,
+                len(snap.materials_raw), len(snap.materials_mfg), len(snap.materials_enc),
+                len(snap.backpack), len(snap.ship_locker),
+            )
+        elif mode == "docking":
+            mode_key = (snap.docked_pad, snap.docked_station_name, snap.docked_station_type, snap.docked)
+        elif mode == "stats":
+            mode_key = (snap.events_version, snap.bodies_version)
+        else:
+            mode_key = (snap.events_version, snap.bodies_version)
+
+        key = (mode,) + mode_key
+        if self._key_changed(key):
+            self.refresh()
 
     def render(self) -> RenderableType:
         s = self._snap
@@ -3962,6 +4086,12 @@ class EventLogPanel(_Panel):
 
     _scroll: int = 0
 
+    def update(self, snap: AppState) -> None:
+        self._snap = snap
+        key = (snap.events_version,)
+        if self._key_changed(key):
+            self.refresh()
+
     def set_scroll(self, scroll: int) -> None:
         self._scroll = scroll
         self.refresh()
@@ -4038,6 +4168,13 @@ class ChatLogPanel(_Panel):
     """
 
     _scroll: int = 0
+
+    def update(self, snap: AppState) -> None:
+        self._snap = snap
+        # Chat events share the events deque — use events_version as the change signal
+        key = (snap.events_version,)
+        if self._key_changed(key):
+            self.refresh()
 
     def scroll_chat(self, delta: int) -> None:
         s = self._snap

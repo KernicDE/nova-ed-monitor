@@ -357,6 +357,7 @@ class NOVAApp(App):
         self._neutron_q = neutron_q
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
+        self._prev_fingerprint: tuple = ()    # global state fingerprint — skip panel updates when unchanged
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-row"):
@@ -395,6 +396,9 @@ class NOVAApp(App):
             snap.route_list     = list(self._state.route_list)
             snap.route_list_edsm   = dict(self._state.route_list_edsm)
             snap.route_bodies_edsm = dict(self._state.route_bodies_edsm)
+            snap.carriers_current_system = list(self._state.carriers_current_system)
+            snap.nearest_populated_stations = list(self._state.nearest_populated_stations)
+            snap.route_next_stations = list(self._state.route_next_stations)
         return snap
 
     def _refresh_all(self) -> None:
@@ -406,6 +410,7 @@ class NOVAApp(App):
             pass
         snap = self._snapshot()
 
+        # ── CSS flash classes (time-based — must run every tick regardless of data) ──
         # Apply mode border class to the main screen — only call set_class when value changes
         # (set_class triggers CSS recalculation; guarding it eliminates ~8 DOM mutations per tick)
         offline  = not snap.client_online
@@ -438,13 +443,41 @@ class NOVAApp(App):
         )
         _sc("high-g-flash", high_g_flash)
 
+        # ── Global fingerprint early-out ───────────────────────────────────────────
+        # Compare a cheap tuple of the most-changed fields. When nothing has changed
+        # since the last tick, skip all panel .update() calls. Each panel's own
+        # _key_changed() guard provides a second layer for when only some panels need
+        # to redraw. FooterBar always runs — it's cheap and shows wall-clock stall info.
+        #
+        # Include int(time.time()) so the fingerprint ticks once per second, ensuring
+        # FooterBar stall warnings and flash states re-evaluate at 1 Hz even when idle.
+        _tick_s = int(time.time())
+        fingerprint = (
+            snap.system, snap.population,
+            snap.hull, snap.fuel, snap.heat,
+            snap.pips_sys, snap.pips_eng, snap.pips_wep,
+            snap.lat, snap.lon,
+            snap.bodies_version, snap.events_version,
+            snap.route_hops, snap.route_destination,
+            snap.client_online, snap.docked, snap.landed,
+            snap.supercruise, snap.analysis_mode,
+            snap.in_main_ship, snap.in_srv,
+            snap.credits, snap.cargo,
+            snap.neutron_route_status,
+            _tick_s,
+        )
+
+        self.query_one(FooterBar).update(snap)
+
+        if fingerprint == self._prev_fingerprint:
+            return
+        self._prev_fingerprint = fingerprint
+
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)
         self.query_one(RoutePanel).update(snap)
         self.query_one(BodiesPanel).update(snap)
         self.query_one(SituationalPanel).update(snap)
-        self.query_one(FooterBar).update(snap)
-
         self.query_one(EventLogPanel).update(snap)
         self.query_one(ChatLogPanel).update(snap)
 
