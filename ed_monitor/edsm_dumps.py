@@ -101,14 +101,24 @@ def _download_and_import(name: str, state, lock, db) -> None:
     _log.info(f"Downloading EDSM {name} dump")
     _push(f"EDSM: downloading {name} dump…")
     try:
+        t0 = time.time()
+        last_push_t: list[float] = [t0]
+
+        def on_batch(count: int) -> None:
+            now = time.time()
+            if now - last_push_t[0] >= 60:
+                elapsed = int(now - t0)
+                _push(f"EDSM: {name} importing… {count:,} records ({elapsed}s elapsed)")
+                last_push_t[0] = now
+
         req = urllib.request.Request(url, headers={"User-Agent": _UA})
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             if name == "systems":
-                count = _import_systems(resp, db)
+                count = _import_systems(resp, db, on_batch)
             elif name == "stations":
-                count = _import_stations(resp, db)
+                count = _import_stations(resp, db, on_batch)
             elif name == "powerplay":
-                count = _import_powerplay(resp, db)
+                count = _import_powerplay(resp, db, on_batch)
             else:
                 count = 0
         db.set_config(f"edsm_dump_{name}_ts", str(time.time()))
@@ -141,7 +151,7 @@ def _iter_records(resp):
                 continue
 
 
-def _import_systems(resp, db) -> int:
+def _import_systems(resp, db, on_batch=None) -> int:
     """Import systemsPopulated dump → edsm_systems (INSERT OR REPLACE)."""
     batch: list = []
     count = 0
@@ -166,13 +176,15 @@ def _import_systems(resp, db) -> int:
             db.import_edsm_systems_batch(batch)
             count += len(batch)
             batch.clear()
+            if on_batch:
+                on_batch(count)
     if batch:
         db.import_edsm_systems_batch(batch)
         count += len(batch)
     return count
 
 
-def _import_stations(resp, db) -> int:
+def _import_stations(resp, db, on_batch=None) -> int:
     """Import stations dump → edsm_stations (INSERT OR REPLACE)."""
     batch: list = []
     count = 0
@@ -199,13 +211,15 @@ def _import_stations(resp, db) -> int:
             db.import_edsm_stations_batch(batch)
             count += len(batch)
             batch.clear()
+            if on_batch:
+                on_batch(count)
     if batch:
         db.import_edsm_stations_batch(batch)
         count += len(batch)
     return count
 
 
-def _import_powerplay(resp, db) -> int:
+def _import_powerplay(resp, db, on_batch=None) -> int:
     """Import powerPlay dump → upsert into edsm_systems (insert new, update power fields only)."""
     batch: list = []
     count = 0
@@ -230,6 +244,8 @@ def _import_powerplay(resp, db) -> int:
             db.upsert_edsm_powerplay_batch(batch)
             count += len(batch)
             batch.clear()
+            if on_batch:
+                on_batch(count)
     if batch:
         db.upsert_edsm_powerplay_batch(batch)
         count += len(batch)
