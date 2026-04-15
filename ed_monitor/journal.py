@@ -516,7 +516,11 @@ def monitor(
             start_offset = 0
             if latest is not None:
                 _log.info(f"Journal file: {latest.name}")
-                start_offset = _init_scan(latest, state, lock, journal_dir, db)
+                # Avoid double-processing: if this is the same file _process_backlog
+                # already replayed from last_offset, only replay [0, last_offset) here.
+                _cutoff = last_offset if (latest.name == last_file) else 0
+                start_offset = _init_scan(latest, state, lock, journal_dir, db,
+                                          cutoff_offset=_cutoff)
                 db.set_config("last_journal_file", latest.name)
                 db.set_config("last_journal_offset", str(start_offset))
 
@@ -638,59 +642,72 @@ def _process_backlog(
 # ── Startup scan ───────────────────────────────────────────────────────────────
 
 def _init_scan(
-    path:        Path,
-    state:       AppState,
-    lock:        threading.RLock,
-    journal_dir: Path,
-    db:          Database,
+    path:          Path,
+    state:         AppState,
+    lock:          threading.RLock,
+    journal_dir:   Path,
+    db:            Database,
+    cutoff_offset: int = 0,
 ) -> int:
-    """Replay journal from start to rebuild state. Returns byte offset after
-    the last byte read, so _follow can start from there."""
+    """Replay journal from byte 0 to rebuild state for the current session.
+
+    cutoff_offset: stop processing at this byte offset (exclusive) — pass the
+    offset already covered by _process_backlog to avoid double-processing.
+    Always returns the actual end-of-file position so _follow starts correctly.
+    """
     saved_hull = db.get_hull()
     silent_q: queue.Queue = queue.Queue()
 
+    found_hull_event = False
+
     try:
-        with open(path, "rb") as f:
-            raw      = f.read()
-            file_pos = f.tell()
-        lines = raw.decode("utf-8", errors="replace").splitlines()
+        f = open(path, "r", encoding="utf-8", errors="replace")
     except OSError:
         return 0
 
-    found_hull_event = False
+    with f:
+        while True:
+            line_start = f.tell()
+            if cutoff_offset > 0 and line_start >= cutoff_offset:
+                break
+            line = f.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
 
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+            ev_name = ev.get("event", "")
 
-        ev_name = ev.get("event", "")
+            effective = ev
+            if ev_name == "NavRoute":
+                effective = _read_navroute_json(journal_dir) or ev
 
-        effective = ev
-        if ev_name == "NavRoute":
-            effective = _read_navroute_json(journal_dir) or ev
+            if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump", "CarrierJump"):
+                found_hull_event = True
+                with lock:
+                    handle(effective, state, silent_q, live=False)
+            elif ev_name in (
+                "Fileheader",
+                "ShieldState", "NavRoute",
+                "Scan", "SAAScanComplete", "FSSDiscoveryScan",
+                "FSSBodySignals", "SAASignalsFound", "ScanOrganic",
+                "Docked", "Undocked", "Touchdown", "Liftoff", "Disembark",
+                "MissionAccepted", "MissionCompleted", "MissionFailed",
+                "MissionAbandoned", "MissionRedirected",
+                "EngineerProgress", "Materials",
+                "MaterialCollected", "MaterialDiscarded",
+            ):
+                with lock:
+                    handle(effective, state, silent_q, live=False)
 
-        if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump", "CarrierJump"):
-            found_hull_event = True
-            with lock:
-                handle(effective, state, silent_q, live=False)
-        elif ev_name in (
-            "Fileheader",
-            "ShieldState", "NavRoute",
-            "Scan", "SAAScanComplete", "FSSDiscoveryScan",
-            "FSSBodySignals", "SAASignalsFound", "ScanOrganic",
-            "Docked", "Undocked", "Touchdown", "Liftoff", "Disembark",
-            "MissionAccepted", "MissionCompleted", "MissionFailed",
-            "MissionAbandoned", "MissionRedirected",
-            "EngineerProgress", "Materials",
-            "MaterialCollected", "MaterialDiscarded",
-        ):
-            with lock:
-                handle(effective, state, silent_q, live=False)
+        # Seek to actual EOF so _follow starts after all current content
+        f.seek(0, 2)
+        file_pos = f.tell()
 
     if not found_hull_event:
         with lock:
