@@ -341,6 +341,7 @@ class AppState:
     stored_ships: list = field(default_factory=list)   # list[dict] from StoredShips event
     suit_loadout: dict = field(default_factory=dict)   # from SuitLoadout event
     backpack:     dict = field(default_factory=dict)   # from Backpack/BackpackChange events
+    ship_locker:  dict = field(default_factory=dict)   # from ShipLocker event
 
     # Neutron route plotter
     jump_range:           float = 0.0   # MaxJumpRange from Loadout (unladen theoretical max)

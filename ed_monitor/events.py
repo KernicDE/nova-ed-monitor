@@ -2121,6 +2121,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             }
             return None
 
+        case "ShipLocker":
+            state.ship_locker = {
+                "items":       ev.get("Items")       or [],
+                "components":  ev.get("Components")  or [],
+                "consumables": ev.get("Consumables") or [],
+                "data":        ev.get("Data")        or [],
+            }
+            return None
+
         case "BackpackChange":
             # Delta event; full refresh on next Backpack event
             return None
