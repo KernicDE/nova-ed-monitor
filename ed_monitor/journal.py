@@ -387,44 +387,44 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
 
     for file_path in candidates:
         try:
-            with open(file_path, "rb") as f:
-                raw = f.read()
+            f_iter = open(file_path, "r", encoding="utf-8", errors="replace")
         except OSError:
             continue
 
-        for line in raw.decode("utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                ev = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+        with f_iter:
+            for line in f_iter:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-            ev_name = ev.get("event", "")
-            if ev_name not in _BODY_EVENTS:
-                continue
+                ev_name = ev.get("event", "")
+                if ev_name not in _BODY_EVENTS:
+                    continue
 
-            # Save current bodies before system-changing events.
-            # FSDJump/CarrierJump clear bodies themselves in events.py.
-            # Location does NOT clear bodies in events.py, so we save + clear
-            # here to prevent bodies from the old system being stored under the
-            # new system name when Location crosses a system boundary.
-            if ev_name in ("FSDJump", "CarrierJump", "Location"):
-                _save_bodies_only(tmp, tmp_lock, db)
-                if ev_name == "Location":
+                # Save current bodies before system-changing events.
+                # FSDJump/CarrierJump clear bodies themselves in events.py.
+                # Location does NOT clear bodies in events.py, so we save + clear
+                # here to prevent bodies from the old system being stored under the
+                # new system name when Location crosses a system boundary.
+                if ev_name in ("FSDJump", "CarrierJump", "Location"):
+                    _save_bodies_only(tmp, tmp_lock, db)
+                    if ev_name == "Location":
+                        with tmp_lock:
+                            tmp.bodies.clear()
+
+                try:
                     with tmp_lock:
-                        tmp.bodies.clear()
+                        handle(ev, tmp, silent_q, live=False)
+                except Exception:
+                    continue
 
-            try:
-                with tmp_lock:
-                    handle(ev, tmp, silent_q, live=False)
-            except Exception:
-                continue
-
-            if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
-                           "SAAScanComplete"):
-                _save_bodies_only(tmp, tmp_lock, db)
+                if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
+                               "SAAScanComplete"):
+                    _save_bodies_only(tmp, tmp_lock, db)
 
     # Final save for the last system processed
     _save_bodies_only(tmp, tmp_lock, db)
@@ -583,53 +583,51 @@ def _process_backlog(
         offset = last_offset if i == start_idx else 0
         
         try:
-            with open(file_path, "rb") as f:
-                if offset > 0:
-                    f.seek(offset)
-                raw = f.read()
+            f_iter = open(file_path, "r", encoding="utf-8", errors="replace")
+            if offset > 0:
+                f_iter.seek(offset)
         except OSError:
             continue
-            
-        lines = raw.decode("utf-8", errors="replace").splitlines()
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                ev = json.loads(line)
-            except json.JSONDecodeError:
-                continue
 
-            ev_name = ev.get("event", "")
-            effective = ev
-            if ev_name == "NavRoute":
-                effective = _read_navroute_json(journal_dir) or ev
+        with f_iter:
+            for line in f_iter:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-            # Run the handler and capture pre-handle system + post-handle commander in one lock
-            try:
-                with lock:
-                    sys_name  = state.system
-                    log_ev    = handle(effective, state, silent_q, live=False)
-                    commander = state.commander  # updated by LoadGame handler
-            except Exception:
-                continue
+                ev_name = ev.get("event", "")
+                effective = ev
+                if ev_name == "NavRoute":
+                    effective = _read_navroute_json(journal_dir) or ev
 
-            # After entering a system, restore saved bodies from DB
-            if ev_name in ("FSDJump", "CarrierJump", "Location"):
-                _load_system_bodies(state, lock, db)
-
-            if log_ev is not None:
-                db.insert(log_ev, sys_name, commander=commander)
-
-                if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
+                # Run the handler and capture pre-handle system + post-handle commander in one lock
+                try:
                     with lock:
-                        hull = state.hull
-                        state.push_event(log_ev)
-                    db.set_hull(hull)
-                else:
-                    with lock:
-                        state.push_event(log_ev)
+                        sys_name  = state.system
+                        log_ev    = handle(effective, state, silent_q, live=False)
+                        commander = state.commander  # updated by LoadGame handler
+                except Exception:
+                    continue
+
+                # After entering a system, restore saved bodies from DB
+                if ev_name in ("FSDJump", "CarrierJump", "Location"):
+                    _load_system_bodies(state, lock, db)
+
+                if log_ev is not None:
+                    db.insert(log_ev, sys_name, commander=commander)
+
+                    if ev_name in ("HullDamage", "Repair", "RepairAll", "Resurrect", "Died", "LoadGame", "Loadout", "Location", "FSDJump"):
+                        with lock:
+                            hull = state.hull
+                            state.push_event(log_ev)
+                        db.set_hull(hull)
+                    else:
+                        with lock:
+                            state.push_event(log_ev)
 
     # Merge DB bio_scans (completed scans from prior sessions) into state,
     # then persist — prevents overwriting completed entries with partial replay data

@@ -356,6 +356,7 @@ class NOVAApp(App):
         self._stop_evt  = stop_evt
         self._neutron_q = neutron_q
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
+        self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-row"):
@@ -405,18 +406,28 @@ class NOVAApp(App):
             pass
         snap = self._snapshot()
 
-        # Apply mode border class to the main screen
-        offline = not snap.client_online
-        on_foot = not snap.in_main_ship and not snap.in_srv and not offline
-        self.screen.set_class(offline, "offline-mode")
-        self.screen.set_class(snap.analysis_mode and not offline, "analysis-mode")
-        self.screen.set_class(not snap.analysis_mode and snap.in_main_ship and not offline, "combat-mode")
-        self.screen.set_class(on_foot, "on-foot-mode")
-        
-        # Apply alert flash for critical heat or hull
+        # Apply mode border class to the main screen — only call set_class when value changes
+        # (set_class triggers CSS recalculation; guarding it eliminates ~8 DOM mutations per tick)
+        offline  = not snap.client_online
+        on_foot  = not snap.in_main_ship and not snap.in_srv and not offline
+        analysis = snap.analysis_mode and not offline
+        combat   = not snap.analysis_mode and snap.in_main_ship and not offline
+
+        _css = self._prev_css
+        def _sc(name: str, val: bool) -> None:
+            if _css.get(name) != val:
+                _css[name] = val
+                self.screen.set_class(val, name)
+
+        _sc("offline-mode",   offline)
+        _sc("analysis-mode",  analysis)
+        _sc("combat-mode",    combat)
+        _sc("on-foot-mode",   on_foot)
+
+        # Flash classes toggle every second when active — still guard to avoid 2× updates per second
         has_hazard = snap.overheating or (0 < snap.hull < 0.25)
         flash_on   = has_hazard and (int(time.time()) % 2 == 0)
-        self.screen.set_class(flash_on, "alert-flash")
+        _sc("alert-flash", flash_on)
 
         # High-G extreme approach flash (orange; stops when landed)
         high_g_flash = (
@@ -425,7 +436,7 @@ class NOVAApp(App):
             and not snap.in_srv
             and (int(time.time()) % 2 == 0)
         )
-        self.screen.set_class(high_g_flash, "high-g-flash")
+        _sc("high-g-flash", high_g_flash)
 
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)

@@ -110,14 +110,9 @@ def monitor(
                 # to run at full poll rate (0.2 s) when the player is on a surface,
                 # so zone-entry/exit warnings fire promptly without waiting for the
                 # next Status.json write (~1 s in-game).
-                with lock:
-                    _on_surface = (state.landed or state.in_srv or
-                                   (not state.in_main_ship and not state.in_srv))
-                    _has_active = any(
-                        not sc.complete and sc.samples > 0
-                        for sc in state.bio_scans
-                    )
-                if _on_surface and _has_active:
+                # Reuse the surface/bio state cached at the end of the previous tick
+                # — Status.json is unchanged so state hasn't changed either.
+                if _on_surface_cache and _has_active_cache:
                     with lock:
                         _check_bio_distance(state, tts_q)
 

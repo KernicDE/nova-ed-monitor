@@ -2100,13 +2100,29 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     Returns None if no bodies are available yet.
     standalone=True adds a system name header for the MAP sub-screen."""
     _sys     = s.system
-    _s_stars   = sorted([b for b in s.bodies if b.star_type],
-                        key=lambda b: (0 if not _short_name(b.name, _sys).strip() else 1,
-                                       _natural_key(_short_name(b.name, _sys))))
-    _s_planets = sorted([b for b in s.bodies if b.planet_class and b.level <= 1],
-                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
-    _s_moons   = sorted([b for b in s.bodies if b.planet_class and b.level == 2],
-                        key=lambda b: _natural_key(_short_name(b.name, _sys)))
+    # Single-pass categorisation + short-name cache (avoids 3 separate list comprehensions)
+    _sn_cache: dict[str, str] = {}
+    def _sn(b: BodyInfo) -> str:
+        n = _sn_cache.get(b.name)
+        if n is None:
+            _sn_cache[b.name] = n = _short_name(b.name, _sys)
+        return n
+
+    _raw_stars:   list[BodyInfo] = []
+    _raw_planets: list[BodyInfo] = []
+    _raw_moons:   list[BodyInfo] = []
+    for _b in s.bodies:
+        if _b.star_type:
+            _raw_stars.append(_b)
+        elif _b.planet_class:
+            if _b.level <= 1:
+                _raw_planets.append(_b)
+            else:
+                _raw_moons.append(_b)
+
+    _s_stars   = sorted(_raw_stars,   key=lambda b: (0 if not _sn(b).strip() else 1, _natural_key(_sn(b).strip())))
+    _s_planets = sorted(_raw_planets, key=lambda b: _natural_key(_sn(b)))
+    _s_moons   = sorted(_raw_moons,   key=lambda b: _natural_key(_sn(b)))
 
     if not (_s_stars or _s_planets):
         if standalone:
@@ -2123,9 +2139,9 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     else:
         diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
 
-    # Map star short-name key → BodyInfo
+    # Map star short-name key → BodyInfo (reuse _sn cache)
     star_index: dict[str, BodyInfo] = {
-        _short_name(b.name, _sys).strip(): b for b in _s_stars
+        _sn(b).strip(): b for b in _s_stars
     }
     # Primary star key is "" (system name == body name); sort primary first
     sorted_star_keys = sorted(star_index.keys(),
@@ -2137,7 +2153,7 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     primary_key  = sorted_star_keys[0] if sorted_star_keys else ""
     barycentre_planets: list[BodyInfo] = []
     for p in _s_planets:
-        p_short = _short_name(p.name, _sys).strip()
+        p_short = _sn(p).strip()
         tok     = p_short.split()
         if tok and tok[0].isalpha() and len(tok[0]) > 1:
             barycentre_planets.append(p)
@@ -2151,12 +2167,12 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
                 break
         if not assigned:
             star_planets.setdefault(primary_key, []).append(p)
-    barycentre_planets.sort(key=lambda b: _natural_key(_short_name(b.name, _sys)))
+    barycentre_planets.sort(key=lambda b: _natural_key(_sn(b)))
 
     # Which planet does each moon belong to?  Remove last token.
     planet_moons: dict[str, list[BodyInfo]] = {}
     for m in _s_moons:
-        m_short = _short_name(m.name, _sys).strip()
+        m_short = _sn(m).strip()
         mtok    = m_short.split()
         pk      = " ".join(mtok[:-1]) if len(mtok) > 1 else primary_key
         planet_moons.setdefault(pk, []).append(m)

@@ -157,6 +157,7 @@ def _worker(
     stop_evt: threading.Event,
 ) -> None:
     pending: list[TtsMsg] = []
+    _last_dedup_cleanup: float = time.time()
 
     while not stop_evt.is_set():
         # Drain all pending messages
@@ -171,9 +172,10 @@ def _worker(
                 break
 
         if not pending:
-            # Periodic cleanup of stale dedup keys
+            # Periodic cleanup of stale dedup keys (every 30 s, time-delta based)
             current_time = time.time()
-            if current_time % 30 < 0.1:
+            if current_time - _last_dedup_cleanup > 30:
+                _last_dedup_cleanup = current_time
                 with _recent_messages_lock:
                     old_keys = [k for k, ts in _recent_messages.items()
                                 if (current_time - ts) > (_DUPLICATE_WINDOW * 2)]
