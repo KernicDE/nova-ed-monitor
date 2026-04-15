@@ -3171,8 +3171,7 @@ class SituationalPanel(_Panel):
     _mode:            str   = "overview"  # current shown panel (user or auto-triggered)
     _active:          str   = "overview" # resolved panel being rendered (always == _mode)
     _auto:            bool  = True       # auto-switching enabled (A key toggles)
-    _last_auto_panel: str   = ""         # last panel returned by _auto_resolve; change triggers override
-    _jump_at_seen:    float = 0.0        # last state.last_jump_at we've acted on
+    _last_trigger_version: int = 0       # last auto_panel_trigger_version we acted on
     _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
@@ -3239,11 +3238,10 @@ class SituationalPanel(_Panel):
     def toggle_auto_lock(self) -> None:
         """Toggle automatic panel switching on/off."""
         self._auto = not self._auto
+        # When re-enabling auto, sync last_trigger_version so the next new trigger
+        # (not the last consumed one) causes a switch.
         if self._auto and self._snap is not None:
-            # Re-sync last_auto_panel so the next real trigger overrides correctly
-            self._last_auto_panel = self._auto_resolve(self._snap)
-            self._mode = self._last_auto_panel
-            self._active = self._mode
+            self._last_trigger_version = self._snap.auto_panel_trigger_version
         self.border_title = self._make_title()
         self.refresh()
 
@@ -3289,42 +3287,6 @@ class SituationalPanel(_Panel):
         self._general_scroll = max(0, self._general_scroll + delta)
         self.refresh()
 
-    def _auto_resolve(self, s: AppState) -> str:
-        """Compute which panel auto-mode would switch to based on current game state."""
-        visible = set(self._active_modes())
-        def _v(m: str) -> str:
-            return m if m in visible else "overview"
-        # Offline: no live game data — show statistics
-        if not s.client_online:
-            return _v("stats")
-        # Hyperspace jump in progress — show route so remaining hops are visible
-        if s.in_hyperspace and s.route_hops > 0:
-            return _v("route")
-        # Docking granted — show pad diagram
-        if s.docked_pad > 0 and not s.docked:
-            return _v("docking")
-        # Incomplete bio scans — player is actively scanning
-        if any(not sc.complete for sc in s.bio_scans):
-            return _v("bio")
-        # Approaching or on a DSS'd body with bio signals — show pre-scan genus list
-        body_name = s.approach_body or (s.nearest_body if (s.landed or s.in_srv) else "")
-        if body_name:
-            idx = s._bodies_by_name.get(body_name, -1)
-            if 0 <= idx < len(s.bodies) and s.bodies[idx].bio_genuses:
-                return _v("bio")
-        # Show colonisation when active sites exist and player is in system
-        if s.colonisation_sites and any(
-            site.get("system") == s.system for site in s.colonisation_sites.values()
-        ):
-            return _v("colonisation")
-        # Show missions when active (not in supercruise)
-        if s.missions and not s.supercruise:
-            return _v("missions")
-        # Route set — show route when no higher-priority context is active
-        if s.route_hops > 0:
-            return _v("route")
-        return "overview"
-
     def _make_title(self) -> str:
         # *** indicator: bright = auto ON, dim = auto OFF
         if self._auto:
@@ -3337,18 +3299,10 @@ class SituationalPanel(_Panel):
             abbr     = self._MODE_ABBREVS[m]
             fullname = self._MODE_FULLNAMES[m]
             is_current = (m == self._mode)
-            is_auto_target = self._auto and (m == self._last_auto_panel)
 
-            if is_current and is_auto_target:
-                # Auto is driving this panel
-                parts.append(f"[bold rgb(255,220,80)]{fullname}[/]")
-            elif is_current:
-                # User manually selected (auto ON or OFF)
-                col = "rgb(0,200,150)" if self._auto else "white"
+            if is_current:
+                col = "rgb(255,220,80)" if self._auto else "white"
                 parts.append(f"[bold {col}]{fullname}[/]")
-            elif is_auto_target:
-                # Auto wants this panel but user has browsed elsewhere
-                parts.append(f"[rgb(160,130,40)]{abbr}[/]")
             else:
                 parts.append(f"[dim]{abbr}[/]")
 
@@ -3368,20 +3322,20 @@ class SituationalPanel(_Panel):
         if self._mode not in self._visible_modes:
             self._mode = self._visible_modes[0] if self._visible_modes else "overview"
 
-        # Auto-switching: only override _mode when the suggested panel changes.
-        # This lets the user browse panels freely; a new trigger overrides.
+        # Auto-switching: consume one-shot triggers set by daemon threads via events.py.
+        # Each trigger has a version counter; we act when the version advances.
+        # The user can freely browse panels between triggers — no priority hierarchy.
         if self._auto:
-            # New jump detected → reset scroll; _auto_resolve handles mode naturally
-            # (in_hyperspace → route; arrived → overview/bio/missions/etc.)
-            if snap.last_jump_at > 0 and snap.last_jump_at != self._jump_at_seen:
-                self._jump_at_seen   = snap.last_jump_at
-                self._general_scroll = 0
-
-            auto_panel = self._auto_resolve(snap)
-            if auto_panel != self._last_auto_panel:
-                self._last_auto_panel = auto_panel
-                if auto_panel != self._mode:
-                    self._mode = auto_panel
+            # Persistent state override: offline → always stats (no trigger to undo this)
+            if not snap.client_online:
+                if self._mode != "stats" and "stats" in self._visible_modes:
+                    self._mode = "stats"
+                    self._general_scroll = 0
+            elif snap.auto_panel_trigger_version != self._last_trigger_version:
+                self._last_trigger_version = snap.auto_panel_trigger_version
+                target = snap.auto_panel_trigger
+                if target and target in self._visible_modes:
+                    self._mode = target
                     self._general_scroll = 0
 
         new_active = self._mode
@@ -3450,7 +3404,7 @@ class SituationalPanel(_Panel):
         else:
             mode_key = (snap.events_version, snap.bodies_version)
 
-        key = (mode,) + mode_key
+        key = (mode, snap.auto_panel_trigger_version) + mode_key
         if self._key_changed(key):
             self.refresh()
 

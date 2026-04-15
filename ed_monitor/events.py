@@ -685,6 +685,15 @@ def natural_key(s: str) -> list:
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
 
 
+# ── Auto-panel trigger helper ──────────────────────────────────────────────────
+
+def _trigger(state: AppState, panel: str) -> None:
+    """Request a one-shot situational panel switch.  The UI consumes it by comparing
+    auto_panel_trigger_version to its last-seen value; no write-back needed."""
+    state.auto_panel_trigger         = panel
+    state.auto_panel_trigger_version += 1
+
+
 # ── Main event handler ─────────────────────────────────────────────────────────
 
 def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> Optional[LogEvent]:
@@ -813,6 +822,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                  fallback=f"Arrived in {system}. Jump {dist_ly_str}.{tts_suffix}",
                  cacheable=False,
                  system=system, dist_ly=dist_ly_str, suffix=tts_suffix)
+            _trigger(state, "overview")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Location":
@@ -863,6 +873,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _say(tts_q, "NavRoute", False,
                  fallback=msg, cacheable=False,
                  dest=dest, hops=hops, hops_word=hops_word, dist_ly=f"{tdist:.1f} light years")
+            _trigger(state, "route")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "NavRouteClear":
@@ -1560,6 +1571,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                             new_sc.sample_lats.append(log_lat)
                             new_sc.sample_lons.append(log_lon)
                         state.bio_scans.append(new_sc)
+                        _trigger(state, "bio")
                     else:
                         # Subsequent COMP scan of same species on same body — save new position
                         if from_ship and log_lat is not None and log_lon is not None:
@@ -1884,6 +1896,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                      fallback="Systems powering down. Farewell, Commander.")
             state.client_online = False
             state.client_shutdown_pending = True
+            _trigger(state, "stats")
             return LogEvent.new(EventCategory.System, "Game shutdown detected.")
 
         case "Loadout":
@@ -2007,6 +2020,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.docked_station_name = stn
             msg  = f"Docking request granted. Proceed to pad {pad}."
             _say(tts_q, "DockingGranted", False, fallback=msg, pad=pad)
+            _trigger(state, "docking")
             return LogEvent.new(EventCategory.Nav, f"Docking at {stn} (Pad {pad}).")
 
         case "DockingDenied":
@@ -2024,6 +2038,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             dest   = _s(ev, "StarSystem")
             if j_type == "Hyperspace":
                 state.in_hyperspace = True
+                _trigger(state, "route")
                 _say(tts_q, "StartJump_Hyperspace", False, fallback="Engaging hyperspace.")
                 return LogEvent.new(EventCategory.Nav, f"Jumping to {dest}.")
             else:

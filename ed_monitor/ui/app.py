@@ -464,6 +464,7 @@ class NOVAApp(App):
             snap.in_main_ship, snap.in_srv,
             snap.credits, snap.cargo,
             snap.neutron_route_status,
+            snap.auto_panel_trigger_version,
             _tick_s,
         )
 

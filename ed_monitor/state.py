@@ -428,6 +428,12 @@ class AppState:
     # Timestamp of last FSDJump/CarrierJump (unix time); used for auto-switch to OVERVIEW
     last_jump_at: float = 0.0
 
+    # Event-driven auto-panel trigger: daemon threads set these to request a one-shot
+    # panel switch; the UI consumes the trigger by comparing the version to last seen.
+    # The UI never writes back — it tracks the last-seen version locally.
+    auto_panel_trigger:         str = ""   # panel abbrev to switch to (e.g. "route", "overview")
+    auto_panel_trigger_version: int = 0    # bumped on each new trigger
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
         self.events_version += 1
