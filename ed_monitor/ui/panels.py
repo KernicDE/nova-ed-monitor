@@ -1174,8 +1174,14 @@ class BodiesPanel(_Panel):
         panel_h = self.size.height or 0
         below = max(0, total_bodies - effective_scroll - max(1, panel_h - 2))
 
-        self.border_title = (f"◈ Scanned Bodies  ▲{above}" if above > 0
-                             else "◈ Scanned Bodies")
+        _base_bodies = "◈ Scanned Bodies"
+        if above > 0:
+            _ind  = f" ▲{above}"
+            _avail = (self.size.width or 20) - 4
+            _pad  = max(1, _avail - Text.from_markup(_base_bodies).cell_len - len(_ind))
+            self.border_title = _base_bodies + " " * _pad + _ind
+        else:
+            self.border_title = _base_bodies
         self.border_subtitle = (f"▼{below}" if below > 0 else "")
         visible = visible[effective_scroll:]
 
@@ -3182,8 +3188,12 @@ class SituationalPanel(_Panel):
         self._route_scroll = max(0, min(self._route_scroll + delta, max(0, route_len - 3)))
         self.refresh()
 
+    _NON_SCROLLABLE = frozenset({"overview", "wealth", "stats", "docking", "galaxy"})
+
     def scroll_general(self, delta: int) -> None:
         """Scroll the current situational panel up/down (for all non-specialised modes)."""
+        if self._active in self._NON_SCROLLABLE:
+            return
         self._general_scroll = max(0, self._general_scroll + delta)
         self.refresh()
 
@@ -3286,79 +3296,141 @@ class SituationalPanel(_Panel):
         if new_active != self._active:
             self._general_scroll = 0
         self._active = new_active
-        self.border_title = self._make_title()
         self.refresh()
-
-    def _update_scroll_indicators(self, s: AppState) -> None:
-        """Update border_title / border_subtitle with ▲N / ▼N scroll indicators."""
-        mode = self._active
-
-        if mode == "galaxy":
-            _subs = ("system", "regional", "galaxy")
-            idx   = _subs.index(self._galaxy_submode) + 1 if self._galaxy_submode in _subs else 1
-            self.border_subtitle = f"{idx}/3  "
-            return
-        elif mode == "route":
-            route  = s.route_list or []
-            total  = max(0, len(route) - 1)
-            scroll = self._route_scroll
-        elif mode == "bgs":
-            total  = 9999
-            scroll = self._bgs_scroll
-        elif mode == "colonisation":
-            total  = 9999
-            scroll = self._colonisation_scroll
-        elif mode == "neutron":
-            total  = 9999
-            scroll = self._neutron_scroll
-        else:
-            total  = 9999
-            scroll = self._general_scroll
-
-        above = scroll
-        panel_h = self.size.height or 0
-        below = max(0, total - scroll - max(1, panel_h - 2)) if total < 9999 else (1 if scroll > 0 else 0)
-
-        base = self._make_title()
-        self.border_title    = f"{base}  ▲{above}" if above > 0 else base
-        self.border_subtitle = f"▼{below}" if below > 0 else ""
 
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
             return Text("")
-        self._update_scroll_indicators(s)
-        gs = self._general_scroll
-        if self._active == "bio":
-            return _render_bio(s, scroll=gs)
-        if self._active == "missions":
-            return _render_missions(s, scroll=gs)
-        if self._active == "engineers":
-            return _render_engineers(s, scroll=gs)
-        if self._active == "wealth":
-            return _render_wealth(s)
-        if self._active == "neutron":
-            return _render_neutron(s, scroll=self._neutron_scroll)
-        if self._active == "galaxy":
+
+        mode    = self._active
+        panel_h = self.size.height or 20
+        panel_w = self.size.width  or 40
+
+        # ── Galaxy: sub-view indicator only, no scroll ────────────────────
+        if mode == "galaxy":
+            _subs = ("system", "regional", "galaxy")
+            idx   = _subs.index(self._galaxy_submode) + 1 if self._galaxy_submode in _subs else 1
+            self.border_title    = self._make_title()
+            self.border_subtitle = f"{idx}/3  "
             sub = self._galaxy_submode
             if sub == "system":
                 result = _render_system_map(s, standalone=True)
                 return result if result is not None else Text("No bodies scanned yet.", style=P.LABEL)
             return _render_galaxy(s, regional=(sub == "regional"),
-                                  panel_w=self.size.width, panel_h=self.size.height)
-        if self._active == "inventory":
-            return _render_inventory(s, scroll=gs)
-        if self._active == "stats":
+                                  panel_w=panel_w, panel_h=panel_h)
+
+        # ── Compute per-mode item count + clamp scroll ────────────────────
+        max_rows_route = max(5, panel_h - 5)  # matches _render_route
+
+        if mode in self._NON_SCROLLABLE:
+            total  = 0
+            scroll = 0
+
+        elif mode == "route":
+            route         = s.route_list or []
+            display_route = route[1:] if len(route) > 1 else []
+            total         = len(display_route)
+            scroll        = max(0, min(self._route_scroll, max(0, total - max_rows_route)))
+            self._route_scroll = scroll
+
+        elif mode == "bio":
+            by_body: dict = {}
+            for sc in s.bio_scans:
+                by_body.setdefault(sc.body or "Unknown", [])
+            scanned_bodies = set(by_body.keys())
+            _prescan = [b for b in s.bodies if b.bio_genuses and b.name not in scanned_bodies]
+            _dss     = {b.name for b in _prescan}
+            _pred    = [b for b in s.bodies
+                        if b.bio_signals > 0 and not b.bio_genuses
+                        and b.name not in scanned_bodies and b.name not in _dss]
+            total  = len(_pred) + len(_prescan) + len(by_body)
+            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            self._general_scroll = scroll
+
+        elif mode == "missions":
+            total  = len(s.missions)
+            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            self._general_scroll = scroll
+
+        elif mode == "engineers":
+            total  = len(s.engineers) if s.engineers else 0
+            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            self._general_scroll = scroll
+
+        elif mode == "inventory":
+            _inv_rows = 0
+            if s.cargo_items:
+                _inv_rows += 1 + len(s.cargo_items)
+            for _md in (s.materials_raw, s.materials_mfg, s.materials_enc):
+                if _md:
+                    _inv_rows += 1 + len(_md)
+            total  = _inv_rows
+            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            self._general_scroll = scroll
+
+        elif mode == "bgs":
+            total  = sum(len(facs) for facs in s.bgs_log.values()) if s.bgs_log else 0
+            scroll = max(0, min(self._bgs_scroll, max(0, total - 1)))
+            self._bgs_scroll = scroll
+
+        elif mode == "colonisation":
+            total  = len(s.colonisation_sites) if s.colonisation_sites else 0
+            scroll = max(0, min(self._colonisation_scroll, max(0, total - 1)))
+            self._colonisation_scroll = scroll
+
+        elif mode == "neutron":
+            total  = len(s.neutron_route) if s.neutron_route else 0
+            scroll = max(0, min(self._neutron_scroll, max(0, total - 1)))
+            self._neutron_scroll = scroll
+
+        else:
+            total  = 0
+            scroll = 0
+
+        # ── Compute above / below ─────────────────────────────────────────
+        above = scroll
+        if total == 0:
+            below = 0
+        elif mode == "route":
+            below = max(0, total - scroll - max_rows_route)
+        else:
+            below = max(0, total - scroll - max(1, panel_h - 2))
+
+        # ── Set border indicators (▲ top-right, ▼ bottom-right) ──────────
+        base = self._make_title()
+        if above > 0:
+            indicator = f" ▲{above}"
+            avail     = panel_w - 4
+            pad       = max(1, avail - Text.from_markup(base).cell_len - len(indicator))
+            self.border_title = base + " " * pad + indicator
+        else:
+            self.border_title = base
+        self.border_subtitle = f"▼{below}" if below > 0 else ""
+
+        # ── Dispatch to render functions ──────────────────────────────────
+        if mode == "bio":
+            return _render_bio(s, scroll=scroll)
+        if mode == "missions":
+            return _render_missions(s, scroll=scroll)
+        if mode == "engineers":
+            return _render_engineers(s, scroll=scroll)
+        if mode == "wealth":
+            return _render_wealth(s)
+        if mode == "neutron":
+            return _render_neutron(s, scroll=scroll)
+        if mode == "inventory":
+            return _render_inventory(s, scroll=scroll)
+        if mode == "stats":
             return _render_stats(s)
-        if self._active == "docking":
+        if mode == "docking":
             return _render_docking(s)
-        if self._active == "bgs":
-            return _render_bgs(s, scroll=self._bgs_scroll)
-        if self._active == "colonisation":
-            return _render_colonisation(s, scroll=self._colonisation_scroll)
-        if self._active == "route":
-            return _render_route(s, scroll=self._route_scroll,
-                                 panel_height=self.size.height)
+        if mode == "bgs":
+            return _render_bgs(s, scroll=scroll)
+        if mode == "colonisation":
+            return _render_colonisation(s, scroll=scroll)
+        if mode == "route":
+            return _render_route(s, scroll=scroll, panel_height=panel_h)
         return _render_overview(s)
 
 
@@ -3877,10 +3949,17 @@ class EventLogPanel(_Panel):
         events  = [ev for ev in s.events if ev.category != EventCategory.Chat]
         visible = events[self._scroll:]
 
-        above = self._scroll
+        above   = self._scroll
         panel_h = self.size.height or 0
-        below = max(0, len(events) - self._scroll - max(1, panel_h - 2))
-        self.border_title    = (f"◈ Event Log  ▲{above}" if above > 0 else "◈ Event Log")
+        below   = max(0, len(events) - self._scroll - max(1, panel_h - 2))
+        _base_ev = "◈ Event Log"
+        if above > 0:
+            _ind   = f" ▲{above}"
+            _avail = (self.size.width or 20) - 4
+            _pad   = max(1, _avail - Text.from_markup(_base_ev).cell_len - len(_ind))
+            self.border_title = _base_ev + " " * _pad + _ind
+        else:
+            self.border_title = _base_ev
         self.border_subtitle = (f"▼{below}" if below > 0 else "")
 
         prefix_w  = 10  # "HH:MM " (6) + "NAV " (4)
@@ -3945,10 +4024,17 @@ class ChatLogPanel(_Panel):
             return t
         effective_scroll = min(self._scroll, max(0, len(chats) - 1))
 
-        above = effective_scroll
+        above   = effective_scroll
         panel_h = self.size.height or 0
-        below = max(0, len(chats) - effective_scroll - max(1, panel_h - 2))
-        self.border_title    = (f"◈ Chat  ▲{above}" if above > 0 else "◈ Chat")
+        below   = max(0, len(chats) - effective_scroll - max(1, panel_h - 2))
+        _base_ch = "◈ Chat"
+        if above > 0:
+            _ind   = f" ▲{above}"
+            _avail = (self.size.width or 20) - 4
+            _pad   = max(1, _avail - Text.from_markup(_base_ch).cell_len - len(_ind))
+            self.border_title = _base_ch + " " * _pad + _ind
+        else:
+            self.border_title = _base_ch
         self.border_subtitle = (f"▼{below}" if below > 0 else "")
 
         chats = chats[effective_scroll:]
