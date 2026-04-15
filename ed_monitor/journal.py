@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import queue
-import select as _select
 import threading
 import time
 from pathlib import Path
