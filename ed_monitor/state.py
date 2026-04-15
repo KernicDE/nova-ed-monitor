@@ -298,6 +298,9 @@ class AppState:
     # Bodies
     bodies:    list = field(default_factory=list)  # list[BodyInfo]
     bio_scans: list = field(default_factory=list)  # list[BioScan]
+    # Monotonically-increasing counter; bumped on every upsert or clear so UI
+    # can detect changes without comparing the full list.
+    bodies_version: int = 0
     # Internal indices for O(1) body lookups (not serialised; maintained by upsert_body/clear_bodies)
     _bodies_by_name: dict = field(default_factory=dict, repr=False)  # name  → list index
     _bodies_by_id:   dict = field(default_factory=dict, repr=False)  # body_id → list index
@@ -430,6 +433,7 @@ class AppState:
         self.bodies.clear()
         self._bodies_by_name.clear()
         self._bodies_by_id.clear()
+        self.bodies_version += 1
 
     def _rebuild_body_index(self) -> None:
         """Rebuild name/id indices from current bodies list (call after bulk inserts)."""
@@ -471,6 +475,7 @@ class AppState:
             if not b.unusual_body and unusual: b.unusual_body = unusual
             # Update id index in case body_id changed (rare)
             self._bodies_by_id[b.body_id] = i
+            self.bodies_version += 1
             return
         # New body — insert sorted by body_id
         ids = [b.body_id for b in self.bodies]
@@ -478,6 +483,7 @@ class AppState:
         self.bodies.insert(pos, info)
         # All indices at pos and beyond shifted — rebuild both indices
         self._rebuild_body_index()
+        self.bodies_version += 1
 
     def remove_mission(self, mission_id: int) -> None:
         self.missions = [m for m in self.missions if m.mission_id != mission_id]

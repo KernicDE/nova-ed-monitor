@@ -1100,6 +1100,10 @@ class BodiesPanel(_Panel):
     """
 
     _scroll: int = 0
+    # Sort cache: avoid re-sorting bodies every 500 ms when nothing has changed
+    _sorted_cache:         list  = []
+    _sorted_cache_version: int   = -1
+    _sorted_cache_system:  str   = ""
 
     def scroll_bodies(self, delta: int) -> None:
         """Scroll the bodies list up (delta<0) or down (delta>0)."""
@@ -1129,42 +1133,49 @@ class BodiesPanel(_Panel):
         tbl.add_column("F",    width=2,  header_style=HDR)
         tbl.add_column("D",    width=2,  header_style=HDR)
 
-        system  = s.system
-        visible = [b for b in s.bodies if b.planet_class or b.star_type]
-        
-        # Sort bodies: single-star children first (A, B...), barycentre PLANETS last (AB 4...)
-        # Exception: if "AB 1" is itself a star, its children "AB 1 a" sort directly after it.
-        _star_short_names: set[str] = set()
-        for _sb in visible:
-            if _sb.star_type:
-                _sn = _short_name(_sb.name, system).strip() or "A"
-                _star_short_names.add(_sn)
+        system = s.system
 
-        def _body_sort_key(b: BodyInfo) -> tuple:
-            short = _short_name(b.name, system).strip()
-            if not short and b.star_type and " " in b.name:
-                m = re.search(r"\s+([A-Z0-9]{1,2})$", b.name)
-                if m: short = m.group(1)
+        # Re-sort only when bodies or system changed — cache the result across ticks
+        if (s.bodies_version != self._sorted_cache_version or
+                system != self._sorted_cache_system):
+            visible = [b for b in s.bodies if b.planet_class or b.star_type]
 
-            if not short:
-                return (0, "")  # Primary star always first
+            _star_short_names: set[str] = set()
+            for _sb in visible:
+                if _sb.star_type:
+                    _sn = _short_name(_sb.name, system).strip() or "A"
+                    _star_short_names.add(_sn)
 
-            parts = short.split()
-            # A body is a barycentre-orbit body (bucket 1) when its short name starts with
-            # a multi-char alpha prefix (like "AB") AND its root parent is NOT a star.
-            # e.g. "AB 4" → root_parent="AB 4" (not a star) → bucket 1
-            #      "AB 1 a" where AB 1 is a star → root_parent="AB 1" (IS a star) → bucket 0
-            if not b.star_type and parts[0].isalpha() and len(parts[0]) > 1:
-                root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
-                bucket = 0 if root_parent in _star_short_names else 1
-            else:
-                bucket = 0
+            def _body_sort_key(b: BodyInfo) -> tuple:
+                short = _short_name(b.name, system).strip()
+                if not short and b.star_type and " " in b.name:
+                    m = re.search(r"\s+([A-Z0-9]{1,2})$", b.name)
+                    if m: short = m.group(1)
 
-            # Zero-pad numbers for correct lexicographic ordering
-            key_parts = [f"{int(p):04d}" if p.isdigit() else p.lower() for p in parts]
-            return (bucket, " ".join(key_parts))
+                if not short:
+                    return (0, "")  # Primary star always first
 
-        visible.sort(key=_body_sort_key)
+                parts = short.split()
+                # A body is a barycentre-orbit body (bucket 1) when its short name starts with
+                # a multi-char alpha prefix (like "AB") AND its root parent is NOT a star.
+                # e.g. "AB 4" → root_parent="AB 4" (not a star) → bucket 1
+                #      "AB 1 a" where AB 1 is a star → root_parent="AB 1" (IS a star) → bucket 0
+                if not b.star_type and parts[0].isalpha() and len(parts[0]) > 1:
+                    root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
+                    bucket = 0 if root_parent in _star_short_names else 1
+                else:
+                    bucket = 0
+
+                # Zero-pad numbers for correct lexicographic ordering
+                key_parts = [f"{int(p):04d}" if p.isdigit() else p.lower() for p in parts]
+                return (bucket, " ".join(key_parts))
+
+            visible.sort(key=_body_sort_key)
+            self._sorted_cache         = visible
+            self._sorted_cache_version = s.bodies_version
+            self._sorted_cache_system  = system
+
+        visible = self._sorted_cache
 
         # Apply scroll offset (w/s keys)
         total_bodies = len(visible)
@@ -3109,6 +3120,11 @@ class SituationalPanel(_Panel):
     _route_scroll:        int  = 0
     _general_scroll:      int  = 0
     _visible_modes:       list = []  # populated in update() from snap.situational_panels
+    # System map cache — rebuilt only when bodies or system change
+    _map_cache:           object = None
+    _map_cache_version:   int    = -1
+    _map_cache_system:    str    = ""
+    _map_standalone_cache: object = None
 
     _MODE_ABBREVS = {
         "auto": "***", "overview": "OVR", "bio": "BIO", "galaxy": "MAP",
@@ -3331,7 +3347,13 @@ class SituationalPanel(_Panel):
             self.border_subtitle = f"{idx}/3  "
             sub = self._galaxy_submode
             if sub == "system":
-                result = _render_system_map(s, standalone=True)
+                # Re-render only when bodies or system change
+                if (s.bodies_version != self._map_cache_version or
+                        s.system != self._map_cache_system):
+                    self._map_standalone_cache = _render_system_map(s, standalone=True)
+                    self._map_cache_version = s.bodies_version
+                    self._map_cache_system  = s.system
+                result = self._map_standalone_cache
                 return result if result is not None else Text("No bodies scanned yet.", style=P.LABEL)
             return _render_galaxy(s, regional=(sub == "regional"),
                                   panel_w=panel_w, panel_h=panel_h)
