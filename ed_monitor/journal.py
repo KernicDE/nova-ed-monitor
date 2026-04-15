@@ -55,6 +55,34 @@ def _stat_est_value(b) -> int:
 _route_edsm_lock        = threading.Lock()
 _route_bodies_edsm_lock = threading.Lock()
 
+# Wakes _follow() and monitor() when a journal .log file in the directory changes.
+_journal_dir_changed: threading.Event = threading.Event()
+_watchdog_active: bool = False
+
+
+def _start_watchdog(journal_dir) -> None:
+    global _watchdog_active
+    try:
+        from watchdog.observers import Observer           # type: ignore[import]
+        from watchdog.events import FileSystemEventHandler  # type: ignore[import]
+
+        class _Handler(FileSystemEventHandler):
+            def on_modified(self, event) -> None:         # type: ignore[override]
+                if not event.is_directory and event.src_path.endswith(".log"):
+                    _journal_dir_changed.set()
+            def on_created(self, event) -> None:          # type: ignore[override]
+                if not event.is_directory and event.src_path.endswith(".log"):
+                    _journal_dir_changed.set()
+
+        obs = Observer()
+        obs.schedule(_Handler(), str(journal_dir), recursive=False)
+        obs.daemon = True
+        obs.start()
+        _watchdog_active = True
+        _log.info("Journal watching: inotify/watchdog active (zero-CPU idle)")
+    except Exception as exc:
+        _log.warning(f"Journal watching: watchdog failed ({exc}) — falling back to polling")
+
 
 def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
     """Query local EDSM dump tables for power state, nearest populated system,
@@ -188,14 +216,15 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
         if not to_fetch:
             return
 
-        # Batch query EDSM — up to 50 names per request
-        _EDSM_BATCH = 50
-        _EDSM_URL = "https://www.edsm.net/api-v1/systems"
-        now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        # Batch query EDSM — up to 100 names per request
+        _EDSM_BATCH = 100
+        _EDSM_URL   = "https://www.edsm.net/api-v1/systems"
+        _UA         = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
+        now_str     = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         new_cache_entries: list[dict] = []
 
         try:
-            client = httpx.Client(timeout=15.0)
+            client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
             for i in range(0, len(to_fetch), _EDSM_BATCH):
                 batch = to_fetch[i:i + _EDSM_BATCH]
                 params = [("systemName[]", n) for n in batch]
@@ -220,7 +249,7 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
                     state.route_list_edsm = {**state.route_list_edsm, **updates}
 
                 if i + _EDSM_BATCH < len(to_fetch):
-                    _time.sleep(1.0)  # be polite to EDSM API
+                    _time.sleep(0.5)  # 100 systems/batch: 0.5s is polite
 
             client.close()
         except Exception:
@@ -271,11 +300,12 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
             return
 
         _EDSM_BODIES_URL = "https://www.edsm.net/api-system-v1/bodies"
+        _UA = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
         now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         new_cache_entries: list[dict] = []
 
         try:
-            client = httpx.Client(timeout=15.0)
+            client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
             for i, name in enumerate(to_fetch):
                 enc = _quote(name, safe="")
                 bio_total  = 0
@@ -306,7 +336,7 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
                     }
 
                 if i < len(to_fetch) - 1:
-                    _time.sleep(1.0)  # be polite to EDSM API
+                    _time.sleep(0.5)  # EDSM bodies: 0.5s between per-system requests
 
             client.close()
         except Exception:
@@ -469,6 +499,8 @@ def monitor(
     except Exception:
         pass
 
+    _start_watchdog(journal_dir)
+
     while True:
         latest = _get_latest(journal_dir)
 
@@ -492,7 +524,11 @@ def monitor(
             current = latest
 
         if current is None:
-            time.sleep(2.0)
+            if _watchdog_active:
+                _journal_dir_changed.wait(timeout=10.0)
+                _journal_dir_changed.clear()
+            else:
+                time.sleep(2.0)
             continue
 
         _follow(current, state, lock, tts_q, db, journal_dir, edsm_q,
@@ -727,7 +763,11 @@ def _follow(
                     return
                 with lock:
                     state.journal_heartbeat = time.time()
-                time.sleep(0.2)
+                if _watchdog_active:
+                    _journal_dir_changed.wait(timeout=5.0)
+                    _journal_dir_changed.clear()
+                else:
+                    time.sleep(0.2)
                 continue
 
             buf += chunk

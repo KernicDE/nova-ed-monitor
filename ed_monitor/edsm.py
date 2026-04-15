@@ -25,7 +25,8 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
     from . import events as _ev
     from . import voicelines as _vl
     import httpx
-    client = httpx.Client(timeout=15.0)
+    _UA = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
+    client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
 
     try:
         while True:
