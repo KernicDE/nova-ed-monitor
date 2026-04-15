@@ -54,7 +54,14 @@ def _run(state, lock: threading.RLock, db) -> None:
 
 
 def _check_and_refresh(state, lock, db) -> None:
+    from .state import EventCategory, LogEvent
+
+    def _push(msg: str) -> None:
+        with lock:
+            state.push_event(LogEvent.new(EventCategory.System, msg))
+
     now = time.time()
+    any_outdated = False
     for name in ("systems", "stations", "powerplay"):
         key = f"edsm_dump_{name}_ts"
         try:
@@ -62,7 +69,24 @@ def _check_and_refresh(state, lock, db) -> None:
         except ValueError:
             last_ts = 0.0
         if now - last_ts > _MAX_AGE:
+            any_outdated = True
             _download_and_import(name, state, lock, db)
+
+    if not any_outdated:
+        # All three dumps are within the 24-hour window — let the user know
+        oldest_ts = min(
+            _safe_ts(db.get_config(f"edsm_dump_{n}_ts", "0"))
+            for n in ("systems", "stations", "powerplay")
+        )
+        age_h = int((now - oldest_ts) / 3600)
+        _push(f"EDSM: data up to date (refreshed {age_h}h ago).")
+
+
+def _safe_ts(val: str) -> float:
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
 
 
 def _download_and_import(name: str, state, lock, db) -> None:

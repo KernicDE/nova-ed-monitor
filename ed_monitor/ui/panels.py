@@ -3386,12 +3386,12 @@ class SituationalPanel(_Panel):
                         if b.bio_signals > 0 and not b.bio_genuses
                         and b.name not in scanned_bodies and b.name not in _dss]
             total  = len(_pred) + len(_prescan) + len(by_body)
-            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._general_scroll, max(0, total - max(1, panel_h - 2))))
             self._general_scroll = scroll
 
         elif mode == "missions":
             total  = len(s.missions)
-            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._general_scroll, max(0, total - max(1, panel_h - 2))))
             self._general_scroll = scroll
 
         elif mode == "engineers":
@@ -3406,23 +3406,24 @@ class SituationalPanel(_Panel):
             for _md in (s.materials_raw, s.materials_mfg, s.materials_enc):
                 if _md:
                     _inv_rows += 1 + len(_md)
-            total  = _inv_rows
-            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            total    = _inv_rows
+            vis_rows = max(1, panel_h - 2)
+            scroll   = max(0, min(self._general_scroll, max(0, total - vis_rows)))
             self._general_scroll = scroll
 
         elif mode == "bgs":
             total  = sum(len(facs) for facs in s.bgs_log.values()) if s.bgs_log else 0
-            scroll = max(0, min(self._bgs_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._bgs_scroll, max(0, total - max(1, panel_h - 2))))
             self._bgs_scroll = scroll
 
         elif mode == "colonisation":
             total  = len(s.colonisation_sites) if s.colonisation_sites else 0
-            scroll = max(0, min(self._colonisation_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._colonisation_scroll, max(0, total - max(1, panel_h - 2))))
             self._colonisation_scroll = scroll
 
         elif mode == "neutron":
             total  = len(s.neutron_route) if s.neutron_route else 0
-            scroll = max(0, min(self._neutron_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._neutron_scroll, max(0, total - max(1, panel_h - 2))))
             self._neutron_scroll = scroll
 
         else:
