@@ -16,6 +16,36 @@ _log = logging.getLogger("nova.status")
 from . import voicelines as _vl
 from . import events as _ev
 
+_status_dir_changed: threading.Event = threading.Event()
+_status_watchdog_active: bool = False
+
+_STATUS_FILES = frozenset({"Status.json", "Cargo.json", "Materials.json"})
+
+
+def _start_watchdog_status(journal_dir: Path) -> None:
+    global _status_watchdog_active
+    try:
+        from watchdog.observers import Observer           # type: ignore[import]
+        from watchdog.events import FileSystemEventHandler  # type: ignore[import]
+
+        class _Handler(FileSystemEventHandler):
+            def on_modified(self, event) -> None:         # type: ignore[override]
+                if not event.is_directory and os.path.basename(event.src_path) in _STATUS_FILES:
+                    _status_dir_changed.set()
+            def on_created(self, event) -> None:          # type: ignore[override]
+                if not event.is_directory and os.path.basename(event.src_path) in _STATUS_FILES:
+                    _status_dir_changed.set()
+
+        obs = Observer()
+        obs.schedule(_Handler(), str(journal_dir), recursive=False)
+        obs.daemon = True
+        obs.start()
+        _status_watchdog_active = True
+        _log.info("Status watching: inotify/watchdog active (zero-CPU idle)")
+    except Exception as exc:
+        _log.warning(f"Status watching: watchdog failed ({exc}) — falling back to polling")
+
+
 # Status.json flag bits
 # Flags2 bits (Odyssey / Horizons 4.0+)
 FLAG2_GLIDE       = 1 << 12  # GlideMode = orbital cruise
@@ -60,7 +90,11 @@ def monitor(
     last_status  = 0.0
     last_cargo   = 0.0
     last_mats    = 0.0
-    tick         = 0
+    _on_surface_cache: bool = False
+    _has_active_cache: bool = False
+
+    _start_watchdog_status(journal_dir)
+
     while True:
         try:
             mtime = os.stat(status_path).st_mtime
@@ -108,30 +142,39 @@ def monitor(
                 state.supercruise = False
                 state.analysis_mode = False
                 state.client_online = False
-            client_online_detected = False
             pass
 
-        # Poll cargo and materials every ~5 s (every 10th tick at 0.5 s)
-        if tick % 10 == 0:
-            try:
-                mtime = os.stat(cargo_path).st_mtime
-                if mtime != last_cargo:
-                    last_cargo = mtime
-                    _apply_cargo(cargo_path, state, lock)
-            except OSError:
-                pass
-            try:
-                mtime = os.stat(mats_path).st_mtime
-                if mtime != last_mats:
-                    last_mats = mtime
-                    _apply_materials(mats_path, state, lock)
-            except OSError:
-                pass
+        # Check cargo and materials on every wakeup (mtime-gated, no re-read unless changed)
+        try:
+            mtime = os.stat(cargo_path).st_mtime
+            if mtime != last_cargo:
+                last_cargo = mtime
+                _apply_cargo(cargo_path, state, lock)
+        except OSError:
+            pass
+        try:
+            mtime = os.stat(mats_path).st_mtime
+            if mtime != last_mats:
+                last_mats = mtime
+                _apply_materials(mats_path, state, lock)
+        except OSError:
+            pass
 
-        tick += 1
         with lock:
             state.status_heartbeat = time.time()
-        time.sleep(0.2)
+            _on_surface_cache = (state.landed or state.in_srv or
+                                 (not state.in_main_ship and not state.in_srv))
+            _has_active_cache = any(
+                not sc.complete and sc.samples > 0
+                for sc in state.bio_scans
+            )
+
+        if _status_watchdog_active:
+            need_fast = _on_surface_cache and _has_active_cache
+            _status_dir_changed.wait(timeout=0.2 if need_fast else 5.0)
+            _status_dir_changed.clear()
+        else:
+            time.sleep(0.2)
 
 
 def _apply_status(
