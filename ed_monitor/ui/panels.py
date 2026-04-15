@@ -311,6 +311,12 @@ class SystemPanel(_Panel):
     }
     """
 
+    _scroll: int = 0
+
+    def scroll_system(self, delta: int) -> None:
+        self._scroll = max(0, self._scroll + delta)
+        self.refresh()
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None:
@@ -440,6 +446,12 @@ class ShipPanel(_Panel):
         width: 2fr;
     }
     """
+
+    _scroll: int = 0
+
+    def scroll_ship(self, delta: int) -> None:
+        self._scroll = max(0, self._scroll + delta)
+        self.refresh()
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -760,6 +772,12 @@ class RoutePanel(_Panel):
         width: 1fr;
     }
     """
+
+    _scroll: int = 0
+
+    def scroll_route_panel(self, delta: int) -> None:
+        self._scroll = max(0, self._scroll + delta)
+        self.refresh()
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -1917,6 +1935,44 @@ def _render_wealth(s: AppState) -> RenderableType:
             bp_text.append(f"  {total_items} item(s) — Items {len(items)}  Comps {len(comps)}  Data {len(data)}\n", style=P.LABEL)
             parts.append(bp_text)
 
+    # ── Odyssey materials (backpack + ship locker) ────────────────────────────
+    def _ody_section(label: str, items: list) -> None:
+        if not items:
+            return
+        parts.append(Text("\n"))
+        parts.append(_section_header(label))
+        ody_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        ody_tbl.add_column("name",  style="rgb(200,220,255)")
+        ody_tbl.add_column("count", justify="right")
+        for item in sorted(items, key=lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()):
+            name  = item.get("Name_Localised") or item.get("Name", "?")
+            count = item.get("Count", 0)
+            cnt_col = P.HUD_WARN if count >= 100 else ("white" if count >= 30 else P.LABEL)
+            ody_tbl.add_row(name, Text(str(count), style=f"bold {cnt_col}"))
+        parts.append(ody_tbl)
+
+    has_backpack = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
+    has_locker   = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
+    if has_backpack or has_locker:
+        parts.append(Text("\n"))
+        div = Text()
+        div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.AMBER}")
+        parts.append(div)
+
+    if has_backpack:
+        bp = s.backpack
+        _ody_section("BACKPACK — Items",       bp.get("items", []))
+        _ody_section("BACKPACK — Components",  bp.get("components", []))
+        _ody_section("BACKPACK — Consumables", bp.get("consumables", []))
+        _ody_section("BACKPACK — Data",        bp.get("data", []))
+
+    if has_locker:
+        lk = s.ship_locker
+        _ody_section("LOCKER — Items",       lk.get("items", []))
+        _ody_section("LOCKER — Components",  lk.get("components", []))
+        _ody_section("LOCKER — Consumables", lk.get("consumables", []))
+        _ody_section("LOCKER — Data",        lk.get("data", []))
+
     if not parts:
         t = Text()
         t.append("No wealth data yet.\n", style=P.LABEL)
@@ -2781,8 +2837,9 @@ def _render_galaxy(s: AppState, regional: bool = False,
     mode_str  = "regional" if regional else "galactic"
     title_str = f"GALAXY  {scale_str} ({mode_str})  [R]"
 
-    framed = Panel(canvas_text, title=title_str, title_align="center",
-                   border_style=P.LABEL, padding=(0, 0), expand=True)
+    title_line = Text()
+    title_line.append(f"  {title_str}\n", style=f"bold {P.LABEL}")
+    framed = Group(title_line, canvas_text)
 
     # ── Legend and route info ─────────────────────────────────────────────────
     leg_text = Text()
@@ -3099,6 +3156,13 @@ class SituationalPanel(_Panel):
         self._galaxy_submode = _cycle[(idx + 1) % len(_cycle)]
         self.refresh()
 
+    def toggle_galaxy_scale_back(self) -> None:
+        """Cycle MAP sub-screens backward: galaxy → regional → system."""
+        _cycle = ("system", "regional", "galaxy")
+        idx = _cycle.index(self._galaxy_submode) if self._galaxy_submode in _cycle else 0
+        self._galaxy_submode = _cycle[(idx - 1) % len(_cycle)]
+        self.refresh()
+
     def scroll_neutron(self, delta: int) -> None:
         """Scroll the neutron route list up/down."""
         route_len = len(self._snap.neutron_route) if self._snap else 0
@@ -3376,15 +3440,14 @@ def _render_stats(s: AppState) -> RenderableType:
     row("Enemies",    "enemies_destroyed",   _fmt_count)
     row("Ships Lost", "ships_lost",          _fmt_count)
 
+    hdr = Text()
+    hdr.append("STATISTICS\n", style=f"bold {P.AMBER}")
+
     disclaimer = Text(
         "* Estimated payouts incl. bonuses. Unsold data is retained if killed.",
         style="rgb(70,70,70)",
     )
-    return Group(
-        Panel(tbl, title="STATISTICS", title_align="left",
-              border_style=P.LABEL, padding=(0, 0), expand=True),
-        disclaimer,
-    )
+    return Group(hdr, tbl, disclaimer)
 
 
 def _render_docking(s: AppState) -> RenderableType:

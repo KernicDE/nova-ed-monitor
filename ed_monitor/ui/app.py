@@ -68,8 +68,8 @@ class HelpScreen(Screen):
             ("Tab",              "Cycle situational panel forward"),
             ("Shift+Tab",        "Cycle situational panel backward"),
             ("a",                "Toggle auto panel switching on/off"),
-            ("↑ / k",            "Scroll situational panel up"),
-            ("↓ / j",            "Scroll situational panel down"),
+            ("↑ / k",            "Scroll situational panel up (MAP mode: previous sub-view)"),
+            ("↓ / j",            "Scroll situational panel down (MAP mode: next sub-view)"),
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
             ("Home / g",         "Jump to latest events"),
             ("w / s",            "Scroll bodies panel up / down"),
@@ -460,7 +460,13 @@ class NOVAApp(App):
     def _scroll_focused(self, delta: int) -> None:
         """Scroll up/down in the currently focused numbered panel."""
         n = self._focused_panel
-        if n == 4:
+        if n == 1:
+            self.query_one(SystemPanel).scroll_system(delta)
+        elif n == 2:
+            self.query_one(ShipPanel).scroll_ship(delta)
+        elif n == 3:
+            self.query_one(RoutePanel).scroll_route_panel(delta)
+        elif n == 4:
             self.query_one(BodiesPanel).scroll_bodies(delta)
         elif n == 5:
             self.query_one(EventLogPanel).scroll_log(delta)
@@ -516,7 +522,9 @@ class NOVAApp(App):
         # ── Up/Down: always scroll situational panel ──────────────────────────
         elif key in ("down", "j"):
             sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
+            if sit._active == "galaxy":
+                sit.toggle_galaxy_scale()
+            elif sit._active == "neutron":
                 sit.scroll_neutron(1)
             elif sit._active == "bgs":
                 sit.scroll_bgs(1)
@@ -529,7 +537,9 @@ class NOVAApp(App):
 
         elif key in ("up", "k"):
             sit = self.query_one(SituationalPanel)
-            if sit._active == "neutron":
+            if sit._active == "galaxy":
+                sit.toggle_galaxy_scale_back()
+            elif sit._active == "neutron":
                 sit.scroll_neutron(-1)
             elif sit._active == "bgs":
                 sit.scroll_bgs(-1)
@@ -542,7 +552,7 @@ class NOVAApp(App):
 
         # ── PgUp/PgDn: scroll focused panel when focused, else situational ───
         elif key == "pagedown":
-            if self._focused_panel in (4, 5, 6):
+            if self._focused_panel != 0:
                 self._scroll_focused(5)
             else:
                 sit = self.query_one(SituationalPanel)
@@ -558,7 +568,7 @@ class NOVAApp(App):
                     sit.scroll_general(5)
 
         elif key == "pageup":
-            if self._focused_panel in (4, 5, 6):
+            if self._focused_panel != 0:
                 self._scroll_focused(-5)
             else:
                 sit = self.query_one(SituationalPanel)
