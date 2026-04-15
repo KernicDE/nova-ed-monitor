@@ -219,18 +219,23 @@ def _gauge_bar(ratio: float, width: int, col_full: str, col_empty: str = P.DIM) 
     return t
 
 
-# Estimated base values (Cr) by planet class
+# Estimated base values (Cr) by planet class — used when no EstimatedValue is available
+# from the journal (e.g. EDSM-injected bodies).  Values derived from the Frontier
+# exploration formula (MattG) with representative typical masses:
+#   value = k * (1 + 0.56591828 * M_EM^0.2)
+# where k is the type-specific base from PlanetValues.SPECIFIC_VALUES.
+# Types not in that table use an in-game observation midpoint.
 _BODY_EST_VALUES: dict[str, int] = {
-    "Earthlike body":                    2_500_000,
-    "Water world":                         170_000,
-    "Ammonia world":                       235_000,
-    "Metal rich body":                     100_000,
-    "High metal content body":              22_000,
+    "Earthlike body":                      120_000,   # k=64831, ~0.8 EM typical
+    "Water world":                         130_000,   # k=64831, ~8 EM typical
+    "Ammonia world":                       200_000,   # k=96932, ~10 EM typical
+    "Metal rich body":                      35_000,   # k=21790, ~1.5 EM typical
+    "High metal content body":              22_000,   # k=9654,  ~5 EM typical
     "Rocky body":                            3_500,
     "Rocky ice body":                        4_000,
     "Icy body":                              2_500,
-    "Sudarsky class I gas giant":            3_500,
-    "Sudarsky class II gas giant":          15_000,
+    "Sudarsky class I gas giant":            4_500,   # k=1656,  ~200 EM typical
+    "Sudarsky class II gas giant":          25_000,   # k=9654,  ~200 EM typical
     "Sudarsky class III gas giant":          4_500,
     "Sudarsky class IV gas giant":           5_500,
     "Sudarsky class V gas giant":            6_000,
