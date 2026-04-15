@@ -252,13 +252,36 @@ def _estimated_value(b: BodyInfo) -> int:
 
 
 def _body_value(b: BodyInfo) -> int:
-    """Body value including first-discovery (2.6×) and first-mapping (3.3×) bonuses."""
+    """Body value with correct ED exploration bonuses (per Frontier forum formula by MattG).
+
+    Multipliers:
+      first_discovered only (scan):            ×2.6
+      mapped, already mapped by others:        ×3.3333
+      first mapped (not first discovered):     ×3.6996
+      first mapped + first discovered:         ×8.0956   (combined scan+map bonus)
+
+    When b.mapped is True the player has DSS'd the body and the payout is real.
+    When b.mapped is False but b.first_mapped is True we show the projected payout.
+    """
     v = b.value if b.value > 0 else _estimated_value(b)
-    if v > 0:
+    if v <= 0:
+        return 0
+    if b.mapped:
+        # Player DSS'd it — show actual mapping payout
+        if b.first_mapped and b.first_discovered:
+            return int(v * 8.0956)
+        elif b.first_mapped:
+            return int(v * 3.699622554)
+        else:
+            return int(v * 3.3333333333)
+    elif b.first_mapped:
+        # Not yet mapped by player, but first-map bonus available — show projected payout
         if b.first_discovered:
-            v = int(v * 2.6)
-        if b.first_mapped and not b.mapped:
-            v = int(v * 3.3)
+            return int(v * 8.0956)
+        else:
+            return int(v * 3.699622554)
+    elif b.first_discovered:
+        return int(v * 2.6)
     return v
 
 
@@ -3914,7 +3937,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     tbl = Table(show_header=True, show_edge=False, box=None,
                 padding=(0, 1), header_style=f"bold {P.LABEL}")
     tbl.add_column("#",      width=3,  justify="right",  no_wrap=True)
-    tbl.add_column("System", width=18, no_wrap=True)
+    tbl.add_column("System", width=28, no_wrap=True)
     tbl.add_column("★",      width=5,  no_wrap=True)
     tbl.add_column("Bd",     width=2,  justify="right",  no_wrap=True)
     tbl.add_column("Dist",   width=7,  justify="right",  no_wrap=True)

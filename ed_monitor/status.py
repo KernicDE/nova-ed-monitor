@@ -384,22 +384,19 @@ def _apply_status(
         if state.fuel_max > 0 and state.fuel < state.fuel_max * 0.9:
             state.fuel_announced = False
 
+        # Always overwrite positional fields from Status.json — clear them when absent
+        # so leaving a body/surface doesn't leave stale values frozen in the UI.
         v = data.get("Altitude")
-        if isinstance(v, (int, float)):
-            state.altitude = float(v)
+        state.altitude = float(v) if isinstance(v, (int, float)) else None
         v = data.get("Latitude")
-        if isinstance(v, (int, float)):
-            state.lat = float(v)
+        state.lat = float(v) if isinstance(v, (int, float)) else None
         v = data.get("Longitude")
-        if isinstance(v, (int, float)):
-            state.lon = float(v)
+        state.lon = float(v) if isinstance(v, (int, float)) else None
         v = data.get("Heading")
-        if isinstance(v, (int, float)):
-            state.heading = float(v)
+        state.heading = float(v) if isinstance(v, (int, float)) else None
 
         v = data.get("BodyName")
-        if isinstance(v, str) and v:
-            state.nearest_body = v
+        state.nearest_body = v if isinstance(v, str) and v else ""
             
         dest = data.get("Destination")
         if isinstance(dest, dict) and "Name" in dest:
