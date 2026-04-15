@@ -46,8 +46,8 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `Tab` | Cycle situational panel forward |
 | `Shift+Tab` | Cycle situational panel backward |
 | `a` | Toggle auto panel switching on/off |
-| `↑` / `k` | Scroll situational panel up |
-| `↓` / `j` | Scroll situational panel down |
+| `↑` / `k` | Scroll situational panel up (MAP mode: previous sub-view) |
+| `↓` / `j` | Scroll situational panel down (MAP mode: next sub-view) |
 | `PgUp` / `PgDn` | Scroll focused panel by 5 (or situational panel when none focused) |
 | `Home` / `g` | Jump to latest events (event log) |
 | `w` / `s` | Scroll bodies panel up / down |
@@ -67,19 +67,19 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
 | Overview | `OVR` | ✓ | Route summary + galactic position · notable bodies · PowerPlay/BGS · nearest inhabited system |
 | Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
-| Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` to cycle) |
+| Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` or `↑`/`↓` to cycle) |
 | Missions | `MIS` | ✓ | Active missions and massacre kill progress bars |
 | Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |
 | Colonisation | `COL` | ✓ | Construction site commodity progress |
-| Route | `ROU` | ✓ | Nav route: star class, scoopable, distances, EDSM body/bio counts |
+| Route | `ROU` | ✓ | Nav route: jumps remaining + total ly → destination at top; star class, scoopable, distances, EDSM body counts; auto-activates when a route is set |
 | Neutron | `NTR` | — | Neutron route planner — press `n` to enter destination |
 | Wallet | `WLT` | — | Balance · fleet · cargo · suit loadout + weapons · backpack |
 | Inventory | `INV` | — | Cargo · raw / manufactured / encoded materials |
 | Docking | `DKG` | ✓ | Station pad diagram (top-down) |
 | Statistics | `STS` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
-**Auto-switch priority (highest first):** offline → Stats · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
+**Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
 
 ---
 
@@ -197,6 +197,7 @@ The **Wealth** panel shows your financial and inventory overview across all loca
 - **Materials** — count of raw / manufactured / encoded materials
 - **Suit Loadout** — equipped suit and weapons (when on foot)
 - **Backpack** — item counts while on foot
+- **Odyssey materials** — detailed per-item listing of backpack contents (Items / Components / Consumables / Data) and ship locker contents, shown in blue; populated from the `ShipLocker` and `Backpack` journal events
 
 Data updates automatically from journal events. Open the in-game outfitting or shipyard interface once per session to populate the fleet list (`StoredShips` journal event).
 

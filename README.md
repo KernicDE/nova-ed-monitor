@@ -30,7 +30,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Nearest inhabited system** — shows closest populated system, distance, station count, and available services in the Overview when in uninhabited space
 
 ### Navigation & Route
-- **Route situation panel** — shows each jump in the active nav route with star type, scoopable indicator, distance from current position, jump distance, and EDSM presence; scrollable
+- **Route situation panel** — header shows jumps remaining, total distance, and destination; per-jump star type, scoopable indicator, distances, and EDSM presence; scrollable; auto-activates when a nav route is set
 - **Neutron route planner** — local neutron route calculator using a daily-refreshed Spansh dump; press `n` in Neutron panel to enter destination
 - **Next-waypoint stations** — lists stations at the next jump destination (name, distance, services icons: M/S/O/R)
 - **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; shown in Overview; cached 5 min)
@@ -43,12 +43,12 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
   - Active mode shown with full name in the border title
 - **Power distribution (PIPs)** — live SYS/ENG/WEP pip display with half-pip support (●◑○)
 - **Two-column system info** — exploration/natural data left, BGS/human data right
-- **Galaxy map** — Braille top-down map of the Milky Way with route waypoints; `r` toggles scale
+- **Galaxy map** — Braille top-down map of the Milky Way with route waypoints; `r` or `↑`/`↓` cycles sub-views (system → regional → galaxy); sub-view indicator shown in panel border
 - **Local time** — current system time shown in the footer bar
 - **Color-coded event log** — category abbreviation in category color
 
 ### Ship & Commander
-- **Wallet & fleet** — Wealth panel: credit balance, fleet across all stations, cargo, materials, suit loadout, backpack
+- **Wallet & fleet** — Wealth panel: credit balance, fleet across all stations, cargo, materials, suit loadout, backpack; **Odyssey materials** (backpack + ship locker) shown with full per-item detail
 - **Engineer progress** — rank bars, rank-progress %, specialty and system for all ~36 engineers; Odyssey engineers shown as X/1 (not X/5)
 - **Screenshot processing** — converts BMP→PNG, renames to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`, moves to `~/Pictures/Elite Dangerous`
 - **Statistics** — persistent stats: jumps, distance, credits, FSS/DSS/bio, enemies, ships lost — today / week / month / year / total

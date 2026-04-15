@@ -230,7 +230,7 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
                 params = [("systemName[]", n) for n in batch]
                 params.append(("showId", "1"))
                 try:
-                    resp = client.get(_EDSM_URL, params=params)
+                    resp = client.post(_EDSM_URL, data=params)
                     resp.raise_for_status()
                     found = {s["name"] for s in resp.json() if isinstance(s, dict) and "name" in s}
                 except Exception:
