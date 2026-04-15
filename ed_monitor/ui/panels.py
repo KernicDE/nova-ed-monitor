@@ -1174,15 +1174,15 @@ class BodiesPanel(_Panel):
         panel_h = self.size.height or 0
         below = max(0, total_bodies - effective_scroll - max(1, panel_h - 2))
 
-        _base_bodies = "◈ Scanned Bodies"
-        if above > 0:
-            _ind  = f" ▲{above}"
-            _avail = (self.size.width or 20) - 4
-            _pad  = max(1, _avail - Text.from_markup(_base_bodies).cell_len - len(_ind))
-            self.border_title = _base_bodies + " " * _pad + _ind
+        self.border_title = "◈ Scanned Bodies"
+        if above > 0 and below > 0:
+            self.border_subtitle = f"▲{above}  ▼{below}"
+        elif above > 0:
+            self.border_subtitle = f"▲{above}"
+        elif below > 0:
+            self.border_subtitle = f"▼{below}"
         else:
-            self.border_title = _base_bodies
-        self.border_subtitle = (f"▼{below}" if below > 0 else "")
+            self.border_subtitle = ""
         visible = visible[effective_scroll:]
 
         # Pre-compute bodies with all bio signals scanned
@@ -3322,6 +3322,9 @@ class SituationalPanel(_Panel):
 
         # ── Compute per-mode item count + clamp scroll ────────────────────
         max_rows_route = max(5, panel_h - 5)  # matches _render_route
+        # Engineers: era/section headers add ~9-12 extra display lines on top of
+        # the engineer entries, so use a reduced vis_rows to avoid below=0 wrongly
+        _eng_vis = max(1, panel_h - 14)
 
         if mode in self._NON_SCROLLABLE:
             total  = 0
@@ -3355,7 +3358,7 @@ class SituationalPanel(_Panel):
 
         elif mode == "engineers":
             total  = len(s.engineers) if s.engineers else 0
-            scroll = max(0, min(self._general_scroll, max(0, total - 1)))
+            scroll = max(0, min(self._general_scroll, max(0, total - _eng_vis)))
             self._general_scroll = scroll
 
         elif mode == "inventory":
@@ -3394,19 +3397,21 @@ class SituationalPanel(_Panel):
             below = 0
         elif mode == "route":
             below = max(0, total - scroll - max_rows_route)
+        elif mode == "engineers":
+            below = max(0, total - scroll - _eng_vis)
         else:
             below = max(0, total - scroll - max(1, panel_h - 2))
 
-        # ── Set border indicators (▲ top-right, ▼ bottom-right) ──────────
-        base = self._make_title()
-        if above > 0:
-            indicator = f" ▲{above}"
-            avail     = panel_w - 4
-            pad       = max(1, avail - Text.from_markup(base).cell_len - len(indicator))
-            self.border_title = base + " " * pad + indicator
+        # ── Set border indicators (both in bottom border, independent of title) ──
+        self.border_title = self._make_title()
+        if above > 0 and below > 0:
+            self.border_subtitle = f"▲{above}  ▼{below}"
+        elif above > 0:
+            self.border_subtitle = f"▲{above}"
+        elif below > 0:
+            self.border_subtitle = f"▼{below}"
         else:
-            self.border_title = base
-        self.border_subtitle = f"▼{below}" if below > 0 else ""
+            self.border_subtitle = ""
 
         # ── Dispatch to render functions ──────────────────────────────────
         if mode == "bio":
@@ -3952,15 +3957,15 @@ class EventLogPanel(_Panel):
         above   = self._scroll
         panel_h = self.size.height or 0
         below   = max(0, len(events) - self._scroll - max(1, panel_h - 2))
-        _base_ev = "◈ Event Log"
-        if above > 0:
-            _ind   = f" ▲{above}"
-            _avail = (self.size.width or 20) - 4
-            _pad   = max(1, _avail - Text.from_markup(_base_ev).cell_len - len(_ind))
-            self.border_title = _base_ev + " " * _pad + _ind
+        self.border_title = "◈ Event Log"
+        if above > 0 and below > 0:
+            self.border_subtitle = f"▲{above}  ▼{below}"
+        elif above > 0:
+            self.border_subtitle = f"▲{above}"
+        elif below > 0:
+            self.border_subtitle = f"▼{below}"
         else:
-            self.border_title = _base_ev
-        self.border_subtitle = (f"▼{below}" if below > 0 else "")
+            self.border_subtitle = ""
 
         prefix_w  = 10  # "HH:MM " (6) + "NAV " (4)
         content_w = max(prefix_w + 10, self.size.width - 2)
@@ -4027,15 +4032,15 @@ class ChatLogPanel(_Panel):
         above   = effective_scroll
         panel_h = self.size.height or 0
         below   = max(0, len(chats) - effective_scroll - max(1, panel_h - 2))
-        _base_ch = "◈ Chat"
-        if above > 0:
-            _ind   = f" ▲{above}"
-            _avail = (self.size.width or 20) - 4
-            _pad   = max(1, _avail - Text.from_markup(_base_ch).cell_len - len(_ind))
-            self.border_title = _base_ch + " " * _pad + _ind
+        self.border_title = "◈ Chat"
+        if above > 0 and below > 0:
+            self.border_subtitle = f"▲{above}  ▼{below}"
+        elif above > 0:
+            self.border_subtitle = f"▲{above}"
+        elif below > 0:
+            self.border_subtitle = f"▼{below}"
         else:
-            self.border_title = _base_ch
-        self.border_subtitle = (f"▼{below}" if below > 0 else "")
+            self.border_subtitle = ""
 
         chats = chats[effective_scroll:]
         prefix_w  = 11  # "HH:MM " (6) + "TWI " (4) + padding 1
