@@ -40,6 +40,9 @@ class Config:
     screenshot_dest:          str  = ""    # destination dir (default: ~/Pictures/Elite Dangerous)
     chat_lang:                str  = ""    # fallback language for chat TTS (empty = auto-detect)
     situational_panels:       list = field(default_factory=list)  # [] = default order/all visible
+    tts_chat:                 bool = True   # False = disable TTS for all chat sources at startup
+    tts_twitch:               bool = True   # False = disable TTS for Twitch chat at startup
+    tts_youtube:              bool = True   # False = disable TTS for YouTube chat at startup
 
 
 DEFAULT_CONFIG = """\
@@ -112,6 +115,13 @@ DEFAULT_CONFIG = """\
 # Panels not listed here will not appear in NOVA and auto mode won't switch to them.
 # Available: OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
 # situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+
+# ── Chat TTS ─────────────────────────────────────────────────────────────────
+# Disable TTS for chat messages at startup (messages are still shown in the UI).
+# Can be toggled at runtime: g = all chat, t = Twitch only, y = YouTube only, p = all.
+# tts_chat    = true
+# tts_twitch  = true
+# tts_youtube = true
 """
 
 
@@ -168,6 +178,9 @@ def load() -> Config:
     screenshot_dest          = ""
     chat_lang                = ""
     situational_panels: list = []
+    tts_chat                 = True
+    tts_twitch               = True
+    tts_youtube              = True
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
@@ -175,7 +188,7 @@ def load() -> Config:
         "tts_rate", "tts_lang", "overlay_dir",
         "default_volume", "notable_value_threshold", "carrier_lookup",
         "debug_log", "screenshot_dir", "screenshot_dest", "chat_lang",
-        "situational_panels",
+        "situational_panels", "tts_chat", "tts_twitch", "tts_youtube",
     }
 
     try:
@@ -242,6 +255,12 @@ def load() -> Config:
                         _panels = [_abbrev_to_mode[a.upper()] for a in v.split() if a.upper() in _abbrev_to_mode]
                         if _panels:
                             situational_panels = _panels
+                    case "tts_chat":
+                        tts_chat = v.lower() not in ("false", "0", "no")
+                    case "tts_twitch":
+                        tts_twitch = v.lower() not in ("false", "0", "no")
+                    case "tts_youtube":
+                        tts_youtube = v.lower() not in ("false", "0", "no")
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -277,6 +296,7 @@ def load() -> Config:
                 ("# carrier_lookup", "\n# ── Fleet Carriers ─────────────────────────────────────────────────────────────\n# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):\n# carrier_lookup = false\n"),
                 ("# debug_log", "\n# ── Debug Logging ─────────────────────────────────────────────────────────────\n# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).\n# Enable when you need to diagnose a problem and send the log to the developer.\n# debug_log = false\n"),
                 ("# chat_lang", "\n# Fallback language for chat TTS (in-game, Twitch, YouTube).\n# Auto-detection is used first; this applies when detection returns English.\n# Set to your squad's language if messages are often short or ambiguous (e.g. de).\n# chat_lang = de\n"),
+                ("# tts_chat", "\n# ── Chat TTS ─────────────────────────────────────────────────────────────────\n# Disable TTS for chat messages at startup (messages are still shown in the UI).\n# Can be toggled at runtime: g = all chat, t = Twitch only, y = YouTube only, p = all.\n# tts_chat    = true\n# tts_twitch  = true\n# tts_youtube = true\n"),
             ]
             appended = False
             for marker, section in _NEW_SECTIONS:
@@ -311,6 +331,9 @@ def load() -> Config:
         screenshot_dest=screenshot_dest,
         chat_lang=chat_lang,
         situational_panels=situational_panels,
+        tts_chat=tts_chat,
+        tts_twitch=tts_twitch,
+        tts_youtube=tts_youtube,
     )
 
 

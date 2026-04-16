@@ -64,8 +64,10 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
                             log_msg = f"[Twitch] {user}: {msg}"
                             with lock:
                                 state.push_event(LogEvent.new(EventCategory.Chat, log_msg))
+                                muted = state.chat_tts_muted or state.twitch_tts_muted
 
-                            events._speak_chat(tts_q, user, msg, source="Twitch")
+                            if not muted:
+                                events._speak_chat(tts_q, user, msg, source="Twitch")
 
         except Exception as exc:
             _log.warning(f"Twitch IRC error (will reconnect): {exc}")

@@ -71,10 +71,15 @@ class HelpScreen(Screen):
             ("↑ / k",            "Scroll situational panel up (MAP mode: previous sub-view)"),
             ("↓ / j",            "Scroll situational panel down (MAP mode: next sub-view)"),
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
-            ("Home / g",         "Jump to latest events"),
+            ("Home",             "Jump to latest events (event/chat panel focused)"),
             ("w / s",            "Scroll bodies panel up / down"),
             ("r",                "Cycle Maps sub-screen (system → regional → galaxy)"),
             ("n",                "Neutron route destination input (Neutron mode only)"),
+            ("m",                "Mute / unmute all TTS"),
+            ("g",                "Toggle chat TTS (in-game, Twitch, YouTube)"),
+            ("t",                "Toggle Twitch chat TTS"),
+            ("y",                "Toggle YouTube chat TTS"),
+            ("p",                "Toggle all chat TTS at once"),
             ("+ / =",            "Volume up"),
             ("−",                "Volume down"),
         ]:
@@ -465,6 +470,7 @@ class NOVAApp(App):
             snap.credits, snap.cargo,
             snap.neutron_route_status,
             snap.auto_panel_trigger_version,
+            snap.chat_tts_muted, snap.twitch_tts_muted, snap.youtube_tts_muted,
             _tick_s,
         )
 
@@ -628,11 +634,35 @@ class NOVAApp(App):
                 else:
                     sit.scroll_general(-5)
 
-        elif key in ("home", "g"):
+        elif key == "home":
             if self._focused_panel == 5:
                 self.query_one(EventLogPanel).scroll_log(-9999)
             elif self._focused_panel == 6:
                 self.query_one(ChatLogPanel).scroll_chat(-9999)
+
+        elif key == "g":
+            with self._lock:
+                self._state.chat_tts_muted = not self._state.chat_tts_muted
+
+        elif key == "t":
+            with self._lock:
+                self._state.twitch_tts_muted = not self._state.twitch_tts_muted
+
+        elif key == "y":
+            with self._lock:
+                self._state.youtube_tts_muted = not self._state.youtube_tts_muted
+
+        elif key == "p":
+            with self._lock:
+                # If all three are muted → unmute all; otherwise mute all.
+                all_muted = (
+                    self._state.chat_tts_muted
+                    and self._state.twitch_tts_muted
+                    and self._state.youtube_tts_muted
+                )
+                self._state.chat_tts_muted    = not all_muted
+                self._state.twitch_tts_muted  = not all_muted
+                self._state.youtube_tts_muted = not all_muted
 
         elif key == "s":
             self.query_one(BodiesPanel).scroll_bodies(1)

@@ -62,6 +62,15 @@
 #
 # chat_lang = de
 
+# Disable chat TTS at startup (messages are still shown in the Chat panel).
+# All three can be toggled live: g = all chat, t = Twitch, y = YouTube, p = all.
+# Setting any to false starts NOVA with that source muted.
+# Default: true (TTS enabled)
+#
+# tts_chat    = true    # mutes all chat sources (in-game, Twitch, YouTube)
+# tts_twitch  = true    # mutes Twitch chat only
+# tts_youtube = true    # mutes YouTube chat only
+
 # Default TTS/audio volume at startup (0–100).
 # Can be adjusted live with +/- keybindings.
 # Default: 50

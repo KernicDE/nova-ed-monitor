@@ -4325,13 +4325,28 @@ class FooterBar(_Panel):
             left.append(" ↑↓",     style=key); left.append(" Scroll ", style=lbl)
             left.append(" m",      style=key)
 
-        muted = s.muted if s is not None else False
+        muted              = s.muted              if s is not None else False
+        chat_tts_muted     = s.chat_tts_muted     if s is not None else False
+        twitch_tts_muted   = s.twitch_tts_muted   if s is not None else False
+        youtube_tts_muted  = s.youtube_tts_muted  if s is not None else False
+
         if stall_msg:
             pass  # stall takes over left side; still show volume on the right
         elif muted:
             left.append(" MUTED ", style="bold rgb(220,60,0)")
         else:
             left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
+
+        # Chat TTS mute indicators (shown after volume, always visible when active)
+        _mute_style = "bold rgb(220,60,0)"
+        _ok_style   = "rgb(80,80,80)"
+        if not stall_msg:
+            left.append("  ")
+            left.append("CHAT", style=_mute_style if chat_tts_muted else _ok_style)
+            left.append(" ")
+            left.append("TW",   style=_mute_style if (twitch_tts_muted and not chat_tts_muted) else _ok_style)
+            left.append(" ")
+            left.append("YT",   style=_mute_style if (youtube_tts_muted and not chat_tts_muted) else _ok_style)
 
         center = Text(justify="center")
         center.append(datetime.now().strftime("%H:%M:%S"), style="bold rgb(160,160,160)")

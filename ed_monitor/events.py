@@ -1993,19 +1993,23 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             match channel:
                 case "player":
                     msg = f"{sender}: {text}"
-                    _speak_chat(tts_q, f"Message from {sender}", text)
+                    if not state.chat_tts_muted:
+                        _speak_chat(tts_q, f"Message from {sender}", text)
                     return LogEvent.new(EventCategory.Chat, msg)
                 case "wing":
                     msg = f"[Wing] {sender}: {text}"
-                    _speak_chat(tts_q, f"Wing message from {sender}", text)
+                    if not state.chat_tts_muted:
+                        _speak_chat(tts_q, f"Wing message from {sender}", text)
                     return LogEvent.new(EventCategory.Chat, msg)
                 case "local":
                     msg = f"[Local] {sender}: {text}"
-                    _speak_chat(tts_q, f"Local {sender}", text)
+                    if not state.chat_tts_muted:
+                        _speak_chat(tts_q, f"Local {sender}", text)
                     return LogEvent.new(EventCategory.Chat, msg)
                 case "squadron":
                     msg = f"[Sqn] {sender}: {text}"
-                    _speak_chat(tts_q, f"Squadron {sender}", text)
+                    if not state.chat_tts_muted:
+                        _speak_chat(tts_q, f"Squadron {sender}", text)
                     return LogEvent.new(EventCategory.Chat, msg)
                 case "starsystem":
                     msg = f"[System] {sender}: {text}"

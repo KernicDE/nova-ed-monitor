@@ -100,6 +100,9 @@ def main() -> None:
         state.volume                    = cfg.default_volume
         state.notable_value_threshold   = cfg.notable_value_threshold
         state.situational_panels        = list(cfg.situational_panels)
+        state.chat_tts_muted            = not cfg.tts_chat
+        state.twitch_tts_muted          = not cfg.tts_twitch
+        state.youtube_tts_muted         = not cfg.tts_youtube
         state.session_start             = datetime.now().strftime("%H:%M")
         state.edsm_status.enabled = True
         state.client_online = False  # Start offline until we see LoadGame/Location event

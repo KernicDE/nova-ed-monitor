@@ -366,6 +366,11 @@ class AppState:
     muted:           bool = False
     pre_mute_volume: int  = 50
 
+    # Chat TTS mutes (runtime-toggled; also set from config at startup)
+    chat_tts_muted:    bool = False  # mutes all chat sources (in-game, Twitch, YouTube)
+    twitch_tts_muted:  bool = False  # mutes Twitch chat TTS only
+    youtube_tts_muted: bool = False  # mutes YouTube chat TTS only
+
     # Service status (EDSM connectivity indicator shown in footer)
     edsm_status: ServiceStatus = field(default_factory=ServiceStatus)
 
