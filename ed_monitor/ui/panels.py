@@ -3245,7 +3245,8 @@ class SituationalPanel(_Panel):
     _mode:            str   = "overview"  # current shown panel (user or auto-triggered)
     _active:          str   = "overview" # resolved panel being rendered (always == _mode)
     _auto:            bool  = True       # auto-switching enabled (A key toggles)
-    _last_trigger_version: int = 0       # last auto_panel_trigger_version we acted on
+    _last_trigger_version: int = 0  # last auto_panel_trigger_version we acted on
+    _last_auto_target:     str = ""  # panel that was last auto-switched to; same target is skipped
     _galaxy_submode:      str  = "system"   # "system" | "regional" | "galaxy"
     _neutron_scroll:      int  = 0
     _bgs_scroll:          int  = 0
@@ -3312,10 +3313,11 @@ class SituationalPanel(_Panel):
     def toggle_auto_lock(self) -> None:
         """Toggle automatic panel switching on/off."""
         self._auto = not self._auto
-        # When re-enabling auto, sync last_trigger_version so the next new trigger
-        # (not the last consumed one) causes a switch.
+        # When re-enabling auto, sync trigger state so pending triggers don't
+        # immediately fire — only genuinely new events cause a switch.
         if self._auto and self._snap is not None:
             self._last_trigger_version = self._snap.auto_panel_trigger_version
+            self._last_auto_target = self._snap.auto_panel_trigger
         self.border_title = self._make_title()
         self.refresh()
 
@@ -3395,21 +3397,20 @@ class SituationalPanel(_Panel):
         if self._mode not in self._visible_modes:
             self._mode = self._visible_modes[0] if self._visible_modes else "overview"
 
-        # Auto-switching: consume one-shot triggers set by daemon threads via events.py.
-        # Each trigger has a version counter; we act when the version advances.
-        # The user can freely browse panels between triggers — no priority hierarchy.
-        if self._auto:
-            # Persistent state override: offline → always stats (no trigger to undo this)
-            if not snap.client_online:
-                if self._mode != "stats" and "stats" in self._visible_modes:
-                    self._mode = "stats"
-                    self._general_scroll = 0
-            elif snap.auto_panel_trigger_version != self._last_trigger_version:
-                self._last_trigger_version = snap.auto_panel_trigger_version
-                target = snap.auto_panel_trigger
-                if target and target in self._visible_modes:
-                    self._mode = target
-                    self._general_scroll = 0
+        # Auto-switching: one-shot triggers from events.py via auto_panel_trigger_version.
+        # Rules:
+        #   • Each trigger fires at most once (version counter).
+        #   • A trigger for the same panel as the last auto-switch is ignored —
+        #     NOVA stays wherever it is until a *different* panel is triggered.
+        #   • Manual cycles (left/right) are never overridden; they simply move
+        #     _mode and the next auto-switch only fires for a different target.
+        if self._auto and snap.auto_panel_trigger_version != self._last_trigger_version:
+            self._last_trigger_version = snap.auto_panel_trigger_version
+            target = snap.auto_panel_trigger
+            if target and target in self._visible_modes and target != self._last_auto_target:
+                self._mode = target
+                self._last_auto_target = target
+                self._general_scroll = 0
 
         new_active = self._mode
         if new_active != self._active:
