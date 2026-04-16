@@ -123,7 +123,7 @@ function Refresh-Path {
 $Python = Get-Python
 
 if (-not $Python) {
-    Write-Warn "Python 3.11–3.13 not found. Downloading Python 3.12.7..."
+    Write-Warn "Python 3.11-3.13 not found. Downloading Python 3.12.7..."
     Write-Host ""
 
     $installer = Join-Path $env:TEMP "python-installer.exe"

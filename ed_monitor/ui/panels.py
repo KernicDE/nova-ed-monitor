@@ -1268,6 +1268,7 @@ class BodiesPanel(_Panel):
         tbl.add_column("D",    width=2,  header_style=HDR)
 
         system = s.system
+        _star_short_names: set[str] = set()
 
         # Re-sort only when bodies or system changed — cache the result across ticks
         if (s.bodies_version != self._sorted_cache_version or
@@ -2244,7 +2245,6 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     Returns None if no bodies are available yet.
     standalone=True adds a system name header for the MAP sub-screen."""
     _sys     = s.system
-    _star_short_names: set[str] = set()
     # Single-pass categorisation + short-name cache (avoids 3 separate list comprehensions)
     _sn_cache: dict[str, str] = {}
     def _sn(b: BodyInfo) -> str:
