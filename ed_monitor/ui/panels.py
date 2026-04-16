@@ -3368,19 +3368,18 @@ class SituationalPanel(_Panel):
         else:
             auto_tag = "[dim]***[/]"
 
+        # All modes shown as fixed 3-char abbrev — current highlighted, others dim.
+        # Full name expands in-place would shift everything right → looks broken.
         parts = []
         for m in self._active_modes():
-            abbr     = self._MODE_ABBREVS[m]
-            fullname = self._MODE_FULLNAMES[m]
-            is_current = (m == self._mode)
-
-            if is_current:
+            abbr = self._MODE_ABBREVS[m]
+            if m == self._mode:
                 col = "rgb(255,220,80)" if self._auto else "white"
-                parts.append(f"[bold {col}]{fullname}[/]")
+                parts.append(f"[bold {col}]{abbr}[/]")
             else:
                 parts.append(f"[dim]{abbr}[/]")
 
-        joined = auto_tag + "   " + " ".join(parts)
+        joined = auto_tag + "  " + " ".join(parts)
         return "◈ " + joined
 
     def update(self, snap: AppState) -> None:
