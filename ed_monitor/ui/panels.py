@@ -219,14 +219,37 @@ def _gauge_bar(ratio: float, width: int, col_full: str, col_empty: str = P.DIM) 
     return t
 
 
-# Estimated base values (Cr) by planet class — used when no EstimatedValue is available
-# from the journal (e.g. EDSM-injected bodies).  Values derived from the Frontier
-# exploration formula (MattG) with representative typical masses:
-#   value = k * (1 + 0.56591828 * M_EM^0.2)
-# where k is the type-specific base from PlanetValues.SPECIFIC_VALUES.
-# Types not in that table use an in-game observation midpoint.
+# ── Exploration value constants (Frontier forum formula by MattG) ──────────────
+# https://forums.frontier.co.uk/threads/exploration-value-formulae.232000/
+
+_Q                        = 0.56591828
+_MASS_POW                 = 0.2
+_MIN_VALUE                = 500
+_BASIC_VALUE              = 300
+_BASIC_BONUS_TERRAFORMABLE = 93328
+_EFFICIENCY_MULTIPLIER    = 1.25
+_ODYSSEY_MAPPING_BONUS    = 0.3   # 30 % extra on mapped value for first footfall
+
+_SPECIFIC_VALUES: dict[str, int] = {
+    "Metal rich body":               21790,
+    "High metal content body":        9654,
+    "Ammonia world":                 96932,
+    "Water world":                   64831,
+    "Earthlike body":                64831,
+    "Sudarsky class I gas giant":     1656,
+    "Sudarsky class II gas giant":    9654,
+}
+
+# Additive terraformable bonus per body type (only HMC/WW/ELW have a type-specific value)
+_SPECIFIC_BONUS: dict[str, int] = {
+    "High metal content body": 100677,
+    "Water world":             116295,
+    "Earthlike body":          116295,
+}
+
+# Fallback k*mass estimate for EDSM-only bodies with no mass data (typical-mass midpoints)
 _BODY_EST_VALUES: dict[str, int] = {
-    "Earthlike body":                      120_000,   # k=64831, ~0.8 EM typical
+    "Earthlike body":                       64_831,   # k=64831, ~0 EM tiny; actual scan always has mass
     "Water world":                         130_000,   # k=64831, ~8 EM typical
     "Ammonia world":                       200_000,   # k=96932, ~10 EM typical
     "Metal rich body":                      35_000,   # k=21790, ~1.5 EM typical
@@ -249,44 +272,66 @@ _BODY_EST_VALUES: dict[str, int] = {
 
 
 def _estimated_value(b: BodyInfo) -> int:
-    """Base estimated value without bonuses (used as fallback when no scan data)."""
+    """Pre-mapping scan value (no first-discovered/mapping multipliers applied).
+
+    When mass_em is available (from journal Scan event), uses the exact Frontier
+    formula: max(k * (1 + Q * M^0.2), MIN_VALUE) + terraformable_bonus.
+    Falls back to the _BODY_EST_VALUES table for EDSM-only bodies without mass data.
+    """
+    if b.mass_em > 0.0:
+        k = _SPECIFIC_VALUES.get(b.planet_class, _BASIC_VALUE)
+        v = max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
+        if b.terraform:
+            v += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
+        return v
+    # Fallback: table estimate (no mass available)
     base = _BODY_EST_VALUES.get(b.planet_class, 0)
     if base > 0 and b.terraform:
-        base = int(base * 2.5)
+        base += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
     return base
 
 
 def _body_value(b: BodyInfo) -> int:
-    """Body value with correct ED exploration bonuses (per Frontier forum formula by MattG).
+    """Body value with all ED exploration bonuses (Frontier formula by MattG).
 
-    Multipliers:
-      first_discovered only (scan):            ×2.6
-      mapped, already mapped by others:        ×3.3333
-      first mapped (not first discovered):     ×3.6996
-      first mapped + first discovered:         ×8.0956   (combined scan+map bonus)
+    Base (b.value from journal, or _estimated_value fallback) is the pre-mapping
+    scan value.  Multipliers applied on top:
+
+      first_discovered only:                       ×2.6
+      mapped (already mapped by others):           ×3.3333
+      first mapped (not first discovered):         ×3.6996
+      first mapped + first discovered:             ×8.0956
+      + efficiency DSS bonus:                      ×1.25  (stacks with map mult)
+      + Odyssey first-footfall bonus (mapped):     ×1.30  (applied after map mult)
 
     When b.mapped is True the player has DSS'd the body and the payout is real.
-    When b.mapped is False but b.first_mapped is True we show the projected payout.
+    When b.mapped is False but b.first_mapped is True we show the projected payout
+    (without efficiency/odyssey which are not yet confirmed).
     """
     v = b.value if b.value > 0 else _estimated_value(b)
     if v <= 0:
         return 0
     if b.mapped:
-        # Player DSS'd it — show actual mapping payout
+        # Player DSS'd it — actual mapping payout
         if b.first_mapped and b.first_discovered:
-            return int(v * 8.0956)
+            mult = 8.0956
         elif b.first_mapped:
-            return int(v * 3.699622554)
+            mult = 3.699622554
         else:
-            return int(v * 3.3333333333)
+            mult = 3.3333333333
+        if b.efficiency_bonus:
+            mult *= _EFFICIENCY_MULTIPLIER
+        v = int(v * mult)
+        if b.first_footfall:
+            v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
     elif b.first_mapped:
-        # Not yet mapped by player, but first-map bonus available — show projected payout
+        # Not yet DSS'd — projected payout (efficiency/odyssey unknown yet)
         if b.first_discovered:
-            return int(v * 8.0956)
+            v = int(v * 8.0956)
         else:
-            return int(v * 3.699622554)
+            v = int(v * 3.699622554)
     elif b.first_discovered:
-        return int(v * 2.6)
+        v = int(v * 2.6)
     return v
 
 
@@ -1228,7 +1273,6 @@ class BodiesPanel(_Panel):
                 system != self._sorted_cache_system):
             visible = [b for b in s.bodies if b.planet_class or b.star_type]
 
-            _star_short_names: set[str] = set()
             for _sb in visible:
                 if _sb.star_type:
                     _sn = _short_name(_sb.name, system).strip() or "A"
@@ -2199,6 +2243,7 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     Returns None if no bodies are available yet.
     standalone=True adds a system name header for the MAP sub-screen."""
     _sys     = s.system
+    _star_short_names: set[str] = set()
     # Single-pass categorisation + short-name cache (avoids 3 separate list comprehensions)
     _sn_cache: dict[str, str] = {}
     def _sn(b: BodyInfo) -> str:
