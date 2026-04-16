@@ -1233,6 +1233,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             value        = _u(ev, "EstimatedValue")
             radius       = _f(ev, "Radius")
             body_id      = _u(ev, "BodyID")
+            mass_em      = _f(ev, "MassEM") or _f(ev, "StellarMass")
             terraformable = terraform in ("Terraformable", "Terraforming")
             is_star      = bool(star_type)
             level        = _parse_level(ev, is_star)
@@ -1290,6 +1291,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     volcanism=_s(ev, "Volcanism"),
                     materials=body_materials,
                     unusual_body=unusual_body,
+                    mass_em=mass_em,
                 ))
 
             if scan_type not in ("Detailed", "AutoScan"):
@@ -1379,6 +1381,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if 0 <= _bidx2 < len(state.bodies):
                 _bm = state.bodies[_bidx2]
                 _bm.mapped = True
+                if efficiency_target > 0 and probes_used <= efficiency_target:
+                    _bm.efficiency_bonus = True
                 bio_count  = _bm.bio_signals
                 geo_count  = _bm.geo_signals
                 first_map  = _bm.first_mapped

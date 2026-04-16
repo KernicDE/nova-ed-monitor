@@ -121,6 +121,8 @@ class BodyInfo:
     materials:           dict  = field(default_factory=dict)   # {name_lower: pct} from Scan Materials
     unusual_body:        str   = ""    # non-empty = unusual (e.g. "Tiny <300 km", "Eccentric")
     first_footfall:      bool  = False # True when WasFootfalled=false in Scan event
+    mass_em:             float = 0.0   # MassEM (planets) or StellarMass (stars) from Scan event
+    efficiency_bonus:    bool  = False # True when DSS probes_used <= efficiency_target
 
 
 @dataclass
@@ -483,6 +485,7 @@ class AppState:
             if b.bio_value_max == 0: b.bio_value_max = bvmax
             if not b.materials and mats:    b.materials    = mats
             if not b.unusual_body and unusual: b.unusual_body = unusual
+            if existing.efficiency_bonus:   b.efficiency_bonus = True
             # Update id index in case body_id changed (rare)
             self._bodies_by_id[b.body_id] = i
             self.bodies_version += 1

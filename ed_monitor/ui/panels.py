@@ -240,8 +240,9 @@ _SPECIFIC_VALUES: dict[str, int] = {
     "Sudarsky class II gas giant":    9654,
 }
 
-# Additive terraformable bonus per body type (only HMC/WW/ELW have a type-specific value)
+# Terraformable bonus added to k before mass calculation (per body type)
 _SPECIFIC_BONUS: dict[str, int] = {
+    "Metal rich body":          105678,
     "High metal content body": 100677,
     "Water world":             116295,
     "Earthlike body":          116295,
@@ -280,9 +281,9 @@ def _estimated_value(b: BodyInfo) -> int:
     """
     if b.mass_em > 0.0:
         k = _SPECIFIC_VALUES.get(b.planet_class, _BASIC_VALUE)
-        v = max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
         if b.terraform:
-            v += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
+            k += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
+        v = max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
         return v
     # Fallback: table estimate (no mass available)
     base = _BODY_EST_VALUES.get(b.planet_class, 0)
