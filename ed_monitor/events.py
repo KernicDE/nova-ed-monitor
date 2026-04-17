@@ -2321,11 +2321,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
         # ── Wealth / inventory ───────────────────────────────────────────────
 
         case "Statistics":
-            bank = ev.get("Bank_Account")
-            if isinstance(bank, dict):
-                w = bank.get("Current_Wealth")
-                if isinstance(w, (int, float)) and w > 0:
-                    state.credits = int(w)
+            # Bank_Account.Current_Wealth is total assets (ship + modules + cargo + cash),
+            # not the cash balance — do not use it for state.credits.
             return None
 
         case "StoredShips":
