@@ -295,9 +295,13 @@ def _estimated_value(b: BodyInfo) -> int:
 def _body_value(b: BodyInfo) -> int:
     """Body value with all ED exploration bonuses (Frontier formula by MattG).
 
-    Base (b.value from journal, or _estimated_value fallback) is the pre-mapping
-    scan value.  Multipliers applied on top:
+    Base value selection:
+      - FSS'd (fss_scanned=True) with mass data: always use formula via _estimated_value()
+        to avoid any EDSM-injected value that may have been stored before FSS.
+      - FSS'd without mass data: use journal EstimatedValue (b.value) or formula fallback.
+      - Not FSS'd: use EDSM value (b.value) if available, else lookup-table estimate.
 
+    Multipliers applied on top of base:
       first_discovered only:                       ×2.6
       mapped (already mapped by others):           ×3.3333
       first mapped (not first discovered):         ×3.6996
@@ -309,7 +313,10 @@ def _body_value(b: BodyInfo) -> int:
     When b.mapped is False but b.first_mapped is True we show the projected payout
     (without efficiency/odyssey which are not yet confirmed).
     """
-    v = b.value if b.value > 0 else _estimated_value(b)
+    if b.fss_scanned and b.mass_em > 0:
+        v = _estimated_value(b)          # formula-based; ignores any EDSM value
+    else:
+        v = b.value if b.value > 0 else _estimated_value(b)
     if v <= 0:
         return 0
     if b.mapped:
@@ -1387,9 +1394,9 @@ class BodiesPanel(_Panel):
 
             val     = _fmt_value_short(_body_value(b))
             bv      = _body_value(b)
-            val_col = (P.GOLD if bv > 1_000_000
-                       else ("white" if b.value > 0
-                             else (P.AMBER if _estimated_value(b) > 0 else P.DIM)))
+            val_col = (P.GOLD if b.fss_scanned and bv > 1_000_000
+                       else ("white" if b.fss_scanned
+                             else (P.AMBER if bv > 0 else P.DIM)))
 
             dist     = _fmt_ls_compact(b.dist_ls)
             dist_col = "rgb(80,80,80)" if b.dist_ls == 0.0 else "white"

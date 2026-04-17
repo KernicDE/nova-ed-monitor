@@ -200,8 +200,8 @@ def _merge_bodies(state: AppState, lock: threading.RLock, bodies: list) -> None:
                 if not b.planet_class and not b.star_type:
                     b.planet_class = planet_class
                     b.star_type    = star_type
-                # Fill value if missing
-                if b.value == 0 and value > 0:
+                # Fill value only if player hasn't FSS'd this body yet
+                if b.value == 0 and value > 0 and not b.fss_scanned:
                     b.value = value
 
             if not found:
