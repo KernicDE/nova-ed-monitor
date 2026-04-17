@@ -485,6 +485,7 @@ class AppState:
             b.mapped      = mapped or b.mapped
             b.fss_scanned = fss    or b.fss_scanned
             if first:    b.first_discovered = True
+            if existing.first_mapped:   b.first_mapped   = True
             if existing.first_footfall: b.first_footfall = True
             if b.bio_value_min == 0: b.bio_value_min = bvmin
             if b.bio_value_max == 0: b.bio_value_max = bvmax

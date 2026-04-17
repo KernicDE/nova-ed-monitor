@@ -4344,9 +4344,9 @@ class FooterBar(_Panel):
             left.append("  ")
             left.append("CHAT", style=_mute_style if chat_tts_muted else _ok_style)
             left.append(" ")
-            left.append("TW",   style=_mute_style if (twitch_tts_muted and not chat_tts_muted) else _ok_style)
+            left.append("TW",   style=_mute_style if (twitch_tts_muted or chat_tts_muted) else _ok_style)
             left.append(" ")
-            left.append("YT",   style=_mute_style if (youtube_tts_muted and not chat_tts_muted) else _ok_style)
+            left.append("YT",   style=_mute_style if (youtube_tts_muted or chat_tts_muted) else _ok_style)
 
         center = Text(justify="center")
         center.append(datetime.now().strftime("%H:%M:%S"), style="bold rgb(160,160,160)")
