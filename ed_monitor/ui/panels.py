@@ -4057,7 +4057,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
 
         tbl.add_row(
             Text(str(i), style=P.LABEL),
-            Text(name[:18], style=name_style),
+            Text(name, style=name_style),
             star_cell,
             bd_text,
             Text(_fmt_ly(dist_cur), style=P.WHITE),
