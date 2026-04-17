@@ -3995,7 +3995,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     tbl = Table(show_header=True, show_edge=False, box=None,
                 padding=(0, 1), header_style=f"bold {P.LABEL}")
     tbl.add_column("#",      width=3,  justify="right",  no_wrap=True)
-    tbl.add_column("System", width=28, no_wrap=True)
+    tbl.add_column("System", width=28)
     tbl.add_column("★",      width=5,  no_wrap=True)
     tbl.add_column("Bd",     width=2,  justify="right",  no_wrap=True)
     tbl.add_column("Dist",   width=7,  justify="right",  no_wrap=True)
