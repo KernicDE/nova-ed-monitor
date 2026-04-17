@@ -536,8 +536,11 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                 sc.alerted = True
                 try:
                     fallback = f"{sc.species_localised} ready. You may scan the next sample."
+                    _bvars = _ev._body_vars(_sb) if _sb is not None else {}
                     text = _vl.pick("BioReady", lang=lang,
-                                    species=sc.species_localised) or fallback
+                                    species=sc.species_localised,
+                                    **_ev._bio_scan_vars(sc, state),
+                                    **_bvars) or fallback
                     dedup_key = f"BioReady-{sc.species}-{sc.body}-{sc.samples}"
                     _audio_logger.info(f"BioReady TTS queued: species={sc.species}, body={sc.body}, samples={sc.samples}, key={dedup_key}")
                     tts_q.put_nowait(TtsMsg(
@@ -557,8 +560,11 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                     sc.alerted = False
                     try:
                         fallback = f"Too close to {sc.species_localised} sample. Move away before scanning."
+                        _bvars2 = _ev._body_vars(_sb) if _sb is not None else {}
                         text = _vl.pick("BioTooClose", lang=lang,
-                                        species=sc.species_localised) or fallback
+                                        species=sc.species_localised,
+                                        **_ev._bio_scan_vars(sc, state),
+                                        **_bvars2) or fallback
                         dedup_key = f"BioTooClose-{sc.species}-{sc.body}-{sc.samples}"
                         tts_q.put_nowait(TtsMsg(
                             text=text,

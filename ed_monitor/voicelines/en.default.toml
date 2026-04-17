@@ -17,6 +17,36 @@
 #   replace = []  — silences the event completely
 #
 # Variables in {curly_braces} are filled at runtime; see each event below.
+#
+# Shared variable groups available in many events:
+#
+#   Ship:   {commander} {ship} {ship_type} {ship_name} {ship_ident}
+#           {hull} {hull_raw} {fuel} {fuel_raw} {fuel_max_raw}
+#           {jump_range} {jump_range_raw}
+#
+#   System: {system} {allegiance} {economy} {security} {government}
+#           {population} {population_raw} {faction}
+#
+#   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
+#           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
+#           {dist_ls} {dist_ls_raw} {value} {value_raw}
+#           {terra} {landable} {bio_count} {geo_count}
+#           {first_disc} {first_footfall_flag}
+#
+#   Bio scan (active scan): {genus} {sample_count} {samples_left}
+#           {min_dist} {min_dist_raw} {bio_value} {bio_value_raw}
+#           {body_bio_total} {body_bio_complete}
+#           {body_bio_remaining_count} {body_bio_remaining_species}
+#
+#   Bio system: {bio_system_remaining_count} {bio_system_remaining_bodies}
+#               {bio_system_complete_count} {bio_system_done}
+#               {bio_system_total_value} {bio_system_total_value_raw}
+#
+#   Notable bodies (FSSAllBodiesFound):
+#           {notable_count} {elw_count} {ww_count} {aw_count} {tf_count}
+#           {bio_body_count} {neutron_count} {black_hole_count}
+#           {high_value_count} {notable_summary}
+#           {total_scan_value} {total_scan_value_raw}
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
@@ -25,27 +55,33 @@
 lines = ["NOVA active."]
 
 [Shutdown]
-# No variables.
+# Ship vars + System vars available.
 lines = ["Systems powering down. Farewell, Commander."]
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 [LoadGame]
-# {commander} = Commander name
+# Ship vars available: {commander} {ship} {ship_type} {hull} {fuel} {jump_range} ...
 lines = ["Commander {commander} online."]
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 [FSDJump]
-# {system}  = destination star system name
-# {dist_ly} = jump distance formatted for speech (e.g. "12.3 light years")
-# {suffix}  = optional extra info appended (star class, hops remaining, population)
+# {system}         = destination star system name
+# {dist_ly}        = jump distance formatted for speech (e.g. "12.3 light years")
+# {dist_ly_raw}    = raw distance as decimal string
+# {hops_remaining} = hops left in route (string)
+# {suffix}         = optional extra info appended (star class, hops remaining, population)
+# System vars + Ship vars also available.
 lines = ["Arrived in {system}. Jump {dist_ly}.{suffix}"]
 
 [NavRoute]
-# {dest}      = destination system name
-# {hops}      = number of jumps
-# {hops_word} = "jump" or "jumps"
+# {dest}         = destination system name
+# {hops}         = number of jumps (string)
+# {hops_word}    = "jump" or "jumps"
+# {dist_ly}      = total route distance formatted for speech
+# {dist_ly_raw}  = raw distance as decimal string
+# System vars also available.
 lines = ["Route set. Destination: {dest}. {hops} {hops_word}."]
 
 [NavRouteClear]
@@ -53,15 +89,16 @@ lines = ["Route set. Destination: {dest}. {hops} {hops_word}."]
 lines = ["Route cleared."]
 
 [SupercruiseEntry]
-# No variables.
+# System vars + Ship vars available.
 lines = ["Supercruise engaged."]
 
 [SupercruiseExit]
-# {body} = nearby body name
+# {body}  = nearby body name
+# System vars + Body vars also available.
 lines = ["Supercruise disengaged near {body}."]
 
 [SupercruiseExit_nobdy]
-# Used when no body is named.
+# Used when no body is named. System vars available.
 lines = ["Supercruise disengaged."]
 
 [StartJump_Hyperspace]
@@ -73,27 +110,38 @@ lines = ["Hyperspace jump engaged."]
 lines = ["Supercruise engaged."]
 
 [HighGWarning]
-# {g} = gravity formatted as "X.X G"
+# {g}      = gravity formatted as "X.X G"
+# {g_raw}  = raw gravity value as decimal string
+# {body}   = body name
+# Body vars also available.
 lines = ["Caution: {g} body ahead.", "High gravity warning: {g}."]
 
 [HighGExtreme]
-# {g} = gravity formatted as "X.X G"
+# {g}      = gravity formatted as "X.X G"
+# {g_raw}  = raw gravity value as decimal string
+# {body}   = body name
+# Body vars also available.
 lines = ["Extreme gravity alert! {g} — approach with extreme caution.", "Warning! Gravity exceeds safe threshold: {g}."]
 
 [Docked]
-# {station} = station name
+# {station}      = station name
+# {station_type} = station type string
+# System vars + Ship vars also available.
 lines = ["Docked at {station}."]
 
 [Undocked]
 # {station} = station name
+# System vars + Ship vars also available.
 lines = ["Undocked from {station}."]
 
 [Undocked_nostation]
-# Used when station name is unknown.
+# Used when station name is unknown. System vars + Ship vars available.
 lines = ["Undocked."]
 
 [DockingGranted]
-# {pad} = landing pad number
+# {pad}     = landing pad number
+# {station} = station name
+# System vars also available.
 lines = ["Docking request granted. Proceed to pad {pad}."]
 
 [DockingDenied]
@@ -105,15 +153,20 @@ lines = ["Docking request denied. Reason: {reason}."]
 lines = ["Docking aborted."]
 
 [Touchdown]
-# No variables.
+# {body} = body name
+# {lat}  = latitude (string)
+# {lon}  = longitude (string)
+# Body vars + System vars also available.
 lines = ["Touchdown."]
 
 [Liftoff]
-# No variables.
+# {body} = body name
+# Body vars + System vars also available.
 lines = ["Liftoff."]
 
 [FirstFootfall]
-# No variables.
+# {body} = body name
+# Body vars + System vars also available.
 lines = ["First footfall on this world!"]
 
 # ── Combat ────────────────────────────────────────────────────────────────────
@@ -127,23 +180,26 @@ lines = ["Warning! Under attack!"]
 lines = ["Warning! Under attack! Target: {target}."]
 
 [ShieldDown]
-# No variables.
+# Ship vars + System vars available.
 lines = ["Warning! Shields offline!"]
 
 [ShieldUp]
-# No variables.
+# Ship vars + System vars available.
 lines = ["Shields restored."]
 
 [HullDamage_Critical]
-# {pct} = hull percentage (integer)
+# {pct}     = hull percentage (integer)
+# Ship vars also available: {hull} {hull_raw} {ship} ...
 lines = ["Critical! Hull at {pct} percent!"]
 
 [HullDamage_Warning]
-# {pct} = hull percentage (integer)
+# {pct}     = hull percentage (integer)
+# Ship vars also available: {hull} {hull_raw} {ship} ...
 lines = ["Hull damage: {pct} percent."]
 
 [Died]
 # {msg} = full death message
+# Ship vars + System vars also available.
 lines = ["{msg}"]
 
 [Bounty]
@@ -198,11 +254,16 @@ lines = ["Thargoid interdiction! Hyperdrive interrupted!"]
 # ── Exploration ───────────────────────────────────────────────────────────────
 
 [FSSDiscoveryScan]
-# {total} = total bodies detected (integer)
+# {total}   = total bodies detected (integer string)
+# System vars also available.
 lines = ["Honk complete. {total} bodies detected."]
 
 [FSSAllBodiesFound]
-# {system} = current system name
+# {system}  = current system name
+# Notable bodies vars available: {notable_count} {elw_count} {ww_count} {aw_count}
+#   {tf_count} {bio_body_count} {neutron_count} {black_hole_count} {high_value_count}
+#   {notable_summary} {total_scan_value} {total_scan_value_raw}
+# System vars also available.
 lines = ["System scan complete. All signals accounted for in {system}."]
 
 [FSSSignalDiscovered]
@@ -210,23 +271,31 @@ lines = ["System scan complete. All signals accounted for in {system}."]
 lines = ["Signal detected: {sig}!"]
 
 [Scan_Undiscovered]
-# No variables.
+# System vars available: {system} {allegiance} {economy} {security} {government}
+#   {population} {population_raw} {faction}
 lines = ["Undiscovered system."]
 
 [Scan_Notable]
-# {body_short} = short body name
+# {body_short} = short body name (suffix only)
+# {body}       = full body name
 # {detail}     = detail string (e.g. "Earthlike body. Landable. 3 bio signals")
+# Body vars + System vars also available.
 lines = ["Notable: {body_short}. {detail}"]
 
 [Scan_Detailed]
-# {body_short} = short body name
+# {body_short} = short body name (suffix only)
+# {body}       = full body name
 # {detail}     = detail string
+# Body vars + System vars also available.
 lines = ["Scan: {body_short}. {detail}"]
 
 [SAAScanComplete]
-# {body_short} = short body name
+# {body_short} = short body name (suffix only)
+# {body}       = full body name
 # {sig_txt}    = signal info e.g. " Signals: 2 bio." (empty string if none)
 # {eff_txt}    = efficiency info e.g. " Efficiency target reached." (empty string if none)
+# {map_txt}    = mapping value info e.g. " Mapped value: 1.2 million credits."
+# Body vars + System vars also available.
 lines = ["Mapped: {body_short}.{sig_txt}{eff_txt}"]
 
 [CodexEntry]
@@ -235,46 +304,60 @@ lines = ["Codex: {name}."]
 
 [ScanOrganic_Log]
 # {species} = species localised name
+# {body}    = body name
+# Bio scan vars + Body vars + Bio system vars also available.
 lines = ["Biological: {species}."]
 
 [ScanOrganic_Log_NewSpecies]
 # {species} = species localised name
+# {body}    = body name
+# Bio scan vars + Body vars + Bio system vars also available.
 lines = ["Biological: {species}. New species!"]
 
 [ScanOrganic_Sample]
 # {count}   = sample number (2 or 3)
 # {species} = species localised name
+# {body}    = body name
+# Bio scan vars + Body vars + Bio system vars also available.
 lines = ["Bio sample {count} of 3: {species}."]
 
 [ScanOrganic_Analyse]
 # {species}   = species localised name
 # {val_str}   = credit value formatted for speech
 # {ff_suffix} = " First footfall bonus applied." or empty string
+# {body}      = body name
+# Bio scan vars + Body vars + Bio system vars also available.
 lines = ["Bio complete: {species}. Value: {val_str}.{ff_suffix}"]
 
 [ScanOrganic_Analyse_BodyLeft]
-# {body_left} = number of remaining bio signals on this body
+# {body_left} = number of remaining bio signals on this body (string)
 # {bio_word}  = "bio" or "bios"
 # {verb}      = "is" or "are"
+# {body}      = body name
+# Bio system vars also available.
 lines = ["There {verb} {body_left} more {bio_word} on this body."]
 
 [ScanOrganic_Analyse_SystemMore]
-# {parts_str} = summary of remaining bios per body
+# {parts_str} = summary of remaining bios per body (e.g. "2 on Proxima A 1, 1 on Proxima A 2")
+# Bio system vars also available.
 lines = ["More bio signals: {parts_str}."]
 
 [ScanOrganic_Analyse_SystemDone]
-# No variables.
+# Bio system vars available: {bio_system_complete_count} {bio_system_total_value} ...
 lines = ["All bio signals in this system are complete."]
 
 # ── Missions ──────────────────────────────────────────────────────────────────
 
 [MissionAccepted]
 # {name} = mission name
+# {dest} = destination (system / station)
+# System vars also available.
 lines = ["Mission accepted: {name}."]
 
 [MissionCompleted]
 # {name}   = mission name
 # {reward} = credit reward formatted for speech
+# System vars also available.
 lines = ["Mission complete: {name}. Reward: {reward}."]
 
 [MissionFailed]
@@ -310,7 +393,7 @@ lines = ["Engineer {engineer}: rank {rank}."]
 # ── Status ────────────────────────────────────────────────────────────────────
 
 [FuelScoop_Full]
-# No variables.
+# Ship vars available: {fuel} {fuel_raw} {fuel_max_raw} {ship} ...
 lines = ["Fuel tank full."]
 
 [EjectCargo]
@@ -398,16 +481,19 @@ lines = ["Mass locked."]
 lines = ["Mass lock released."]
 
 [BioReady]
-# {species} = species name
+# {species}  = species localised name
+# Bio scan vars + Body vars also available.
 lines = ["{species} ready. You may scan the next sample."]
 
 [BioTooClose]
-# {species} = species name
+# {species}  = species localised name
+# Bio scan vars + Body vars also available.
 # Fired when the player re-enters the exclusion zone around a previous sample.
 lines = ["Too close to {species} sample. Move away before scanning."]
 
 [SellExplorationData]
-# {value} = credit value formatted for speech
+# {value}   = credit value formatted for speech
+# System vars also available.
 lines = ["Exploration data sold: {value}."]
 
 [System_EDSM_Unknown]

@@ -16,7 +16,30 @@
 #   replace — uses only your lines for this event (overrides the default)
 #   replace = []  — silences the event completely
 #
-# Variables in {curly_braces} are filled at runtime; see each event below.
+# Variables in {curly_braces} are filled at runtime; see en.default.toml for full docs.
+#
+# Shared variable groups available in many events:
+#
+#   Ship:   {commander} {ship} {ship_type} {ship_name} {ship_ident}
+#           {hull} {hull_raw} {fuel} {fuel_raw} {fuel_max_raw}
+#           {jump_range} {jump_range_raw}
+#
+#   System: {system} {allegiance} {economy} {security} {government}
+#           {population} {population_raw} {faction}
+#
+#   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
+#           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
+#           {dist_ls} {dist_ls_raw} {value} {value_raw}
+#           {terra} {landable} {bio_count} {geo_count}
+#           {first_disc} {first_footfall_flag}
+#
+#   Bio scan: {genus} {sample_count} {samples_left} {min_dist} {min_dist_raw}
+#             {bio_value} {bio_value_raw} {body_bio_total} {body_bio_complete}
+#             {body_bio_remaining_count} {body_bio_remaining_species}
+#
+#   Bio system: {bio_system_remaining_count} {bio_system_remaining_bodies}
+#               {bio_system_complete_count} {bio_system_done}
+#               {bio_system_total_value} {bio_system_total_value_raw}
 
 [Nova_Startup]
 lines = ["NOVA активна."]

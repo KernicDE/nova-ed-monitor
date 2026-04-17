@@ -146,7 +146,7 @@ def _abbrev_type(planet: str, star: str) -> str:
         return {
             "N": "Neutron Star",
             "H": "Black Hole",
-        }.get(star) or ("White Dwarf" if star.startswith("D") else f"{star} Star")
+        }.get(star) or ("White Dwarf" if star.startswith("D") else (star if len(star) > 2 else f"{star} Star"))
     return {
         "Earthlike body":                    "Earthlike",
         "Water world":                       "Water",
@@ -340,6 +340,9 @@ def _body_value(b: BodyInfo) -> int:
             v = int(v * 3.699622554)
     elif b.first_discovered:
         v = int(v * 2.6)
+    else:
+        # Not yet DSS'd, no first-mapped/discovered flags — show projected DSS payout
+        v = int(v * 3.3333333333)
     return v
 
 
@@ -1783,6 +1786,44 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
             current_tbl.add_row(name, Text(str(cnt), style=f"bold {cnt_col}"))
     _flush_tbl()
 
+    # ── Odyssey materials (backpack + ship locker) ────────────────────────────
+    def _ody_section(label: str, items: list) -> None:
+        if not items:
+            return
+        parts.append(Text("\n"))
+        parts.append(_section_header(label))
+        ody_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        ody_tbl.add_column("name",  style="rgb(200,220,255)")
+        ody_tbl.add_column("count", justify="right")
+        for item in sorted(items, key=lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()):
+            name  = item.get("Name_Localised") or item.get("Name", "?")
+            count = item.get("Count", 0)
+            cnt_col = P.HUD_WARN if count >= 100 else ("white" if count >= 30 else P.LABEL)
+            ody_tbl.add_row(name, Text(str(count), style=f"bold {cnt_col}"))
+        parts.append(ody_tbl)
+
+    has_backpack = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
+    has_locker   = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
+    if has_backpack or has_locker:
+        parts.append(Text("\n"))
+        div = Text()
+        div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.AMBER}")
+        parts.append(div)
+
+    if has_backpack:
+        bp = s.backpack
+        _ody_section("BACKPACK — Items",       bp.get("items", []))
+        _ody_section("BACKPACK — Components",  bp.get("components", []))
+        _ody_section("BACKPACK — Consumables", bp.get("consumables", []))
+        _ody_section("BACKPACK — Data",        bp.get("data", []))
+
+    if has_locker:
+        lk = s.ship_locker
+        _ody_section("LOCKER — Items",       lk.get("items", []))
+        _ody_section("LOCKER — Components",  lk.get("components", []))
+        _ody_section("LOCKER — Consumables", lk.get("consumables", []))
+        _ody_section("LOCKER — Data",        lk.get("data", []))
+
     return Group(*parts)
 
 
@@ -2081,55 +2122,6 @@ def _render_wealth(s: AppState) -> RenderableType:
                 suit_text.append(f"  ▸ {wname}\n", style=P.LABEL)
         parts.append(suit_text)
 
-    if s.backpack:
-        items = s.backpack.get("items") or []
-        comps = s.backpack.get("components") or []
-        data  = s.backpack.get("data") or []
-        consumables = s.backpack.get("consumables") or []
-        total_items = len(items) + len(comps) + len(data) + len(consumables)
-        if total_items > 0:
-            bp_text = Text()
-            bp_text.append("\nBACKPACK\n", style="bold rgb(195,160,55)")
-            bp_text.append(f"  {total_items} item(s) — Items {len(items)}  Comps {len(comps)}  Data {len(data)}\n", style=P.LABEL)
-            parts.append(bp_text)
-
-    # ── Odyssey materials (backpack + ship locker) ────────────────────────────
-    def _ody_section(label: str, items: list) -> None:
-        if not items:
-            return
-        parts.append(Text("\n"))
-        parts.append(_section_header(label))
-        ody_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-        ody_tbl.add_column("name",  style="rgb(200,220,255)")
-        ody_tbl.add_column("count", justify="right")
-        for item in sorted(items, key=lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()):
-            name  = item.get("Name_Localised") or item.get("Name", "?")
-            count = item.get("Count", 0)
-            cnt_col = P.HUD_WARN if count >= 100 else ("white" if count >= 30 else P.LABEL)
-            ody_tbl.add_row(name, Text(str(count), style=f"bold {cnt_col}"))
-        parts.append(ody_tbl)
-
-    has_backpack = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
-    has_locker   = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
-    if has_backpack or has_locker:
-        parts.append(Text("\n"))
-        div = Text()
-        div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.AMBER}")
-        parts.append(div)
-
-    if has_backpack:
-        bp = s.backpack
-        _ody_section("BACKPACK — Items",       bp.get("items", []))
-        _ody_section("BACKPACK — Components",  bp.get("components", []))
-        _ody_section("BACKPACK — Consumables", bp.get("consumables", []))
-        _ody_section("BACKPACK — Data",        bp.get("data", []))
-
-    if has_locker:
-        lk = s.ship_locker
-        _ody_section("LOCKER — Items",       lk.get("items", []))
-        _ody_section("LOCKER — Components",  lk.get("components", []))
-        _ody_section("LOCKER — Consumables", lk.get("consumables", []))
-        _ody_section("LOCKER — Data",        lk.get("data", []))
 
     if not parts:
         t = Text()
@@ -2581,7 +2573,7 @@ def _render_overview(s: AppState) -> RenderableType:
             if all_done:
                 val_s = _fmt_notable_val(body_v)
                 vcol  = P.GOLD
-                bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
+                bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else ("✓" if has_bio else "—")
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
                 val_s = _fmt_notable_val(body_v)
