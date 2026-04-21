@@ -14,6 +14,9 @@ build/
 venv/
 env/
 
+# Worktrees
+.worktrees/
+
 # Development / IDE / personal notes
 .claude/
 CLAUDE.md
