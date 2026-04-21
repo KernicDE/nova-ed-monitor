@@ -304,7 +304,9 @@ class SettingsScreen(Screen):
 
     def _do_save(self) -> None:
         """Apply row values back to a Config copy and write to disk."""
-        cfg = self._cfg
+        import copy as _copy
+        cfg = _copy.copy(self._cfg)
+        cfg.tts_voices = dict(self._cfg.tts_voices)
         # TTS Language
         tts_lang_row = self._rows[0]
         cfg.tts_lang = tts_lang_row.value

@@ -503,6 +503,8 @@ class NOVAApp(App):
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
         _ev.set_voices(cfg.tts_voices)
+        with self._vol_lock:
+            self._volume[0] = cfg.default_volume
         with self._lock:
             self._state.volume = cfg.default_volume
             self._state.notable_value_threshold = cfg.notable_value_threshold
