@@ -296,13 +296,11 @@ def _body_value(b: BodyInfo) -> int:
     """Body value with all ED exploration bonuses (Frontier formula by MattG).
 
     Base value selection:
-      - FSS'd (fss_scanned=True) with mass data: always use formula via _estimated_value()
-        to avoid any EDSM-injected value that may have been stored before FSS.
-      - FSS'd without mass data: use journal EstimatedValue (b.value) or formula fallback.
+      - FSS'd (fss_scanned=True): always use formula via _estimated_value().
+        EDSM-injected values are never used for scanned bodies.
       - Not FSS'd: use EDSM value (b.value) if available, else lookup-table estimate.
 
     Multipliers applied on top of base:
-      first_discovered only:                       ×2.6
       mapped (already mapped by others):           ×3.3333
       first mapped (not first discovered):         ×3.6996
       first mapped + first discovered:             ×8.0956
@@ -310,11 +308,11 @@ def _body_value(b: BodyInfo) -> int:
       + Odyssey first-footfall bonus (mapped):     ×1.30  (applied after map mult)
 
     When b.mapped is True the player has DSS'd the body and the payout is real.
-    When b.mapped is False but b.first_mapped is True we show the projected payout
-    (without efficiency/odyssey which are not yet confirmed).
+    When b.fss_scanned is True but b.mapped is False, we show the maximum projected
+    payout assuming efficiency bonus (since the player will presumably DSS it).
     """
-    if b.fss_scanned and b.mass_em > 0:
-        v = _estimated_value(b)          # formula-based; ignores any EDSM value
+    if b.fss_scanned:
+        v = _estimated_value(b)          # always formula-based; never use EDSM value
     else:
         v = b.value if b.value > 0 else _estimated_value(b)
     if v <= 0:
@@ -332,8 +330,17 @@ def _body_value(b: BodyInfo) -> int:
         v = int(v * mult)
         if b.first_footfall:
             v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
+    elif b.fss_scanned:
+        # FSS'd but not yet DSS'd — show maximum projected payout, always assume efficiency
+        if b.first_discovered and b.first_mapped:
+            mult = 8.0956
+        elif b.first_mapped:
+            mult = 3.699622554
+        else:
+            mult = 3.3333333333
+        v = int(v * mult * _EFFICIENCY_MULTIPLIER)
     elif b.first_mapped:
-        # Not yet DSS'd — projected payout (efficiency/odyssey unknown yet)
+        # Not FSS'd, not yet DSS'd — projected payout (efficiency/odyssey unknown yet)
         if b.first_discovered:
             v = int(v * 8.0956)
         else:
@@ -344,6 +351,28 @@ def _body_value(b: BodyInfo) -> int:
         # Not yet DSS'd, no first-mapped/discovered flags — show projected DSS payout
         v = int(v * 3.3333333333)
     return v
+
+
+def _body_value_color(b: BodyInfo) -> str:
+    """Rich color style for the body value column, based on FSS status and bonus tier.
+
+    FSS'd bodies use tier-based coloring:
+      GOLD  — first discovered + first mapped (maximum bonus)
+      AMBER — first mapped only
+      white — basic DSS payout (already discovered/mapped by others)
+
+    Non-FSS'd bodies:
+      AMBER — EDSM/estimated value available
+      DIM   — no value available
+    """
+    if not b.fss_scanned:
+        return P.AMBER if b.value > 0 else P.DIM
+    # FSS'd — color by bonus tier
+    if b.first_discovered and b.first_mapped:
+        return P.GOLD
+    if b.first_mapped:
+        return P.AMBER
+    return "white"
 
 
 def _mission_time_remaining(expiry: str) -> str:
@@ -1395,11 +1424,9 @@ class BodiesPanel(_Panel):
             name  = Text(indent + display_name, style=name_style)
             btype = _abbrev_type(b.planet_class, b.star_type)
 
-            val     = _fmt_value_short(_body_value(b))
             bv      = _body_value(b)
-            val_col = (P.GOLD if b.fss_scanned and bv > 1_000_000
-                       else ("white" if b.fss_scanned
-                             else (P.AMBER if bv > 0 else P.DIM)))
+            val     = _fmt_value_short(bv)
+            val_col = _body_value_color(b)
 
             dist     = _fmt_ls_compact(b.dist_ls)
             dist_col = "rgb(80,80,80)" if b.dist_ls == 0.0 else "white"
@@ -2591,7 +2618,7 @@ def _render_overview(s: AppState) -> RenderableType:
                 bio_c = P.GOLD
             else:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = P.GOLD if body_v > 1_000_000 else (P.AMBER if body_v > 0 else P.DIM)
+                vcol  = _body_value_color(b)
                 if has_bio:
                     if b.bio_value_max > 0:
                         # DSS confirmed genus ranges (sum of all confirmed genera)
