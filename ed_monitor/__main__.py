@@ -74,6 +74,9 @@ def main() -> None:
     voicelines.ensure_user_files()   # copy built-ins to config dir if missing
     voicelines._load(cfg.tts_lang)   # pre-warm cache
 
+    # Validate user voiceline file — warn on parse error without crashing
+    _vl_error = voicelines.validate_user_file(cfg.tts_lang)
+
     initial_commander = _detect_initial_commander(cfg.journal_dir)
 
     database = db.Database(_db_path())
@@ -114,6 +117,10 @@ def main() -> None:
         state.jump_dist_total = 0.0
         state.push_event(LogEvent.new(EventCategory.System, "NOVA active."))
 
+    if _vl_error:
+        with lock:
+            state.push_event(LogEvent.new(EventCategory.System, f"⚠ {_vl_error}"))
+
     try:
         # Only play startup message if not already played (prevents duplicates)
         if not getattr(state, '_startup_message_played', False):
@@ -131,6 +138,18 @@ def main() -> None:
                     voice=voice,
                     deduplication_key="Nova_Startup"
                 ))
+
+        if _vl_error:
+            try:
+                tts_q.put_nowait(TtsMsg(
+                    text="Warning: voiceline file has an error and will not be used.",
+                    priority=True,
+                    volume=cfg.default_volume,
+                    voice=None,
+                    deduplication_key="VoicelineFileError",
+                ))
+            except Exception:
+                pass
     except Exception:
         pass
 

@@ -70,3 +70,29 @@ class TestSilencePropagation:
         else:
             text = vl.pick("FSDJump", lang="en") or fallback
         assert text is None
+
+
+class TestValidateUserFile:
+    def test_returns_none_when_no_user_file(self, tmp_path):
+        result = vl.validate_user_file("en")
+        assert result is None
+
+    def test_returns_none_for_valid_file(self, tmp_path):
+        _write_user_file(tmp_path, "en", '[FSDJump]\nreplace = ["Jumping."]\n')
+        result = vl.validate_user_file("en")
+        assert result is None
+
+    def test_returns_error_message_for_invalid_toml(self, tmp_path):
+        _write_user_file(tmp_path, "en", "this is not\nvalid toml [\n")
+        result = vl.validate_user_file("en")
+        assert result is not None
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_error_message_does_not_contain_parser_internals(self, tmp_path):
+        """User-facing message must be generic — do not expose TOML parser internals."""
+        _write_user_file(tmp_path, "en", "[bad\n")
+        result = vl.validate_user_file("en")
+        assert result is not None
+        assert "TOMLDecodeError" not in result
+        assert "Traceback" not in result

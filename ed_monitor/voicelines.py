@@ -181,6 +181,27 @@ def is_muted(key: str, lang: str = "en") -> bool:
     return key in lines_map and lines_map[key] == []
 
 
+def validate_user_file(lang: str) -> Optional[str]:
+    """Validate the user voiceline file for *lang*.
+
+    Returns None if the file doesn't exist or parses successfully.
+    Returns a short user-friendly error message if the file has a syntax error.
+    The message deliberately does not include TOML parser internals.
+    """
+    user_path = _config_dir() / "voicelines" / f"{lang}.toml"
+    if not user_path.exists():
+        return None
+    try:
+        with open(user_path, "rb") as f:
+            tomllib.load(f)
+        return None
+    except Exception:
+        return (
+            f"User voiceline file '{lang}.toml' has a syntax error and will not be used. "
+            "Please check and fix the file."
+        )
+
+
 def reload(lang: str) -> None:
     """Invalidate cache for *lang* so files are re-read on next pick()."""
     _CACHE.pop(lang, None)
