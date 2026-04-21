@@ -1,8 +1,6 @@
 """Tests for voicelines.py — silence fix and validation."""
 from __future__ import annotations
 
-import tomllib
-import tempfile
 from pathlib import Path
 import pytest
 
@@ -25,7 +23,7 @@ def _write_user_file(tmp_path: Path, lang: str, content: str) -> None:
 
 
 class TestIsMuted:
-    def test_not_muted_when_key_absent(self, tmp_path):
+    def test_not_muted_when_key_absent(self):
         assert vl.is_muted("SomeEvent", "en") is False
 
     def test_not_muted_when_replace_has_lines(self, tmp_path):
