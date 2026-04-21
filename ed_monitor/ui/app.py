@@ -12,6 +12,7 @@ from textual.widgets import Input, Label, Static
 from textual import events
 
 from ..state import AppState
+from .settings_screen import SettingsScreen
 from .panels import (
     BodiesPanel,
     ChatLogPanel,
@@ -72,7 +73,8 @@ class HelpScreen(Screen):
             ("↓ / j",            "Scroll situational panel down (MAP mode: next sub-view)"),
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
             ("Home",             "Jump to latest events (event/chat panel focused)"),
-            ("w / s",            "Scroll bodies panel up / down"),
+            ("w",                "Scroll bodies panel up"),
+            ("s",                "Open settings overlay"),
             ("r",                "Cycle Maps sub-screen (system → regional → galaxy)"),
             ("n",                "Neutron route destination input (Neutron mode only)"),
             ("m",                "Mute / unmute all TTS"),
@@ -351,6 +353,7 @@ class NOVAApp(App):
         tts_q:    queue.Queue,
         stop_evt: threading.Event | None = None,
         neutron_q: queue.Queue | None = None,
+        cfg: "object | None" = None,
     ) -> None:
         super().__init__()
         self._state     = state
@@ -360,6 +363,7 @@ class NOVAApp(App):
         self._tts_q     = tts_q
         self._stop_evt  = stop_evt
         self._neutron_q = neutron_q
+        self._cfg       = cfg
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
         self._prev_fingerprint: tuple = ()    # global state fingerprint — skip panel updates when unchanged
@@ -491,6 +495,19 @@ class NOVAApp(App):
     def on_unmount(self) -> None:
         if self._stop_evt is not None:
             self._stop_evt.set()
+
+    def on_settings_screen_saved(self, event: "SettingsScreen.Saved") -> None:
+        """Apply live-reloadable settings from the overlay."""
+        cfg = event.cfg
+        self._cfg = cfg
+        from .. import events as _ev
+        _ev.set_tts_lang(cfg.tts_lang)
+        _ev.set_voices(cfg.tts_voices)
+        with self._lock:
+            self._state.volume = cfg.default_volume
+            self._state.notable_value_threshold = cfg.notable_value_threshold
+        from .. import voicelines as _vl
+        _vl.reload_all()
 
     # Panel focus order: 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
     _FOCUS_PANELS = [SystemPanel, ShipPanel, RoutePanel, BodiesPanel, EventLogPanel, ChatLogPanel]
@@ -665,7 +682,9 @@ class NOVAApp(App):
                 self._state.youtube_tts_muted = not all_muted
 
         elif key == "s":
-            self.query_one(BodiesPanel).scroll_bodies(1)
+            if self._cfg is not None:
+                self.push_screen(SettingsScreen(self._cfg))
+            return
 
         elif key == "w":
             self.query_one(BodiesPanel).scroll_bodies(-1)

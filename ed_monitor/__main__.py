@@ -180,7 +180,7 @@ def main() -> None:
     # Screenshot processing thread
     _spawn_guarded(screenshots.monitor, (state, lock, cfg), "nova-screenshots")
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q).run()
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg).run()
 
 
 if __name__ == "__main__":
