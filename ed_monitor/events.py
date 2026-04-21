@@ -489,7 +489,13 @@ def _say(
     tts_q: queue.Queue, key: str, priority: bool, fallback: str = "",
     *, cacheable: bool = True, **kwargs,
 ) -> None:
-    """Pick a voiceline variant and speak it; falls back to *fallback* string."""
+    """Pick a voiceline variant and speak it; falls back to *fallback* string.
+
+    When the user has ``replace = []`` for *key*, the event is completely
+    silenced — the *fallback* string is NOT used.
+    """
+    if _vl.is_muted(key, lang=_TTS_LANG):
+        return
     text = _vl.pick(key, lang=_TTS_LANG, **kwargs) or fallback
     if text:
         _speak(tts_q, text, priority, cacheable=cacheable)

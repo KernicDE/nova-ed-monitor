@@ -281,6 +281,8 @@ def _apply_status(
         def _q(key: str, fallback: str, pri: bool = False, **kwargs):
             lang  = _ev._TTS_LANG
             voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
+            if _vl.is_muted(key, lang=lang):
+                return
             text  = _vl.pick(key, lang=lang, **kwargs) or fallback
             try:
                 tts_q.put_nowait(TtsMsg(text=text, priority=pri, voice=voice))
@@ -415,17 +417,19 @@ def _apply_status(
         lang  = _ev._TTS_LANG
         voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
         if new_mass_locked and not prev_mass_locked:
-            try:
-                text = _vl.pick("MassLocked", lang=lang) or "Mass locked."
-                tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-            except Exception:
-                pass
+            if not _vl.is_muted("MassLocked", lang=lang):
+                try:
+                    text = _vl.pick("MassLocked", lang=lang) or "Mass locked."
+                    tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
+                except Exception:
+                    pass
         elif not new_mass_locked and prev_mass_locked:
-            try:
-                text = _vl.pick("MassLockReleased", lang=lang) or "Mass lock released."
-                tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-            except Exception:
-                pass
+            if not _vl.is_muted("MassLockReleased", lang=lang):
+                try:
+                    text = _vl.pick("MassLockReleased", lang=lang) or "Mass lock released."
+                    tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
+                except Exception:
+                    pass
 
 
 def _compass_toward(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
@@ -534,23 +538,24 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                           and not unvisited_comp)
             if not sc.alerted and can_sample:
                 sc.alerted = True
-                try:
-                    fallback = f"{sc.species_localised} ready. You may scan the next sample."
-                    _bvars = _ev._body_vars(_sb) if _sb is not None else {}
-                    text = _vl.pick("BioReady", lang=lang,
-                                    species=sc.species_localised,
-                                    **_ev._bio_scan_vars(sc, state),
-                                    **_bvars) or fallback
-                    dedup_key = f"BioReady-{sc.species}-{sc.body}-{sc.samples}"
-                    _audio_logger.info(f"BioReady TTS queued: species={sc.species}, body={sc.body}, samples={sc.samples}, key={dedup_key}")
-                    tts_q.put_nowait(TtsMsg(
-                        text=text,
-                        priority=False,
-                        voice=voice,
-                        deduplication_key=dedup_key,
-                    ))
-                except Exception as e:
-                    _audio_logger.error(f"BioReady TTS error: {e}")
+                if not _vl.is_muted("BioReady", lang=lang):
+                    try:
+                        fallback = f"{sc.species_localised} ready. You may scan the next sample."
+                        _bvars = _ev._body_vars(_sb) if _sb is not None else {}
+                        text = _vl.pick("BioReady", lang=lang,
+                                        species=sc.species_localised,
+                                        **_ev._bio_scan_vars(sc, state),
+                                        **_bvars) or fallback
+                        dedup_key = f"BioReady-{sc.species}-{sc.body}-{sc.samples}"
+                        _audio_logger.info(f"BioReady TTS queued: species={sc.species}, body={sc.body}, samples={sc.samples}, key={dedup_key}")
+                        tts_q.put_nowait(TtsMsg(
+                            text=text,
+                            priority=False,
+                            voice=voice,
+                            deduplication_key=dedup_key,
+                        ))
+                    except Exception as e:
+                        _audio_logger.error(f"BioReady TTS error: {e}")
         else:
             # Player is inside the exclusion zone (too close to a previous sample).
             if on_surface:
@@ -558,22 +563,23 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                     # Player WAS outside (alerted=True) but moved back inside — warn.
                     # Reset alerted so the ready TTS fires again when they move away.
                     sc.alerted = False
-                    try:
-                        fallback = f"Too close to {sc.species_localised} sample. Move away before scanning."
-                        _bvars2 = _ev._body_vars(_sb) if _sb is not None else {}
-                        text = _vl.pick("BioTooClose", lang=lang,
-                                        species=sc.species_localised,
-                                        **_ev._bio_scan_vars(sc, state),
-                                        **_bvars2) or fallback
-                        dedup_key = f"BioTooClose-{sc.species}-{sc.body}-{sc.samples}"
-                        tts_q.put_nowait(TtsMsg(
-                            text=text,
-                            priority=False,
-                            voice=voice,
-                            deduplication_key=dedup_key,
-                        ))
-                    except Exception:
-                        pass
+                    if not _vl.is_muted("BioTooClose", lang=lang):
+                        try:
+                            fallback = f"Too close to {sc.species_localised} sample. Move away before scanning."
+                            _bvars2 = _ev._body_vars(_sb) if _sb is not None else {}
+                            text = _vl.pick("BioTooClose", lang=lang,
+                                            species=sc.species_localised,
+                                            **_ev._bio_scan_vars(sc, state),
+                                            **_bvars2) or fallback
+                            dedup_key = f"BioTooClose-{sc.species}-{sc.body}-{sc.samples}"
+                            tts_q.put_nowait(TtsMsg(
+                                text=text,
+                                priority=False,
+                                voice=voice,
+                                deduplication_key=dedup_key,
+                            ))
+                        except Exception:
+                            pass
                 # else: already inside zone, alerted already False — do nothing
 
 

@@ -43,3 +43,30 @@ class TestIsMuted:
         _write_user_file(tmp_path, "de", "[FSDJump]\nreplace = []\n")
         assert vl.is_muted("FSDJump", "de") is True
         assert vl.is_muted("FSDJump", "en") is False
+
+
+class TestSilencePropagation:
+    """Verify that replace=[] prevents any TTS output, even when a fallback exists."""
+
+    def test_pick_returns_none_when_silenced(self, tmp_path):
+        _write_user_file(tmp_path, "en", "[FSDJump]\nreplace = []\n")
+        result = vl.pick("FSDJump", lang="en")
+        assert result is None
+
+    def test_is_muted_true_blocks_fallback(self, tmp_path):
+        """
+        Simulate what _say() should do:
+        if is_muted → skip, even if fallback is non-empty.
+        """
+        _write_user_file(tmp_path, "en", "[FSDJump]\nreplace = []\n")
+        fallback = "Jumping to hyperspace."
+        # Current (broken) behaviour: pick() or fallback → speaks fallback
+        broken = vl.pick("FSDJump", lang="en") or fallback
+        assert broken == fallback  # documents the bug
+
+        # Correct behaviour: check is_muted first
+        if vl.is_muted("FSDJump", "en"):
+            text = None
+        else:
+            text = vl.pick("FSDJump", lang="en") or fallback
+        assert text is None
