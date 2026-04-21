@@ -175,6 +175,12 @@ def pick(key: str, lang: str = "en", **kwargs) -> Optional[str]:
         return template
 
 
+def is_muted(key: str, lang: str = "en") -> bool:
+    """Return True if *key* has been explicitly silenced with ``replace = []``."""
+    lines_map = _load(lang)
+    return key in lines_map and lines_map[key] == []
+
+
 def reload(lang: str) -> None:
     """Invalidate cache for *lang* so files are re-read on next pick()."""
     _CACHE.pop(lang, None)
