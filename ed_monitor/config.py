@@ -423,3 +423,65 @@ def discover_journal() -> Path | None:
 
     # Fall back to parsing Heroic's GamesConfig for custom prefix locations
     return _heroic_journal()
+
+
+def save(cfg: "Config", path: "Path | None" = None) -> None:
+    """Write *cfg* back to *path* (default: ``~/.config/nova/config.toml``).
+
+    Produces a minimal k=v file containing only the settings supported by the
+    Settings overlay. Preserves no user comments; existing content is replaced.
+    """
+    if path is None:
+        path = config_dir() / "config.toml"
+
+    lines: list[str] = [
+        "# NOVA — saved by Settings overlay\n",
+        "\n",
+    ]
+
+    if cfg.journal_dir:
+        lines.append(f"journal_dir = {cfg.journal_dir}\n")
+    if cfg.twitch_channel:
+        lines.append(f"twitch_channel = {cfg.twitch_channel}\n")
+    if cfg.youtube_channel:
+        lines.append(f"youtube_channel = {cfg.youtube_channel}\n")
+
+    lines.append(f"tts_lang = {cfg.tts_lang}\n")
+    lines.append(f"tts_rate = {cfg.tts_rate}\n")
+
+    for lang, voice in cfg.tts_voices.items():
+        lines.append(f"tts_voice_{lang} = {voice}\n")
+
+    lines.append(f"default_volume = {cfg.default_volume}\n")
+    lines.append(f"notable_value_threshold = {cfg.notable_value_threshold}\n")
+    lines.append(f"carrier_lookup = {'true' if cfg.carrier_lookup else 'false'}\n")
+
+    if cfg.debug_log:
+        lines.append("debug_log = true\n")
+    if cfg.screenshot_dir:
+        lines.append(f"screenshot_dir = {cfg.screenshot_dir}\n")
+    if cfg.screenshot_dest:
+        lines.append(f"screenshot_dest = {cfg.screenshot_dest}\n")
+    if cfg.chat_lang:
+        lines.append(f"chat_lang = {cfg.chat_lang}\n")
+    if cfg.situational_panels:
+        _mode_to_abbrev = {
+            "overview": "OVR", "bio": "BIO", "galaxy": "MAP",
+            "missions": "MIS", "engineers": "ENG", "bgs": "BGS",
+            "colonisation": "COL", "route": "ROU", "neutron": "NTR",
+            "wealth": "WLT", "inventory": "INV", "docking": "DKG", "stats": "STS",
+        }
+        abbrevs = " ".join(_mode_to_abbrev.get(m, m.upper()) for m in cfg.situational_panels)
+        lines.append(f"situational_panels = {abbrevs}\n")
+
+    if cfg.tts_chat is not True:
+        lines.append(f"tts_chat = {'true' if cfg.tts_chat else 'false'}\n")
+    if cfg.tts_twitch is not True:
+        lines.append(f"tts_twitch = {'true' if cfg.tts_twitch else 'false'}\n")
+    if cfg.tts_youtube is not True:
+        lines.append(f"tts_youtube = {'true' if cfg.tts_youtube else 'false'}\n")
+
+    try:
+        path.write_text("".join(lines), encoding="utf-8")
+    except OSError:
+        pass
