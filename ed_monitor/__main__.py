@@ -26,7 +26,7 @@ def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
     t.start()
     return t
 
-from . import bindings, config, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
+from . import bindings, config, config_watcher, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui.app import NOVAApp
@@ -179,6 +179,29 @@ def main() -> None:
 
     # Screenshot processing thread
     _spawn_guarded(screenshots.monitor, (state, lock, cfg), "nova-screenshots")
+
+    def _on_config_changed():
+        try:
+            new_cfg = config.load()
+            events.set_tts_lang(new_cfg.tts_lang)
+            events.set_voices(new_cfg.tts_voices)
+            with lock:
+                state.volume                  = new_cfg.default_volume
+                state.notable_value_threshold = new_cfg.notable_value_threshold
+        except Exception:
+            pass
+
+    def _on_voicelines_changed():
+        try:
+            voicelines.reload_all()
+        except Exception:
+            pass
+
+    config_watcher.spawn(
+        config.config_dir(),
+        _on_config_changed,
+        _on_voicelines_changed,
+    )
 
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg).run()
 
