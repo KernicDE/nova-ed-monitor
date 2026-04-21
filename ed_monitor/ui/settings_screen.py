@@ -6,6 +6,7 @@ ESC cancels without saving. SAVE button writes config.toml.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -33,3 +34,46 @@ def _parse_voice_catalog(
         for locale in lang_dict:
             lang_dict[locale].sort()
     return catalog
+
+
+@dataclass
+class ToggleRow:
+    """A boolean setting row (true/false), cycled with ← / →."""
+    key:   str
+    label: str
+    value: bool
+
+    def cycle(self, direction: int) -> None:
+        self.value = not self.value
+
+    def display_value(self) -> str:
+        return "true" if self.value else "false"
+
+
+@dataclass
+class SelectRow:
+    """A setting row with a fixed list of options, cycled with ← / →."""
+    key:     str
+    label:   str
+    value:   str
+    options: list[str]
+
+    def cycle(self, direction: int) -> None:
+        if not self.options:
+            return
+        idx = self.options.index(self.value) if self.value in self.options else 0
+        self.value = self.options[(idx + direction) % len(self.options)]
+
+    def display_value(self) -> str:
+        return self.value
+
+
+@dataclass
+class TextRow:
+    """A setting row with a free-text value, edited via inline Input."""
+    key:   str
+    label: str
+    value: str
+
+    def display_value(self) -> str:
+        return self.value

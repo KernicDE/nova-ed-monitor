@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from ed_monitor.ui.settings_screen import _parse_voice_catalog
+from ed_monitor.ui.settings_screen import _parse_voice_catalog, ToggleRow, TextRow, SelectRow
 
 
 class TestParseCatalog:
@@ -38,3 +38,47 @@ class TestParseCatalog:
         voices = [{"ShortName": "en-GB"}]  # only 2 parts, not 3
         catalog = _parse_voice_catalog(voices)
         assert catalog == {}
+
+
+class TestToggleRow:
+    def test_cycle_right(self):
+        row = ToggleRow("carrier_lookup", "Fleet Carrier Lookup", False)
+        row.cycle(+1)
+        assert row.value is True
+
+    def test_cycle_wraps(self):
+        row = ToggleRow("carrier_lookup", "Fleet Carrier Lookup", True)
+        row.cycle(+1)
+        assert row.value is False
+
+    def test_display(self):
+        row = ToggleRow("carrier_lookup", "Fleet Carrier Lookup", True)
+        assert row.display_value() == "true"
+
+
+class TestSelectRow:
+    def test_cycle_right(self):
+        row = SelectRow("tts_lang", "TTS Language", "en", ["en", "de", "fr"])
+        row.cycle(+1)
+        assert row.value == "de"
+
+    def test_cycle_wraps_at_end(self):
+        row = SelectRow("tts_lang", "TTS Language", "fr", ["en", "de", "fr"])
+        row.cycle(+1)
+        assert row.value == "en"
+
+    def test_cycle_left(self):
+        row = SelectRow("tts_lang", "TTS Language", "de", ["en", "de", "fr"])
+        row.cycle(-1)
+        assert row.value == "en"
+
+
+class TestTextRow:
+    def test_initial_value(self):
+        row = TextRow("tts_rate", "TTS Rate", "+10%")
+        assert row.value == "+10%"
+
+    def test_set_value(self):
+        row = TextRow("tts_rate", "TTS Rate", "+10%")
+        row.value = "-5%"
+        assert row.value == "-5%"
