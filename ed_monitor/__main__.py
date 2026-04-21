@@ -118,18 +118,19 @@ def main() -> None:
         # Only play startup message if not already played (prevents duplicates)
         if not getattr(state, '_startup_message_played', False):
             state._startup_message_played = True
-            startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."
-            voice = None  # use worker default
-            if cfg.tts_lang != "en":
-                from . import events as _ev_mod
-                voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
-            tts_q.put_nowait(TtsMsg(
-                text=startup_text, 
-                priority=False, 
-                volume=20, 
-                voice=voice,
-                deduplication_key="Nova_Startup"
-            ))
+            if not voicelines.is_muted("Nova_Startup", lang=cfg.tts_lang):
+                startup_text = voicelines.pick("Nova_Startup", lang=cfg.tts_lang) or "NOVA active."
+                voice = None  # use worker default
+                if cfg.tts_lang != "en":
+                    from . import events as _ev_mod
+                    voice = _ev_mod._LANG_VOICES.get(cfg.tts_lang)
+                tts_q.put_nowait(TtsMsg(
+                    text=startup_text,
+                    priority=False,
+                    volume=20,
+                    voice=voice,
+                    deduplication_key="Nova_Startup"
+                ))
     except Exception:
         pass
 

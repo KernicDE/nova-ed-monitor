@@ -72,11 +72,12 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
                                 if not known:
                                     lang  = _ev._TTS_LANG
                                     voice = _ev._LANG_VOICES.get(lang) if lang != "en" else None
-                                    text  = _vl.pick("System_EDSM_Unknown", lang=lang) or "System unknown to EDSM."
-                                    try:
-                                        tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-                                    except Exception:
-                                        pass
+                                    if not _vl.is_muted("System_EDSM_Unknown", lang=lang):
+                                        text  = _vl.pick("System_EDSM_Unknown", lang=lang) or "System unknown to EDSM."
+                                        try:
+                                            tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
+                                        except Exception:
+                                            pass
 
                         if bodies:
                             _merge_bodies(state, lock, bodies)
