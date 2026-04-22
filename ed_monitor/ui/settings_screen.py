@@ -156,12 +156,14 @@ class SettingsScreen(Screen):
     #save-row {
         height: 1;
         margin-top: 1;
+        background: $background;
         color: rgb(195,160,55);
         text-style: bold;
     }
     #save-row.focused-row {
         background: rgb(195,160,55);
-        color: rgb(18,18,18);
+        color: rgb(10,10,10);
+        text-style: bold;
     }
     #text-edit-input {
         margin-top: 1;
@@ -231,7 +233,7 @@ class SettingsScreen(Screen):
             yield Label("◈ NOVA Settings", id="settings-title")
             for i, row in enumerate(self._rows):
                 yield Static(self._row_text(row), id=f"row-{i}", classes="setting-row")
-            yield Static("[ SAVE ]", id="save-row", classes="setting-row")
+            yield Static("[ SAVE ]", id="save-row")
             # Note: Input is mounted dynamically in _open_editor — not here,
             # so it cannot steal focus during normal navigation.
             yield Label(_HINT_NAV, id="settings-hint")
@@ -315,15 +317,17 @@ class SettingsScreen(Screen):
                 self.app.pop_screen()
             return
 
-        # Stop all navigation keys from bubbling to the main app.
-        # (This prevents the situational-panel switching from firing while
-        #  the settings overlay is open.)
-        if key in ("up", "down", "left", "right", "enter"):
-            event.stop()
-
-        # While a TextRow Input is active, let the Input handle all other keys.
+        # While a TextRow Input is active, let it handle all other keys —
+        # including Enter (so Input.Submitted fires) and arrow keys (cursor
+        # movement in the text field).  We must NOT call event.stop() here,
+        # otherwise the Input widget never receives Enter.
         if self._editing:
             return
+
+        # Not editing: consume navigation keys so they cannot reach the main
+        # app's on_key (which would switch situational panels).
+        if key in ("up", "down", "left", "right", "enter"):
+            event.stop()
 
         n_rows = len(self._rows)
 

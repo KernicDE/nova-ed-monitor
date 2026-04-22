@@ -544,6 +544,12 @@ class NOVAApp(App):
             self.query_one(ChatLogPanel).scroll_chat(delta)
 
     def on_key(self, event: events.Key) -> None:
+        # When the settings overlay is active it handles all its own keys.
+        # Returning here prevents left/right/up/down from firing panel actions
+        # behind the overlay while the user is navigating settings.
+        if isinstance(self.screen, SettingsScreen):
+            return
+
         key = event.key
 
         if key == "question_mark":
