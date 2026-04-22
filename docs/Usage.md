@@ -4,8 +4,8 @@
 
 | Platform | Command |
 |----------|---------|
-| Linux — launcher | `./nova.sh` or `nova` |
-| Windows — launcher | double-click `nova.bat` in `%USERPROFILE%\nova\` |
+| Linux | `./nova.sh` (from the folder containing the script) |
+| Windows | Right-click `nova.ps1` → **Run with PowerShell** |
 | Standalone binary | `./nova-linux-x86_64` |
 
 NOVA automatically finds your Elite Dangerous journal files and starts monitoring. Launch it before or after starting the game — it will catch up.
@@ -15,16 +15,16 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 ## Interface Overview
 
 ```
-┌─ System ─────────┬─ Ship ──────────────────────┬─ Target ───┐
-│ System/faction   │ Hull/Shield/Fuel gauges     │ Nearby /   │
-│                  │                             │ targeted   │
-├──────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies   │ Overview / Wealth / Bio /    │ Events     │
-│ (FSS, DSS,       │ Missions / Engineers /       ├────────────┤
-│  values, dist)   │ Neutron / Galaxy / Stats     │ Chat log   │
-├──────────────────┴──────────────────────────────┴────────────┤
-│ Keybindings                                     Vol 50% ●   │
-└───────────────────────────────────────────────────────────────┘
+┌─ Position ────────┬─ Ship ─────────────────────┬─ Target ───┐
+│ System/faction    │ Hull/Shield/Fuel gauges     │ Nearby /   │
+│ Body on approach  │                             │ targeted   │
+├───────────────────┴─────────────────────────────┴────────────┤
+│ Scanned Bodies    │ Overview / Wealth / Bio /    │ Events     │
+│ (FSS, DSS,        │ Missions / Engineers /       ├────────────┤
+│  values, dist)    │ Neutron / Galaxy / Stats     │ Chat log   │
+├───────────────────┴──────────────────────────────┴────────────┤
+│ q s Tab ? ↑↓ +/-                                Vol 50% ●   │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 **Mode indicators** (border colour):
@@ -42,6 +42,7 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | Key | Action |
 |-----|--------|
 | `q` / `Esc` | Quit |
+| `s` | Open Settings overlay |
 | `?` | Help & About screen |
 | `Tab` | Cycle situational panel forward |
 | `Shift+Tab` | Cycle situational panel backward |
@@ -55,6 +56,20 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `n` | Open neutron route destination input (Neutron mode only) |
 | `+` / `=` | Volume up (+5%) |
 | `−` | Volume down (−5%) |
+
+---
+
+## Settings Overlay
+
+Press **`s`** from anywhere in NOVA to open the Settings overlay.
+
+- Navigate rows with **↑/↓**
+- Change toggles and selectors with **←/→**
+- Edit text fields with **Enter** (confirm with Enter, cancel with Esc)
+- Press **SAVE** to write all changes and apply them immediately
+- Press **ESC** to close without saving
+
+Voice selection is hierarchical: language → locale → voice name (powered by the edge-tts voice catalog). All changes take effect immediately without restarting NOVA.
 
 ---
 
@@ -83,7 +98,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 
 ---
 
-## System Panel (top left)
+## Position Panel (top left)
 
 Shows current system info in a two-column layout: natural/exploration data on the left, human/BGS data on the right.
 
@@ -95,8 +110,10 @@ Shows current system info in a two-column layout: natural/exploration data on th
 | | Controlling faction |
 | | Station count |
 
-Below the two-column table, a single position line is shown when on a surface:
-`At <nearest body>     Pos <lat, lon>     Alt <altitude m>`
+**Body details on approach:** when your ship approaches a known body, a body section appears below the system table showing type, gravity (red ≥3 G / yellow ≥1.5 G), radius, surface temperature, atmosphere, bio/geo signal counts, volcanism, and terraform flag.
+
+A position footer shows when on or near a surface:
+`At <body>     Pos <lat, lon>     Alt <altitude m>`
 
 Power Play state colour coding:
 - Cyan — Control
@@ -136,13 +153,15 @@ Shows all scanned bodies in the current system.
 |--------|---------|
 | Body | Short name — indented moons shown as ↳ child |
 | Type | Abbreviated body type |
-| Val | Scan value (gold if >1M Cr); ×3.3 mapping bonus included when body is unmapped; `~3.4M–12.9M` estimate in amber before full scan |
+| Val | **FSS'd, unmapped:** maximum projected DSS payout (efficiency bonus assumed) — **gold** if first-discovery+mapping, **amber** if first-mapping, white otherwise. **DSS'd:** actual mapped value. **Not FSS'd:** `~estimate` in amber. |
 | Dist | Distance from arrival (ls) |
 | B | Bio signal count; `3✓` in gold when all scans complete |
 | G | Geological signal count |
 | LTA | `L`=Landable `T`=Terraformable `A`=Atmosphere |
 | F | `●` = FSS scanned (stars always count as done) |
 | D | `●` = DSS mapped |
+
+Values always use the Frontier formula (EDSM values are ignored). The displayed value is the maximum possible payout assuming efficiency bonus — when you actually achieve it, the final value matches.
 
 **`★`** next to a species name = first discovered in the galaxy.
 

@@ -1,13 +1,25 @@
 # Settings Guide
 
-The config file is created automatically on first launch.
+## In-App Settings Overlay
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/nova/config.toml` |
-| Windows | `%USERPROFILE%\.config\nova\config.toml` |
+Press **`s`** from anywhere in NOVA to open the Settings overlay. Navigate with ↑/↓, change toggles and selectors with ←/→, edit text fields with Enter. Press **SAVE** to write the config and apply all changes immediately — no restart needed. Press **ESC** to close without saving.
 
-Open it with any text editor. All settings are optional — commented lines use defaults.
+The overlay covers all settings: TTS language, voice, rate, volume, notable-body threshold, Twitch/YouTube channels, chat TTS, overlay/screenshot dirs, debug log, and fleet carrier lookup.
+
+## Config File
+
+Changes made via the Settings overlay are written to `config.toml`. You can also edit this file directly — NOVA detects changes and applies them **within 2 seconds** (config hot-reload, no restart needed).
+
+| Install type | Path |
+|-------------|------|
+| Portable (launcher) — Linux | `<script folder>/config/config.toml` |
+| Portable (launcher) — Windows | `<script folder>\config\config.toml` |
+| System install — Linux | `~/.config/nova/config.toml` |
+| System install — Windows | `%USERPROFILE%\.config\nova\config.toml` |
+
+All settings are optional — commented lines use defaults.
+
+---
 
 ---
 
@@ -225,12 +237,14 @@ Lines whose variable evaluates to empty/zero are skipped automatically.
 
 On first launch NOVA copies the built-in voiceline files to a **reference folder** in your config directory. Do not edit those — they are overwritten on every launch.
 
-| Purpose | Path |
-|---------|------|
-| Reference (read-only) | `~/.config/nova/voicelines/default/` (Linux) |
-| User overrides | `~/.config/nova/voicelines/` (Linux) |
+| Purpose | Portable path | System install path (Linux) |
+|---------|---------------|-----------------------------|
+| Reference (read-only) | `<script folder>/config/voicelines/default/` | `~/.config/nova/voicelines/default/` |
+| User overrides | `<script folder>/config/voicelines/` | `~/.config/nova/voicelines/` |
 
-**Windows:** replace `~/.config` with `%USERPROFILE%\.config`.
+**Windows system install:** replace `~/.config` with `%USERPROFILE%\.config`.
+
+NOVA **hot-reloads** voiceline files — editing your `en.toml` while NOVA is running takes effect within 2 seconds. If your file has a TOML syntax error, NOVA logs a warning in the event log and speaks a TTS alert, then falls back to built-in defaults.
 
 Create a file named `en.toml` (or `de.toml`, `fr.toml`, etc.) in the user overrides folder. Only define the events you want to change — everything else uses the built-in defaults.
 
@@ -258,6 +272,51 @@ replace = []   # empty list = silence this event entirely
 
 Keys absent from your file continue to use the built-in defaults. Your file is never overwritten by NOVA updates.
 
+### Template Engine
+
+Templates support two advanced features evaluated before variable substitution:
+
+**Includes** — reusable fragments (key must start with `_`):
+
+```toml
+[_ship_status]
+add = ["{ship_name} — hull {hull}, fuel {fuel}."]
+
+[FSDJump]
+add = ["Arrived in {system}. {_ship_status}"]
+# or explicit form (required when key name contains hyphens):
+add = ["Arrived in {system}. {include:_ship_status}"]
+```
+
+- Missing fragment keys expand to `""` with a warning logged.
+- Circular includes are detected (depth > 5) and expand to `""`.
+- The shorthand `{_KeyName}` supports letters, digits and underscores only. Use `{include:_key-name}` for hyphens.
+
+**Conditionals** — inline `WHEN condition THEN "text";` blocks:
+
+```toml
+[Scan_Notable]
+add = ['Scanned {body_short}. WHEN {value_raw} > 500000 THEN "Worth {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals.";']
+
+[FSDJump]
+add = ['Jumped to {system}. WHEN {terra} IS TRUE THEN "Terraformable system.";']
+```
+
+Condition true → text is inserted. Condition false → the whole `WHEN...;` block is replaced with `""`. The `;` at the end is optional when the block is the last thing in the string.
+
+**Supported operators:**
+
+| Operator | Example |
+|----------|---------|
+| `IS TRUE` | `WHEN {terra} IS TRUE THEN "..."` |
+| `IS FALSE` | `WHEN {first_disc} IS FALSE THEN "..."` |
+| `IS NOT TRUE` | `WHEN {landable} IS NOT TRUE THEN "..."` |
+| `==` / `!=` | `WHEN {economy} == "Refinery" THEN "..."` |
+| `<` / `>` / `<=` / `>=` | `WHEN {value_raw} > 500000 THEN "..."` |
+| `AND` / `OR` | `WHEN {bio_count} > 0 AND {first_disc} IS TRUE THEN "..."` |
+
+Truthy: non-empty value that is not `"0"` or `"false"`. Flag variables (`{terra}`, `{landable}`, `{first_disc}`, etc.) are `""` when absent, so `IS TRUE` works naturally. Unknown `{variable}` names silently expand to `""`.
+
 ### Available template variables
 
 Variables differ per event key — see the reference files in `default/` for the full list. Common ones:
@@ -267,5 +326,11 @@ Variables differ per event key — see the reference files in `default/` for the
 | `{system}` | Destination or current system name |
 | `{dist_ly}` | Jump distance formatted for speech |
 | `{station}` | Station name |
-| `{body}` | Body name |
+| `{body}` / `{body_short}` | Full / short body name |
+| `{value}` / `{value_raw}` | FSS scan value (formatted / raw number) |
+| `{value_mapped}` / `{value_mapped_raw}` | Projected or actual DSS payout with all bonuses |
+| `{terra}` | Non-empty when terraformable |
+| `{landable}` | Non-empty when landable |
+| `{first_disc}` | Non-empty when first discovered |
+| `{bio_count}` / `{geo_count}` | Bio / geo signal counts |
 | `{name}` | Commander / pilot / species name |

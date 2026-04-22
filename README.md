@@ -14,6 +14,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 ### Voice & TTS
 - **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
 - **NOVA voiceovers** — fully translated into 7 languages with multiple random variants per event; user-editable TOML files per language
+- **Voiceline template engine** — user templates support reusable include fragments (`{include:_key}` / `{_key}`) and inline conditionals (`WHEN {value_raw} > 500000 THEN "Worth {value}.";`) with full AND/OR operator support
 - **Multi-language detection** — automatically detects and voices EN, DE, FR, IT, ES, PT, RU per message
 - **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
 - **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed)
@@ -22,7 +23,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species; first footfall bonus announced when all 3 samples scanned
 - **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) before DSS, and predicted genera after FSS based on planet conditions
 - **First footfall inference** — announces first footfall bonus even when the journal flag is absent; pre-flags bodies from FSS scan data (`WasFootfalled=false`)
-- **First-mapping bonus** — body values include ×3.3 mapping bonus when a body has never been mapped (`WasMapped=false`) and is not yet DSS'd; shown in Bodies panel, Overview, and notable-body threshold
+- **Body value display** — FSS'd unmapped bodies always show the maximum projected DSS payout (efficiency bonus assumed); color-coded: gold = first-discovery+mapping, amber = first-mapping, white = no bonus; values use the Frontier formula, not EDSM data
 - **High-G body warning** — TTS warning at ≥1.5 G; three repeated alerts and orange border flash for extreme gravity (≥3 G)
 - **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
 - **EDSM enrichment** — downloads EDSM nightly dumps for offline lookups; no API key needed
@@ -36,7 +37,9 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; shown in Overview; cached 5 min)
 
 ### Terminal UI
-- **System / Ship / Target / Bodies / Situational / Events / Chat panels**
+- **Settings overlay** — press `s` to open in-app settings; change TTS language/voice/rate, volume, thresholds, channels, and more without editing files; changes apply immediately (no restart)
+- **Config hot-reload** — editing `config.toml` or voiceline TOML files while NOVA is running takes effect within 2 seconds automatically
+- **Position / Ship / Target / Bodies / Situational / Events / Chat panels**
 - **Situational panel** (14 modes, cycle with `Tab` / `Shift+Tab`):
   - Auto-switches by context (route, bio, missions, docking, etc.); toggle lock with `a`
   - Panel visibility and order configurable via `situational_panels` in config
@@ -57,7 +60,7 @@ A real-time TUI companion for **Elite Dangerous** — reads journal files, speak
 - **Persistent event log** — replays journal history from SQLite across sessions, including bodies from previous sessions
 - **Keybindings backup** — backs up your ED `.binds` file on changes; last 5 versions kept
 - **Stream overlay** — writes `.txt` files per data field for OBS/Streamlabs
-- **Auto-installing launcher** — installs Python, NOVA, and dependencies automatically; auto-updates on every launch
+- **Portable launcher** — `nova.sh` / `nova.ps1` keep all data (venv, config, database) in the same folder as the script; run from any location; auto-installs Python and NOVA on first launch, auto-updates on every launch
 - **Debug logging** — enable `debug_log = true` to write a full session log for diagnostics
 
 ---
@@ -72,18 +75,16 @@ chmod +x nova.sh
 ./nova.sh
 ```
 
-The script installs Python (if missing), creates an isolated virtual environment, installs NOVA, and launches it. On every subsequent launch it checks for updates automatically. A `nova` command is also installed to `~/.local/bin/nova`.
+The script installs Python (if missing), creates an isolated virtual environment, installs NOVA, and launches it. **All data (config, database, venv) lives in the same folder as `nova.sh`.** On every subsequent launch it checks for updates automatically.
 
 ### Windows
 
-1. Download [`install_windows.bat`](https://github.com/KernicDE/nova-ed-monitor/releases/latest/download/install_windows.bat) from the latest release
-2. Double-click **`install_windows.bat`**
+1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) — right-click the link and **Save As** to a folder of your choice (e.g. `C:\Nova\`)
+2. Right-click **`nova.ps1`** → **Run with PowerShell**
 
-That's it. The installer downloads the launcher files to `%USERPROFILE%\nova\`, installs Python 3.12 (if missing), creates an isolated virtual environment, installs NOVA, and launches it.
+On first run the script installs Python 3.12 (if missing), creates a virtual environment, and installs NOVA — all inside the folder where `nova.ps1` lives. **All data stays in that folder.** On every subsequent launch it checks for updates automatically.
 
-On every subsequent launch, double-click **`nova.bat`** in `%USERPROFILE%\nova\`. It checks for updates automatically each time.
-
-> ⚠️ Always download from the **Releases** section — downloading script files from the GitHub repository page gives you HTML, not the actual file.
+> ⚠️ If PowerShell blocks the script, run once in a PowerShell window: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 ---
 
@@ -91,11 +92,10 @@ On every subsequent launch, double-click **`nova.bat`** in `%USERPROFILE%\nova\`
 
 | Platform | Command |
 |----------|---------|
-| Linux — launcher | `./nova.sh` |
-| Linux — direct | `nova` |
-| Windows — launcher | double-click `nova.bat` in `%USERPROFILE%\nova\` |
+| Linux | `./nova.sh` (from the folder containing the script) |
+| Windows | Right-click `nova.ps1` → **Run with PowerShell** |
 
-Both the launcher scripts and the `nova` command check for updates on every launch and upgrade automatically if a newer version is available on GitHub.
+Both launcher scripts check for updates on every launch and upgrade automatically if a newer version is available on GitHub.
 
 ---
 
@@ -103,7 +103,7 @@ Both the launcher scripts and the `nova` command check for updates on every laun
 
 Updates happen **automatically** on every launch — no manual action needed.
 
-To force an immediate update run the launcher script:
+To force an immediate update, run the launcher script again — it always checks on launch:
 
 ```bash
 # Linux
@@ -120,12 +120,10 @@ To force an immediate update run the launcher script:
 ### Linux
 
 ```bash
-nova --uninstall
+./nova.sh --uninstall
 ```
 
-Removes the virtual environment (`~/.local/share/nova/`), config (`~/.config/nova/`), and the `nova` command itself. Prompts for confirmation. Elite Dangerous journal files are **not touched**.
-
-After uninstalling, delete `nova.sh` manually if you no longer need it.
+Removes the entire NOVA folder (venv, config, database). Prompts for confirmation. Elite Dangerous journal files are **not touched**. Delete `nova.sh` afterwards to finish.
 
 ### Windows
 
@@ -133,15 +131,7 @@ After uninstalling, delete `nova.sh` manually if you no longer need it.
 .\nova.ps1 -Uninstall
 ```
 
-Or via the bat file:
-
-```
-nova.bat -Uninstall
-```
-
-Removes the virtual environment (`%LOCALAPPDATA%\nova\`), and config (`%USERPROFILE%\.config\nova\`). Prompts for confirmation. Elite Dangerous journal files are **not touched**.
-
-After uninstalling, delete `nova.ps1` and `nova.bat` manually.
+Removes the entire NOVA folder (venv, config, database). Prompts for confirmation. Elite Dangerous journal files are **not touched**. Delete `nova.ps1` afterwards to finish.
 
 ---
 
@@ -196,14 +186,18 @@ python -m venv .venv
 
 ## Configuration
 
-The config file is created automatically on first launch at:
+The config file is created automatically on first launch. Press **`s`** inside NOVA to open the in-app Settings overlay — the easiest way to change most settings without editing files directly.
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/nova/config.toml` |
-| Windows | `%USERPROFILE%\.config\nova\config.toml` |
+To edit manually, open `config.toml` in any text editor:
 
-Open it with any text editor to adjust settings:
+| Install type | Path |
+|-------------|------|
+| Portable (launcher) — Linux | `<script folder>/config/config.toml` |
+| Portable (launcher) — Windows | `<script folder>\config\config.toml` |
+| System install — Linux | `~/.config/nova/config.toml` |
+| System install — Windows | `%USERPROFILE%\.config\nova\config.toml` |
+
+Available settings:
 
 ```toml
 # Journal directory (leave commented to auto-detect):
@@ -257,6 +251,7 @@ Open it with any text editor to adjust settings:
 | Key | Action |
 |-----|--------|
 | `q` / `Esc` | Quit |
+| `s` | Open Settings overlay |
 | `?` | Help & About screen |
 | `Tab` | Cycle situational panel forward |
 | `Shift+Tab` | Cycle situational panel backward |
@@ -276,16 +271,16 @@ Open it with any text editor to adjust settings:
 ## UI Layout
 
 ```
-┌─ System ─────────┬─ Ship ──────────────────────┬─ Target ───┐
-│ System/faction   │ Hull/Shield/Fuel gauges     │ Nearby /   │
-│                  │                             │ targeted   │
-├──────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies   │ SITUATION panel             │ Events     │
-│ (FSS, DSS,       │ (14 modes, Tab to cycle)    ├────────────┤
-│  values, dist)   │                             │ Chat log   │
-├──────────────────┴─────────────────────────────┴────────────┤
-│ q Quit  Tab Mode  ? Help  ↑↓ Scroll  +/- Vol  HH:MM  v1.x  │
-└─────────────────────────────────────────────────────────────┘
+┌─ Position ────────┬─ Ship ─────────────────────┬─ Target ───┐
+│ System/faction    │ Hull/Shield/Fuel gauges     │ Nearby /   │
+│ Body on approach  │                             │ targeted   │
+├───────────────────┴─────────────────────────────┴────────────┤
+│ Scanned Bodies    │ SITUATION panel             │ Events     │
+│ (FSS, DSS,        │ (14 modes, Tab to cycle)    ├────────────┤
+│  values, dist)    │                             │ Chat log   │
+├───────────────────┴─────────────────────────────┴────────────┤
+│ q Quit  s Settings  Tab Mode  ? Help  ↑↓ Scroll  +/- Vol    │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Situational Panel Modes
@@ -368,6 +363,33 @@ replace = []   # silence this event entirely
 - **`replace`** — replaces built-in lines entirely; `replace = []` silences the event.
 - Keys absent from your file keep the built-in default. Your file is never overwritten by updates.
 
+### Template Engine
+
+Templates support two advanced features processed before variable substitution:
+
+**Includes** — reusable fragments (key must start with `_`):
+
+```toml
+[_ship_status]
+add = ["{ship_name} — hull {hull}, fuel {fuel}."]
+
+[FSDJump]
+add = ["Arrived in {system}. {_ship_status}"]
+# or explicit form (supports hyphens in key names):
+add = ["Arrived in {system}. {include:_ship_status}"]
+```
+
+**Conditionals** — inline `WHEN condition THEN "text";` blocks:
+
+```toml
+[Scan_Notable]
+add = ['Scanned {body_short}. WHEN {value_raw} > 500000 THEN "Worth {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals.";']
+```
+
+Operators: `IS TRUE`, `IS FALSE`, `IS NOT TRUE`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `AND`, `OR`
+
+Flag variables like `{terra}`, `{landable}`, `{first_disc}` are `""` when absent — so `WHEN {terra} IS TRUE` works naturally. Unknown `{variable}` names expand to `""` instead of crashing.
+
 ---
 
 ## TTS Languages
@@ -386,18 +408,30 @@ replace = []   # silence this event entirely
 
 ## Data Paths
 
+NOVA stores all data relative to the launcher script when run via `nova.sh` / `nova.ps1` (portable mode). If installed via pip directly, standard system paths are used instead.
+
+### Portable mode (recommended — via launcher script)
+
+All data lives in subdirectories of the folder containing `nova.sh` / `nova.ps1`:
+
+| Subfolder | Contents |
+|-----------|----------|
+| `config/config.toml` | Configuration |
+| `config/voicelines/` | User voiceline overrides |
+| `data/events.db` | SQLite event log, statistics, EDSM cache (~50–80 MB after first download) |
+| `logs/nova-debug.log` | Debug log (when `debug_log = true`) |
+| `venv/` | Python virtual environment |
+
+### System install (via pip)
+
 | Path | Platform | Contents |
 |------|----------|----------|
 | `~/.config/nova/config.toml` | Linux | Configuration |
 | `%USERPROFILE%\.config\nova\config.toml` | Windows | Configuration |
 | `~/.local/share/nova/events.db` | Linux | SQLite event log |
 | `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log |
-| `~/.local/share/nova/venv/` | Linux | Python virtual environment |
-| `%LOCALAPPDATA%\nova\venv\` | Windows | Python virtual environment |
-| `~/.config/nova/bindings_backup/` | Linux | Keybindings backups |
-| `%USERPROFILE%\.config\nova\bindings_backup\` | Windows | Keybindings backups |
-| `~/.config/nova/nova-debug.log` | Linux | Debug log (when `debug_log = true`) |
-| `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log (when `debug_log = true`) |
+| `~/.config/nova/nova-debug.log` | Linux | Debug log |
+| `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log |
 
 ---
 
@@ -409,12 +443,8 @@ replace = []   # silence this event entirely
 **"No TTS voice / audio"**
 → On Arch: `yay -S python-pygame`; elsewhere: `pip install --upgrade pygame` inside the NOVA venv
 
-**"nova: command not found" (Linux)**
-→ Run `./nova.sh` once; add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`
-
 **"Access denied" / execution policy error (Windows)**
-→ Right-click `nova.bat` → "Run as administrator" once, or run:
-  `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+→ In PowerShell run: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then right-click `nova.ps1` → **Run with PowerShell**
 
 **TTS is too fast/slow**
 → Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal, `tts_rate = +20%` for faster
