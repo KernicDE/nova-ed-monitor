@@ -506,3 +506,115 @@ class AppState:
 
     def remove_mission(self, mission_id: int) -> None:
         self.missions = [m for m in self.missions if m.mission_id != mission_id]
+
+
+# ── Body value formula (Frontier forum formula by MattG) ──────────────────────
+# https://forums.frontier.co.uk/threads/exploration-value-formulae.232000/
+
+_Q                         = 0.56591828
+_MASS_POW                  = 0.2
+_MIN_VALUE                 = 500
+_BASIC_VALUE               = 300
+_BASIC_BONUS_TERRAFORMABLE = 93328
+_EFFICIENCY_MULTIPLIER     = 1.25
+_ODYSSEY_MAPPING_BONUS     = 0.3   # 30 % extra on mapped value for first footfall
+
+_SPECIFIC_VALUES: dict[str, int] = {
+    "Metal rich body":              21790,
+    "High metal content body":       9654,
+    "Ammonia world":                96932,
+    "Water world":                  64831,
+    "Earthlike body":               64831,
+    "Sudarsky class I gas giant":    1656,
+    "Sudarsky class II gas giant":   9654,
+}
+
+_SPECIFIC_BONUS: dict[str, int] = {
+    "Metal rich body":         105678,
+    "High metal content body": 100677,
+    "Water world":             116295,
+    "Earthlike body":          116295,
+}
+
+_BODY_EST_VALUES: dict[str, int] = {
+    "Earthlike body":                      64_831,
+    "Water world":                        130_000,
+    "Ammonia world":                      200_000,
+    "Metal rich body":                     35_000,
+    "High metal content body":             22_000,
+    "Rocky body":                           3_500,
+    "Rocky ice body":                       4_000,
+    "Icy body":                             2_500,
+    "Sudarsky class I gas giant":           4_500,
+    "Sudarsky class II gas giant":         25_000,
+    "Sudarsky class III gas giant":         4_500,
+    "Sudarsky class IV gas giant":          5_500,
+    "Sudarsky class V gas giant":           6_000,
+    "Helium rich gas giant":                3_500,
+    "Gas giant with water-based life":     19_000,
+    "Gas giant with water based life":     19_000,
+    "Gas giant with ammonia-based life":   22_000,
+    "Gas giant with ammonia based life":   22_000,
+    "Water giant":                          4_000,
+}
+
+
+def estimate_value_base(b: "BodyInfo") -> int:
+    """Scan value before any mapping/discovery multipliers.
+
+    When mass_em is known (from journal Scan), uses the exact Frontier formula:
+      max(k * (1 + Q * M^0.2), MIN_VALUE) + terraformable_bonus
+    Falls back to the _BODY_EST_VALUES table when mass is unavailable.
+    Returns 0 for stars and unrecognised body types.
+    """
+    if b.mass_em > 0.0:
+        k = _SPECIFIC_VALUES.get(b.planet_class, _BASIC_VALUE)
+        if b.terraform:
+            k += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
+        return max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
+    base = _BODY_EST_VALUES.get(b.planet_class, 0)
+    if base > 0 and b.terraform:
+        base += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
+    return base
+
+
+def estimate_value_mapped(b: "BodyInfo") -> int:
+    """Projected or actual mapped value with all ED exploration bonuses.
+
+    When b.mapped is True: actual payout (player already DSS'd the body).
+    When b.fss_scanned and not mapped: projected payout assuming efficiency bonus.
+    When neither: projected payout with first-mapped/first-discovered flags applied.
+    """
+    v = estimate_value_base(b) if b.fss_scanned else (b.value if b.value > 0 else estimate_value_base(b))
+    if v <= 0:
+        return 0
+    if b.mapped:
+        if b.first_mapped and b.first_discovered:
+            mult = 8.0956
+        elif b.first_mapped:
+            mult = 3.699622554
+        else:
+            mult = 3.3333333333
+        if b.efficiency_bonus:
+            mult *= _EFFICIENCY_MULTIPLIER
+        v = int(v * mult)
+        if b.first_footfall:
+            v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
+    elif b.fss_scanned:
+        if b.first_discovered and b.first_mapped:
+            mult = 8.0956
+        elif b.first_mapped:
+            mult = 3.699622554
+        else:
+            mult = 3.3333333333
+        v = int(v * mult * _EFFICIENCY_MULTIPLIER)
+    elif b.first_mapped:
+        if b.first_discovered:
+            v = int(v * 8.0956)
+        else:
+            v = int(v * 3.699622554)
+    elif b.first_discovered:
+        v = int(v * 2.6)
+    else:
+        v = int(v * 3.3333333333)
+    return v

@@ -20,7 +20,12 @@ from rich.table import Table
 from rich.text import Text
 from textual.widget import Widget
 
-from ..state import AppState, BioScan, BodyInfo, EngineerInfo, EventCategory
+from ..state import (
+    AppState, BioScan, BodyInfo, EngineerInfo, EventCategory,
+    estimate_value_base as _estimated_value,
+    estimate_value_mapped as _body_value,
+    _SPECIFIC_BONUS, _BASIC_BONUS_TERRAFORMABLE, _EFFICIENCY_MULTIPLIER, _ODYSSEY_MAPPING_BONUS,
+)
 from . import palette as P
 
 
@@ -218,139 +223,6 @@ def _gauge_bar(ratio: float, width: int, col_full: str, col_empty: str = P.DIM) 
     t.append("░" * empty,  style=col_empty)
     return t
 
-
-# ── Exploration value constants (Frontier forum formula by MattG) ──────────────
-# https://forums.frontier.co.uk/threads/exploration-value-formulae.232000/
-
-_Q                        = 0.56591828
-_MASS_POW                 = 0.2
-_MIN_VALUE                = 500
-_BASIC_VALUE              = 300
-_BASIC_BONUS_TERRAFORMABLE = 93328
-_EFFICIENCY_MULTIPLIER    = 1.25
-_ODYSSEY_MAPPING_BONUS    = 0.3   # 30 % extra on mapped value for first footfall
-
-_SPECIFIC_VALUES: dict[str, int] = {
-    "Metal rich body":               21790,
-    "High metal content body":        9654,
-    "Ammonia world":                 96932,
-    "Water world":                   64831,
-    "Earthlike body":                64831,
-    "Sudarsky class I gas giant":     1656,
-    "Sudarsky class II gas giant":    9654,
-}
-
-# Terraformable bonus added to k before mass calculation (per body type)
-_SPECIFIC_BONUS: dict[str, int] = {
-    "Metal rich body":          105678,
-    "High metal content body": 100677,
-    "Water world":             116295,
-    "Earthlike body":          116295,
-}
-
-# Fallback k*mass estimate for EDSM-only bodies with no mass data (typical-mass midpoints)
-_BODY_EST_VALUES: dict[str, int] = {
-    "Earthlike body":                       64_831,   # k=64831, ~0 EM tiny; actual scan always has mass
-    "Water world":                         130_000,   # k=64831, ~8 EM typical
-    "Ammonia world":                       200_000,   # k=96932, ~10 EM typical
-    "Metal rich body":                      35_000,   # k=21790, ~1.5 EM typical
-    "High metal content body":              22_000,   # k=9654,  ~5 EM typical
-    "Rocky body":                            3_500,
-    "Rocky ice body":                        4_000,
-    "Icy body":                              2_500,
-    "Sudarsky class I gas giant":            4_500,   # k=1656,  ~200 EM typical
-    "Sudarsky class II gas giant":          25_000,   # k=9654,  ~200 EM typical
-    "Sudarsky class III gas giant":          4_500,
-    "Sudarsky class IV gas giant":           5_500,
-    "Sudarsky class V gas giant":            6_000,
-    "Helium rich gas giant":                 3_500,
-    "Gas giant with water-based life":      19_000,
-    "Gas giant with water based life":      19_000,
-    "Gas giant with ammonia-based life":    22_000,
-    "Gas giant with ammonia based life":    22_000,
-    "Water giant":                           4_000,
-}
-
-
-def _estimated_value(b: BodyInfo) -> int:
-    """Pre-mapping scan value (no first-discovered/mapping multipliers applied).
-
-    When mass_em is available (from journal Scan event), uses the exact Frontier
-    formula: max(k * (1 + Q * M^0.2), MIN_VALUE) + terraformable_bonus.
-    Falls back to the _BODY_EST_VALUES table for EDSM-only bodies without mass data.
-    """
-    if b.mass_em > 0.0:
-        k = _SPECIFIC_VALUES.get(b.planet_class, _BASIC_VALUE)
-        if b.terraform:
-            k += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
-        v = max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
-        return v
-    # Fallback: table estimate (no mass available)
-    base = _BODY_EST_VALUES.get(b.planet_class, 0)
-    if base > 0 and b.terraform:
-        base += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
-    return base
-
-
-def _body_value(b: BodyInfo) -> int:
-    """Body value with all ED exploration bonuses (Frontier formula by MattG).
-
-    Base value selection:
-      - FSS'd (fss_scanned=True): always use formula via _estimated_value().
-        EDSM-injected values are never used for scanned bodies.
-      - Not FSS'd: use EDSM value (b.value) if available, else lookup-table estimate.
-
-    Multipliers applied on top of base:
-      mapped (already mapped by others):           ×3.3333
-      first mapped (not first discovered):         ×3.6996
-      first mapped + first discovered:             ×8.0956
-      + efficiency DSS bonus:                      ×1.25  (stacks with map mult)
-      + Odyssey first-footfall bonus (mapped):     ×1.30  (applied after map mult)
-
-    When b.mapped is True the player has DSS'd the body and the payout is real.
-    When b.fss_scanned is True but b.mapped is False, we show the maximum projected
-    payout assuming efficiency bonus (since the player will presumably DSS it).
-    """
-    if b.fss_scanned:
-        v = _estimated_value(b)          # always formula-based; never use EDSM value
-    else:
-        v = b.value if b.value > 0 else _estimated_value(b)
-    if v <= 0:
-        return 0
-    if b.mapped:
-        # Player DSS'd it — actual mapping payout
-        if b.first_mapped and b.first_discovered:
-            mult = 8.0956
-        elif b.first_mapped:
-            mult = 3.699622554
-        else:
-            mult = 3.3333333333
-        if b.efficiency_bonus:
-            mult *= _EFFICIENCY_MULTIPLIER
-        v = int(v * mult)
-        if b.first_footfall:
-            v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
-    elif b.fss_scanned:
-        # FSS'd but not yet DSS'd — show maximum projected payout, always assume efficiency
-        if b.first_discovered and b.first_mapped:
-            mult = 8.0956
-        elif b.first_mapped:
-            mult = 3.699622554
-        else:
-            mult = 3.3333333333
-        v = int(v * mult * _EFFICIENCY_MULTIPLIER)
-    elif b.first_mapped:
-        # Not FSS'd, not yet DSS'd — projected payout (efficiency/odyssey unknown yet)
-        if b.first_discovered:
-            v = int(v * 8.0956)
-        else:
-            v = int(v * 3.699622554)
-    elif b.first_discovered:
-        v = int(v * 2.6)
-    else:
-        # Not yet DSS'd, no first-mapped/discovered flags — show projected DSS payout
-        v = int(v * 3.3333333333)
-    return v
 
 
 def _body_value_color(b: BodyInfo) -> str:

@@ -6,7 +6,10 @@ import threading
 import time
 from typing import Optional
 
-from .state import AppState, BioScan, BodyInfo, EngineerInfo, EventCategory, LogEvent, MissionInfo
+from .state import (
+    AppState, BioScan, BodyInfo, EngineerInfo, EventCategory, LogEvent, MissionInfo,
+    estimate_value_base as _ev_base, estimate_value_mapped as _ev_mapped,
+)
 from .tts import TtsMsg
 from . import voicelines as _vl
 
@@ -564,13 +567,22 @@ def _tts_pop(n: int) -> str:
 
 
 def _body_vars(b) -> dict:
-    """Return a dict of BodyInfo-derived variables for voiceline templates."""
+    """Return a dict of BodyInfo-derived variables for voiceline templates.
+
+    {value} / {value_raw}        — FSS scan value (formula-based; never empty for known body types)
+    {value_mapped} / {value_mapped_raw} — projected or actual DSS payout (with multipliers)
+    """
     g_raw = f"{b.surface_gravity / 9.80665:.2f}" if b.surface_gravity > 0 else ""
     t_raw = str(int(b.surface_temp))              if b.surface_temp > 0   else ""
     r_raw = str(int(b.radius / 1000))             if b.radius > 0         else ""
     m_raw = f"{b.mass_em:.2f}"                    if b.mass_em > 0        else ""
     d_raw = str(int(b.dist_ls))                   if b.dist_ls > 0        else ""
-    v_raw = str(b.value)                          if b.value > 0          else ""
+    # Scan value: use journal EstimatedValue if present, fall back to formula estimate
+    v_int = b.value if b.value > 0 else _ev_base(b)
+    v_raw = str(v_int) if v_int > 0 else ""
+    # Mapped value: projected or actual DSS payout with all multipliers
+    vm_int = _ev_mapped(b)
+    vm_raw = str(vm_int) if vm_int > 0 else ""
     return dict(
         body_type=b.planet_class, atmosphere=b.atmosphere, volcanism=b.volcanism,
         gravity=f"{g_raw} G" if g_raw else "",    gravity_raw=g_raw,
@@ -578,7 +590,8 @@ def _body_vars(b) -> dict:
         radius=f"{r_raw} kilometres" if r_raw else "", radius_raw=r_raw,
         mass=f"{m_raw} Earth masses" if m_raw else "", mass_raw=m_raw,
         dist_ls=_tts_ls(b.dist_ls) if b.dist_ls > 0 else "", dist_ls_raw=d_raw,
-        value=_tts_cr(b.value) if b.value > 0 else "", value_raw=v_raw,
+        value=_tts_cr(v_int) if v_int > 0 else "", value_raw=v_raw,
+        value_mapped=_tts_cr(vm_int) if vm_int > 0 else "", value_mapped_raw=vm_raw,
         terra="Terraformable" if b.terraform else "",
         landable="Landable" if b.landable else "",
         bio_count=str(b.bio_signals), geo_count=str(b.geo_signals),
