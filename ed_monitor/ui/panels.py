@@ -419,7 +419,7 @@ class _Panel(Widget):
 # ── System panel ──────────────────────────────────────────────────────────────
 
 class SystemPanel(_Panel):
-    BORDER_TITLE = "◈ System"
+    BORDER_TITLE = "◈ Position"
 
     DEFAULT_CSS = """
     SystemPanel {
@@ -448,6 +448,10 @@ class SystemPanel(_Panel):
             snap.system_power, snap.system_power_state,
             snap.pp_power, snap.pp_total_merits, snap.pp_rank,
             snap.client_online, snap.in_hyperspace,
+            snap.nearest_body,
+            round(snap.lat, 2)      if snap.lat      is not None else None,
+            round(snap.lon, 2)      if snap.lon      is not None else None,
+            round(snap.altitude, 0) if snap.altitude is not None else None,
         )
         if self._key_changed(key):
             self.refresh()
@@ -545,10 +549,81 @@ class SystemPanel(_Panel):
                 tbl.add_row(lc, rc)
             parts.append(tbl)
 
-        # Position footer — single line below the table:
-        # [At nearest_body]     [Pos x, y]     [Alt n m]
-        pos_parts: list[Text] = []
+        # ── Body section — shown when near a known body ───────────────────────
+        body_info: "BodyInfo | None" = None
         if s.nearest_body:
+            body_info = next((b for b in s.bodies if b.name == s.nearest_body), None)
+
+        if body_info is not None:
+            # Section separator + body name header
+            sep = Text()
+            sep.append("\n")
+            sep.append(_short_name(s.nearest_body, s.system), style="bold white")
+            parts.append(sep)
+
+            bleft:  list[Text] = []
+            bright: list[Text] = []
+
+            # Type
+            btype = _abbrev_type(body_info.planet_class, body_info.star_type)
+            if btype:
+                tcol = _body_color(body_info.planet_class, body_info.star_type)
+                bleft.append(_cell("Type", btype, tcol))
+
+            # Gravity (planets only)
+            if body_info.surface_gravity > 0 and body_info.planet_class:
+                g     = body_info.surface_gravity / 9.80665
+                gcol  = (P.HUD_CRIT if g >= 3.0
+                         else P.HUD_WARN if g >= 1.5
+                         else P.WHITE)
+                bleft.append(_cell("Gravity", f"{g:.2f} G", gcol))
+
+            # Radius
+            if body_info.radius > 0:
+                km = body_info.radius / 1000
+                bleft.append(_cell("Radius", f"{km:,.0f} km"))
+
+            # Surface temperature
+            if body_info.surface_temp > 0:
+                bleft.append(_cell("Temp", f"{body_info.surface_temp:.0f} K"))
+
+            # Atmosphere (skip "No atmosphere")
+            atm = body_info.atmosphere or ""
+            if atm and "no atmosphere" not in atm.lower():
+                atm_short = re.sub(r"\s+atmosphere$", "", atm, flags=re.IGNORECASE)
+                bright.append(_cell("Atm", atm_short))
+
+            # Bio and Geo signals
+            if body_info.bio_signals > 0:
+                bright.append(_cell("Bio", str(body_info.bio_signals), P.HUD_GREEN))
+            if body_info.geo_signals > 0:
+                bright.append(_cell("Geo", str(body_info.geo_signals), P.AMBER))
+
+            # Volcanism (strip trailing " volcanism", title-case)
+            if body_info.volcanism:
+                vol = re.sub(r"\s+volcanism$", "", body_info.volcanism,
+                             flags=re.IGNORECASE).title()
+                bright.append(_cell("Volc", vol))
+
+            # Terraformable
+            if body_info.terraform:
+                bright.append(_cell("TF", "Candidate", P.HUD_GREEN))
+
+            if bleft or bright:
+                btbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+                btbl.add_column("left",  ratio=1)
+                btbl.add_column("right", ratio=1)
+                brows = max(len(bleft), len(bright))
+                for i in range(brows):
+                    lc = bleft[i]  if i < len(bleft)  else Text("")
+                    rc = bright[i] if i < len(bright) else Text("")
+                    btbl.add_row(lc, rc)
+                parts.append(btbl)
+
+        # Position footer — Pos/Alt (and "At" when no body section is shown)
+        pos_parts: list[Text] = []
+        if s.nearest_body and body_info is None:
+            # Only show "At" when we have no detailed body section above
             pos_parts.append(_cell("At", _short_name(s.nearest_body, s.system)))
         if s.lat is not None and s.lon is not None:
             pos_parts.append(_cell("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))

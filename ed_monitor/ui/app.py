@@ -117,7 +117,7 @@ class HelpScreen(Screen):
         cfg.append("%USERPROFILE%\\.config\\nova\\config.toml", style=WHITE)
 
         edsm_note = Text()
-        edsm_note.append("Power Play state and nearest inhabited system shown in System panel.\n", style=DIM)
+        edsm_note.append("Power Play state and nearest inhabited system shown in Position panel.\n", style=DIM)
         edsm_note.append("Stations at next route waypoint shown in Route situational panel.\n", style=DIM)
         edsm_note.append("Data sourced from EDSM nightly dumps, refreshed automatically once per day.", style=DIM)
 
