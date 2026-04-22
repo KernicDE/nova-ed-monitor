@@ -47,6 +47,43 @@
 #           {bio_body_count} {neutron_count} {black_hole_count}
 #           {high_value_count} {notable_summary}
 #           {total_scan_value} {total_scan_value_raw}
+#
+# ── Template Engine Features ──────────────────────────────────────────────────
+#
+# INCLUDES — reusable phrase fragments (define in your user en.toml file)
+#
+#   Fragment key must start with _; it is never spoken directly.
+#
+#     [_ship_status]
+#     add = ["{ship_name} — hull {hull}, fuel {fuel}."]
+#
+#   Two equivalent syntaxes to include it:
+#
+#     [FSDJump]
+#     add = ["Arrived in {system}. {include:_ship_status}"]   # explicit
+#     add = ["Arrived in {system}. {_ship_status}"]           # shorthand
+#
+#   Shorthand {_KeyName} supports letters, digits, underscores only.
+#   Use {include:_key-name} (explicit) for keys that contain hyphens.
+#   Missing keys expand to "". Circular includes capped at depth 5.
+#
+# CONDITIONALS — inline WHEN...THEN blocks
+#
+#   WHEN condition THEN "text"; — the block is replaced with "text" when the
+#   condition is true, or with "" when false. The ; terminator is optional at
+#   end of string.
+#
+#     [Scan_Notable]
+#     add = ['Scanned {body_short}. WHEN {value_raw} > 500000 THEN "Worth {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals.";']
+#
+#   Supported operators:
+#     IS TRUE / IS FALSE / IS NOT TRUE
+#     == != < > <= >=
+#     AND   OR
+#
+#   Truthy: non-empty value that is not "0" or "false" (case-insensitive).
+#   Flag variables ({terra}, {landable}, {first_disc} etc.) are "" when absent,
+#   non-empty when present — so "WHEN {terra} IS TRUE" works naturally.
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
