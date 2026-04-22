@@ -99,8 +99,30 @@ _SUPPORTED_LANGS = ["en", "de", "fr", "it", "es", "pt", "ru"]
 # "auto" = empty string in config (language auto-detected from message content)
 _CHAT_LANGS = ["auto"] + _SUPPORTED_LANGS
 
+# Volume options in steps of 5
+_VOLUME_OPTIONS = [str(v) for v in range(0, 101, 5)]
+
+# TTS rate options
+_RATE_OPTIONS = [
+    "-50%", "-40%", "-30%", "-20%", "-10%", "-5%",
+    "+0%", "+5%", "+10%", "+15%", "+20%", "+30%", "+40%", "+50%",
+]
+
 _HINT_NAV  = "↑↓ navigate   ← → change   Enter edit text   Esc cancel"
 _HINT_EDIT = "Enter = confirm   Esc = cancel edit"
+
+
+def _snap_volume(vol: int) -> str:
+    """Snap an arbitrary volume value to the nearest 5-step option."""
+    snapped = str(round(max(0, min(100, vol)) / 5) * 5)
+    return snapped if snapped in _VOLUME_OPTIONS else "50"
+
+
+def _snap_rate(rate: str) -> str:
+    """Return rate if it's in the options list, else nearest or default."""
+    if rate in _RATE_OPTIONS:
+        return rate
+    return "+0%"
 
 
 class SettingsScreen(Screen):
@@ -142,7 +164,6 @@ class SettingsScreen(Screen):
         color: rgb(18,18,18);
     }
     #text-edit-input {
-        display: none;
         margin-top: 1;
     }
     #settings-hint {
@@ -161,6 +182,7 @@ class SettingsScreen(Screen):
         self._cfg        = cfg
         self._catalog: dict = {}    # {lang: {locale: [voice_name]}}
         self._editing: bool = False
+        self._editing_row: "TextRow | None" = None
         self._cursor: int   = 0
 
         # Decompose current voice for the active tts_lang
@@ -179,29 +201,23 @@ class SettingsScreen(Screen):
 
         self._rows: list = [
             # ── TTS ──────────────────────────────────────────────────────────
-            SelectRow("tts_lang",    "TTS Language",        cfg.tts_lang,  _SUPPORTED_LANGS),
-            TextRow("tts_rate",      "TTS Rate",            cfg.tts_rate),
-            TextRow("volume",        "Volume (0–100)",       str(cfg.default_volume)),
+            SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,               _SUPPORTED_LANGS),
+            SelectRow("tts_rate",    "TTS Rate",                 _snap_rate(cfg.tts_rate),   _RATE_OPTIONS),
+            SelectRow("volume",      "Volume (0–100)",            _snap_volume(cfg.default_volume), _VOLUME_OPTIONS),
             # ── Voice selection ───────────────────────────────────────────────
             self._voice_lang_row,
             self._voice_locale_row,
             self._voice_name_row,
             # ── Chat & integrations ───────────────────────────────────────────
-            TextRow("twitch",        "Twitch Channel",      cfg.twitch_channel),
-            TextRow("youtube",       "YouTube Channel",     cfg.youtube_channel),
-            SelectRow("chat_lang",   "Chat Language",       chat_lang_val, _CHAT_LANGS),
-            ToggleRow("tts_chat",    "Chat TTS",            cfg.tts_chat),
-            ToggleRow("tts_twitch",  "Twitch TTS",          cfg.tts_twitch),
-            ToggleRow("tts_youtube", "YouTube TTS",         cfg.tts_youtube),
+            TextRow("twitch",        "Twitch Channel",           cfg.twitch_channel),
+            TextRow("youtube",       "YouTube Channel",          cfg.youtube_channel),
+            SelectRow("chat_lang",   "Chat default language",    chat_lang_val,              _CHAT_LANGS),
+            ToggleRow("tts_chat",    "Chat TTS",                 cfg.tts_chat),
+            ToggleRow("tts_twitch",  "Twitch TTS",               cfg.tts_twitch),
+            ToggleRow("tts_youtube", "YouTube TTS",              cfg.tts_youtube),
             # ── Bodies & display ─────────────────────────────────────────────
-            TextRow("notable",       "Notable Value (Cr)",  str(cfg.notable_value_threshold)),
-            ToggleRow("carrier",     "Fleet Carrier Lookup", cfg.carrier_lookup),
-            # ── Paths ─────────────────────────────────────────────────────────
-            TextRow("overlay_dir",   "Overlay Dir",         cfg.overlay_dir),
-            TextRow("scr_src",       "Screenshot Source",   cfg.screenshot_dir),
-            TextRow("scr_dst",       "Screenshot Dest",     cfg.screenshot_dest),
-            # ── Other ─────────────────────────────────────────────────────────
-            ToggleRow("debug_log",   "Debug Log",           cfg.debug_log),
+            TextRow("notable",       "Notable Value (Cr)",       str(cfg.notable_value_threshold)),
+            ToggleRow("carrier",     "Fleet Carrier Lookup",     cfg.carrier_lookup),
         ]
 
     # ── Textual lifecycle ────────────────────────────────────────────────────
@@ -216,8 +232,8 @@ class SettingsScreen(Screen):
             for i, row in enumerate(self._rows):
                 yield Static(self._row_text(row), id=f"row-{i}", classes="setting-row")
             yield Static("[ SAVE ]", id="save-row", classes="setting-row")
-            # Dedicated Input widget — shown only while editing a TextRow
-            yield Input(placeholder="", id="text-edit-input")
+            # Note: Input is mounted dynamically in _open_editor — not here,
+            # so it cannot steal focus during normal navigation.
             yield Label(_HINT_NAV, id="settings-hint")
 
     # ── Voice catalog ────────────────────────────────────────────────────────
@@ -290,7 +306,7 @@ class SettingsScreen(Screen):
     def on_key(self, event: events.Key) -> None:
         key = event.key
 
-        # Escape always handled first — closes editor or the whole screen
+        # Escape always handled first — closes editor or the whole screen.
         if key == "escape":
             event.stop()
             if self._editing:
@@ -299,7 +315,13 @@ class SettingsScreen(Screen):
                 self.app.pop_screen()
             return
 
-        # While a TextRow Input is active, let the Input handle all other keys
+        # Stop all navigation keys from bubbling to the main app.
+        # (This prevents the situational-panel switching from firing while
+        #  the settings overlay is open.)
+        if key in ("up", "down", "left", "right", "enter"):
+            event.stop()
+
+        # While a TextRow Input is active, let the Input handle all other keys.
         if self._editing:
             return
 
@@ -336,39 +358,47 @@ class SettingsScreen(Screen):
     # ── Text editing ─────────────────────────────────────────────────────────
 
     def _open_editor(self, row: TextRow) -> None:
-        """Show the dedicated Input widget pre-filled with row's current value."""
+        """Dynamically mount an Input widget for editing the row's text value."""
+        self._editing_row = row
+        inp = Input(value=row.value, placeholder=f"Editing: {row.label}", id="text-edit-input")
         try:
-            inp = self.query_one("#text-edit-input", Input)
-            inp.placeholder = f"Editing: {row.label}"
-            inp.value = row.value
-            inp.display = True
-            inp.focus()
+            self.query_one("#settings-box").mount(inp, before=self.query_one("#settings-hint"))
             self._editing = True
             self.query_one("#settings-hint", Label).update(_HINT_EDIT)
+            self.call_after_refresh(inp.focus)
         except Exception:
-            pass
+            self._editing_row = None
 
     def _close_editor(self) -> None:
-        """Hide the Input widget without saving its value."""
+        """Remove the Input widget without saving its value."""
         try:
-            inp = self.query_one("#text-edit-input", Input)
-            inp.display = False
+            self.query_one("#text-edit-input", Input).remove()
         except Exception:
             pass
         self._editing = False
-        self.query_one("#settings-hint", Label).update(_HINT_NAV)
+        self._editing_row = None
+        try:
+            self.query_one("#settings-hint", Label).update(_HINT_NAV)
+        except Exception:
+            pass
         self._render_rows()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id != "text-edit-input":
             return
-        if self._cursor < len(self._rows):
-            row = self._rows[self._cursor]
-            if isinstance(row, TextRow):
-                row.value = event.value  # allow empty string (clears the field)
-        event.input.display = False
+        row = self._editing_row
+        if isinstance(row, TextRow):
+            row.value = event.value  # allow empty string (clears the field)
+        try:
+            event.input.remove()
+        except Exception:
+            pass
         self._editing = False
-        self.query_one("#settings-hint", Label).update(_HINT_NAV)
+        self._editing_row = None
+        try:
+            self.query_one("#settings-hint", Label).update(_HINT_NAV)
+        except Exception:
+            pass
         self._render_rows()
 
     # ── Save ─────────────────────────────────────────────────────────────────
@@ -384,10 +414,6 @@ class SettingsScreen(Screen):
                 match row.key:
                     case "tts_lang":
                         cfg.tts_lang = row.value
-                    case "chat_lang":
-                        cfg.chat_lang = "" if row.value == "auto" else row.value
-            elif isinstance(row, TextRow):
-                match row.key:
                     case "tts_rate":
                         cfg.tts_rate = row.value
                     case "volume":
@@ -395,6 +421,10 @@ class SettingsScreen(Screen):
                             cfg.default_volume = max(0, min(100, int(row.value)))
                         except ValueError:
                             pass
+                    case "chat_lang":
+                        cfg.chat_lang = "" if row.value == "auto" else row.value
+            elif isinstance(row, TextRow):
+                match row.key:
                     case "notable":
                         try:
                             cfg.notable_value_threshold = int(row.value)
@@ -404,12 +434,6 @@ class SettingsScreen(Screen):
                         cfg.twitch_channel = row.value
                     case "youtube":
                         cfg.youtube_channel = row.value
-                    case "overlay_dir":
-                        cfg.overlay_dir = row.value
-                    case "scr_src":
-                        cfg.screenshot_dir = row.value
-                    case "scr_dst":
-                        cfg.screenshot_dest = row.value
             elif isinstance(row, ToggleRow):
                 match row.key:
                     case "carrier":
@@ -420,8 +444,6 @@ class SettingsScreen(Screen):
                         cfg.tts_twitch = row.value
                     case "tts_youtube":
                         cfg.tts_youtube = row.value
-                    case "debug_log":
-                        cfg.debug_log = row.value
 
         # Voice: reconstruct full voice string from lang/locale/name selections
         v_lang   = self._voice_lang_row.value
