@@ -53,7 +53,7 @@ class TestToggleRow:
 
     def test_display(self):
         row = ToggleRow("carrier_lookup", "Fleet Carrier Lookup", True)
-        assert row.display_value() == "true"
+        assert row.display_value() == "Yes"
 
 
 class TestSelectRow:

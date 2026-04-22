@@ -39,7 +39,7 @@ def _parse_voice_catalog(
 
 @dataclass
 class ToggleRow:
-    """A boolean setting row (true/false), cycled with ← / →."""
+    """A boolean setting row (Yes/No), cycled with ← / →."""
     key:   str
     label: str
     value: bool
@@ -48,7 +48,7 @@ class ToggleRow:
         self.value = not self.value
 
     def display_value(self) -> str:
-        return "true" if self.value else "false"
+        return "Yes" if self.value else "No"
 
 
 @dataclass
@@ -85,8 +85,8 @@ class TextRow:
 import asyncio
 import threading
 
-from textual import events
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Input, Label, Static
@@ -119,14 +119,25 @@ def _snap_volume(vol: int) -> str:
 
 
 def _snap_rate(rate: str) -> str:
-    """Return rate if it's in the options list, else nearest or default."""
-    if rate in _RATE_OPTIONS:
-        return rate
-    return "+0%"
+    """Return rate if it's in the options list, else fall back to +0%."""
+    return rate if rate in _RATE_OPTIONS else "+0%"
 
 
 class SettingsScreen(Screen):
     """Overlay for editing NOVA settings (keybind: s)."""
+
+    # BINDINGS on a Screen are processed BEFORE App.on_key, which means they
+    # definitively prevent situational-panel switching while settings are open.
+    # check_action() disables navigation bindings while a text editor is open
+    # so that arrow keys and Enter fall through to the Input widget instead.
+    BINDINGS = [
+        Binding("escape", "do_escape", "", show=False),
+        Binding("up",     "do_up",     "", show=False),
+        Binding("down",   "do_down",   "", show=False),
+        Binding("left",   "do_left",   "", show=False),
+        Binding("right",  "do_right",  "", show=False),
+        Binding("enter",  "do_enter",  "", show=False),
+    ]
 
     CSS = """
     SettingsScreen {
@@ -156,7 +167,7 @@ class SettingsScreen(Screen):
     #save-row {
         height: 1;
         margin-top: 1;
-        background: $background;
+        background: rgb(28,28,28);
         color: rgb(195,160,55);
         text-style: bold;
     }
@@ -203,8 +214,8 @@ class SettingsScreen(Screen):
 
         self._rows: list = [
             # ── TTS ──────────────────────────────────────────────────────────
-            SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,               _SUPPORTED_LANGS),
-            SelectRow("tts_rate",    "TTS Rate",                 _snap_rate(cfg.tts_rate),   _RATE_OPTIONS),
+            SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,                    _SUPPORTED_LANGS),
+            SelectRow("tts_rate",    "TTS Rate",                 _snap_rate(cfg.tts_rate),        _RATE_OPTIONS),
             SelectRow("volume",      "Volume (0–100)",            _snap_volume(cfg.default_volume), _VOLUME_OPTIONS),
             # ── Voice selection ───────────────────────────────────────────────
             self._voice_lang_row,
@@ -213,7 +224,7 @@ class SettingsScreen(Screen):
             # ── Chat & integrations ───────────────────────────────────────────
             TextRow("twitch",        "Twitch Channel",           cfg.twitch_channel),
             TextRow("youtube",       "YouTube Channel",          cfg.youtube_channel),
-            SelectRow("chat_lang",   "Chat default language",    chat_lang_val,              _CHAT_LANGS),
+            SelectRow("chat_lang",   "Chat default language",    chat_lang_val,                   _CHAT_LANGS),
             ToggleRow("tts_chat",    "Chat TTS",                 cfg.tts_chat),
             ToggleRow("tts_twitch",  "Twitch TTS",               cfg.tts_twitch),
             ToggleRow("tts_youtube", "YouTube TTS",              cfg.tts_youtube),
@@ -237,6 +248,63 @@ class SettingsScreen(Screen):
             # Note: Input is mounted dynamically in _open_editor — not here,
             # so it cannot steal focus during normal navigation.
             yield Label(_HINT_NAV, id="settings-hint")
+
+    # ── check_action: disable navigation bindings while editing ──────────────
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        """Disable navigation bindings while a TextRow editor is open.
+
+        When editing, the bindings for cursor movement and Enter are disabled so
+        that the key events fall through to the focused Input widget instead.
+        ESC is always active so it can close the editor.
+        """
+        if action in ("do_up", "do_down", "do_left", "do_right", "do_enter"):
+            return not self._editing
+        return True
+
+    # ── BINDING action methods ───────────────────────────────────────────────
+
+    def action_do_escape(self) -> None:
+        if self._editing:
+            self._close_editor()
+        else:
+            self.app.pop_screen()
+
+    def action_do_up(self) -> None:
+        self._cursor = max(0, self._cursor - 1)
+        self._render_rows()
+
+    def action_do_down(self) -> None:
+        n_rows = len(self._rows)
+        self._cursor = min(n_rows, self._cursor + 1)
+        self._render_rows()
+
+    def action_do_left(self) -> None:
+        self._cycle(-1)
+
+    def action_do_right(self) -> None:
+        self._cycle(+1)
+
+    def action_do_enter(self) -> None:
+        n_rows = len(self._rows)
+        if self._cursor == n_rows:
+            self._do_save()
+        elif self._cursor < n_rows:
+            row = self._rows[self._cursor]
+            if isinstance(row, TextRow):
+                self._open_editor(row)
+
+    def _cycle(self, direction: int) -> None:
+        n_rows = len(self._rows)
+        if self._cursor < n_rows:
+            row = self._rows[self._cursor]
+            if hasattr(row, "cycle"):
+                row.cycle(direction)
+                if row is self._voice_lang_row:
+                    self._update_voice_options()
+                elif row is self._voice_locale_row:
+                    self._update_voice_name_options()
+                self._render_rows()
 
     # ── Voice catalog ────────────────────────────────────────────────────────
 
@@ -303,75 +371,26 @@ class SettingsScreen(Screen):
         except Exception:
             pass
 
-    # ── Key handling ─────────────────────────────────────────────────────────
-
-    def on_key(self, event: events.Key) -> None:
-        key = event.key
-
-        # Escape always handled first — closes editor or the whole screen.
-        if key == "escape":
-            event.stop()
-            if self._editing:
-                self._close_editor()
-            else:
-                self.app.pop_screen()
-            return
-
-        # While a TextRow Input is active, let it handle all other keys —
-        # including Enter (so Input.Submitted fires) and arrow keys (cursor
-        # movement in the text field).  We must NOT call event.stop() here,
-        # otherwise the Input widget never receives Enter.
-        if self._editing:
-            return
-
-        # Not editing: consume navigation keys so they cannot reach the main
-        # app's on_key (which would switch situational panels).
-        if key in ("up", "down", "left", "right", "enter"):
-            event.stop()
-
-        n_rows = len(self._rows)
-
-        if key == "up":
-            self._cursor = max(0, self._cursor - 1)
-            self._render_rows()
-
-        elif key == "down":
-            self._cursor = min(n_rows, self._cursor + 1)
-            self._render_rows()
-
-        elif key in ("left", "right"):
-            direction = +1 if key == "right" else -1
-            if self._cursor < n_rows:
-                row = self._rows[self._cursor]
-                if hasattr(row, "cycle"):
-                    row.cycle(direction)
-                    if row is self._voice_lang_row:
-                        self._update_voice_options()
-                    elif row is self._voice_locale_row:
-                        self._update_voice_name_options()
-                    self._render_rows()
-
-        elif key == "enter":
-            if self._cursor == n_rows:
-                self._do_save()
-            elif self._cursor < n_rows:
-                row = self._rows[self._cursor]
-                if isinstance(row, TextRow):
-                    self._open_editor(row)
-
     # ── Text editing ─────────────────────────────────────────────────────────
 
     def _open_editor(self, row: TextRow) -> None:
         """Dynamically mount an Input widget for editing the row's text value."""
         self._editing_row = row
-        inp = Input(value=row.value, placeholder=f"Editing: {row.label}", id="text-edit-input")
+        inp = Input(
+            value=row.value,
+            placeholder=f"Editing: {row.label}",
+            id="text-edit-input",
+        )
         try:
-            self.query_one("#settings-box").mount(inp, before=self.query_one("#settings-hint"))
+            self.query_one("#settings-box").mount(
+                inp, before=self.query_one("#settings-hint")
+            )
             self._editing = True
             self.query_one("#settings-hint", Label).update(_HINT_EDIT)
             self.call_after_refresh(inp.focus)
         except Exception:
             self._editing_row = None
+            self._editing = False
 
     def _close_editor(self) -> None:
         """Remove the Input widget without saving its value."""
