@@ -32,7 +32,7 @@ from .tts import TtsMsg
 from .ui.app import NOVAApp
 
 def _db_path() -> Path:
-    p = Path.home() / ".local" / "share" / "nova" / "events.db"
+    p = config.data_dir() / "events.db"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -65,7 +65,8 @@ def _detect_initial_commander(journal_dir: Path) -> str:
 
 def main() -> None:
     cfg = config.load()
-    debug_log.setup(cfg.debug_log, config.config_dir())
+    config.migrate_from_system_paths()
+    debug_log.setup(cfg.debug_log, config.logs_dir())
 
     # Apply voice and language config to events / voicelines modules
     events.set_voices(cfg.tts_voices)

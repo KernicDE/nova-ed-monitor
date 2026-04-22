@@ -39,11 +39,8 @@ _CONFIG_DIR: Optional[Path] = None
 def _config_dir() -> Path:
     if _CONFIG_DIR is not None:
         return _CONFIG_DIR
-    import os
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        return Path(xdg) / "nova"
-    return Path.home() / ".config" / "nova"
+    from .config import config_dir
+    return config_dir()
 
 
 def _builtin_dir() -> Path:

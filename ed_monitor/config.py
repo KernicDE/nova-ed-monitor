@@ -126,11 +126,88 @@ DEFAULT_CONFIG = """\
 
 
 def config_dir() -> Path:
-    """Return the NOVA config directory (~/.config/nova or $XDG_CONFIG_HOME/nova)."""
+    """Return the NOVA config directory.
+
+    Portable mode (NOVA_PORTABLE_ROOT set): <root>/config/
+    Standard mode:  $XDG_CONFIG_HOME/nova  or  ~/.config/nova
+    """
+    root = os.environ.get("NOVA_PORTABLE_ROOT")
+    if root:
+        return Path(root) / "config"
     xdg = os.environ.get("XDG_CONFIG_HOME")
     if xdg:
         return Path(xdg) / "nova"
     return Path.home() / ".config" / "nova"
+
+
+def data_dir() -> Path:
+    """Return the NOVA data directory (SQLite db).
+
+    Portable mode: <root>/data/
+    Standard mode: $XDG_DATA_HOME/nova  or  ~/.local/share/nova
+    """
+    root = os.environ.get("NOVA_PORTABLE_ROOT")
+    if root:
+        return Path(root) / "data"
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return Path(xdg) / "nova"
+    return Path.home() / ".local" / "share" / "nova"
+
+
+def logs_dir() -> Path:
+    """Return the directory for nova-debug.log.
+
+    Portable mode: <root>/logs/
+    Standard mode: same as config_dir() (backwards-compatible)
+    """
+    root = os.environ.get("NOVA_PORTABLE_ROOT")
+    if root:
+        return Path(root) / "logs"
+    return config_dir()
+
+
+def _old_system_config_dir() -> Path:
+    """The standard (non-portable) config dir — used as migration source."""
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return Path(xdg) / "nova"
+    return Path.home() / ".config" / "nova"
+
+
+def _old_system_data_dir() -> Path:
+    """The standard (non-portable) data dir — used as migration source."""
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return Path(xdg) / "nova"
+    return Path.home() / ".local" / "share" / "nova"
+
+
+def migrate_from_system_paths(
+    old_config_dir: Path | None = None,
+    old_data_dir: Path | None = None,
+) -> None:
+    """Copy existing system-wide config/data into the portable layout on first run.
+
+    Only runs when NOVA_PORTABLE_ROOT is set. Never overwrites existing files.
+    Silently skips if old paths don't exist or portable dir already has data.
+    """
+    import shutil
+
+    if not os.environ.get("NOVA_PORTABLE_ROOT"):
+        return
+
+    src_cfg = old_config_dir if old_config_dir is not None else _old_system_config_dir()
+    dst_cfg = config_dir()
+    if src_cfg.exists() and not dst_cfg.exists():
+        shutil.copytree(src_cfg, dst_cfg)
+
+    src_data = old_data_dir if old_data_dir is not None else _old_system_data_dir()
+    dst_db = data_dir() / "events.db"
+    src_db = src_data / "events.db"
+    if src_db.exists() and not dst_db.exists():
+        dst_db.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_db, dst_db)
 
 
 def _update_example_file(cfg_dir: Path) -> None:

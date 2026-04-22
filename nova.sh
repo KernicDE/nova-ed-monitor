@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # NOVA — Navigation, Operations, and Vessel Assistance
-# Launcher script for Linux / macOS
-# Usage: ./nova.sh [--update]
+# Portable launcher — all data lives next to this script.
+# Usage: ./nova.sh [--uninstall]
 
 set -euo pipefail
 
 NOVA_URL="git+https://github.com/KernicDE/nova-ed-monitor.git"
 NOVA_PKG="nova-ed-monitor"
-VENV_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nova/venv"
 SCRIPT_URL="https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.sh"
 GH_API_URL="https://api.github.com/repos/KernicDE/nova-ed-monitor/releases/latest"
+
+# Portable root = directory containing this script (all data lives here)
+SCRIPT_SELF="$(realpath "$0")"
+PORTABLE_ROOT="$(cd "$(dirname "$SCRIPT_SELF")" && pwd)"
+VENV_DIR="$PORTABLE_ROOT/venv"
+VENV_PIP="$VENV_DIR/bin/pip"
+VENV_NOVA="$VENV_DIR/bin/nova"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -24,22 +30,20 @@ warn()    { echo -e "${YELLOW}  ${*}${NC}"; }
 error()   { echo -e "${RED}  ${*}${NC}"; }
 
 # ── Detect package manager ────────────────────────────────────────────────────
-# Reads /etc/os-release (reliable on all modern Linux distros) before falling
-# back to command presence — prevents false apt-get matches on RPM-based systems.
+# Reads /etc/os-release before falling back to command presence — prevents
+# false apt-get matches on RPM-based systems.
 
 detect_pm() {
     if [ -f /etc/os-release ]; then
         local _id _id_like
         _id=$(. /etc/os-release && echo "${ID:-}")
         _id_like=$(. /etc/os-release && echo "${ID_LIKE:-}")
-        # Match against combined "ID ID_LIKE" string so either field can trigger
         case "$_id $_id_like" in
             *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) echo "dnf";    return ;;
             *debian*|*ubuntu*)                                 echo "apt";    return ;;
             *arch*|*manjaro*)                                  echo "pacman"; return ;;
         esac
     fi
-    # Fallback: command presence (dnf checked before apt to avoid false matches)
     command -v pacman  &>/dev/null && echo "pacman" && return
     command -v dnf     &>/dev/null && echo "dnf"    && return
     command -v apt-get &>/dev/null && echo "apt"    && return
@@ -51,7 +55,7 @@ _PM=$(detect_pm)
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 
-SELF_UPDATE=1   # set to 0 after self-update to avoid loop
+SELF_UPDATE=1
 for arg in "$@"; do
     case "$arg" in
         --no-self-update) SELF_UPDATE=0 ;;
@@ -72,9 +76,25 @@ echo "  Navigation, Operations, and Vessel Assistance"
 echo "  ─────────────────────────────────────────────"
 echo ""
 
-SCRIPT_SELF="$(realpath "$0")"
-VENV_PIP="$VENV_DIR/bin/pip"
-VENV_NOVA="$VENV_DIR/bin/nova"
+# ── Uninstall ─────────────────────────────────────────────────────────────────
+
+if [ "${1:-}" = "--uninstall" ]; then
+    echo ""
+    warn "This will permanently remove the entire NOVA directory:"
+    warn "  $PORTABLE_ROOT"
+    echo ""
+    warn "Elite Dangerous journal files will NOT be touched."
+    echo ""
+    printf "  Confirm uninstall? [y/N] "
+    read -r _answer
+    if [ "$_answer" = "y" ] || [ "$_answer" = "Y" ]; then
+        rm -rf "$PORTABLE_ROOT"
+        success "NOVA uninstalled."
+    else
+        echo "  Cancelled."
+    fi
+    exit 0
+fi
 
 # ── Self-update ───────────────────────────────────────────────────────────────
 # Download the latest nova.sh from GitHub; replace self and re-exec if changed.
@@ -99,7 +119,7 @@ fi
 # ── Find Python 3.11+ ─────────────────────────────────────────────────────────
 
 find_python() {
-    for cmd in python3 python python3.13 python3.12 python3.11; do
+    for cmd in python3 python python3.14 python3.13 python3.12 python3.11; do
         if command -v "$cmd" &>/dev/null 2>&1; then
             ok=$("$cmd" -c "import sys; print(sys.version_info >= (3,11))" 2>/dev/null || echo "False")
             if [ "$ok" = "True" ]; then
@@ -139,14 +159,6 @@ fi
 
 success "Python: $($PYTHON --version)"
 
-# ── Set up virtual environment ────────────────────────────────────────────────
-
-if [ ! -d "$VENV_DIR" ]; then
-    info "Creating NOVA virtual environment at $VENV_DIR ..."
-    $PYTHON -m venv "$VENV_DIR"
-    success "Virtual environment created."
-fi
-
 # ── Ensure SDL2 build dependencies (needed if pygame must compile from source) ─
 
 ensure_build_deps() {
@@ -175,16 +187,20 @@ exit(0 if os.path.exists(h) else 1)
 
 ensure_build_deps
 
-# ── Install or auto-update NOVA ───────────────────────────────────────────────
+# ── Bootstrap: create portable layout + install NOVA on first run ─────────────
 
-if ! "$VENV_PIP" show "$NOVA_PKG" &>/dev/null 2>&1; then
-    info "Installing NOVA..."
+if [ ! -d "$VENV_DIR" ]; then
+    info "First run — setting up NOVA in $PORTABLE_ROOT ..."
+    mkdir -p "$PORTABLE_ROOT/config" "$PORTABLE_ROOT/data" "$PORTABLE_ROOT/logs"
+    info "Creating virtual environment..."
+    $PYTHON -m venv "$VENV_DIR"
+    info "Installing NOVA (this takes a minute)..."
     "$VENV_PIP" install --quiet --upgrade pip
     "$VENV_PIP" install "$NOVA_URL"
     success "NOVA installed successfully!"
     echo ""
 else
-    # Compare installed version against latest GitHub release
+    # ── Auto-update NOVA package ──────────────────────────────────────────────
     installed_ver=$("$VENV_PIP" show "$NOVA_PKG" 2>/dev/null \
         | grep '^Version:' | awk '{print $2}')
 
@@ -203,7 +219,7 @@ except Exception:
 
     if [ -n "$latest_ver" ] && [ "$installed_ver" != "$latest_ver" ]; then
         info "Update available: $installed_ver → $latest_ver — updating..."
-        "$VENV_PIP" install --upgrade "$NOVA_URL"
+        "$VENV_PIP" install --quiet --upgrade "$NOVA_URL"
         success "NOVA updated to $latest_ver."
         echo ""
     else
@@ -212,103 +228,10 @@ except Exception:
     fi
 fi
 
-# ── Install global 'nova' command (wrapper with auto-update) ──────────────────
-
-BIN_DIR="$HOME/.local/bin"
-mkdir -p "$BIN_DIR"
-
-_NOVA_WRAPPER="$BIN_DIR/nova"
-_VENV_PY="$VENV_DIR/bin/python"
-
-# Always (re)write the wrapper so it stays in sync with nova.sh variables.
-cat > "$_NOVA_WRAPPER" <<WRAPPER
-#!/usr/bin/env bash
-# nova-ed-monitor-wrapper — auto-update launcher
-NOVA_DATA_DIR="$VENV_DIR/.."
-NOVA_CFG_DIR="\${XDG_CONFIG_HOME:-\$HOME/.config}/nova"
-VENV_PIP="$VENV_DIR/bin/pip"
-VENV_PY="$VENV_DIR/bin/python"
-VENV_NOVA="$VENV_NOVA"
-NOVA_PKG="$NOVA_PKG"
-NOVA_URL="$NOVA_URL"
-GH_API_URL="$GH_API_URL"
-
-# ── Uninstall ─────────────────────────────────────────────────────────────────
-
-if [ "\${1:-}" = "--uninstall" ]; then
-    echo ""
-    echo "  This will permanently remove:"
-    echo "    \$(realpath \"\$NOVA_DATA_DIR\")   (venv + event log)"
-    echo "    \$NOVA_CFG_DIR   (config)"
-    echo "    \$0   (this command)"
-    echo ""
-    echo "  Elite Dangerous journal files will NOT be touched."
-    echo ""
-    printf "  Confirm uninstall? [y/N] "
-    read -r _answer
-    if [ "\$_answer" = "y" ] || [ "\$_answer" = "Y" ]; then
-        rm -rf "\$(realpath \"\$NOVA_DATA_DIR\")"
-        rm -rf "\$NOVA_CFG_DIR"
-        rm -f "\$0"
-        echo "  NOVA uninstalled."
-    else
-        echo "  Cancelled."
-    fi
-    exit 0
-fi
-
-# ── Auto-update ───────────────────────────────────────────────────────────────
-
-if command -v curl &>/dev/null; then
-    installed_ver=\$("\$VENV_PIP" show "\$NOVA_PKG" 2>/dev/null | awk '/^Version:/{print \$2}')
-    latest_ver=\$(curl -fsSL --max-time 5 "\$GH_API_URL" 2>/dev/null \
-        | "\$VENV_PY" -c "import sys,json; print(json.load(sys.stdin).get('tag_name','').lstrip('v'))" \
-        2>/dev/null || true)
-    if [ -n "\$latest_ver" ] && [ -n "\$installed_ver" ] && [ "\$installed_ver" != "\$latest_ver" ]; then
-        echo "  NOVA update: \$installed_ver → \$latest_ver — updating..."
-        "\$VENV_PIP" install --quiet --upgrade "\$NOVA_URL"
-        echo "  Updated. Starting NOVA..."
-        echo ""
-    fi
-fi
-
-exec "\$VENV_NOVA"
-WRAPPER
-chmod +x "$_NOVA_WRAPPER"
-
-case ":$PATH:" in
-    *":$BIN_DIR:"*) ;;
-    *)
-        warn "Note: $BIN_DIR is not in your PATH."
-        warn "Add this to ~/.bashrc or ~/.zshrc:"
-        warn "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-        echo ""
-        ;;
-esac
-
-# ── Create .desktop launcher ──────────────────────────────────────────────────
-
-DESKTOP_DIR="$HOME/.local/share/applications"
-DESKTOP_FILE="$DESKTOP_DIR/nova-ed-monitor.desktop"
-mkdir -p "$DESKTOP_DIR"
-
-if [ ! -f "$DESKTOP_FILE" ]; then
-    cat > "$DESKTOP_FILE" <<DESKTOP
-[Desktop Entry]
-Name=NOVA
-GenericName=Elite Dangerous Monitor
-Comment=Navigation, Operations, and Vessel Assistance
-Exec=$_NOVA_WRAPPER
-Terminal=true
-Type=Application
-Categories=Game;Utility;
-DESKTOP
-    success "Desktop launcher created — search for NOVA in your app menu."
-fi
-
 # ── Launch NOVA ───────────────────────────────────────────────────────────────
 
 info "Starting NOVA..."
 echo ""
 
+export NOVA_PORTABLE_ROOT="$PORTABLE_ROOT"
 exec "$VENV_NOVA"
