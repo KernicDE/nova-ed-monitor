@@ -85,8 +85,6 @@ class TextRow:
 import asyncio
 import threading
 
-from rich.markup import escape as _escape
-
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.message import Message
@@ -245,8 +243,8 @@ class SettingsScreen(Screen):
         with Vertical(id="settings-box"):
             yield Label("◈ NOVA Settings", id="settings-title")
             for i, row in enumerate(self._rows):
-                yield Static(self._row_text(row), id=f"row-{i}", classes="setting-row")
-            yield Static(_escape("[ SAVE ]"), id="save-row")
+                yield Static(self._row_text(row), id=f"row-{i}", classes="setting-row", markup=False)
+            yield Static("[ SAVE ]", id="save-row", markup=False)
             # Note: Input is mounted dynamically in _open_editor — not here,
             # so it cannot steal focus during normal navigation.
             yield Label(_HINT_NAV, id="settings-hint")
@@ -344,8 +342,7 @@ class SettingsScreen(Screen):
     def _row_text(self, row) -> str:
         label = f"{row.label}:"
         val   = row.display_value() or "(none)"
-        # _escape() converts [ to \[ so Rich doesn't treat "[ en ]" as a markup tag.
-        return _escape(f"{label:<30} [ {val} ]")
+        return f"{label:<30} [ {val} ]"
 
     def _render_rows(self) -> None:
         n_rows = len(self._rows)
