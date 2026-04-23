@@ -88,3 +88,31 @@ def test_rebuild_body_index():
     s._rebuild_body_index()
     assert s._bodies_by_name == {"Sol A": 0, "Sol B": 1}
     assert s._bodies_by_id == {1: 0, 2: 1}
+
+
+def test_upsert_many_keeps_indices_consistent():
+    """Inserting many bodies out-of-order must leave both indices perfectly consistent."""
+    import random
+    s = AppState()
+    ids = list(range(1, 501))
+    random.Random(42).shuffle(ids)
+    for body_id in ids:
+        s.upsert_body(_body(f"Sys {body_id}", body_id))
+    assert len(s.bodies) == 500
+    # Bodies must be sorted by body_id
+    assert [b.body_id for b in s.bodies] == list(range(1, 501))
+    # Indices must be exactly coherent with bodies list
+    for i, b in enumerate(s.bodies):
+        assert s._bodies_by_name[b.name]  == i
+        assert s._bodies_by_id[b.body_id] == i
+
+
+def test_upsert_insert_at_head_shifts_indices():
+    """Inserting a smaller body_id must shift every existing index by +1."""
+    s = AppState()
+    s.upsert_body(_body("B", 5))
+    s.upsert_body(_body("C", 7))
+    s.upsert_body(_body("A", 1))   # inserted at position 0
+    assert [b.body_id for b in s.bodies] == [1, 5, 7]
+    assert s._bodies_by_name == {"A": 0, "B": 1, "C": 2}
+    assert s._bodies_by_id   == {1: 0, 5: 1, 7: 2}

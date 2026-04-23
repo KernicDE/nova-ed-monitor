@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import bisect
 import enum
 from collections import deque
 from dataclasses import dataclass, field
@@ -500,12 +499,27 @@ class AppState:
             self._bodies_by_id[b.body_id] = i
             self.bodies_version += 1
             return
-        # New body — insert sorted by body_id
-        ids = [b.body_id for b in self.bodies]
-        pos = bisect.bisect_left(ids, info.body_id)
+        # New body — insert sorted by body_id. Locate insertion point without
+        # materialising an ids list: a small linear walk is faster than
+        # allocating a parallel list for every insert, and these lists are
+        # bounded in size (a star system has at most a few hundred bodies).
+        pos = 0
+        target = info.body_id
+        for idx, existing_b in enumerate(self.bodies):
+            if existing_b.body_id >= target:
+                pos = idx
+                break
+        else:
+            pos = len(self.bodies)
         self.bodies.insert(pos, info)
-        # All indices at pos and beyond shifted — rebuild both indices
-        self._rebuild_body_index()
+        # Shift every index that moved (pos .. end) in place — O(K) where K is
+        # the number of entries at or after pos, avoiding a full O(N) rebuild.
+        for idx in range(pos + 1, len(self.bodies)):
+            b2 = self.bodies[idx]
+            self._bodies_by_name[b2.name]  = idx
+            self._bodies_by_id[b2.body_id] = idx
+        self._bodies_by_name[info.name]    = pos
+        self._bodies_by_id[info.body_id]   = pos
         self.bodies_version += 1
 
     def remove_mission(self, mission_id: int) -> None:
