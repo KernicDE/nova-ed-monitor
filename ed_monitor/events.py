@@ -566,25 +566,58 @@ def _tts_pop(n: int) -> str:
     return str(n)
 
 
+def _fmt_orbital_period(seconds: float) -> str:
+    """Format orbital period in seconds to a spoken string."""
+    if seconds <= 0:
+        return ""
+    if seconds < 3600:
+        return f"{seconds / 60:.1f} minutes"
+    if seconds < 86400:
+        return f"{seconds / 3600:.1f} hours"
+    return f"{seconds / 86400:.1f} days"
+
+
 def _body_vars(b) -> dict:
     """Return a dict of BodyInfo-derived variables for voiceline templates.
 
     {value} / {value_raw}        — FSS scan value (formula-based; never empty for known body types)
     {value_mapped} / {value_mapped_raw} — projected or actual DSS payout (with multipliers)
+    {orbital_period} / {orbital_period_raw} — formatted / seconds
+    {semi_major_axis} / {semi_major_axis_raw} — AU string / metres
+    {eccentricity}   — e.g. "0.15"
+    {orbital_inclination} / {orbital_inclination_raw} — "25.3 degrees" / "25.3"
+    {has_rings}      — "Ringed" or ""
+    {ring_count}     — number of rings as string
+    {tidal_lock}     — "Tidal lock" or ""
+    {star_type}      — star type if body is a star, else ""
+    {scoopable}      — "Scoopable" or "" (stars only)
     """
-    g_raw = f"{b.surface_gravity / 9.80665:.2f}" if b.surface_gravity > 0 else ""
-    t_raw = str(int(b.surface_temp))              if b.surface_temp > 0   else ""
-    r_raw = str(int(b.radius / 1000))             if b.radius > 0         else ""
-    m_raw = f"{b.mass_em:.2f}"                    if b.mass_em > 0        else ""
-    d_raw = str(int(b.dist_ls))                   if b.dist_ls > 0        else ""
+    _AU = 149_597_870_700.0  # metres per AU
+
+    g_raw  = f"{b.surface_gravity / 9.80665:.2f}" if b.surface_gravity > 0 else ""
+    t_raw  = str(int(b.surface_temp))              if b.surface_temp > 0   else ""
+    r_raw  = str(int(b.radius / 1000))             if b.radius > 0         else ""
+    m_raw  = f"{b.mass_em:.2f}"                    if b.mass_em > 0        else ""
+    d_raw  = str(int(b.dist_ls))                   if b.dist_ls > 0        else ""
     # Scan value: use journal EstimatedValue if present, fall back to formula estimate
-    v_int = b.value if b.value > 0 else _ev_base(b)
-    v_raw = str(v_int) if v_int > 0 else ""
+    v_int  = b.value if b.value > 0 else _ev_base(b)
+    v_raw  = str(v_int) if v_int > 0 else ""
     # Mapped value: projected or actual DSS payout with all multipliers
     vm_int = _ev_mapped(b)
     vm_raw = str(vm_int) if vm_int > 0 else ""
+    # Orbital data
+    op_raw   = str(int(b.orbital_period))      if b.orbital_period > 0      else ""
+    sma_raw  = str(int(b.semi_major_axis))     if b.semi_major_axis > 0     else ""
+    sma_au   = f"{b.semi_major_axis / _AU:.2f} AU" if b.semi_major_axis > 0 else ""
+    ecc_str  = f"{b.eccentricity:.2f}"         if b.eccentricity > 0        else ""
+    inc_raw  = f"{b.orbital_inclination:.1f}"  if b.orbital_inclination != 0 else ""
+    # Star
+    sc       = b.star_type or ""
+    scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
     return dict(
-        body_type=b.planet_class, atmosphere=b.atmosphere, volcanism=b.volcanism,
+        body_type=b.planet_class, star_type=sc,
+        scoopable="Scoopable" if scoopable else ("Not scoopable" if sc else ""),
+        atmosphere=b.atmosphere, volcanism=b.volcanism,
         gravity=f"{g_raw} G" if g_raw else "",    gravity_raw=g_raw,
         temp=f"{t_raw} Kelvin" if t_raw else "",  temp_raw=t_raw,
         radius=f"{r_raw} kilometres" if r_raw else "", radius_raw=r_raw,
@@ -597,6 +630,13 @@ def _body_vars(b) -> dict:
         bio_count=str(b.bio_signals), geo_count=str(b.geo_signals),
         first_disc="Undiscovered" if b.first_discovered else "",
         first_footfall_flag="First footfall" if b.first_footfall else "",
+        has_rings="Ringed" if getattr(b, "has_rings", False) else "",
+        ring_count=str(getattr(b, "ring_count", 0)),
+        tidal_lock="Tidal lock" if getattr(b, "tidal_lock", False) else "",
+        orbital_period=_fmt_orbital_period(b.orbital_period), orbital_period_raw=op_raw,
+        semi_major_axis=sma_au, semi_major_axis_raw=sma_raw,
+        eccentricity=ecc_str,
+        orbital_inclination=f"{inc_raw} degrees" if inc_raw else "", orbital_inclination_raw=inc_raw,
     )
 
 
@@ -617,14 +657,92 @@ def _ship_vars(state) -> dict:
     )
 
 
+def _target_vars(state) -> dict:
+    """Return target-related variables for voiceline templates.
+
+    Ship target (from ShipTargeted):
+      {target_type}           — "ship" / "body" / ""
+      {target_ship_type}      — ship type name
+      {target_ship_pilot}     — pilot name
+      {target_ship_rank}      — pilot rank
+      {target_ship_faction}   — faction
+      {target_ship_legal}     — legal status
+      {target_ship_shield}    — 0-100 integer string
+      {target_ship_shield_raw}— 0.0-1.0 fraction string
+      {target_ship_hull}      — 0-100 integer string
+      {target_ship_hull_raw}  — 0.0-1.0 fraction string
+      {target_ship_bounty}    — spoken credits string
+      {target_ship_bounty_raw}— integer string
+
+    Nav destination (from Status.json Destination):
+      {target_body}           — destination name
+      {target_body_*}         — all _body_vars() fields prefixed with target_body_
+                                (populated when destination matches a known body in state.bodies)
+    """
+    target_type = ""
+    if state.target_ship:
+        target_type = "ship"
+    elif state.target_body:
+        target_type = "body"
+
+    shield_f   = state.target_ship_shield
+    hull_f     = state.target_ship_hull
+    shield_pct = str(int(shield_f * 100)) if shield_f >= 0 else ""
+    hull_pct   = str(int(hull_f   * 100)) if hull_f   >= 0 else ""
+    shield_raw = f"{shield_f:.2f}"        if shield_f >= 0 else ""
+    hull_raw   = f"{hull_f:.2f}"          if hull_f   >= 0 else ""
+    bounty     = state.target_ship_bounty
+    bounty_raw = str(bounty) if bounty > 0 else ""
+
+    # Body destination: look up full BodyInfo if available
+    body_vars: dict = {}
+    if state.target_body:
+        idx = state._bodies_by_name.get(state.target_body, -1)
+        if 0 <= idx < len(state.bodies):
+            body_vars = {f"target_body_{k}": v for k, v in _body_vars(state.bodies[idx]).items()}
+
+    return {
+        "target_type":             target_type,
+        "target_ship_type":        state.target_ship,
+        "target_ship_pilot":       state.target_ship_pilot,
+        "target_ship_rank":        state.target_ship_rank,
+        "target_ship_faction":     state.target_ship_faction,
+        "target_ship_legal":       state.target_ship_legal,
+        "target_ship_shield":      shield_pct,
+        "target_ship_shield_raw":  shield_raw,
+        "target_ship_hull":        hull_pct,
+        "target_ship_hull_raw":    hull_raw,
+        "target_ship_bounty":      _tts_cr(bounty) if bounty > 0 else "",
+        "target_ship_bounty_raw":  bounty_raw,
+        "target_body":             state.target_body,
+        **body_vars,
+    }
+
+
+def _nearest_body_vars(state) -> dict:
+    """Return _body_vars for state.nearest_body, prefixed with nearest_body_. Empty if not found."""
+    name = state.nearest_body
+    if not name:
+        return {}
+    idx = state._bodies_by_name.get(name, -1)
+    if not (0 <= idx < len(state.bodies)):
+        return {}
+    return {f"nearest_body_{k}": v for k, v in _body_vars(state.bodies[idx]).items()}
+
+
 def _system_vars(state) -> dict:
     """Return a dict of system-derived variables for voiceline templates."""
-    return dict(
-        system=state.system, allegiance=state.allegiance, economy=state.economy,
-        security=state.security, government=state.government,
-        population=_tts_pop(state.population), population_raw=str(state.population),
-        faction=state.controlling_faction,
-    )
+    sc = getattr(state, "primary_star_class", "")
+    scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
+    return {
+        **_nearest_body_vars(state),
+        "system": state.system, "allegiance": state.allegiance, "economy": state.economy,
+        "security": state.security, "government": state.government,
+        "population": _tts_pop(state.population), "population_raw": str(state.population),
+        "faction": state.controlling_faction,
+        "star_class": sc,
+        "star_scoopable": ("Scoopable" if scoopable else ("Not scoopable" if sc else "")),
+    }
 
 
 def _bio_scan_vars(sc, state) -> dict:
@@ -879,12 +997,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             star_class = _s(ev, "StarClass")
             scoopable  = is_scoopable(star_class)
 
-            state.system     = system
-            state.population = pop
-            state.economy    = _strip_economy(economy)
-            state.security   = _strip_economy(security)
-            state.government = gov
-            state.allegiance = allegiance
+            state.system              = system
+            state.primary_star_class  = star_class
+            state.population          = pop
+            state.economy             = _strip_economy(economy)
+            state.security            = _strip_economy(security)
+            state.government          = gov
+            state.allegiance          = allegiance
             state.jump_dist  = dist
             state.fuel       = fuel
             if dist > 0.0:
@@ -988,20 +1107,21 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                  system=system, dist_ly=dist_ly_str, dist_ly_raw=f"{dist:.1f}",
                  hops_remaining=str(hops), suffix=tts_suffix,
                  **{k: v for k, v in _system_vars(state).items() if k != "system"},
-                 **_ship_vars(state))
+                 **_ship_vars(state), **_target_vars(state))
             _trigger(state, "overview")
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Location":
             state.client_online = True
             state.client_shutdown_pending = False
-            state.system     = _s(ev, "StarSystem")
-            state.population = _u(ev, "Population")
-            state.economy    = _strip_economy(_loc(ev, "SystemEconomy"))
-            state.security   = _strip_economy(_loc(ev, "SystemSecurity"))
-            state.government = _loc(ev, "SystemGovernment")
-            state.allegiance = _s(ev, "SystemAllegiance")
-            state.hull       = _f(ev, "Health") if "Health" in ev else state.hull
+            state.system             = _s(ev, "StarSystem")
+            state.primary_star_class = _s(ev, "StarClass")
+            state.population         = _u(ev, "Population")
+            state.economy            = _strip_economy(_loc(ev, "SystemEconomy"))
+            state.security           = _strip_economy(_loc(ev, "SystemSecurity"))
+            state.government         = _loc(ev, "SystemGovernment")
+            state.allegiance         = _s(ev, "SystemAllegiance")
+            state.hull               = _f(ev, "Health") if "Health" in ev else state.hull
             star_pos = ev.get("StarPos")
             if isinstance(star_pos, list) and len(star_pos) == 3:
                 state.star_pos = tuple(star_pos)
@@ -1062,7 +1182,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.high_g_extreme = False
             state.hull = _f(ev, "Health") if "Health" in ev else state.hull
             _say(tts_q, "SupercruiseEntry", False, fallback="Supercruise engaged.",
-                 **_system_vars(state), **_ship_vars(state))
+                 **_system_vars(state), **_ship_vars(state), **_target_vars(state))
             return LogEvent.new(EventCategory.Nav, "Supercruise engaged.")
 
         case "SupercruiseExit":
@@ -1178,7 +1298,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             msg = f"Docked at {station}."
             _say(tts_q, "Docked", True, fallback=msg, cacheable=False,
                  station=station, station_type=state.station_type,
-                 **_system_vars(state), **_ship_vars(state))
+                 **_system_vars(state), **_ship_vars(state), **_target_vars(state))
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Undocked":
@@ -1196,10 +1316,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             msg = f"Undocked from {station}." if station else "Undocked."
             if station:
                 _say(tts_q, "Undocked", False, fallback=msg, cacheable=False,
-                     station=station, **_system_vars(state), **_ship_vars(state))
+                     station=station, **_system_vars(state), **_ship_vars(state), **_target_vars(state))
             else:
                 _say(tts_q, "Undocked_nostation", False, fallback=msg,
-                     **_system_vars(state), **_ship_vars(state))
+                     **_system_vars(state), **_ship_vars(state), **_target_vars(state))
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "Touchdown":
@@ -1353,11 +1473,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.shields_up = up
             if not up:
                 _say(tts_q, "ShieldDown", True, fallback="Warning! Shields offline!",
-                     **_ship_vars(state), **_system_vars(state))
+                     **_ship_vars(state), **_system_vars(state), **_target_vars(state))
                 return LogEvent.new(EventCategory.Warn, "Shields offline!")
             else:
                 _say(tts_q, "ShieldUp", False, fallback="Shields restored.",
-                     **_ship_vars(state), **_system_vars(state))
+                     **_ship_vars(state), **_system_vars(state), **_target_vars(state))
                 return LogEvent.new(EventCategory.Combat, "Shields restored.")
 
         case "HullDamage":
@@ -1368,13 +1488,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 msg = f"Critical! Hull at {int(pct)}%!"
                 _say(tts_q, "HullDamage_Critical", True,
                      fallback=f"Critical! Hull at {int(pct)} percent!",
-                     pct=int(pct), **_ship_vars(state))
+                     pct=int(pct), **_ship_vars(state), **_target_vars(state))
                 return LogEvent.new(EventCategory.Warn, msg)
             elif pct <= 75.0:
                 msg = f"Hull damage: {int(pct)}%."
                 _say(tts_q, "HullDamage_Warning", False,
                      fallback=f"Hull damage: {int(pct)} percent.",
-                     pct=int(pct), **_ship_vars(state))
+                     pct=int(pct), **_ship_vars(state), **_target_vars(state))
                 return LogEvent.new(EventCategory.Combat, msg)
             else:
                 return LogEvent.new(EventCategory.Combat, f"Hull at {int(pct)}%.")
@@ -1388,7 +1508,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             else:
                 msg = "You have been destroyed."
             _say(tts_q, "Died", True, fallback=msg, msg=msg,
-                 **_ship_vars(state), **_system_vars(state))
+                 **_ship_vars(state), **_system_vars(state), **_target_vars(state))
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "Bounty":
@@ -1475,6 +1595,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     unusual_flags.append(f"Orb {mins}m")
                 unusual_body = " · ".join(unusual_flags)
 
+                _rings       = ev.get("Rings") or []
                 state.upsert_body(BodyInfo(
                     name=body_name, body_id=body_id, level=level,
                     planet_class=planet_class, star_type=star_type, atmosphere=atmosphere,
@@ -1497,6 +1618,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     materials=body_materials,
                     unusual_body=unusual_body,
                     mass_em=mass_em,
+                    has_rings=bool(_rings),
+                    ring_count=len(_rings),
+                    tidal_lock=_b(ev, "TidalLock"),
                 ))
 
             if scan_type not in ("Detailed", "AutoScan"):
@@ -2136,14 +2260,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 state.credits = int(cr)
             msg = f"CMDR {state.commander} online."
             _say(tts_q, "LoadGame", False, fallback=msg,
-                 **_ship_vars(state))
+                 **_ship_vars(state), **_target_vars(state))
             return LogEvent.new(EventCategory.System, msg)
 
         case "Shutdown":
             if state.client_online:  # Guard: only announce once per session
                 _say(tts_q, "Shutdown", False,
                      fallback="Systems powering down. Farewell, Commander.",
-                     **_ship_vars(state), **_system_vars(state))
+                     **_ship_vars(state), **_system_vars(state), **_target_vars(state))
             state.client_online = False
             state.client_shutdown_pending = True
             _trigger(state, "stats")
@@ -2195,7 +2319,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if is_full and not state.fuel_announced:
                 state.fuel_announced = True
                 _say(tts_q, "FuelScoop_Full", False, fallback="Fuel tank full.",
-                     **_ship_vars(state))
+                     **_ship_vars(state), **_target_vars(state))
                 return LogEvent.new(EventCategory.Status, f"Fuel full ({total:.0f}t).")
             return None
 

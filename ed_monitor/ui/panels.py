@@ -3985,7 +3985,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     tbl.add_column("Bd",     width=2,  justify="right",  no_wrap=True)
     tbl.add_column("Dist",   width=7,  justify="right",  no_wrap=True)
     tbl.add_column("Jump",   width=6,  justify="right",  no_wrap=True)
-    tbl.add_column("✦",      width=1,  justify="center", no_wrap=True)
+    tbl.add_column("EDSM",   width=4,  justify="center", no_wrap=True)
 
     # Dynamic rows: panel height minus header (1) + table header (1) + footer indicator (1) = 3
     max_rows = max(5, panel_height - 5)
@@ -4016,10 +4016,13 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
         else:
             jump_d = 0.0
 
+        body_entry   = bodies.get(name)
+        body_in_edsm = body_entry is not None and body_entry.get("bodies", 0) > 0
+
         edsm_entry = edsm.get(name)
-        if edsm_entry is None:
+        if (edsm_entry is None) and not body_in_edsm:
             edsm_text = Text("?", style=P.LABEL)
-        elif edsm_entry.get("live_known") is False and not edsm_entry.get("x"):
+        elif not body_in_edsm and edsm_entry is not None and edsm_entry.get("live_known") is False and not edsm_entry.get("x"):
             edsm_text = Text("✗", style=P.HUD_CRIT)
         else:
             edsm_text = Text("✓", style=P.HUD_GREEN)
@@ -4033,7 +4036,6 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
         population = (edsm_entry or {}).get("population", 0) or 0
         name_style = "rgb(255,235,180)" if population > 0 else "white"
 
-        body_entry = bodies.get(name)
         if body_entry is None:
             bd_text = Text("…", style=P.LABEL)
         else:

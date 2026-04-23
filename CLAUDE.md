@@ -102,6 +102,70 @@ Migration: if `~/.config/nova/config.toml` doesn't exist, old `~/.config/ed-moni
 - status.py `_q(key, fallback, pri, **kwargs)`: reads `_ev._TTS_LANG` + `_ev._LANG_VOICES` for correct voice
 - Old-style user files (`{lang}.toml` with `lines = [...]`) are migrated to `backup/` on first run
 
+### Voiceline Variable Reference (v1.36.0)
+
+Variable functions in `events.py` — all kwargs passed to `_say()` / `pick()`:
+
+**`_system_vars(state)`** — available in all events using `**_system_vars(state)`:
+| Variable | Content |
+|---|---|
+| `{system}` | Current star system name |
+| `{star_class}` | Primary star class (e.g. "G", "M", "K") — from FSDJump/Location |
+| `{star_scoopable}` | "Scoopable" / "Not scoopable" / "" |
+| `{allegiance}`, `{economy}`, `{security}`, `{government}`, `{faction}` | System metadata |
+| `{population}`, `{population_raw}` | Population (spoken / integer string) |
+| `{nearest_body_*}` | All `_body_vars()` fields prefixed — e.g. `{nearest_body_gravity}`, `{nearest_body_has_rings}`, `{nearest_body_star_type}` (see body vars below) |
+
+**`_ship_vars(state)`** — available in all events using `**_ship_vars(state)`:
+| Variable | Content |
+|---|---|
+| `{commander}`, `{ship}`, `{ship_type}`, `{ship_name}`, `{ship_ident}` | Commander/ship identity |
+| `{hull}`, `{hull_raw}` | Hull health ("75 percent" / "75") |
+| `{fuel}`, `{fuel_raw}`, `{fuel_max_raw}` | Fuel status |
+| `{jump_range}`, `{jump_range_raw}` | Max jump range |
+
+**`_target_vars(state)`** — merged into all `_say()` calls that use `_ship_vars`:
+| Variable | Content |
+|---|---|
+| `{target_type}` | "ship" / "body" / "" |
+| `{target_ship_type}` | Targeted ship type name |
+| `{target_ship_pilot}`, `{target_ship_rank}` | Pilot info (after scan stage 1) |
+| `{target_ship_faction}`, `{target_ship_legal}` | Faction/legal (after scan stage 2) |
+| `{target_ship_shield}` | Shield health 0–100 integer string |
+| `{target_ship_shield_raw}` | Shield health 0.0–1.0 fraction string |
+| `{target_ship_hull}` | Hull health 0–100 integer string |
+| `{target_ship_hull_raw}` | Hull health 0.0–1.0 fraction string |
+| `{target_ship_bounty}`, `{target_ship_bounty_raw}` | Bounty (spoken / integer string) |
+| `{target_body}` | Nav destination name (from Status.json Destination) |
+| `{target_body_*}` | All `_body_vars()` fields prefixed — e.g. `{target_body_gravity}`, `{target_body_has_rings}` (populated when destination matches a known body in state.bodies) |
+
+**`_body_vars(b)`** — available in body-specific events (Scan, ApproachBody, SAA, etc.) and via `nearest_body_*` / `target_body_*` prefixes:
+| Variable | Content |
+|---|---|
+| `{body_type}` | Planet class string |
+| `{star_type}` | Star type if body is a star, else "" |
+| `{scoopable}` | "Scoopable" / "Not scoopable" / "" (stars only) |
+| `{atmosphere}`, `{volcanism}` | Atmosphere/volcanism strings |
+| `{gravity}`, `{gravity_raw}` | Surface gravity ("1.23 G" / "1.23") |
+| `{temp}`, `{temp_raw}` | Surface temp ("300 Kelvin" / "300") |
+| `{radius}`, `{radius_raw}` | Radius ("6000 kilometres" / "6000") |
+| `{mass}`, `{mass_raw}` | Mass ("0.85 Earth masses" / "0.85") |
+| `{dist_ls}`, `{dist_ls_raw}` | Distance from star |
+| `{value}`, `{value_raw}` | FSS scan value (spoken / integer) |
+| `{value_mapped}`, `{value_mapped_raw}` | Projected DSS payout |
+| `{terra}` | "Terraformable" or "" |
+| `{landable}` | "Landable" or "" |
+| `{bio_count}`, `{geo_count}` | Signal counts |
+| `{first_disc}` | "Undiscovered" or "" |
+| `{first_footfall_flag}` | "First footfall" or "" |
+| `{has_rings}` | "Ringed" or "" |
+| `{ring_count}` | Number of rings as string |
+| `{tidal_lock}` | "Tidal lock" or "" |
+| `{orbital_period}`, `{orbital_period_raw}` | Orbital period ("3.2 days" / seconds string) |
+| `{semi_major_axis}`, `{semi_major_axis_raw}` | Semi-major axis ("1.52 AU" / metres string) |
+| `{eccentricity}` | Eccentricity ("0.15") |
+| `{orbital_inclination}`, `{orbital_inclination_raw}` | Inclination ("25.3 degrees" / "25.3") |
+
 ### Template Engine (v1.35.0)
 Three-step render pipeline inside `pick()`:
 1. `_expand_includes(template, lines_map, kwargs, depth=0)` — expands `{include:_KeyName}` (explicit, supports hyphens) and `{_KeyName}` (shorthand, word chars only). Circular includes detected at depth > 5. Missing/non-`_` keys → `""` with warning.
@@ -172,7 +236,7 @@ Functions moved from panels.py to state.py in v1.33.8 so events.py can import wi
 - `estimate_value_mapped(b)`: full projected or actual DSS payout — applies first-mapped (×3.6996), first-disc+mapped (×8.0956), efficiency bonus (×1.25), first-footfall (×1.30). FSS'd unmapped always assumes efficiency bonus (×1.25) = maximum possible payout.
 - Terraformable bonus: additive per `_SPECIFIC_BONUS` (HMC=100677, WW=116295, ELW=116295); other types use `BASIC_BONUS_TERRAFORMABLE=93328`
 - Color tiers (`_body_value_color`): GOLD = first disc+map, AMBER = first map, white = no bonus, AMBER/DIM = non-FSS'd
-- `_body_vars()` in events.py: `{value}/{value_raw}` use formula fallback when `b.value == 0`; `{value_mapped}/{value_mapped_raw}` always use `estimate_value_mapped()`
+- `_body_vars()` in events.py: `{value}/{value_raw}` use formula fallback when `b.value == 0`; `{value_mapped}/{value_mapped_raw}` always use `estimate_value_mapped()`; also exposes orbital/ring/star fields — see Voiceline Variable Reference in CLAUDE.md
 - Used in Bodies panel value column, Overview notable bodies table, and notable-body threshold check
 
 ## Bio Distance (status.py `_check_bio_distance`)

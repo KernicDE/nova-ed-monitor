@@ -123,6 +123,9 @@ class BodyInfo:
     first_footfall:      bool  = False # True when WasFootfalled=false in Scan event
     mass_em:             float = 0.0   # MassEM (planets) or StellarMass (stars) from Scan event
     efficiency_bonus:    bool  = False # True when DSS probes_used <= efficiency_target
+    has_rings:           bool  = False # True if body has at least one ring
+    ring_count:          int   = 0     # number of rings
+    tidal_lock:          bool  = False # True if body is tidally locked to parent
 
 
 @dataclass
@@ -176,13 +179,14 @@ class MissionInfo:
 @dataclass
 class AppState:
     # System
-    system:     str   = "—"
-    population: int   = 0
-    economy:    str   = ""
-    security:   str   = ""
-    government: str   = ""
-    allegiance: str   = ""
-    jump_dist:  float = 0.0
+    system:              str   = "—"
+    primary_star_class:  str   = ""
+    population:          int   = 0
+    economy:             str   = ""
+    security:            str   = ""
+    government:          str   = ""
+    allegiance:          str   = ""
+    jump_dist:           float = 0.0
     jump_dist_total: float = 0.0
     star_pos:   Optional[tuple] = None
     discovery_announced: bool = False
