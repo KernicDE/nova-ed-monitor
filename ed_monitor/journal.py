@@ -757,6 +757,16 @@ def _follow(
     _OFFSET_SAVE_INTERVAL = 20  # write DB offset at most every N lines
     _CRITICAL_EVENTS = frozenset({"FSDJump", "CarrierJump", "Location", "Died", "Shutdown"})
 
+    # Body-write debouncer. Scan-family events fire in bursts during FSS honks
+    # (often 40+ in under a second). Writing the entire bodies list on each
+    # one turns a single honk into ~1600 rows written per second. Instead,
+    # mark dirty and flush on the next idle tick — keeps the on-disk state at
+    # most ~1 s behind memory while avoiding the write amplification.
+    _BODY_DEBOUNCE_S = 1.0
+    _dirty_bodies_since: float = 0.0
+    _SCAN_EVENTS = frozenset({"Scan", "FSSBodySignals", "SAASignalsFound",
+                              "SAAScanComplete", "ScanOrganic"})
+
     try:
         while True:
             chunk = fd.read(65536)
@@ -764,6 +774,11 @@ def _follow(
                 # Flush offset before sleeping so position is never lost
                 db.set_config("last_journal_offset", str(fd.tell()))
                 _lines_since_save = 0
+                # Flush debounced body writes (at most one write per second
+                # during bursts, always current when idle).
+                if _dirty_bodies_since > 0.0:
+                    _save_current_bodies(state, lock, db)
+                    _dirty_bodies_since = 0.0
 
                 # Return if a newer journal file has appeared
                 latest = _get_latest(journal_dir)
@@ -804,9 +819,11 @@ def _follow(
                     sys_name  = state.system
                     prev_cmdr = state.commander
 
-                # Before jump: save current bodies
+                # Before jump: save current bodies (final state pre-jump
+                # must hit disk or we lose scans made in the previous system)
                 if ev_name in ("FSDJump", "CarrierJump"):
                     _save_current_bodies(state, lock, db)
+                    _dirty_bodies_since = 0.0
 
                 # Run event handler
                 if ev_name in _CRITICAL_EVENTS:
@@ -999,10 +1016,17 @@ def _follow(
                     except Exception:
                         pass
 
-                # After scan events: save updated bodies and bio scans
-                if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound", "SAAScanComplete",
-                               "ScanOrganic"):
-                    _save_current_bodies(state, lock, db)
+                # After scan events: mark bodies dirty; the idle branch will
+                # flush within _BODY_DEBOUNCE_S. Bursts of scans during an FSS
+                # honk collapse into a single write.
+                if ev_name in _SCAN_EVENTS:
+                    if _dirty_bodies_since == 0.0:
+                        _dirty_bodies_since = time.time()
+                    elif (time.time() - _dirty_bodies_since) >= _BODY_DEBOUNCE_S:
+                        # Burst longer than the debounce interval — flush now
+                        # so crash-recovery never loses more than 1 s of scans.
+                        _save_current_bodies(state, lock, db)
+                        _dirty_bodies_since = 0.0
 
                 if log_ev is not None:
                     db.insert(log_ev, sys_name, commander=commander)
@@ -1022,11 +1046,17 @@ def _follow(
                     _lines_since_save = 0
 
     finally:
+        # Flush any pending body writes before we lose the file descriptor.
+        if _dirty_bodies_since > 0.0:
+            try:
+                _save_current_bodies(state, lock, db)
+            except Exception as exc:  # pragma: no cover - best-effort shutdown
+                _log.warning("Final body flush on tail exit failed: %s", exc)
         # Always flush the current offset so nothing is replayed on restart
         try:
             db.set_config("last_journal_offset", str(fd.tell()))
-        except Exception:
-            pass
+        except Exception as exc:  # pragma: no cover - best-effort shutdown
+            _log.warning("Final offset flush on tail exit failed: %s", exc)
         fd.close()
 
 
