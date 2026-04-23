@@ -19,22 +19,13 @@ _TMPDIR = tempfile.gettempdir()
 _tmp_seq = 0
 _tmp_seq_lock = threading.Lock()
 
-# Set up audio debugging logger (file-only to prevent terminal flickering)
+# Audio logger. Off by default (NullHandler). Routed into the main debug log
+# via debug_log.setup() when the user enables debug_log in config. This avoids
+# opening a truncated /tmp/nova-audio-debug.log on every NOVA launch.
 _audio_logger = logging.getLogger("nova.audio")
 _audio_logger.setLevel(logging.DEBUG)
-
-# Create file handler which logs debug messages to a file
-audio_log_file = Path(tempfile.gettempdir()) / "nova-audio-debug.log"
-file_handler = logging.FileHandler(audio_log_file, mode='w')
-file_handler.setLevel(logging.DEBUG)
-
-# Create formatter and add it to the handler
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
-# Add the handler to the logger
-_audio_logger.addHandler(file_handler)
-_audio_logger.propagate = False  # prevent leaking to root logger / terminal
+_audio_logger.addHandler(logging.NullHandler())
+_audio_logger.propagate = False
 
 
 @dataclass

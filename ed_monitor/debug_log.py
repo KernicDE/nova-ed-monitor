@@ -34,7 +34,8 @@ def setup(enabled: bool, config_dir: Path) -> None:
     nova.addHandler(handler)
     nova.propagate = False
 
-    # Re-enable propagation on the audio logger so TTS debug lines also
-    # appear in the combined debug log (they always go to nova-audio-debug.log
-    # regardless; propagating adds them to nova-debug.log as well).
+    # Re-enable propagation on the audio logger so TTS debug lines appear in
+    # the combined debug log. With debug_log disabled the audio logger has
+    # only a NullHandler and emits no output (intentional — prevents the
+    # always-on /tmp/nova-audio-debug.log that earlier versions wrote).
     logging.getLogger("nova.audio").propagate = True
