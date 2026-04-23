@@ -8,6 +8,7 @@ from typing import Optional
 
 from .state import (
     AppState, BioScan, BodyInfo, EngineerInfo, EventCategory, LogEvent, MissionInfo,
+    _DEFAULT_BODY_RADIUS_M,
     estimate_value_base as _ev_base, estimate_value_mapped as _ev_mapped,
 )
 from .tts import TtsMsg
@@ -959,7 +960,7 @@ def _placeholder_body(name: str, body_id: int) -> BodyInfo:
         dist_ls=0.0, value=0,
         first_discovered=False, first_mapped=False,
         mapped=False, fss_scanned=False,
-        radius=3_000_000.0,
+        radius=_DEFAULT_BODY_RADIUS_M,
     )
 
 
@@ -1874,7 +1875,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
             _org_nidx  = state._bodies_by_name.get(body_name, -1)
             _org_b     = state.bodies[_org_nidx] if 0 <= _org_nidx < len(state.bodies) else None
-            body_radius = _org_b.radius if _org_b and _org_b.radius > 0 else 3_000_000.0
+            body_radius = _org_b.radius if _org_b and _org_b.radius > 0 else _DEFAULT_BODY_RADIUS_M
 
             match scan_type:
                 case "Log":

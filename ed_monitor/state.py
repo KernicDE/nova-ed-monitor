@@ -526,6 +526,13 @@ class AppState:
         self.missions = [m for m in self.missions if m.mission_id != mission_id]
 
 
+# Default body radius used when a Scan hasn't provided one yet (placeholder
+# planets inserted by FSSBodySignals, bio scans that fire before the matching
+# Scan event). Mars-sized; picked to match the Frontier default surface radius
+# used by the journal for placeholder bodies.
+_DEFAULT_BODY_RADIUS_M: float = 3_389_500.0
+
+
 # ── Body value formula (Frontier forum formula by MattG) ──────────────────────
 # https://forums.frontier.co.uk/threads/exploration-value-formulae.232000/
 

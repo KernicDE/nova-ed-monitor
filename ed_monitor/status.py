@@ -9,7 +9,7 @@ import threading
 import time
 from pathlib import Path
 
-from .state import AppState
+from .state import AppState, _DEFAULT_BODY_RADIUS_M
 from .tts import TtsMsg, _audio_logger
 
 _log = logging.getLogger("nova.status")
@@ -455,7 +455,7 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
     body_name = state.nearest_body
     _bidx     = state._bodies_by_name.get(body_name, -1)
     _sb       = state.bodies[_bidx] if 0 <= _bidx < len(state.bodies) else None
-    body_radius = _sb.radius if _sb and _sb.radius > 0 else 3_389_500.0
+    body_radius = _sb.radius if _sb and _sb.radius > 0 else _DEFAULT_BODY_RADIUS_M
 
     for sc in state.bio_scans:
         if sc.complete or sc.samples == 0:
