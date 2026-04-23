@@ -473,23 +473,34 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
             continue
 
         # Determine nav targets.
-        # Priority: unvisited COMP-scanned positions (not within 100m of any foot sample
-        # AND at least min_dist from all foot samples) → navigate to those.
-        # Otherwise: navigate toward foot-scanned sample positions.
+        # Priority: unvisited COMP-scanned positions (not within 100m of any
+        # foot sample AND at least min_dist from all foot samples) → navigate
+        # to those. Otherwise: navigate toward foot-scanned sample positions.
+        #
+        # Both "close_to_foot" (< 100 m) and "too_close_to_foot" (< min_dist)
+        # are per-foot-sample distance checks; a COMP marker qualifies only
+        # when *neither* triggers. Combined: no foot sample within
+        # max(100, min_dist). Collapsing to a single comparison halves the
+        # number of haversine calls per tick (this runs at up to 5 Hz on
+        # foot, with dozens of comp markers on long bio hunts).
         foot_positions = list(zip(sc.sample_lats, sc.sample_lons))
+        exclusion = max(100.0, sc.min_dist)
 
         unvisited_comp = []
-        for clat, clon in zip(sc.comp_lats, sc.comp_lons):
-            close_to_foot = any(
-                _haversine(clat, clon, slat, slon, body_radius) < 100.0
-                for slat, slon in foot_positions
-            )
-            too_close_to_foot = any(
-                _haversine(clat, clon, slat, slon, body_radius) < sc.min_dist
-                for slat, slon in foot_positions
-            )
-            if not close_to_foot and not too_close_to_foot:
-                unvisited_comp.append((clat, clon))
+        if foot_positions:
+            for clat, clon in zip(sc.comp_lats, sc.comp_lons):
+                # Early-exit inner loop: one foot-sample within the exclusion
+                # zone is enough to disqualify this comp marker.
+                ok = True
+                for slat, slon in foot_positions:
+                    if _haversine(clat, clon, slat, slon, body_radius) < exclusion:
+                        ok = False
+                        break
+                if ok:
+                    unvisited_comp.append((clat, clon))
+        else:
+            # No foot samples yet — every comp marker qualifies as unvisited.
+            unvisited_comp = list(zip(sc.comp_lats, sc.comp_lons))
 
         if unvisited_comp:
             positions = unvisited_comp
