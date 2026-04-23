@@ -394,7 +394,18 @@ class NOVAApp(App):
         except Exception:
             pass
 
-    def _snapshot(self) -> AppState:
+    def _snapshot_light(self) -> AppState:
+        """Shallow state copy. Primitive fields + shared references only — no
+        collection clones. Safe for FooterBar, CSS-class flipping, and the
+        fingerprint early-out. Panels that iterate collections must use the
+        full snapshot instead.
+        """
+        with self._lock:
+            return copy.copy(self._state)
+
+    def _snapshot_full(self) -> AppState:
+        """Full state snapshot with cloned collections. Only taken when the
+        fingerprint has changed since the last render."""
         with self._lock:
             snap = copy.copy(self._state)
             snap.events         = copy.copy(self._state.events)
@@ -410,6 +421,9 @@ class NOVAApp(App):
             snap.route_next_stations = list(self._state.route_next_stations)
         return snap
 
+    # Back-compat: external callers may still refer to ._snapshot().
+    _snapshot = _snapshot_full
+
     def _refresh_all(self) -> None:
         # Re-hide cursor every cycle (terminals may restore it on focus/resize)
         try:
@@ -417,15 +431,22 @@ class NOVAApp(App):
             self._driver.flush()
         except Exception:
             pass
-        snap = self._snapshot()
+
+        # ── Cheap tick path ────────────────────────────────────────────────
+        # Every tick (2 Hz) we need FooterBar, CSS class flips, and the
+        # fingerprint early-out — all of which only touch primitive fields on
+        # the state. The expensive collection copies are deferred until the
+        # fingerprint actually changes, so idle seconds no longer clone the
+        # bodies / events / route lists at 2 Hz.
+        snap_light = self._snapshot_light()
 
         # ── CSS flash classes (time-based — must run every tick regardless of data) ──
         # Apply mode border class to the main screen — only call set_class when value changes
         # (set_class triggers CSS recalculation; guarding it eliminates ~8 DOM mutations per tick)
-        offline  = not snap.client_online
-        on_foot  = not snap.in_main_ship and not snap.in_srv and not offline
-        analysis = snap.analysis_mode and not offline
-        combat   = not snap.analysis_mode and snap.in_main_ship and not offline
+        offline  = not snap_light.client_online
+        on_foot  = not snap_light.in_main_ship and not snap_light.in_srv and not offline
+        analysis = snap_light.analysis_mode and not offline
+        combat   = not snap_light.analysis_mode and snap_light.in_main_ship and not offline
 
         _css = self._prev_css
         def _sc(name: str, val: bool) -> None:
@@ -439,15 +460,15 @@ class NOVAApp(App):
         _sc("on-foot-mode",   on_foot)
 
         # Flash classes toggle every second when active — still guard to avoid 2× updates per second
-        has_hazard = snap.overheating or (0 < snap.hull < 0.25)
+        has_hazard = snap_light.overheating or (0 < snap_light.hull < 0.25)
         flash_on   = has_hazard and (int(time.time()) % 2 == 0)
         _sc("alert-flash", flash_on)
 
         # High-G extreme approach flash (orange; stops when landed)
         high_g_flash = (
-            snap.high_g_extreme
-            and not snap.landed
-            and not snap.in_srv
+            snap_light.high_g_extreme
+            and not snap_light.landed
+            and not snap_light.in_srv
             and (int(time.time()) % 2 == 0)
         )
         _sc("high-g-flash", high_g_flash)
@@ -462,28 +483,32 @@ class NOVAApp(App):
         # FooterBar stall warnings and flash states re-evaluate at 1 Hz even when idle.
         _tick_s = int(time.time())
         fingerprint = (
-            snap.system, snap.population,
-            snap.hull, snap.fuel, snap.heat,
-            snap.pips_sys, snap.pips_eng, snap.pips_wep,
-            snap.lat, snap.lon,
-            snap.bodies_version, snap.events_version,
-            snap.route_hops, snap.route_destination,
-            snap.client_online, snap.docked, snap.landed,
-            snap.supercruise, snap.analysis_mode,
-            snap.in_main_ship, snap.in_srv,
-            snap.credits, snap.cargo,
-            snap.neutron_route_status,
-            snap.auto_panel_trigger_version,
-            snap.chat_tts_muted, snap.twitch_tts_muted, snap.youtube_tts_muted,
+            snap_light.system, snap_light.population,
+            snap_light.hull, snap_light.fuel, snap_light.heat,
+            snap_light.pips_sys, snap_light.pips_eng, snap_light.pips_wep,
+            snap_light.lat, snap_light.lon,
+            snap_light.bodies_version, snap_light.events_version,
+            snap_light.route_hops, snap_light.route_destination,
+            snap_light.client_online, snap_light.docked, snap_light.landed,
+            snap_light.supercruise, snap_light.analysis_mode,
+            snap_light.in_main_ship, snap_light.in_srv,
+            snap_light.credits, snap_light.cargo,
+            snap_light.neutron_route_status,
+            snap_light.auto_panel_trigger_version,
+            snap_light.chat_tts_muted, snap_light.twitch_tts_muted, snap_light.youtube_tts_muted,
             _tick_s,
         )
 
-        self.query_one(FooterBar).update(snap)
+        # FooterBar only reads primitives + edsm_status (a shared ServiceStatus
+        # reference) — the light snapshot is sufficient.
+        self.query_one(FooterBar).update(snap_light)
 
         if fingerprint == self._prev_fingerprint:
             return
         self._prev_fingerprint = fingerprint
 
+        # Fingerprint changed — now pay for the full snapshot and update panels.
+        snap = self._snapshot_full()
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)
         self.query_one(RoutePanel).update(snap)
