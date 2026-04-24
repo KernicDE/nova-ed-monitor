@@ -7,6 +7,22 @@ from ed_monitor.events import _fmt_credits, handle
 from ed_monitor.state import AppState, BodyInfo, EventCategory
 
 
+def test_handle_rejects_non_dict_payload():
+    """A malformed journal line must not crash the handler."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    # Each of these would have raised AttributeError prior to R-11.
+    for bad in ([], "event", 42, None, 3.14):
+        assert handle(bad, state, q) is None
+
+
+def test_handle_rejects_missing_event_field():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    assert handle({}, state, q) is None
+    assert handle({"event": ""}, state, q) is None
+
+
 def test_fmt_credits_basic():
     assert _fmt_credits(0) == "0 Cr"
     assert _fmt_credits(1000) == "1,000 Cr"

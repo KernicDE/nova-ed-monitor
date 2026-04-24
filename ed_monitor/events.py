@@ -996,7 +996,16 @@ def _cancel_high_g_timers(state: AppState) -> None:
 # ── Main event handler ─────────────────────────────────────────────────────────
 
 def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> Optional[LogEvent]:
+    # Journal is line-delimited JSON; a malformed file can yield a non-dict
+    # value (list, number, string). Every helper below — _s, _f, _u, _b,
+    # _loc — assumes ev.get(...) works, so validate once at the boundary and
+    # drop non-dict payloads silently. Also require an "event" string so the
+    # match cascade below has something to compare against.
+    if not isinstance(ev, dict):
+        return None
     event = _s(ev, "event")
+    if not event:
+        return None
 
     match event:
 
