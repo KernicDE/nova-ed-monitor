@@ -343,6 +343,10 @@ class AppState:
 
     # High-G approach warning
     high_g_extreme: bool = False
+    # Pending threading.Timer objects scheduled by the ≥3 G handler. Tracked
+    # so LeaveBody / SupercruiseEntry / jumps can cancel them — otherwise
+    # they fire on a body the player has already left.
+    high_g_timers: list = field(default_factory=list, repr=False)
 
     # Wallet / cross-galaxy inventory
     credits:      int  = 0

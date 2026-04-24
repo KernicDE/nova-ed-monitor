@@ -973,6 +973,26 @@ def _trigger(state: AppState, panel: str) -> None:
     state.auto_panel_trigger_version += 1
 
 
+# ── High-G timer lifecycle ─────────────────────────────────────────────────────
+
+def _cancel_high_g_timers(state: AppState) -> None:
+    """Cancel any pending ≥3 G repeat warnings and drop the references.
+
+    Called whenever the player leaves the body the warnings were scheduled
+    for (LeaveBody, SupercruiseEntry, FSDJump/CarrierJump, Shutdown). Without
+    this, timers fire against stale `state.approach_body` and may issue
+    spurious warnings on an entirely different body.
+    """
+    if not state.high_g_timers:
+        return
+    for t in state.high_g_timers:
+        try:
+            t.cancel()
+        except Exception:  # pragma: no cover - Timer.cancel rarely raises
+            pass
+    state.high_g_timers.clear()
+
+
 # ── Main event handler ─────────────────────────────────────────────────────────
 
 def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> Optional[LogEvent]:
@@ -1013,6 +1033,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.lat        = None
             state.lon        = None
             state.station    = ""
+            _cancel_high_g_timers(state)
+            state.high_g_extreme = False
             state.clear_bodies()
             state.bio_scans.clear()
             state.nearest_body        = ""
@@ -1175,6 +1197,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             return LogEvent.new(EventCategory.Nav, "Route cleared.")
 
         case "SupercruiseEntry":
+            _cancel_high_g_timers(state)
             state.approach_body = ""
             state.high_g_extreme = False
             state.hull = _f(ev, "Health") if "Health" in ev else state.hull
@@ -1201,6 +1224,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
         case "ApproachBody":
             body_name = _s(ev, "Body")
+            # A new approach cancels any pending repeats from a prior approach.
+            _cancel_high_g_timers(state)
             state.approach_body = body_name
             # High-G warning
             idx = state._bodies_by_name.get(body_name, -1)
@@ -1216,14 +1241,19 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _say(tts_q, "HighGExtreme", True,
                              fallback=f"Extreme gravity warning: {g_str}!",
                              g=g_str, g_raw=g_raw, body=body_name, **_bvars)
-                        # Schedule 2 repeat warnings at 10 s and 20 s
+                        # Schedule 2 repeat warnings at 10 s and 20 s.
+                        # Tracked on state so LeaveBody / SupercruiseEntry /
+                        # jump can cancel them.
                         for delay in (10, 20):
                             def _repeat(bname=body_name, gs=g_str, gr=g_raw, bv=_bvars):
                                 if state.approach_body == bname and not state.landed and not state.in_srv:
                                     _say(tts_q, "HighGExtreme", True,
                                          fallback=f"Extreme gravity warning: {gs}!",
                                          g=gs, g_raw=gr, body=bname, **bv)
-                            threading.Timer(delay, _repeat).start()
+                            t = threading.Timer(delay, _repeat)
+                            t.daemon = True
+                            state.high_g_timers.append(t)
+                            t.start()
                         return LogEvent.new(EventCategory.Warn,
                                             f"Extreme gravity: {g:.1f} G — {body_name}.")
                     elif g >= 1.5:
@@ -1238,6 +1268,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             return None
 
         case "LeaveBody":
+            _cancel_high_g_timers(state)
             state.approach_body = ""
             state.high_g_extreme = False
             return None
@@ -2265,6 +2296,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 _say(tts_q, "Shutdown", False,
                      fallback="Systems powering down. Farewell, Commander.",
                      **_ship_vars(state), **_system_vars(state), **_target_vars(state))
+            _cancel_high_g_timers(state)
             state.client_online = False
             state.client_shutdown_pending = True
             _trigger(state, "stats")

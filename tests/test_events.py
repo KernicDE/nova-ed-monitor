@@ -158,6 +158,66 @@ def test_saa_scan_complete_no_first_map_when_already_mapped():
     assert "First map" not in result.message
 
 
+def _location_event(system: str = "TestSys") -> dict:
+    return {"event": "Location", "StarSystem": system, "SystemAddress": 1,
+            "StarPos": [0.0, 0.0, 0.0], "Population": 0, "Economy": "$economy_None;",
+            "Government": "$government_None;", "Allegiance": "Independent",
+            "Security": "$SYSTEM_SECURITY_low;", "Factions": []}
+
+
+def _high_g_scan_ev(body_name: str = "TestSys 1") -> dict:
+    ev = _make_scan_ev("TestSys", body_name)
+    ev["SurfaceGravity"] = 9.80665 * 3.5  # 3.5 G → extreme
+    ev["Landable"] = True
+    return ev
+
+
+def test_approach_body_extreme_g_schedules_timers():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_location_event(), state, q)
+    handle(_high_g_scan_ev(), state, q)
+    handle({"event": "ApproachBody", "Body": "TestSys 1", "BodyID": 1}, state, q)
+    assert len(state.high_g_timers) == 2
+    assert all(t.is_alive() for t in state.high_g_timers)
+    # Clean up so pytest doesn't leave live Timer threads after the test
+    for t in state.high_g_timers:
+        t.cancel()
+
+
+def test_leave_body_cancels_high_g_timers():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_location_event(), state, q)
+    handle(_high_g_scan_ev(), state, q)
+    handle({"event": "ApproachBody", "Body": "TestSys 1", "BodyID": 1}, state, q)
+    scheduled = list(state.high_g_timers)
+    assert len(scheduled) == 2
+
+    handle({"event": "LeaveBody", "Body": "TestSys 1", "BodyID": 1}, state, q)
+    assert state.high_g_timers == []
+    # Every previously-scheduled timer is cancelled
+    for t in scheduled:
+        assert t.finished.is_set()
+
+
+def test_second_approach_cancels_previous_timers():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_location_event(), state, q)
+    handle(_high_g_scan_ev("TestSys 1"), state, q)
+    handle({"event": "ApproachBody", "Body": "TestSys 1", "BodyID": 1}, state, q)
+    first = list(state.high_g_timers)
+    handle(_high_g_scan_ev("TestSys 2"), state, q)
+    handle({"event": "ApproachBody", "Body": "TestSys 2", "BodyID": 2}, state, q)
+    # Prior timers cancelled, replaced with a fresh pair
+    for t in first:
+        assert t.finished.is_set()
+    assert len(state.high_g_timers) == 2
+    for t in state.high_g_timers:
+        t.cancel()
+
+
 def test_first_footfall_via_bodyinfo_flag():
     """Disembark should fire first footfall announcement when BodyInfo.first_footfall is set."""
     state = AppState()
