@@ -94,12 +94,7 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
         client.close()
 
 
-def _now_hms() -> str:
-    return datetime.now().strftime("%H:%M:%S")
-
-
-def _url_encode(s: str) -> str:
-    return quote(s, safe="")
+_HMS = "%H:%M:%S"
 
 
 def _fetch_system_data(
@@ -114,11 +109,11 @@ def _fetch_system_data(
     genuinely does not know the system), or None on network/HTTP error.
     Callers must treat None as "no determination possible".
     """
-    enc     = _url_encode(system)
-    tx_time = _now_hms()
+    enc     = quote(system, safe="")
+    tx_time = datetime.now().strftime(_HMS)
     try:
         resp = client.get(f"https://www.edsm.net/api-system-v1/bodies?systemName={enc}")
-        rx_time = _now_hms()
+        rx_time = datetime.now().strftime(_HMS)
         data    = resp.json()
         with lock:
             state.edsm_status.last_tx    = tx_time
@@ -139,7 +134,7 @@ def _fetch_station_count(
     state:  AppState,
     lock:   threading.RLock,
 ) -> int:
-    enc = _url_encode(system)
+    enc = quote(system, safe="")
     try:
         resp     = client.get(f"https://www.edsm.net/api-system-v1/stations?systemName={enc}")
         data     = resp.json()

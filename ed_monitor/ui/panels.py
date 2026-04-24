@@ -1920,7 +1920,6 @@ _ENGINEER_STATIC: dict[str, tuple[str, str]] = {
     "Uma Laszlo":         ("Weapon",          "Laszlo's Resolve, Xuane"),
     "Oden Geiger":        ("Suit",            "Ankh's Promise, Candiaei"),
     "Terra Velasquez":    ("Suit",            "Rascals' Choice, Shou Xing"),
-    "Yarden Bond":        ("Shield",          "Brestla i-Ship Brewery, Brestla"),
 }
 
 
@@ -3128,89 +3127,6 @@ def _render_orrery(s: AppState) -> RenderableType:
         t.append("\n")
 
     return t
-
-
-# ── Bio panel (kept for standalone use) ───────────────────────────────────────
-
-class BioPanel(_Panel):
-    BORDER_TITLE = "◈ Biological Scans"
-
-    DEFAULT_CSS = """
-    BioPanel {
-        border: solid rgb(0,170,60);
-        border-title-color: rgb(0,170,60);
-        border-title-style: bold;
-        height: auto;
-        min-height: 3;
-    }
-    """
-
-    def render(self) -> RenderableType:
-        if self._snap is None:
-            return Text("")
-        return _render_bio(self._snap)
-
-
-# ── Materials / Cargo panel (kept for standalone use) ─────────────────────────
-
-class MaterialsPanel(_Panel):
-    BORDER_TITLE = "◈ Inventory"
-
-    DEFAULT_CSS = """
-    MaterialsPanel {
-        border: solid rgb(90,90,90);
-        border-title-color: rgb(180,180,180);
-        border-title-style: bold;
-        height: 1fr;
-    }
-    """
-
-    def render(self) -> RenderableType:
-        if self._snap is None:
-            return Text("")
-        return _render_inventory(self._snap)
-
-
-# ── Missions panel (kept for standalone use) ───────────────────────────────────
-
-class MissionsPanel(_Panel):
-    BORDER_TITLE = "◈ Missions"
-
-    DEFAULT_CSS = """
-    MissionsPanel {
-        border: solid rgb(195,150,0);
-        border-title-color: rgb(195,150,0);
-        border-title-style: bold;
-        height: auto;
-        min-height: 3;
-    }
-    """
-
-    def render(self) -> RenderableType:
-        if self._snap is None:
-            return Text("")
-        return _render_missions(self._snap)
-
-
-# ── Engineers panel (kept for standalone use) ──────────────────────────────────
-
-class EngineersPanel(_Panel):
-    BORDER_TITLE = "◈ Engineers"
-
-    DEFAULT_CSS = """
-    EngineersPanel {
-        border: solid rgb(70,70,140);
-        border-title-color: rgb(130,130,220);
-        border-title-style: bold;
-        height: auto;
-        min-height: 3;
-    }
-    """
-
-    def render(self) -> RenderableType:
-        if self._snap is None:
-            return Text("")
-        return _render_engineers(self._snap)
 
 
 # ── Situational panel ─────────────────────────────────────────────────────────

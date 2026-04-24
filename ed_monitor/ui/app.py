@@ -335,10 +335,6 @@ class NOVAApp(App):
     Screen.high-g-flash {
         background: rgb(50, 20, 0);
     }
-
-    Screen.combat-mode SystemPanel {
-        border-title-color: rgb(185,40,40) !important;
-    }
     """
 
     TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"

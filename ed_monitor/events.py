@@ -964,10 +964,6 @@ def _placeholder_body(name: str, body_id: int) -> BodyInfo:
     )
 
 
-def natural_key(s: str) -> list:
-    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
-
-
 # ── Auto-panel trigger helper ──────────────────────────────────────────────────
 
 def _trigger(state: AppState, panel: str) -> None:
