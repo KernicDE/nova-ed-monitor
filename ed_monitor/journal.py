@@ -232,7 +232,8 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
                     resp = client.post(_EDSM_URL, data=params)
                     resp.raise_for_status()
                     found = {s["name"] for s in resp.json() if isinstance(s, dict) and "name" in s}
-                except Exception:
+                except Exception as exc:
+                    _log.debug("EDSM live lookup batch failed: %s", exc)
                     found = set()
 
                 for name in batch:
@@ -251,14 +252,14 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
                     _time.sleep(0.5)  # 100 systems/batch: 0.5s is polite
 
             client.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("EDSM live route fetch aborted: %s", exc)
 
         if new_cache_entries:
             try:
                 db.upsert_route_edsm_cache(new_cache_entries)
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.warning("EDSM route cache upsert failed: %s", exc)
 
     finally:
         _route_edsm_lock.release()
@@ -320,8 +321,11 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
                             for sig in sigs.get("signals") or []:
                                 if "Biological" in sig.get("type", ""):
                                     bio_total += int(sig.get("count", 0))
-                except Exception:
-                    pass  # cache as 0/0
+                except Exception as exc:
+                    # Per-system fetch failures are common (new/unknown
+                    # systems return 404). Cache as 0/0 so we don't retry
+                    # for another 7 days; log at debug only.
+                    _log.debug("EDSM bodies %s failed: %s", name, exc)
 
                 new_cache_entries.append({
                     "system_name": name, "bio_count": bio_total,
@@ -337,14 +341,14 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
                     _time.sleep(0.5)  # EDSM bodies: 0.5s between per-system requests
 
             client.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("EDSM bodies route fetch aborted: %s", exc)
 
         if new_cache_entries:
             try:
                 db.upsert_route_bodies_cache(new_cache_entries)
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.warning("EDSM route bodies cache upsert failed: %s", exc)
 
     finally:
         _route_bodies_edsm_lock.release()
@@ -418,7 +422,8 @@ def _rebuild_body_db(journal_dir: Path, db: Database) -> None:
                 try:
                     with tmp_lock:
                         handle(ev, tmp, silent_q, live=False)
-                except Exception:
+                except Exception as exc:
+                    _log.debug("Backlog handler skipped %s: %s", ev_name, exc)
                     continue
 
                 if ev_name in ("Scan", "FSSBodySignals", "SAASignalsFound",
@@ -470,8 +475,8 @@ def monitor(
         try:
             with lock:
                 state.stored_ships = json.loads(ships_json)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, TypeError) as exc:
+            _log.warning("Could not restore stored_ships_json: %s", exc)
 
     # Restore nav route from previous session (journal replay will override if NavRoute present)
     route_json = db.get_config("route_snapshot_json")
@@ -488,14 +493,14 @@ def monitor(
                     state.route_dist           = snap.get("dist", 0.0)
                     state.route_next_dist      = snap.get("next_dist", 0.0)
                     state.route_list           = snap.get("list", [])
-        except Exception:
-            pass
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.warning("Could not restore route_snapshot_json: %s", exc)
 
     # Populate power/nearest/stations from local EDSM dump data right after startup
     try:
         _update_dump_lookups(state, lock, db)
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("Initial EDSM dump lookup failed: %s", exc)
 
     _start_watchdog(journal_dir)
 
@@ -509,8 +514,8 @@ def monitor(
                     state.push_event(ev)
                 try:
                     tts_q.put_nowait(TtsMsg(text="New game session.", priority=False))
-                except Exception:
-                    pass
+                except queue.Full:
+                    _log.debug("TTS queue full — dropped 'New game session.' callout")
 
             start_offset = 0
             if latest is not None:
@@ -613,7 +618,8 @@ def _process_backlog(
                         sys_name  = state.system
                         log_ev    = handle(effective, state, silent_q, live=False)
                         commander = state.commander  # updated by LoadGame handler
-                except Exception:
+                except Exception as exc:
+                    _log.debug("Backlog handle() skipped %s: %s", ev_name, exc)
                     continue
 
                 # After entering a system, restore saved bodies from DB
@@ -748,8 +754,8 @@ def _follow(
         if sys_name and sys_name != "—":
             try:
                 edsm_q.put_nowait(("fetch_system_silent", sys_name))
-            except Exception:
-                pass
+            except queue.Full:
+                _log.debug("EDSM queue full — dropped silent fetch for %s", sys_name)
 
     buf = ""
     _lines_since_save = 0
@@ -982,17 +988,17 @@ def _follow(
                             edsm_q.put_nowait(("fetch_system", new_sys))
                             if pop > 0:
                                 edsm_q.put_nowait(("fetch_stations", new_sys))
-                        except Exception:
-                            pass
+                        except queue.Full:
+                            _log.debug("EDSM queue full — dropped fetch for %s", new_sys)
                     if spansh_q is not None and new_sys:
                         try:
                             spansh_q.put_nowait(("fetch_carriers", new_sys))
-                        except Exception:
-                            pass
+                        except queue.Full:
+                            _log.debug("Spansh queue full — dropped carriers fetch for %s", new_sys)
                     try:
                         _update_dump_lookups(state, lock, db)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _log.warning("EDSM dump lookup after jump failed: %s", exc)
 
                 # Persist fleet list so it survives restarts
                 if ev_name == "StoredShips":
@@ -1004,8 +1010,8 @@ def _follow(
                 if ev_name in ("NavRoute", "NavRouteClear"):
                     try:
                         _update_dump_lookups(state, lock, db)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _log.warning("EDSM dump lookup after route change failed: %s", exc)
                     try:
                         with lock:
                             route_snap = {
@@ -1019,8 +1025,8 @@ def _follow(
                                 "list":        list(state.route_list),
                             }
                         db.set_config("route_snapshot_json", json.dumps(route_snap))
-                    except Exception:
-                        pass
+                    except (TypeError, ValueError, OSError) as exc:
+                        _log.warning("Could not persist route snapshot: %s", exc)
 
                 # After scan events: mark bodies dirty; the idle branch will
                 # flush within _BODY_DEBOUNCE_S. Bursts of scans during an FSS
@@ -1126,8 +1132,8 @@ def _handle_commander_switch(
                     state.route_dist           = snap.get("dist", 0.0)
                     state.route_next_dist      = snap.get("next_dist", 0.0)
                     state.route_list           = snap.get("list", [])
-        except Exception:
-            pass
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.warning("Commander switch: route snapshot parse failed: %s", exc)
 
     # Restore stored fleet (global key)
     ships_json = db.get_config("stored_ships_json")
@@ -1135,8 +1141,8 @@ def _handle_commander_switch(
         try:
             with lock:
                 state.stored_ships = json.loads(ships_json)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, TypeError) as exc:
+            _log.warning("Commander switch: stored_ships parse failed: %s", exc)
 
     # Load current system bodies/bio_scans for the new commander
     _load_system_bodies(state, lock, db)

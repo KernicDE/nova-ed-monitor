@@ -54,12 +54,12 @@ def _detect_initial_commander(journal_dir: Path) -> str:
         for line in raw.decode("utf-8", errors="replace").splitlines():
             try:
                 ev = _json.loads(line.strip())
-                if ev.get("event") == "LoadGame":
+                if isinstance(ev, dict) and ev.get("event") == "LoadGame":
                     cmdr = ev.get("Commander", "") or ""
-            except Exception:
-                pass
+            except _json.JSONDecodeError:
+                continue  # malformed journal line — skip
         return cmdr
-    except Exception:
+    except OSError:
         return ""
 
 
@@ -122,8 +122,9 @@ def main() -> None:
         with lock:
             state.push_event(LogEvent.new(EventCategory.System, f"⚠ {_vl_error}"))
 
+    # Startup voiceline — lost if the TTS queue rejects it, but not worth
+    # crashing the app for. Same for the voiceline-file error warning.
     try:
-        # Only play startup message if not already played (prevents duplicates)
         if not getattr(state, '_startup_message_played', False):
             state._startup_message_played = True
             if not voicelines.is_muted("Nova_Startup", lang=cfg.tts_lang):
@@ -139,20 +140,20 @@ def main() -> None:
                     voice=voice,
                     deduplication_key="Nova_Startup"
                 ))
+    except queue.Full:
+        logging.getLogger("nova").debug("TTS queue full at startup — skipping Nova_Startup")
 
-        if _vl_error:
-            try:
-                tts_q.put_nowait(TtsMsg(
-                    text="Warning: voiceline file has an error and will not be used.",
-                    priority=True,
-                    volume=cfg.default_volume,
-                    voice=None,
-                    deduplication_key="VoicelineFileError",
-                ))
-            except Exception:
-                pass
-    except Exception:
-        pass
+    if _vl_error:
+        try:
+            tts_q.put_nowait(TtsMsg(
+                text="Warning: voiceline file has an error and will not be used.",
+                priority=True,
+                volume=cfg.default_volume,
+                voice=None,
+                deduplication_key="VoicelineFileError",
+            ))
+        except queue.Full:
+            logging.getLogger("nova").debug("TTS queue full at startup — skipping VoicelineFileError")
 
     # Journal monitor thread (guarded: restarts on crash after 5s)
     _spawn_guarded(journal.monitor,
@@ -189,14 +190,14 @@ def main() -> None:
             with lock:
                 state.volume                  = new_cfg.default_volume
                 state.notable_value_threshold = new_cfg.notable_value_threshold
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("nova").warning("Config hot-reload failed: %s", exc)
 
     def _on_voicelines_changed():
         try:
             voicelines.reload_all()
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("nova").warning("Voiceline hot-reload failed: %s", exc)
 
     config_watcher.spawn(
         config.config_dir(),

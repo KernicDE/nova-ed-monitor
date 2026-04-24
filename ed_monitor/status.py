@@ -286,8 +286,8 @@ def _apply_status(
             text  = _vl.pick(key, lang=lang, **kwargs) or fallback
             try:
                 tts_q.put_nowait(TtsMsg(text=text, priority=pri, voice=voice))
-            except Exception:
-                pass
+            except queue.Full:
+                _log.debug("TTS queue full — dropped %s callout", key)
 
         if new_charging and not prev_charging:
             # We let events.py handle the speech to avoid duplicates
@@ -421,15 +421,15 @@ def _apply_status(
                 try:
                     text = _vl.pick("MassLocked", lang=lang) or "Mass locked."
                     tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-                except Exception:
-                    pass
+                except queue.Full:
+                    _log.debug("TTS queue full — dropped MassLocked")
         elif not new_mass_locked and prev_mass_locked:
             if not _vl.is_muted("MassLockReleased", lang=lang):
                 try:
                     text = _vl.pick("MassLockReleased", lang=lang) or "Mass lock released."
                     tts_q.put_nowait(TtsMsg(text=text, priority=False, voice=voice))
-                except Exception:
-                    pass
+                except queue.Full:
+                    _log.debug("TTS queue full — dropped MassLockReleased")
 
 
 def _compass_toward(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
@@ -589,8 +589,8 @@ def _check_bio_distance(state: AppState, tts_q: queue.Queue) -> None:
                                 voice=voice,
                                 deduplication_key=dedup_key,
                             ))
-                        except Exception:
-                            pass
+                        except queue.Full:
+                            _log.debug("TTS queue full — dropped BioTooClose")
                 # else: already inside zone, alerted already False — do nothing
 
 

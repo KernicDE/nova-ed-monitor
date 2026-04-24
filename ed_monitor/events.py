@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import queue
 import re
 import threading
 import time
 from typing import Optional
+
+_log = logging.getLogger("nova.events")
 
 from .state import (
     AppState, BioScan, BodyInfo, EngineerInfo, EventCategory, LogEvent, MissionInfo,
@@ -485,8 +488,10 @@ def _speak(tts_q: queue.Queue, text: str, priority: bool, cacheable: bool = True
         tts_q.put_nowait(TtsMsg(
             text=_phonetic_sub(text), priority=priority, voice=voice, cacheable=cacheable,
         ))
-    except Exception:
-        pass
+    except queue.Full:
+        # TTS queue is unbounded in normal operation; this only trips if the
+        # caller shut it down. A dropped voiceline is acceptable there.
+        _log.debug("TTS queue full — dropped voiceline: %s", text[:60])
 
 
 def _say(
@@ -507,24 +512,24 @@ def _say(
 
 def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> None:
     """Speak chat text with language detection. source='Twitch' adds Twitch prefix."""
+    lang = _detect_lang(msg)
+    # If detection falls back to English and a chat language is configured, use it
+    if lang == "en" and _CHAT_LANG:
+        lang = _CHAT_LANG
+    voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
+    verb  = _LANG_VERBS.get(lang, "says")
+    on    = _LANG_ON.get(lang, "on")
+    if source:
+        text = f"{user} {on} {source} {verb}: {msg}"
+    else:
+        text = f"{user} {verb}: {msg}"
+    # Chat is unique per message — never cache
     try:
-        lang = _detect_lang(msg)
-        # If detection falls back to English and a chat language is configured, use it
-        if lang == "en" and _CHAT_LANG:
-            lang = _CHAT_LANG
-        voice = _LANG_VOICES.get(lang, _LANG_VOICES["en"])
-        verb  = _LANG_VERBS.get(lang, "says")
-        on    = _LANG_ON.get(lang, "on")
-        if source:
-            text = f"{user} {on} {source} {verb}: {msg}"
-        else:
-            text = f"{user} {verb}: {msg}"
-        # Chat is unique per message — never cache
         tts_q.put_nowait(TtsMsg(
             text=_phonetic_sub(text), priority=False, voice=voice, cacheable=False,
         ))
-    except Exception:
-        pass
+    except queue.Full:
+        _log.debug("TTS queue full — dropped chat line from %s", user[:40])
 
 
 def _tts_cr(n: int) -> str:
