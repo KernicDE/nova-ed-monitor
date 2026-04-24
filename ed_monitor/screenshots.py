@@ -127,8 +127,14 @@ def monitor(state: AppState, lock: threading.RLock, cfg) -> None:
 
     _log.info(f"Screenshot monitor: watching {src_dir} → {dest_dir}")
 
-    # Track already-seen files by (path, mtime) to avoid double-processing
-    seen: set[tuple[str, float]] = set()
+    # Track already-seen files by (path, mtime) to avoid double-processing.
+    # Cap the deque so a long-running NOVA session doesn't accumulate one
+    # entry per screenshot indefinitely; the cap is well above any plausible
+    # session count.
+    from collections import deque as _deque
+    _SEEN_MAX = 1024
+    seen_keys: set[tuple[str, float]] = set()
+    seen_order: "_deque[tuple[str, float]]" = _deque(maxlen=_SEEN_MAX)
 
     while True:
         try:
@@ -141,9 +147,13 @@ def monitor(state: AppState, lock: threading.RLock, cfg) -> None:
                     except OSError:
                         continue
                     key = (str(entry), mtime)
-                    if key in seen:
+                    if key in seen_keys:
                         continue
-                    seen.add(key)
+                    if len(seen_order) == _SEEN_MAX:
+                        # About to evict — drop oldest from the set too.
+                        seen_keys.discard(seen_order[0])
+                    seen_order.append(key)
+                    seen_keys.add(key)
 
                     # Wait briefly so ED finishes writing the file
                     time.sleep(0.5)

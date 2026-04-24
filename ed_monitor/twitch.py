@@ -34,9 +34,9 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
             _log.info(f"Connecting to Twitch IRC: {irc_channel}")
             sock.connect((SERVER, PORT))
 
-            sock.send(b"PASS SCHMOOPIIE\r\n")
-            sock.send(f"NICK {nickname}\r\n".encode("utf-8"))
-            sock.send(f"JOIN {irc_channel}\r\n".encode("utf-8"))
+            sock.sendall(b"PASS SCHMOOPIIE\r\n")
+            sock.sendall(f"NICK {nickname}\r\n".encode("utf-8"))
+            sock.sendall(f"JOIN {irc_channel}\r\n".encode("utf-8"))
             _log.info(f"Twitch IRC connected: {irc_channel}")
 
             buf = ""
@@ -51,7 +51,7 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
                     line = line.rstrip("\r")
 
                     if line.startswith("PING"):
-                        sock.send(b"PONG :tmi.twitch.tv\r\n")
+                        sock.sendall(b"PONG :tmi.twitch.tv\r\n")
                         continue
 
                     if "PRIVMSG" in line:

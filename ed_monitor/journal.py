@@ -832,17 +832,24 @@ def _follow(
                     with lock:
                         log_ev = handle(effective, state, tts_q)
                 except Exception as exc:
+                    # Log full traceback at ERROR so debug_log captures the
+                    # root cause. Retrying a broken handler endlessly would
+                    # stall every subsequent event, so we still advance the
+                    # offset — but surface a *warning* (not a neutral system
+                    # message) when the skipped event is critical (Shutdown,
+                    # Died, jumps, Location) so the player notices.
+                    _log.exception(
+                        "Handler raised on event %r at offset %d — skipping",
+                        ev_name, fd.tell(),
+                    )
+                    cat = EventCategory.Warn if ev_name in _CRITICAL_EVENTS else EventCategory.System
                     with lock:
                         state.push_event(LogEvent.new(
-                            EventCategory.System,
-                            f"Handler error [{ev_name}]: {exc}",
+                            cat, f"Handler error [{ev_name}]: {exc}",
                         ))
                     log_ev = None
-                    # Still save offset so we don't replay this broken line
-                    _lines_since_save += 1
-                    if _lines_since_save >= _OFFSET_SAVE_INTERVAL or ev_name in _CRITICAL_EVENTS:
-                        db.set_config("last_journal_offset", str(fd.tell()))
-                        _lines_since_save = 0
+                    db.set_config("last_journal_offset", str(fd.tell()))
+                    _lines_since_save = 0
                     continue
 
                 # Read commander after handle (LoadGame updates it)
