@@ -131,30 +131,39 @@ def _fetch_carriers_query(
         _log.warning(f"Spansh API error: {exc}")
         return []
 
-    results = data.get("results", [])
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        _log.debug("Spansh: malformed response (no 'results' list)")
+        return []
+
     carriers = []
     for r in results:
-        name       = r.get("name", "")
-        dist_ls    = r.get("distance_to_arrival") or 0.0
-        updated_at = r.get("updated_at", "")
-        sys_name   = r.get("system_name", "")
-        sys_x      = float(r.get("system_x") or 0.0)
-        sys_y      = float(r.get("system_y") or 0.0)
-        sys_z      = float(r.get("system_z") or 0.0)
-        market     = bool(r.get("has_market"))
-        shipyard   = bool(r.get("has_shipyard"))
-        outfitting = bool(r.get("has_outfitting"))
-        if name:
-            carriers.append({
-                "name":        name,
-                "system_name": sys_name,
-                "dist_ls":     float(dist_ls),
-                "updated_at":  updated_at,
-                "sys_x":       sys_x,
-                "sys_y":       sys_y,
-                "sys_z":       sys_z,
-                "market":      market,
-                "shipyard":    shipyard,
-                "outfitting":  outfitting,
-            })
+        if not isinstance(r, dict):
+            continue
+        name = r.get("name", "")
+        if not isinstance(name, str) or not name:
+            continue  # Reject unnamed or wrong-type entries.
+
+        # Coordinates and distance must be numeric if present.
+        def _num(v, default: float = 0.0) -> float:
+            if isinstance(v, (int, float)):
+                return float(v)
+            return default
+
+        sys_x = _num(r.get("system_x"))
+        sys_y = _num(r.get("system_y"))
+        sys_z = _num(r.get("system_z"))
+
+        carriers.append({
+            "name":        name,
+            "system_name": r.get("system_name", "") if isinstance(r.get("system_name"), str) else "",
+            "dist_ls":     _num(r.get("distance_to_arrival")),
+            "updated_at":  r.get("updated_at", "") if isinstance(r.get("updated_at"), str) else "",
+            "sys_x":       sys_x,
+            "sys_y":       sys_y,
+            "sys_z":       sys_z,
+            "market":      bool(r.get("has_market")),
+            "shipyard":    bool(r.get("has_shipyard")),
+            "outfitting":  bool(r.get("has_outfitting")),
+        })
     return carriers

@@ -38,8 +38,8 @@ def _accept_consent_if_needed(resp: httpx.Response, client: httpx.Client) -> Non
         fields["set_eom"] = "true"
         client.post("https://consent.youtube.com/save", data=fields,
                     follow_redirects=True, timeout=15)
-    except Exception:
-        pass
+    except httpx.HTTPError as exc:
+        _log.debug("YouTube consent POST failed: %s", exc)
 
 
 def _get_live_video_id(channel: str, client: httpx.Client) -> str | None:
@@ -63,8 +63,8 @@ def _get_live_video_id(channel: str, client: httpx.Client) -> str | None:
         m = re.search(r'"videoId"\s*:\s*"([\w-]{11})"', resp.text)
         if m:
             return m.group(1)
-    except Exception:
-        pass
+    except httpx.HTTPError as exc:
+        _log.debug("YouTube /live fetch failed for %s: %s", handle, exc)
     return None
 
 
@@ -76,8 +76,8 @@ def _get_continuation(video_id: str, client: httpx.Client) -> str | None:
         m = re.search(r'"continuation"\s*:\s*"([^"]+)"', resp.text)
         if m:
             return m.group(1)
-    except Exception:
-        pass
+    except httpx.HTTPError as exc:
+        _log.debug("YouTube continuation fetch failed: %s", exc)
     return None
 
 
@@ -138,6 +138,11 @@ def monitor(
         return
 
     channel = cfg.youtube_channel
+    # Surface a single breakage notice when the regex scrape stops finding
+    # *anything*, so users know to report it rather than silently wonder why
+    # chat isn't showing up. We only emit the notice on the transition from
+    # "was working / never tried" to "scrape broke".
+    _last_scrape_ok = True
 
     while True:
         try:
@@ -161,8 +166,20 @@ def monitor(
                 continuation = _get_continuation(video_id, client)
                 if not continuation:
                     _log.debug("YouTube: could not get chat continuation token")
+                    # The /live page returned a valid video ID but we
+                    # couldn't find a "continuation":"..." token — this is
+                    # what happens when YouTube changes their page markup.
+                    if _last_scrape_ok:
+                        _last_scrape_ok = False
+                        with lock:
+                            state.push_event(LogEvent.new(
+                                EventCategory.Warn,
+                                "YouTube chat scrape failed — page markup may have changed; "
+                                "please file an issue if this persists.",
+                            ))
                     time.sleep(60)
                     continue
+                _last_scrape_ok = True
 
                 # Poll chat until continuation runs out or error
                 while continuation:
