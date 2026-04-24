@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .state import BioScan, BodyInfo, LogEvent
+
+_log = logging.getLogger("nova.db")
 
 
 def _safe_cmdr(cmdr: str) -> str:
@@ -170,78 +173,99 @@ class Database:
         self._migrate_bio_scans_v2()
 
     def _migrate_stats_v2(self) -> None:
-        """Recreate stats with (date, stat, commander) primary key — one-time migration."""
+        """Recreate stats with (date, stat, commander) primary key — one-time migration.
+
+        The whole migration runs inside a single atomic transaction so that a
+        partial failure (disk full, constraint, etc.) rolls back cleanly and
+        the sentinel is never written. On the next launch the migration is
+        retried from the original pre-migration state rather than resumed from
+        an unknown half-done point.
+        """
         if self.get_config("_migration_stats_v2") == "1":
             return
         with self._lock:
             try:
-                self._conn.executescript("""
-                    CREATE TABLE IF NOT EXISTS stats_v2 (
-                        date      TEXT NOT NULL,
-                        stat      TEXT NOT NULL,
-                        commander TEXT NOT NULL DEFAULT '',
-                        value     REAL NOT NULL DEFAULT 0,
-                        PRIMARY KEY (date, stat, commander)
-                    );
-                    INSERT OR IGNORE INTO stats_v2 (date, stat, commander, value)
-                        SELECT date, stat, IFNULL(commander, ''), value FROM stats;
-                    DROP TABLE stats;
-                    ALTER TABLE stats_v2 RENAME TO stats;
-                    CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date);
-                """)
-                self._conn.execute(
-                    "INSERT OR REPLACE INTO config(key, value) VALUES('_migration_stats_v2', '1')"
-                )
-                self._conn.commit()
-            except Exception:
-                pass
+                # executescript() issues its own COMMIT before running, which
+                # makes it impossible to wrap atomically. Issue each statement
+                # explicitly inside `with self._conn:` to get one transaction.
+                with self._conn:
+                    self._conn.execute(
+                        """CREATE TABLE IF NOT EXISTS stats_v2 (
+                            date      TEXT NOT NULL,
+                            stat      TEXT NOT NULL,
+                            commander TEXT NOT NULL DEFAULT '',
+                            value     REAL NOT NULL DEFAULT 0,
+                            PRIMARY KEY (date, stat, commander)
+                        )"""
+                    )
+                    self._conn.execute(
+                        """INSERT OR IGNORE INTO stats_v2 (date, stat, commander, value)
+                             SELECT date, stat, IFNULL(commander, ''), value FROM stats"""
+                    )
+                    self._conn.execute("DROP TABLE stats")
+                    self._conn.execute("ALTER TABLE stats_v2 RENAME TO stats")
+                    self._conn.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_stats_date ON stats(date)"
+                    )
+                    self._conn.execute(
+                        "INSERT OR REPLACE INTO config(key, value)"
+                        " VALUES('_migration_stats_v2', '1')"
+                    )
+            except sqlite3.Error as exc:
+                _log.warning("stats v2 migration failed — will retry next launch: %s", exc)
 
     def _migrate_bio_scans_v2(self) -> None:
-        """Recreate bio_scans with (system, body, species, commander) primary key — one-time migration."""
+        """Recreate bio_scans with (system, body, species, commander) primary key — one-time migration.
+
+        Same atomicity model as :meth:`_migrate_stats_v2`.
+        """
         if self.get_config("_migration_bio_scans_v2") == "1":
             return
         with self._lock:
             try:
-                self._conn.executescript("""
-                    CREATE TABLE IF NOT EXISTS bio_scans_v2 (
-                        system            TEXT    NOT NULL,
-                        body              TEXT    NOT NULL,
-                        species           TEXT    NOT NULL,
-                        commander         TEXT    NOT NULL DEFAULT '',
-                        species_localised TEXT    NOT NULL DEFAULT '',
-                        genus_localised   TEXT    NOT NULL DEFAULT '',
-                        samples           INTEGER NOT NULL DEFAULT 1,
-                        min_dist          REAL    NOT NULL DEFAULT 0,
-                        body_radius       REAL    NOT NULL DEFAULT 0,
-                        value             INTEGER NOT NULL DEFAULT 0,
-                        complete          INTEGER NOT NULL DEFAULT 0,
-                        first_discovered  INTEGER NOT NULL DEFAULT 0,
-                        first_footfall    INTEGER NOT NULL DEFAULT 0,
-                        sample_lats       TEXT    NOT NULL DEFAULT '',
-                        sample_lons       TEXT    NOT NULL DEFAULT '',
-                        last_lat          REAL,
-                        last_lon          REAL,
-                        comp_lats         TEXT    NOT NULL DEFAULT '',
-                        comp_lons         TEXT    NOT NULL DEFAULT '',
-                        PRIMARY KEY (system, body, species, commander)
-                    );
-                    INSERT OR IGNORE INTO bio_scans_v2
-                        SELECT system, body, species, IFNULL(commander, ''),
-                               species_localised, genus_localised,
-                               samples, min_dist, body_radius, value, complete,
-                               first_discovered, first_footfall,
-                               sample_lats, sample_lons, last_lat, last_lon,
-                               comp_lats, comp_lons
-                        FROM bio_scans;
-                    DROP TABLE bio_scans;
-                    ALTER TABLE bio_scans_v2 RENAME TO bio_scans;
-                """)
-                self._conn.execute(
-                    "INSERT OR REPLACE INTO config(key, value) VALUES('_migration_bio_scans_v2', '1')"
-                )
-                self._conn.commit()
-            except Exception:
-                pass
+                with self._conn:
+                    self._conn.execute(
+                        """CREATE TABLE IF NOT EXISTS bio_scans_v2 (
+                            system            TEXT    NOT NULL,
+                            body              TEXT    NOT NULL,
+                            species           TEXT    NOT NULL,
+                            commander         TEXT    NOT NULL DEFAULT '',
+                            species_localised TEXT    NOT NULL DEFAULT '',
+                            genus_localised   TEXT    NOT NULL DEFAULT '',
+                            samples           INTEGER NOT NULL DEFAULT 1,
+                            min_dist          REAL    NOT NULL DEFAULT 0,
+                            body_radius       REAL    NOT NULL DEFAULT 0,
+                            value             INTEGER NOT NULL DEFAULT 0,
+                            complete          INTEGER NOT NULL DEFAULT 0,
+                            first_discovered  INTEGER NOT NULL DEFAULT 0,
+                            first_footfall    INTEGER NOT NULL DEFAULT 0,
+                            sample_lats       TEXT    NOT NULL DEFAULT '',
+                            sample_lons       TEXT    NOT NULL DEFAULT '',
+                            last_lat          REAL,
+                            last_lon          REAL,
+                            comp_lats         TEXT    NOT NULL DEFAULT '',
+                            comp_lons         TEXT    NOT NULL DEFAULT '',
+                            PRIMARY KEY (system, body, species, commander)
+                        )"""
+                    )
+                    self._conn.execute(
+                        """INSERT OR IGNORE INTO bio_scans_v2
+                             SELECT system, body, species, IFNULL(commander, ''),
+                                    species_localised, genus_localised,
+                                    samples, min_dist, body_radius, value, complete,
+                                    first_discovered, first_footfall,
+                                    sample_lats, sample_lons, last_lat, last_lon,
+                                    comp_lats, comp_lons
+                               FROM bio_scans"""
+                    )
+                    self._conn.execute("DROP TABLE bio_scans")
+                    self._conn.execute("ALTER TABLE bio_scans_v2 RENAME TO bio_scans")
+                    self._conn.execute(
+                        "INSERT OR REPLACE INTO config(key, value)"
+                        " VALUES('_migration_bio_scans_v2', '1')"
+                    )
+            except sqlite3.Error as exc:
+                _log.warning("bio_scans v2 migration failed — will retry next launch: %s", exc)
 
     def insert(self, ev: LogEvent, system: str, commander: str = "") -> None:
         event_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
