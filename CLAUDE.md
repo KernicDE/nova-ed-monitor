@@ -47,7 +47,34 @@ ed_monitor/
 ## DB Resilience (db.py)
 All write methods (`insert`, `save_bodies_batch`, `save_bio_scans`, `increment_stat`, `set_hull`, `set_config`) wrap their `executemany`/`execute`+`commit` in `try/except Exception: self._conn.rollback(); raise`. This prevents half-written transactions from leaving the DB in a corrupt state.
 
-Bodies and stats are **kept indefinitely** — no age-based pruning. The `prune_events()` method exists but is not called automatically (events only, 180-day default).
+**Migrations** (`_migrate_stats_v2`, `_migrate_bio_scans_v2`) run inside `with self._conn:` — explicit atomic transactions, not `executescript()`. On failure they log via `logging.getLogger("nova.db")` at WARNING and leave the sentinel unwritten so the next launch retries from a clean state.
+
+**Bodies and stats are kept indefinitely.** `Database.prune_events(days)` is wired to `cfg.prune_events_days` at startup (default 0 = disabled). A positive integer activates startup-time pruning of event rows older than N days.
+
+## Body Index (state.py)
+`AppState.upsert_body()` keeps `_bodies_by_name` / `_bodies_by_id` consistent with `self.bodies` via **in-place O(K) updates** (K = bodies shifted by the insertion). Journal replays call `upsert_body()` thousands of times; the previous full `_rebuild_body_index()` per insert was O(N²).
+
+## Body Write Debouncing (journal.py `_follow`)
+Scan-family events (`Scan`, `FSSBodySignals`, `SAASignalsFound`, `SAAScanComplete`, `ScanOrganic`) mark a dirty timestamp. Writes are batched and flushed at most every `_BODY_DEBOUNCE_S = 1.0` s — on next idle tick, before FSDJump/CarrierJump (mandatory pre-jump save), or on the `finally` block when `_follow()` exits. An FSS honk of 40 events no longer produces 40 table rewrites.
+
+## Snapshot Tiers (ui/app.py)
+`_refresh_all()` at 2 Hz uses two snapshot tiers:
+- `_snapshot_light()` — `copy.copy(state)`, no collection clones. Used for FooterBar + CSS + fingerprint.
+- `_snapshot_full()` — only when the fingerprint has changed since the last tick.
+
+Idle seconds no longer clone the bodies/events/route/carriers collections at 2 Hz.
+
+## Shared HTTP Constants (_http.py)
+`USER_AGENT`, `TIMEOUT_SHORT`, `TIMEOUT_MEDIUM`, `TIMEOUT_LONG`, `TIMEOUT_DUMP`. Every outbound service (edsm, edsm_dumps, spansh, neutron, journal route-fetch helpers) pulls from here. `USER_AGENT` is derived from `importlib.metadata.version("nova-ed-monitor")` so a version bump updates every request automatically.
+
+## High-G Timer Lifecycle (events.py `_cancel_high_g_timers`)
+`ApproachBody ≥ 3 G` schedules two `threading.Timer` objects for repeat warnings at 10 s and 20 s. Timers are tracked on `state.high_g_timers` and cancelled by **any** of: a later `ApproachBody` on a different body, `LeaveBody`, `SupercruiseEntry`, `FSDJump` / `CarrierJump`, `Shutdown`. Timers are daemonised so they never block interpreter shutdown.
+
+## Default Body Radius Constant (state.py `_DEFAULT_BODY_RADIUS_M`)
+`3_389_500.0` m (Mars-sized). Imported by both `status._check_bio_distance` and `events.ScanOrganic Log` — earlier versions had divergent `3_389_500` vs `3_000_000` defaults producing ~13 % haversine errors when the Scan event arrived after the first bio Log.
+
+## Config-Watcher Quiet Window (config_watcher.py)
+`config_watcher.notify_self_write(window_s=3.0)` silences the reload callback for `window_s` seconds after any internal write. `config.load()` (format-upgrade rewrites) and `config.save()` (Settings overlay) both call it; no more self-write → reload loops.
 
 ## TTS Path Safety (tts.py)
 - Pygame subprocess fallback: path passed as `repr(str(path))` (safe Python literal, handles quotes/backslashes)
@@ -84,6 +111,7 @@ Settings overlay: `s` key → `SettingsScreen` (app.py). All `Static` widgets in
 - `screenshot_dir` — override auto-detected ED screenshot source directory
 - `screenshot_dest` — override destination directory (default: `~/Pictures/Elite Dangerous`)
 - `situational_panels` — space-separated abbrevs defining visible panels and order (e.g. `OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS`); empty = all panels in default order
+- `prune_events_days` — delete event rows older than N days at startup; 0 = disabled (default)
 
 Migration: if `~/.config/nova/config.toml` doesn't exist, old `~/.config/ed-monitor/config.toml` is copied.
 

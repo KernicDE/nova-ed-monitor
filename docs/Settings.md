@@ -168,6 +168,18 @@ When enabled, NOVA queries the [Spansh](https://spansh.co.uk) API each time you 
 
 ---
 
+## Event Log Retention
+
+```toml
+# prune_events_days = 0
+```
+
+Set to a positive integer to automatically delete event-log rows older than N days at every NOVA launch. Default `0` keeps the entire history (existing behaviour). Useful on portable installs where `events.db` keeps growing — a value of `180` typically keeps the database under a few MB while preserving a full six-month window.
+
+When pruning runs, NOVA logs the deletion count at INFO (visible in the debug log when `debug_log = true`).
+
+---
+
 ## Debug Logging
 
 ```toml

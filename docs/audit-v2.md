@@ -1,8 +1,19 @@
 # NOVA v2.0.0 — Senior Architect Audit
 
-Issue: [#101](https://github.com/KernicDE/nova-ed-monitor/issues/101). Baseline: v1.36.0, 171 tests passing.
+Issue: [#101](https://github.com/KernicDE/nova-ed-monitor/issues/101). Baseline: v1.36.0, 171 tests passing. After audit: **205 tests passing.**
 
 This document is the Phase-1 deliverable — a concrete punch list of every finding, mapped to the phase that ships the fix. Each commit during phases 2-5 points back to an item here.
+
+## Status at v2.0.0 cut
+
+| | Done | Deferred |
+|-|------|----------|
+| Hot paths (Phase 2) | P-1, P-3, P-4, P-5, P-9 | P-6, P-7, P-8, P-10 |
+| Resilience (Phase 3) | R-1, R-2, R-4, R-5, R-6, R-7, R-8, R-10, R-11, R-12, R-13, R-14 | R-3 (no bug after verification), R-9 |
+| Dead code (Phase 4) | D-1, D-2, D-3, D-4, D-5, D-7, D-8, D-10 | D-6 (commentary only), D-9 |
+| Tests (Phase 5) | +34 new tests: state upsert, approach-body timers, handler guards, prune_events, HTTP, config-watcher, status haversine + bio-distance, Spansh schema | |
+
+The deferred items are tracked in this document and remain applicable for future work. They were judged non-blocking for v2.0.0 because none represent a correctness bug — they are either UI-layer perf micro-optimisations that need live Textual integration testing (P-6/P-7/P-8), architectural refactors that need concurrency testing (R-9), or purely cosmetic (D-6/D-9).
 
 ---
 
