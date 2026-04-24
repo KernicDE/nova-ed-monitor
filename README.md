@@ -1,67 +1,9 @@
 # NOVA — Navigation, Operations, and Vessel Assistance
 
 > [!NOTE]
-> This project is 100% vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development.
+> This project is 100 % vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development.
 
-A real-time TUI companion for **Elite Dangerous** — reads journal files, speaks events via TTS, and displays system / ship / route / bio-scan data in your terminal.
-
-**Guides:** [Installation & Update](docs/Installation.md) · [Settings](docs/Settings.md) · [Usage Guide](docs/Usage.md)
-
----
-
-## Features
-
-### Voice & TTS
-- **Live TTS** via edge-tts — speaks jump events, combat alerts, bio distances, fuel warnings, docking, and more
-- **NOVA voiceovers** — fully translated into 7 languages with multiple random variants per event; user-editable TOML files per language
-- **Voiceline template engine** — user templates support reusable include fragments (`{include:_key}` / `{_key}`) and inline conditionals (`WHEN {value_raw} > 500000 THEN "Worth {value}.";`) with full AND/OR operator support
-- **Multi-language detection** — automatically detects and voices EN, DE, FR, IT, ES, PT, RU per message
-- **Twitch integration** — reads your Twitch chat anonymously and announces messages via TTS
-- **YouTube live chat** — monitors your YouTube live stream chat anonymously (no API key needed)
-
-### Exploration
-- **Bio-scan assistant** — tracks sample distances, bearings, scan completion, and contextual remainder announcements per species; first footfall bonus announced when all 3 samples scanned
-- **Bio value estimation** — shows genus-based value range (e.g. `~3.4M–12.9M`) before DSS, and predicted genera after FSS based on planet conditions
-- **First footfall inference** — announces first footfall bonus even when the journal flag is absent; pre-flags bodies from FSS scan data (`WasFootfalled=false`)
-- **Body value display** — FSS'd unmapped bodies always show the maximum projected DSS payout (efficiency bonus assumed); color-coded: gold = first-discovery+mapping, amber = first-mapping, white = no bonus; values use the Frontier formula, not EDSM data
-- **High-G body warning** — TTS warning at ≥1.5 G; three repeated alerts and orange border flash for extreme gravity (≥3 G)
-- **DSS efficiency** — announces whether the efficiency target was reached during detailed surface scanning
-- **EDSM enrichment** — downloads EDSM nightly dumps for offline lookups; no API key needed
-- **Power Play** — displays controlling power and state (Exploited / Fortified / Control / etc.) from local EDSM cache
-- **Nearest inhabited system** — shows closest populated system, distance, station count, and available services in the Overview when in uninhabited space
-
-### Navigation & Route
-- **Route situation panel** — header shows jumps remaining, total distance, and destination; per-jump star type, scoopable indicator, distances, and EDSM presence; scrollable; auto-activates when a nav route is set
-- **Neutron route planner** — local neutron route calculator using a daily-refreshed Spansh dump; press `n` in Neutron panel to enter destination
-- **Next-waypoint stations** — lists stations at the next jump destination (name, distance, services icons: M/S/O/R)
-- **Fleet carrier lookup** — optionally queries Spansh API for carriers in current system (enable with `carrier_lookup = true`; shown in Overview; cached 5 min)
-
-### Terminal UI
-- **Settings overlay** — press `s` to open in-app settings; change TTS language/voice/rate, volume, thresholds, channels, and more without editing files; changes apply immediately (no restart)
-- **Config hot-reload** — editing `config.toml` or voiceline TOML files while NOVA is running takes effect within 2 seconds automatically
-- **Position / Ship / Target / Bodies / Situational / Events / Chat panels**
-- **Situational panel** (14 modes, cycle with `Tab` / `Shift+Tab`):
-  - Auto-switches by context (route, bio, missions, docking, etc.); toggle lock with `a`
-  - Panel visibility and order configurable via `situational_panels` in config
-  - Active mode shown with full name in the border title
-- **Power distribution (PIPs)** — live SYS/ENG/WEP pip display with half-pip support (●◑○)
-- **Two-column system info** — exploration/natural data left, BGS/human data right
-- **Galaxy map** — Braille top-down map of the Milky Way with route waypoints; `r` or `↑`/`↓` cycles sub-views (system → regional → galaxy); sub-view indicator shown in panel border
-- **Local time** — current system time shown in the footer bar
-- **Color-coded event log** — category abbreviation in category color
-
-### Ship & Commander
-- **Wallet & fleet** — Wealth panel: credit balance, fleet across all stations, cargo, materials, suit loadout, backpack; **Odyssey materials** (backpack + ship locker) shown with full per-item detail
-- **Engineer progress** — rank bars, rank-progress %, specialty and system for all ~36 engineers; Odyssey engineers shown as X/1 (not X/5)
-- **Screenshot processing** — converts BMP→PNG, renames to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`, moves to `~/Pictures/Elite Dangerous`
-- **Statistics** — persistent stats: jumps, distance, credits, FSS/DSS/bio, enemies, ships lost — today / week / month / year / total
-
-### Data & Persistence
-- **Persistent event log** — replays journal history from SQLite across sessions, including bodies from previous sessions
-- **Keybindings backup** — backs up your ED `.binds` file on changes; last 5 versions kept
-- **Stream overlay** — writes `.txt` files per data field for OBS/Streamlabs
-- **Portable launcher** — `nova.sh` / `nova.ps1` keep all data (venv, config, database) in the same folder as the script; run from any location; auto-installs Python and NOVA on first launch, auto-updates on every launch
-- **Debug logging** — enable `debug_log = true` to write a full session log for diagnostics
+A real-time TUI companion for **Elite Dangerous**. Tails the journal, speaks events via TTS, and renders a cockpit-style dashboard in your terminal.
 
 ---
 
@@ -75,120 +17,88 @@ chmod +x nova.sh
 ./nova.sh
 ```
 
-The script installs Python (if missing), creates an isolated virtual environment, installs NOVA, and launches it. **All data (config, database, venv) lives in the same folder as `nova.sh`.** On every subsequent launch it checks for updates automatically.
-
 ### Windows
 
-1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) — right-click the link and **Save As** to a folder of your choice (e.g. `C:\Nova\`)
-2. Right-click **`nova.ps1`** → **Run with PowerShell**
+1. Download [`nova.ps1`](https://raw.githubusercontent.com/KernicDE/nova-ed-monitor/main/nova.ps1) — right-click → **Save As** into a folder of your choice (e.g. `C:\Nova\`).
+2. Right-click **`nova.ps1`** → **Run with PowerShell**.
 
-On first run the script installs Python 3.12 (if missing), creates a virtual environment, and installs NOVA — all inside the folder where `nova.ps1` lives. **All data stays in that folder.** On every subsequent launch it checks for updates automatically.
+> If PowerShell blocks the script, run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
-> ⚠️ If PowerShell blocks the script, run once in a PowerShell window: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+Both launchers install Python (if missing), create a `venv` next to the script, install NOVA, and auto-update on every subsequent launch. **All data lives in the same folder as the launcher** — config, database, logs, venv. Nothing is installed system-wide.
 
----
-
-## Running NOVA
-
-| Platform | Command |
-|----------|---------|
-| Linux | `./nova.sh` (from the folder containing the script) |
-| Windows | Right-click `nova.ps1` → **Run with PowerShell** |
-
-Both launcher scripts check for updates on every launch and upgrade automatically if a newer version is available on GitHub.
+Full installation options (pip, wheel, standalone Linux binary, clone) are in **[docs/Installation.md](docs/Installation.md)**.
 
 ---
 
-## Updating NOVA
+## Documentation
 
-Updates happen **automatically** on every launch — no manual action needed.
-
-To force an immediate update, run the launcher script again — it always checks on launch:
-
-```bash
-# Linux
-./nova.sh
-
-# Windows
-.\nova.ps1
-```
+| Guide | Contents |
+|-------|----------|
+| **[Installation & Update](docs/Installation.md)** | Launcher scripts, pip install, data paths, uninstall, troubleshooting. |
+| **[Settings](docs/Settings.md)** | Every `config.toml` key, voiceline customisation, template engine, stream overlay. |
+| **[Usage Guide](docs/Usage.md)** | Keyboard shortcuts, every panel explained, bio/neutron/high-G workflows, stats. |
+| **[Audit v2.0.0](docs/audit-v2.md)** | Status of the Senior Architect Audit that shaped the v2.0.0 baseline. |
 
 ---
 
-## Uninstalling NOVA
+## Features at a glance
 
-### Linux
+### Voice
+- Live TTS via **edge-tts** with random variants per event and full template engine (includes, conditionals, AND/OR). 7 built-in languages.
+- **Multi-language chat detection** for Twitch / YouTube / in-game chat — each message voiced in its detected language.
+- Hot-reloadable voiceline files (`en.toml`, `de.toml`, …) with `add` / `replace` / `replace = []` semantics.
 
-```bash
-./nova.sh --uninstall
-```
+### Exploration
+- Bio-scan assistant: sample distances, compass bearings, scan completion, first-footfall bonus detection.
+- Bio value range estimates from FSS data (predicted genera) → DSS-confirmed ranges → actual scan values.
+- Frontier-formula body values with full DSS multiplier chain (first-discovered, first-mapped, efficiency, Odyssey footfall).
+- High-G body warning at ≥ 1.5 G (single) and ≥ 3 G (repeat + orange border flash).
 
-Removes the entire NOVA folder (venv, config, database). Prompts for confirmation. Elite Dangerous journal files are **not touched**. Delete `nova.sh` afterwards to finish.
+### Navigation & Maps
+- **Route** panel with per-waypoint star class, scoopable flag, distances, and live EDSM body/bio totals.
+- Offline **neutron route planner** (Spansh dump, daily refresh).
+- Fleet-carrier lookup (Spansh API, opt-in).
+- Galaxy map (Braille, with route waypoints) — system / regional / galactic zoom.
 
-### Windows
+### Terminal UI
+- 14-mode **Situational** panel, auto-switching by context (`a` to lock).
+- In-app **Settings overlay** (`s` key) — every key, live-applied.
+- Hot-reload for `config.toml` and voiceline files within ~2 s.
+- Power-distribution pips, two-column system info, color-coded event + chat logs.
 
-```powershell
-.\nova.ps1 -Uninstall
-```
-
-Removes the entire NOVA folder (venv, config, database). Prompts for confirmation. Elite Dangerous journal files are **not touched**. Delete `nova.ps1` afterwards to finish.
+### Integrations
+- **Twitch** chat (anonymous, no API key) → panel + TTS.
+- **YouTube** live chat (anonymous, no API key) → panel + TTS.
+- **EDSM** nightly dumps (systems / stations / Power Play) stored locally.
+- **Spansh** API for fleet carriers (opt-in).
+- Stream **overlay**: per-field `.txt` files for OBS / Streamlabs.
+- Automatic **screenshot** rename + BMP→PNG conversion.
+- Automatic **.binds** file backups (last 5 kept).
 
 ---
 
-## Installation (alternative methods)
+## v2.0.0 — Production baseline
 
-The launcher scripts above are the recommended way. If you prefer to install manually:
+v2.0.0 is the post-audit production cut. It ships an extensive refactor aimed at
+performance, resilience and dead-code removal:
 
-### pip from GitHub
+- **O(N²) → O(K)** `upsert_body` index updates (journal replay thousands of times faster on startup).
+- **Debounced** body-write bursts — an FSS honk no longer produces 40 × N-row DB writes.
+- **Tiered UI snapshots** — idle ticks skip all collection clones; only fingerprint-changing ticks pay for the full copy.
+- **Atomic DB migrations** (`with self._conn:` transactions) with narrow-exception logging.
+- **Cancelable high-G timers** — no more leaked `threading.Timer` threads after a body leave.
+- **Unified HTTP layer** (`ed_monitor/_http.py`): one `USER_AGENT` derived from the package version, one timeout tier per call class.
+- **Config-watcher quiet window** — self-writes from `config.load()` / `config.save()` no longer trigger a phantom reload.
+- **Hardened I/O boundaries**: schema guard in `events.handle()`, Spansh response validation, YouTube scrape-failure surfacing, twitch `sendall`, handler-exception tracebacks.
+- **205 tests** (from 171), covering haversine, upsert perf, timer cancellation, HTTP constants, config debouncing, spansh parsing, and event-handler guards.
 
-```bash
-# Linux (use a venv to avoid PEP 668 errors on modern distros)
-python -m venv ~/nova-venv
-~/nova-venv/bin/pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-~/nova-venv/bin/nova
-
-# Windows
-py -m pip install git+https://github.com/KernicDE/nova-ed-monitor.git
-nova
-```
-
-### Wheel from releases
-
-1. Go to the [Releases page](https://github.com/KernicDE/nova-ed-monitor/releases)
-2. Download the `.whl` file
-3. Install it:
-
-```bash
-pip install nova_ed_monitor-*.whl        # Linux (inside venv)
-py -m pip install nova_ed_monitor-*.whl  # Windows
-```
-
-### Standalone Linux binary (no Python needed)
-
-Download `nova-linux-x86_64` from the [latest release](https://github.com/KernicDE/nova-ed-monitor/releases/latest), then:
-
-```bash
-chmod +x nova-linux-x86_64
-./nova-linux-x86_64
-```
-
-### Clone and install
-
-```bash
-git clone https://github.com/KernicDE/nova-ed-monitor.git
-cd nova-ed-monitor
-python -m venv .venv
-.venv/bin/pip install .
-.venv/bin/nova
-```
+Full audit trail in [docs/audit-v2.md](docs/audit-v2.md) — each commit points back to a tracked item ID (P-*, R-*, D-*).
 
 ---
 
 ## Configuration
 
-The config file is created automatically on first launch. Press **`s`** inside NOVA to open the in-app Settings overlay — the easiest way to change most settings without editing files directly.
-
-To edit manually, open `config.toml` in any text editor:
+The config file is created automatically on first launch. Press **`s`** inside NOVA for the in-app settings overlay — the easiest way to change anything without editing files.
 
 | Install type | Path |
 |-------------|------|
@@ -197,263 +107,56 @@ To edit manually, open `config.toml` in any text editor:
 | System install — Linux | `~/.config/nova/config.toml` |
 | System install — Windows | `%USERPROFILE%\.config\nova\config.toml` |
 
-Available settings:
-
-```toml
-# Journal directory (leave commented to auto-detect):
-# journal_dir = /path/to/Saved Games/Frontier Developments/Elite Dangerous
-
-# Twitch integration — leave commented to disable:
-# twitch_channel = yourchannel
-
-# YouTube live chat — leave commented to disable:
-# youtube_channel = @yourchannel
-
-# TTS voice rate adjustment (e.g. +10%, -5%, +0%):
-# tts_rate = +10%
-
-# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):
-# tts_lang = en
-
-# TTS voices per language (edge-tts voice names):
-# tts_voice_en = en-GB-SoniaNeural
-# tts_voice_de = de-DE-KatjaNeural
-
-# Notable Bodies threshold (Cr):
-# notable_value_threshold = 500000
-
-# Fleet carrier lookup via Spansh API:
-# carrier_lookup = false
-
-# Situational panel visibility and order:
-# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
-
-# Screenshot processing:
-# screenshot_dir  = /path/to/ED/screenshots
-# screenshot_dest = ~/Pictures/Elite Dangerous
-
-# Debug log:
-# debug_log = false
-```
-
-### Finding the Journal Directory Manually
-
-| Platform | Path |
-|----------|------|
-| Linux (Steam / Proton) | `~/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/steamuser/Saved Games/Frontier Developments/Elite Dangerous` |
-| Windows | `C:\Users\YourName\Saved Games\Frontier Developments\Elite Dangerous` |
-| macOS | `~/Library/Application Support/Frontier Developments/Elite Dangerous` |
+See **[docs/Settings.md](docs/Settings.md)** for every key.
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard shortcuts (summary)
 
 | Key | Action |
 |-----|--------|
 | `q` / `Esc` | Quit |
 | `s` | Open Settings overlay |
 | `?` | Help & About screen |
-| `Tab` | Cycle situational panel forward |
-| `Shift+Tab` | Cycle situational panel backward |
-| `a` | Toggle auto panel switching on/off |
-| `↑` / `k` | Scroll situational panel up |
-| `↓` / `j` | Scroll situational panel down |
-| `PgUp` / `PgDn` | Scroll focused panel (or situational when none focused) |
-| `Home` / `g` | Jump to latest events |
-| `w` / `s` | Scroll bodies panel up / down |
-| `n` | Enter neutron route destination (Neutron panel) |
-| `r` | Cycle Maps sub-screen (system diagram → regional → galaxy) |
-| `+` / `=` | Volume up |
-| `−` | Volume down |
+| `Tab` / `Shift+Tab` | Cycle situational panel |
+| `a` | Toggle auto-switching |
+| `↑` / `↓` / `k` / `j` | Scroll situational panel (`MAP`: sub-view) |
+| `PgUp` / `PgDn` | Scroll by 5 |
+| `Home` | Jump to latest events |
+| `w` | Scroll bodies panel up |
+| `n` | Neutron route destination input |
+| `r` | Cycle `MAP` sub-screen |
+| `+` / `=` / `−` | Volume ±5 % |
+| `m` / `g` / `t` / `y` / `p` | Mute all / chat / twitch / youtube / all-chat |
+
+Full list with context-specific bindings in **[docs/Usage.md](docs/Usage.md)**.
 
 ---
 
-## UI Layout
+## TTS languages
 
-```
-┌─ Position ────────┬─ Ship ─────────────────────┬─ Target ───┐
-│ System/faction    │ Hull/Shield/Fuel gauges     │ Nearby /   │
-│ Body on approach  │                             │ targeted   │
-├───────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies    │ SITUATION panel             │ Events     │
-│ (FSS, DSS,        │ (14 modes, Tab to cycle)    ├────────────┤
-│  values, dist)    │                             │ Chat log   │
-├───────────────────┴─────────────────────────────┴────────────┤
-│ q Quit  s Settings  Tab Mode  ? Help  ↑↓ Scroll  +/- Vol    │
-└──────────────────────────────────────────────────────────────┘
-```
+| Language | Default voice |
+|----------|---------------|
+| English | `en-GB-SoniaNeural` |
+| German | `de-DE-KatjaNeural` |
+| French | `fr-FR-DeniseNeural` |
+| Italian | `it-IT-ElsaNeural` |
+| Spanish | `es-ES-ElviraNeural` |
+| Portuguese | `pt-PT-RaquelNeural` |
+| Russian | `ru-RU-SvetlanaNeural` |
 
-### Situational Panel Modes
-
-The border title shows all modes as abbreviations; the active one expands to its full name.
-`***` = Auto mode indicator (dim blue when locked with `a`).
-
-| Abbrev | Full Name | Description |
-|--------|-----------|-------------|
-| `***` | AUTO | Auto-switches by context; lock/unlock with `a` |
-| `OVR` | OVERVIEW | Route summary + galactic position · notable bodies · PowerPlay/BGS summary · nearest inhabited system |
-| `BIO` | BIOLOGICAL | Active bio scans with distances, bearings, and sample counts |
-| `MAP` | MAPS | System diagram → regional map → galaxy map (`r` cycles) |
-| `MIS` | MISSION | Active missions and massacre kill progress bars |
-| `ENG` | ENGINEERS | Rank bars, progress %, specialty and system per engineer |
-| `BGS` | BGS | Per-faction BGS activity counts for the current system (today's tick) |
-| `COL` | COLONISATION | Construction site commodity progress |
-| `ROU` | ROUTE | Nav route: star class, scoopable, distances, EDSM body/bio counts |
-| `NTR` | NEUTRON | Local neutron route planner (`n` = new route) |
-| `WLT` | WALLET | Balance · fleet · cargo (with stolen flag) · suit loadout + weapons · backpack |
-| `INV` | INVENTORY | Cargo · raw / manufactured / encoded materials |
-| `DKG` | DOCKING | Station pad diagram (top-down view) |
-| `STS` | STATISTICS | Persistent stats: today / week / month / year / total |
-
-**Auto mode priority (highest first):** offline → Stats · docking granted → Docking · active/pre-scan bio → Bio · colonisation active → Colonisation · missions → Missions · route set → Route · default → Overview.
-
-**Panel config:** Set `situational_panels = OVR BIO ROU MIS ...` in config.toml to control which panels appear and in what order. Omitted panels are hidden from the title bar and auto-switching.
+Change per-language voice in `config.toml` (`tts_voice_en = en-US-GuyNeural` etc.) or via the Settings overlay. `edge-tts --list-voices` shows every available voice.
 
 ---
 
-## Bodies Panel Columns
+## Requirements
 
-| Column | Meaning |
-|--------|---------|
-| Body | Short name, indented: planet / ↳ moon |
-| Type | Abbreviated body type |
-| Val | Actual scan value (gold); ×3.3 mapping bonus applied when unmapped; `~3.4M–12.9M` genus estimate (amber); or `~est` for planet type estimate |
-| Dist | Distance from arrival (ls) |
-| B | Bio signal count; `3✓` (gold) when all bio scans complete |
-| G | Geological signal count |
-| LTA | Flags: `L`=Landable, `T`=Terraformable, `A`=Atmosphere |
-| F | `●` = FSS scanned (stars always count as done) |
-| D | `●` = DSS mapped |
-
----
-
-## Stream Overlay for OBS/Streamlabs
-
-NOVA writes individual `.txt` files to `~/.config/nova/overlay/` (configurable via `overlay_dir`). Add each file as a **Text** source in OBS/Streamlabs with "Read from file" enabled.
-
-Available files: `commander`, `ship_name`, `ship_type`, `ship_ident`, `system`, `position`, `station`, `approach_body`, `route_destination`, `route_next`, `jumps_left`, `hull`, `fuel`, `fuel_max`, `fuel_reservoir`, `cargo`, `heat`, `shields`, `status`, `supercruise`, `docked`, `landed`, `power`, `power_state`, `allegiance`, `economy`, `security`, `government`, `population`, `nearest_inhabited`, `heading`, `altitude`, `coordinates`
-
----
-
-## Voiceline Customisation
-
-Built-in defaults are copied to `~/.config/nova/voicelines/default/` on every launch as a reference. Create your own override file in the parent folder — only define what you want to change:
-
-| Platform | User override path |
-|----------|--------------------|
-| Linux | `~/.config/nova/voicelines/en.toml` (or `de.toml`, `fr.toml`, …) |
-| Windows | `%USERPROFILE%\.config\nova\voicelines\en.toml` |
-
-```toml
-[FSDJump]
-add = [
-    "Another jump complete, heading to {system}.",
-]
-
-[FuelScoop]
-replace = [
-    "Fuel collected.",
-]
-
-[UnwantedEvent]
-replace = []   # silence this event entirely
-```
-
-- **`add`** — appends lines to the built-in pool (more variety).
-- **`replace`** — replaces built-in lines entirely; `replace = []` silences the event.
-- Keys absent from your file keep the built-in default. Your file is never overwritten by updates.
-
-### Template Engine
-
-Templates support two advanced features processed before variable substitution:
-
-**Includes** — reusable fragments (key must start with `_`):
-
-```toml
-[_ship_status]
-add = ["{ship_name} — hull {hull}, fuel {fuel}."]
-
-[FSDJump]
-add = ["Arrived in {system}. {_ship_status}"]
-# or explicit form (supports hyphens in key names):
-add = ["Arrived in {system}. {include:_ship_status}"]
-```
-
-**Conditionals** — inline `WHEN condition THEN "text";` blocks:
-
-```toml
-[Scan_Notable]
-add = ['Scanned {body_short}. WHEN {value_raw} > 500000 THEN "Worth {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals.";']
-```
-
-Operators: `IS TRUE`, `IS FALSE`, `IS NOT TRUE`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `AND`, `OR`
-
-Flag variables like `{terra}`, `{landable}`, `{first_disc}` are `""` when absent — so `WHEN {terra} IS TRUE` works naturally. Unknown `{variable}` names expand to `""` instead of crashing.
-
----
-
-## TTS Languages
-
-| Language | Default Voice | Chat verb |
-|----------|---------------|-----------|
-| English | en-GB-SoniaNeural | says |
-| German | de-DE-KatjaNeural | sagt |
-| French | fr-FR-DeniseNeural | dit |
-| Italian | it-IT-ElsaNeural | dice |
-| Spanish | es-ES-ElviraNeural | dice |
-| Portuguese | pt-PT-RaquelNeural | diz |
-| Russian | ru-RU-SvetlanaNeural | говорит |
-
----
-
-## Data Paths
-
-NOVA stores all data relative to the launcher script when run via `nova.sh` / `nova.ps1` (portable mode). If installed via pip directly, standard system paths are used instead.
-
-### Portable mode (recommended — via launcher script)
-
-All data lives in subdirectories of the folder containing `nova.sh` / `nova.ps1`:
-
-| Subfolder | Contents |
-|-----------|----------|
-| `config/config.toml` | Configuration |
-| `config/voicelines/` | User voiceline overrides |
-| `data/events.db` | SQLite event log, statistics, EDSM cache (~50–80 MB after first download) |
-| `logs/nova-debug.log` | Debug log (when `debug_log = true`) |
-| `venv/` | Python virtual environment |
-
-### System install (via pip)
-
-| Path | Platform | Contents |
-|------|----------|----------|
-| `~/.config/nova/config.toml` | Linux | Configuration |
-| `%USERPROFILE%\.config\nova\config.toml` | Windows | Configuration |
-| `~/.local/share/nova/events.db` | Linux | SQLite event log |
-| `%LOCALAPPDATA%\nova\events.db` | Windows | SQLite event log |
-| `~/.config/nova/nova-debug.log` | Linux | Debug log |
-| `%USERPROFILE%\.config\nova\nova-debug.log` | Windows | Debug log |
-
----
-
-## Troubleshooting
-
-**"No events are showing / journal not found"**
-→ Set `journal_dir` manually in config.toml
-
-**"No TTS voice / audio"**
-→ On Arch: `yay -S python-pygame`; elsewhere: `pip install --upgrade pygame` inside the NOVA venv
-
-**"Access denied" / execution policy error (Windows)**
-→ In PowerShell run: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then right-click `nova.ps1` → **Run with PowerShell**
-
-**TTS is too fast/slow**
-→ Change `tts_rate` in config.toml — e.g. `tts_rate = +0%` for normal, `tts_rate = +20%` for faster
-
-**Something is broken / need to report a bug**
-→ Add `debug_log = true` to config.toml, reproduce the issue, then send `nova-debug.log` with your report
+- **Python 3.11+** (3.12 / 3.13 / 3.14 tested)
+- **Linux, macOS, Windows** — all first-class
+- For Linux on Steam/Proton the journal directory is auto-detected via the default Steam path, the Flatpak Steam path, and Heroic Games Launcher prefixes
 
 ---
 
 ## License
 
-MIT
+MIT — see `LICENSE`.

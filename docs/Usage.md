@@ -8,7 +8,7 @@
 | Windows | Right-click `nova.ps1` → **Run with PowerShell** |
 | Standalone binary | `./nova-linux-x86_64` |
 
-NOVA automatically finds your Elite Dangerous journal files and starts monitoring. Launch it before or after starting the game — it will catch up.
+NOVA automatically finds your Elite Dangerous journal files and starts monitoring. Launch it before or after starting the game — it will catch up. On startup, NOVA replays your most recent journal files to rebuild per-system body data, so you see the current state of the galaxy immediately without having to re-scan.
 
 ---
 
@@ -202,7 +202,7 @@ When your ship approaches a body with significant surface gravity, NOVA warns yo
 | ≥ 1.5 G | Single TTS warning: *"Caution: 2.3 G body ahead."* |
 | ≥ 3.0 G | Three TTS warnings spaced 10 s apart + full orange border flash |
 
-The orange flash and repeat warnings stop automatically when the ship touches the ground. Both the warning and the flash clear on departure (`LeaveBody`) or when entering supercruise.
+Repeat warnings and the flash **cancel instantly** on any of: landing, entering supercruise, starting another approach, an FSD jump, or a game shutdown. The warnings never fire against a body you've already left.
 
 ---
 
