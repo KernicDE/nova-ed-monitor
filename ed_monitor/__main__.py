@@ -84,6 +84,21 @@ def main() -> None:
     state    = AppState()
     lock     = threading.RLock()
 
+    # Optional event-log pruning. Off by default (prune_events_days = 0 in
+    # the default config) so existing users preserve their full history.
+    # Enable it in config.toml to auto-delete events older than N days at
+    # each startup — useful on portable installs where disk budget matters.
+    if cfg.prune_events_days > 0:
+        try:
+            deleted = database.prune_events(days=cfg.prune_events_days)
+            if deleted:
+                logging.getLogger("nova").info(
+                    "Pruned %d events older than %d days",
+                    deleted, cfg.prune_events_days,
+                )
+        except Exception as exc:
+            logging.getLogger("nova").warning("prune_events failed: %s", exc)
+
     with lock:
         state.events.extendleft(database.get_recent_events(MAX_EVENTS, initial_commander))
 

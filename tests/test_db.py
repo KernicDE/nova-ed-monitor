@@ -83,6 +83,29 @@ def test_config_round_trip():
     assert db.get_config("missing_key", "default") == "default"
 
 
+def test_prune_events_removes_old_rows():
+    """prune_events(days=N) must keep recent rows and delete older ones."""
+    from datetime import datetime, timedelta
+    from ed_monitor.state import EventCategory, LogEvent
+    db = _db()
+    # Insert one fresh + one ancient event by bypassing insert()'s auto-timestamp.
+    db.insert(LogEvent.new(EventCategory.Nav, "fresh jump"), "Sol")
+    with db._lock:
+        db._conn.execute(
+            "INSERT INTO events (timestamp, category, message, system, event_date, commander)"
+            " VALUES (?,?,?,?,?,?)",
+            ("12:00:00", "NAV", "old jump", "Sol",
+             (datetime.now() - timedelta(days=300)).strftime("%Y-%m-%d %H:%M:%S"),
+             ""),
+        )
+        db._conn.commit()
+    deleted = db.prune_events(days=180)
+    assert deleted == 1
+    remaining = [ev.message for ev in db.get_recent_events(10)]
+    assert "fresh jump" in remaining
+    assert "old jump" not in remaining
+
+
 def test_edsm_systems_import_and_query():
     db = _db()
     # (id64, name, x, y, z, allegiance, government, economy, population, security, power, power_state)

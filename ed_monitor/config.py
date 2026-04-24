@@ -43,6 +43,7 @@ class Config:
     tts_chat:                 bool = True   # False = disable TTS for all chat sources at startup
     tts_twitch:               bool = True   # False = disable TTS for Twitch chat at startup
     tts_youtube:              bool = True   # False = disable TTS for YouTube chat at startup
+    prune_events_days:        int  = 0      # 0 = disabled; >0 = delete events older than N days at startup
 
 
 DEFAULT_CONFIG = """\
@@ -258,6 +259,7 @@ def load() -> Config:
     tts_chat                 = True
     tts_twitch               = True
     tts_youtube              = True
+    prune_events_days        = 0
     active_keys: set[str] = set()
 
     _KNOWN_KEYS = {
@@ -266,6 +268,7 @@ def load() -> Config:
         "default_volume", "notable_value_threshold", "carrier_lookup",
         "debug_log", "screenshot_dir", "screenshot_dest", "chat_lang",
         "situational_panels", "tts_chat", "tts_twitch", "tts_youtube",
+        "prune_events_days",
     }
 
     try:
@@ -338,6 +341,11 @@ def load() -> Config:
                         tts_twitch = v.lower() not in ("false", "0", "no")
                     case "tts_youtube":
                         tts_youtube = v.lower() not in ("false", "0", "no")
+                    case "prune_events_days":
+                        try:
+                            prune_events_days = max(0, int(v))
+                        except ValueError:
+                            pass
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -411,6 +419,7 @@ def load() -> Config:
         tts_chat=tts_chat,
         tts_twitch=tts_twitch,
         tts_youtube=tts_youtube,
+        prune_events_days=prune_events_days,
     )
 
 
@@ -557,6 +566,9 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
         lines.append(f"tts_twitch = {'true' if cfg.tts_twitch else 'false'}\n")
     if cfg.tts_youtube is not True:
         lines.append(f"tts_youtube = {'true' if cfg.tts_youtube else 'false'}\n")
+
+    if cfg.prune_events_days > 0:
+        lines.append(f"prune_events_days = {cfg.prune_events_days}\n")
 
     try:
         path.write_text("".join(lines), encoding="utf-8")

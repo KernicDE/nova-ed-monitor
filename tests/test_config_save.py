@@ -65,3 +65,14 @@ class TestConfigSave:
         path = tmp_path / "config.toml"
         save(cfg, path)
         assert "notable_value_threshold = 1000000" in path.read_text()
+
+    def test_save_emits_prune_events_days_only_when_set(self, tmp_path):
+        cfg_off = _dummy_cfg()
+        path = tmp_path / "off.toml"
+        save(cfg_off, path)
+        assert "prune_events_days" not in path.read_text()
+
+        cfg_on = _dummy_cfg(prune_events_days=180)
+        path = tmp_path / "on.toml"
+        save(cfg_on, path)
+        assert "prune_events_days = 180" in path.read_text()
