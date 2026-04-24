@@ -58,6 +58,9 @@ def _read_toml(path: Path) -> dict:
         return {}
 
 
+_TEMPLATE_MIGRATION_SENTINEL = ".migrated_template_v1"
+
+
 def _migrate_user_voiceline_file(path: Path) -> None:
     """Patch out removed template variables from user override files in-place.
 
@@ -65,13 +68,30 @@ def _migrate_user_voiceline_file(path: Path) -> None:
     - BioReady: removes the "{dist}" distance clause (removed in v1.15.5)
     - Touchdown: removes the entire [Touchdown] section if it still has {lat}/{lon}
       so the built-in default (no coordinates) takes over
+
+    Guarded by a sentinel file in the voicelines directory so the regex pass
+    only runs once per install. Previously the patch regex ran on every
+    _load() — a re-read of the file on each language switch — even though
+    the affected variables were removed in v1.15.5. A single sentinel keeps
+    user-written ``{dist}`` tokens (if someone intentionally adds one back)
+    from being silently erased on the next NOVA launch.
     """
+    sentinel = path.parent / _TEMPLATE_MIGRATION_SENTINEL
+    if sentinel.exists():
+        return
+
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return
 
     if "{dist}" not in text and "{lat}" not in text and "{lon}" not in text:
+        # Nothing to migrate — still mark the sentinel so we skip the regex
+        # scan on every subsequent load.
+        try:
+            sentinel.touch()
+        except OSError:
+            pass
         return
 
     new_text = text
@@ -97,6 +117,11 @@ def _migrate_user_voiceline_file(path: Path) -> None:
             path.write_text(new_text, encoding="utf-8")
         except OSError:
             pass
+
+    try:
+        sentinel.touch()
+    except OSError:
+        pass
 
 
 def _load(lang: str) -> dict[str, list[str]]:

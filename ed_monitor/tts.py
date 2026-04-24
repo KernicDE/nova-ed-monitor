@@ -139,6 +139,20 @@ def _cleanup_stale_tmp() -> None:
             pass
 
 
+def _dedup_cleanup(current_time: float) -> None:
+    """Drop dedup keys older than 2× the duplicate window. Called unconditionally
+    every ~30 s from the worker loop regardless of queue pressure — previously
+    only ran when the queue drained to empty, so a constantly-busy TTS loop
+    could let the dict grow without bound."""
+    with _recent_messages_lock:
+        stale = [
+            k for k, ts in _recent_messages.items()
+            if (current_time - ts) > (_DUPLICATE_WINDOW * 2)
+        ]
+        for k in stale:
+            del _recent_messages[k]
+
+
 def _worker(
     q:        queue.Queue[TtsMsg],
     voice:    str,
@@ -149,6 +163,7 @@ def _worker(
 ) -> None:
     pending: list[TtsMsg] = []
     _last_dedup_cleanup: float = time.time()
+    _DEDUP_CLEANUP_INTERVAL = 30.0
 
     while not stop_evt.is_set():
         # Drain all pending messages
@@ -162,17 +177,14 @@ def _worker(
             except queue.Empty:
                 break
 
-        if not pending:
-            # Periodic cleanup of stale dedup keys (every 30 s, time-delta based)
-            current_time = time.time()
-            if current_time - _last_dedup_cleanup > 30:
-                _last_dedup_cleanup = current_time
-                with _recent_messages_lock:
-                    old_keys = [k for k, ts in _recent_messages.items()
-                                if (current_time - ts) > (_DUPLICATE_WINDOW * 2)]
-                    for k in old_keys:
-                        del _recent_messages[k]
+        # Time-based dedup cleanup — runs whether or not the queue is busy
+        # so a long chat burst never accumulates stale keys.
+        current_time = time.time()
+        if current_time - _last_dedup_cleanup > _DEDUP_CLEANUP_INTERVAL:
+            _last_dedup_cleanup = current_time
+            _dedup_cleanup(current_time)
 
+        if not pending:
             try:
                 msg = q.get(timeout=0.5)
                 if msg.priority:
