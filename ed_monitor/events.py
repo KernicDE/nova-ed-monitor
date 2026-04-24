@@ -747,6 +747,7 @@ def _system_vars(state) -> dict:
         "population": _tts_pop(state.population), "population_raw": str(state.population),
         "faction": state.controlling_faction,
         "star_class": sc,
+        "primary_star_class": sc,   # alias — same value, both names work in templates
         "star_scoopable": ("Scoopable" if scoopable else ("Not scoopable" if sc else "")),
     }
 
@@ -1636,6 +1637,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     mins = int(orbital_period / 60)
                     unusual_flags.append(f"Orb {mins}m")
                 unusual_body = " · ".join(unusual_flags)
+
+                # If FSDJump/CarrierJump lacked StarClass, use the arrival star's StarType
+                # as fallback. The arrival star always has DistFromArrivalLS == 0.
+                if is_star and not state.primary_star_class and dist_ls == 0.0 and star_type:
+                    state.primary_star_class = star_type
 
                 _rings       = ev.get("Rings") or []
                 state.upsert_body(BodyInfo(
