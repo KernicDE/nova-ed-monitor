@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional
 from urllib.parse import quote
 
+from ._http import USER_AGENT, TIMEOUT_MEDIUM
 from .state import AppState, BodyInfo, LogEvent, EventCategory
 from .tts import TtsMsg
 
@@ -25,8 +26,7 @@ def _run(q: queue.Queue, state: AppState, lock: threading.RLock, tts_q: queue.Qu
     from . import events as _ev
     from . import voicelines as _vl
     import httpx
-    _UA = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
-    client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
+    client = httpx.Client(timeout=TIMEOUT_MEDIUM, headers={"User-Agent": USER_AGENT})
 
     try:
         while True:

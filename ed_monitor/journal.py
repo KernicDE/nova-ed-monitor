@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from ._http import USER_AGENT, TIMEOUT_MEDIUM
 from .db import Database
 from .events import handle
 from .state import AppState, EventCategory, LogEvent
@@ -218,12 +219,11 @@ def _fetch_route_edsm_live(route: list, state: AppState, lock, db: Database) -> 
         # Batch query EDSM — up to 100 names per request
         _EDSM_BATCH = 100
         _EDSM_URL   = "https://www.edsm.net/api-v1/systems"
-        _UA         = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
         now_str     = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         new_cache_entries: list[dict] = []
 
         try:
-            client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
+            client = httpx.Client(timeout=TIMEOUT_MEDIUM, headers={"User-Agent": USER_AGENT})
             for i in range(0, len(to_fetch), _EDSM_BATCH):
                 batch = to_fetch[i:i + _EDSM_BATCH]
                 params = [("systemName[]", n) for n in batch]
@@ -299,12 +299,11 @@ def _fetch_route_bodies_live(route: list, state: AppState, lock, db: Database) -
             return
 
         _EDSM_BODIES_URL = "https://www.edsm.net/api-system-v1/bodies"
-        _UA = "nova-ed-monitor (Elite Dangerous companion; github.com/KernicDE/nova-ed-monitor)"
         now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         new_cache_entries: list[dict] = []
 
         try:
-            client = httpx.Client(timeout=15.0, headers={"User-Agent": _UA})
+            client = httpx.Client(timeout=TIMEOUT_MEDIUM, headers={"User-Agent": USER_AGENT})
             for i, name in enumerate(to_fetch):
                 enc = _quote(name, safe="")
                 bio_total  = 0

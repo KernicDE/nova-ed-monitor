@@ -20,6 +20,8 @@ import urllib.request
 import urllib.error
 from typing import Optional
 
+from ._http import USER_AGENT, TIMEOUT_DUMP
+
 _log = logging.getLogger("nova.edsm_dumps")
 
 _DUMPS = {
@@ -30,8 +32,8 @@ _DUMPS = {
 
 _MAX_AGE = 24 * 3600          # refresh once per 24 hours
 _BATCH   = 500                 # rows per DB transaction
-_UA      = "NOVA-ED-Monitor/1.0 (github.com/KernicDE/nova-ed-monitor)"
-_TIMEOUT = 120                 # HTTP timeout in seconds
+_UA      = USER_AGENT
+_TIMEOUT = TIMEOUT_DUMP
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────

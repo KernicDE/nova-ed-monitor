@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 from typing import Optional
 
+from ._http import USER_AGENT, TIMEOUT_SHORT, TIMEOUT_MEDIUM
 from .state import AppState
 
 _log = logging.getLogger("nova.neutron")
@@ -101,11 +102,11 @@ def _spansh_route(src: str, dst: str, jump_range: float) -> Optional[list[dict]]
             _SPANSH_ROUTE_URL,
             data=params,
             headers={
-                "User-Agent":   "NOVA-ed-monitor/1.0",
+                "User-Agent":   USER_AGENT,
                 "Content-Type": "application/x-www-form-urlencoded",
             },
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_MEDIUM) as resp:
             data = json.loads(resp.read())
         job_id = data.get("job")
         if not job_id:
@@ -121,8 +122,8 @@ def _spansh_route(src: str, dst: str, jump_range: float) -> Optional[list[dict]]
     for _ in range(_SPANSH_TIMEOUT):
         time.sleep(1.0)
         try:
-            req = urllib.request.Request(poll_url, headers={"User-Agent": "NOVA-ed-monitor/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            req = urllib.request.Request(poll_url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=TIMEOUT_SHORT) as resp:
                 data = json.loads(resp.read())
         except Exception as exc:
             _log.debug(f"Spansh poll error: {exc}")

@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+from ._http import USER_AGENT, TIMEOUT_SHORT
 from .state import AppState
 
 _log = logging.getLogger("nova.spansh")
@@ -120,11 +121,11 @@ def _fetch_carriers_query(
     req = urllib.request.Request(
         _API_URL,
         data=payload,
-        headers={"Content-Type": "application/json", "User-Agent": "NOVA-ed-monitor/1.0"},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_SHORT) as resp:
             data = json.loads(resp.read().decode())
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
         _log.warning(f"Spansh API error: {exc}")
