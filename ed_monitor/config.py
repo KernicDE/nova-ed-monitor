@@ -46,6 +46,21 @@ class Config:
     prune_events_days:        int  = 0      # 0 = disabled; >0 = delete events older than N days at startup
 
 
+def _notify_self_write() -> None:
+    """Tell the config watcher to ignore the file-system event that our
+    own write just produced. Imports config_watcher lazily to avoid a
+    circular import at module-load time (config_watcher imports nothing
+    from config)."""
+    try:
+        from . import config_watcher
+        config_watcher.notify_self_write()
+    except Exception:
+        # config_watcher may not yet be importable in some test setups —
+        # if the notification can't land, the worst case is one spurious
+        # reload which is not fatal.
+        pass
+
+
 DEFAULT_CONFIG = """\
 # NOVA — Navigation, Operations, and Vessel Assistance
 # All settings are optional. The journal directory is auto-detected.
@@ -372,6 +387,7 @@ def load() -> Config:
             else:
                 prefix = ""
             config_path.write_text(prefix + DEFAULT_CONFIG, encoding="utf-8")
+            _notify_self_write()
         else:
             # Append new sections if missing from an existing config file
             _NEW_SECTIONS = [
@@ -392,6 +408,7 @@ def load() -> Config:
             if appended:
                 try:
                     config_path.write_text(text, encoding="utf-8")
+                    _notify_self_write()
                 except OSError:
                     pass
     except OSError:
@@ -572,5 +589,6 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
 
     try:
         path.write_text("".join(lines), encoding="utf-8")
+        _notify_self_write()
     except OSError:
         pass

@@ -21,6 +21,33 @@ _log = logging.getLogger("nova.config_watcher")
 
 _POLL_INTERVAL = 2.0  # seconds (fallback when watchdog unavailable)
 
+# Quiet window protection. config.load() rewrites config.toml when new
+# sections need to be appended, and config.save() writes from the Settings
+# overlay. Both trigger the watchdog, which would otherwise call the reload
+# callback a second time with no real change. Modules that perform their
+# own writes call notify_self_write() immediately after the write so the
+# watcher skips the resulting spurious event.
+_quiet_until: float = 0.0
+_quiet_lock  = threading.Lock()
+
+
+def notify_self_write(window_s: float = 3.0) -> None:
+    """Tell the watcher to ignore file-system events for *window_s* seconds.
+
+    Call immediately after a module has written to a file inside the watched
+    directory to suppress the reload callback that would otherwise fire with
+    no externally-meaningful change.
+    """
+    global _quiet_until
+    now = time.time()
+    with _quiet_lock:
+        _quiet_until = max(_quiet_until, now + window_s)
+
+
+def _in_quiet_window() -> bool:
+    with _quiet_lock:
+        return time.time() < _quiet_until
+
 
 def spawn(
     cfg_dir: Path,
@@ -68,6 +95,9 @@ def _monitor(
             changed.wait()
             changed.clear()
             time.sleep(0.3)  # debounce
+            if _in_quiet_window():
+                _log.debug("Quiet window active — suppressing reload")
+                continue
             _dispatch(on_config_changed, on_voicelines_changed)
 
     except Exception as exc:
@@ -106,16 +136,22 @@ def _poll(
         cur_voiceline = _max_voiceline_mtime(voiceline_dir)
         if cur_config != last_config_mtime:
             last_config_mtime = cur_config
-            try:
-                on_config_changed()
-            except Exception:
-                _log.exception("Config reload callback failed")
+            if _in_quiet_window():
+                _log.debug("Quiet window active — suppressing config reload")
+            else:
+                try:
+                    on_config_changed()
+                except Exception:
+                    _log.exception("Config reload callback failed")
         if cur_voiceline != last_voiceline_mtime:
             last_voiceline_mtime = cur_voiceline
-            try:
-                on_voicelines_changed()
-            except Exception:
-                _log.exception("Voiceline reload callback failed")
+            if _in_quiet_window():
+                _log.debug("Quiet window active — suppressing voicelines reload")
+            else:
+                try:
+                    on_voicelines_changed()
+                except Exception:
+                    _log.exception("Voiceline reload callback failed")
 
 
 def _dispatch(
