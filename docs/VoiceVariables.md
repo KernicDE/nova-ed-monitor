@@ -81,17 +81,21 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 | `{has_rings}` | `Ringed` | `"Ringed"` or `""` |
 | `{ring_count}` | `3` | Number of rings as integer string |
 | `{tidal_lock}` | `Tidal lock` | `"Tidal lock"` or `""` |
-| `{orbital_period}` | `3.2 days` | Orbital period formatted for speech |
-| `{orbital_period_raw}` | `276480` | Raw orbital period in seconds |
-| `{semi_major_axis}` | `1.52 AU` | Semi-major axis formatted |
-| `{semi_major_axis_raw}` | `227_000_000_000` | Raw value in metres |
+| `{orbital_period}` | `3.1 days` | Orbital period formatted for speech (1 decimal) |
+| `{orbital_period_raw}` | `3.1` | Numeric part only, no unit (use in other-language templates) |
+| `{orbital_period_raw_d}` | `3` | Full days component (integer) |
+| `{orbital_period_raw_h}` | `3` | Remaining full hours after removing days |
+| `{orbital_period_raw_m}` | `22` | Remaining minutes rounded to nearest integer |
+| `{semi_major_axis}` | `1.52 astronomical units` | Semi-major axis — spoken unit avoids "AU = Australian Dollar" misread |
+| `{semi_major_axis_raw}` | `227936637600` | Raw value in metres (integer string) |
+| `{semi_major_axis_au_raw}` | `1.52` | AU value without unit label |
 | `{eccentricity}` | `0.15` | Orbital eccentricity |
 | `{orbital_inclination}` | `25.3 degrees` | Inclination formatted for speech |
 | `{orbital_inclination_raw}` | `25.3` | Raw inclination as decimal string |
 
 ### Nearest Body Variables
 
-In system-level events (FSDJump, FSSDiscoveryScan, etc.), a `nearest_body_` prefixed copy of every **Body Variable** above is available when a nearby body is known. Example: `{nearest_body_gravity}`, `{nearest_body_star_type}`, `{nearest_body_value}`.
+In system-level events (FSDJump, FSSDiscoveryScan, etc.), a `nearest_body_` prefixed copy of every **Body Variable** above is available when a nearby body is known. Example: `{nearest_body_gravity}`, `{nearest_body_orbital_period_raw_d}`, `{nearest_body_semi_major_axis_au_raw}`.
 
 ### Target Variables
 

@@ -573,7 +573,7 @@ def _tts_pop(n: int) -> str:
 
 
 def _fmt_orbital_period(seconds: float) -> str:
-    """Format orbital period in seconds to a spoken string."""
+    """Format orbital period in seconds to a spoken string (1 decimal, with unit word)."""
     if seconds <= 0:
         return ""
     if seconds < 3600:
@@ -583,13 +583,37 @@ def _fmt_orbital_period(seconds: float) -> str:
     return f"{seconds / 86400:.1f} days"
 
 
+def _orbital_period_parts(seconds: float) -> tuple[str, str, str, str]:
+    """Return (raw_number_str, raw_d, raw_h, raw_m) for orbital period in seconds.
+
+    raw_number_str — the numeric part of _fmt_orbital_period (e.g. "3.1"), empty if <= 0
+    raw_d — full days as integer string (e.g. "3")
+    raw_h — remaining full hours after removing full days (e.g. "3")
+    raw_m — remaining minutes rounded to nearest int (e.g. "22")
+    """
+    if seconds <= 0:
+        return "", "", "", ""
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}", "0", "0", str(round(seconds / 60))
+    if seconds < 86400:
+        h_total = seconds / 3600
+        return f"{h_total:.1f}", "0", str(int(h_total)), str(round((h_total % 1) * 60))
+    days_total = seconds / 86400
+    full_days  = int(days_total)
+    remainder  = seconds - full_days * 86400
+    full_hours = int(remainder / 3600)
+    mins       = round((remainder - full_hours * 3600) / 60)
+    return f"{days_total:.1f}", str(full_days), str(full_hours), str(mins)
+
+
 def _body_vars(b) -> dict:
     """Return a dict of BodyInfo-derived variables for voiceline templates.
 
     {value} / {value_raw}        — FSS scan value (formula-based; never empty for known body types)
     {value_mapped} / {value_mapped_raw} — projected or actual DSS payout (with multipliers)
-    {orbital_period} / {orbital_period_raw} — formatted / seconds
-    {semi_major_axis} / {semi_major_axis_raw} — AU string / metres
+    {orbital_period} / {orbital_period_raw} — "3.1 days" / "3.1" (numeric part only)
+    {orbital_period_raw_d} / {orbital_period_raw_h} / {orbital_period_raw_m} — full days / remaining hours / remaining minutes
+    {semi_major_axis} / {semi_major_axis_raw} / {semi_major_axis_au_raw} — "1.52 astronomical units" / metres / "1.52"
     {eccentricity}   — e.g. "0.15"
     {orbital_inclination} / {orbital_inclination_raw} — "25.3 degrees" / "25.3"
     {has_rings}      — "Ringed" or ""
@@ -612,11 +636,12 @@ def _body_vars(b) -> dict:
     vm_int = _ev_mapped(b)
     vm_raw = str(vm_int) if vm_int > 0 else ""
     # Orbital data
-    op_raw   = str(int(b.orbital_period))      if b.orbital_period > 0      else ""
-    sma_raw  = str(int(b.semi_major_axis))     if b.semi_major_axis > 0     else ""
-    sma_au   = f"{b.semi_major_axis / _AU:.2f} AU" if b.semi_major_axis > 0 else ""
-    ecc_str  = f"{b.eccentricity:.2f}"         if b.eccentricity > 0        else ""
-    inc_raw  = f"{b.orbital_inclination:.1f}"  if b.orbital_inclination != 0 else ""
+    op_num, op_raw_d, op_raw_h, op_raw_m = _orbital_period_parts(b.orbital_period)
+    sma_raw  = str(int(b.semi_major_axis))          if b.semi_major_axis > 0 else ""
+    sma_au_f = f"{b.semi_major_axis / _AU:.2f}"     if b.semi_major_axis > 0 else ""
+    sma_au   = f"{sma_au_f} astronomical units"     if sma_au_f else ""
+    ecc_str  = f"{b.eccentricity:.2f}"              if b.eccentricity > 0    else ""
+    inc_raw  = f"{b.orbital_inclination:.1f}"       if b.orbital_inclination != 0 else ""
     # Star
     sc       = b.star_type or ""
     scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
@@ -639,8 +664,9 @@ def _body_vars(b) -> dict:
         has_rings="Ringed" if getattr(b, "has_rings", False) else "",
         ring_count=str(getattr(b, "ring_count", 0)),
         tidal_lock="Tidal lock" if getattr(b, "tidal_lock", False) else "",
-        orbital_period=_fmt_orbital_period(b.orbital_period), orbital_period_raw=op_raw,
-        semi_major_axis=sma_au, semi_major_axis_raw=sma_raw,
+        orbital_period=_fmt_orbital_period(b.orbital_period), orbital_period_raw=op_num,
+        orbital_period_raw_d=op_raw_d, orbital_period_raw_h=op_raw_h, orbital_period_raw_m=op_raw_m,
+        semi_major_axis=sma_au, semi_major_axis_raw=sma_raw, semi_major_axis_au_raw=sma_au_f,
         eccentricity=ecc_str,
         orbital_inclination=f"{inc_raw} degrees" if inc_raw else "", orbital_inclination_raw=inc_raw,
     )

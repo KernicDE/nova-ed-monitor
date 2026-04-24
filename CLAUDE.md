@@ -189,8 +189,9 @@ Variable functions in `events.py` — all kwargs passed to `_say()` / `pick()`:
 | `{has_rings}` | "Ringed" or "" |
 | `{ring_count}` | Number of rings as string |
 | `{tidal_lock}` | "Tidal lock" or "" |
-| `{orbital_period}`, `{orbital_period_raw}` | Orbital period ("3.2 days" / seconds string) |
-| `{semi_major_axis}`, `{semi_major_axis_raw}` | Semi-major axis ("1.52 AU" / metres string) |
+| `{orbital_period}`, `{orbital_period_raw}` | Orbital period ("3.1 days" / numeric part "3.1") |
+| `{orbital_period_raw_d}`, `{orbital_period_raw_h}`, `{orbital_period_raw_m}` | Full days / remaining hours / remaining minutes (integers) |
+| `{semi_major_axis}`, `{semi_major_axis_raw}`, `{semi_major_axis_au_raw}` | Semi-major axis ("1.52 astronomical units" / metres string / "1.52") |
 | `{eccentricity}` | Eccentricity ("0.15") |
 | `{orbital_inclination}`, `{orbital_inclination_raw}` | Inclination ("25.3 degrees" / "25.3") |
 
