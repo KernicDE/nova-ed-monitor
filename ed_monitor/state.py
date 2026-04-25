@@ -499,6 +499,7 @@ class AppState:
             if not b.materials and mats:    b.materials    = mats
             if not b.unusual_body and unusual: b.unusual_body = unusual
             if existing.efficiency_bonus:   b.efficiency_bonus = True
+            if existing.terraform:          b.terraform        = True
             # Update id index in case body_id changed (rare)
             self._bodies_by_id[b.body_id] = i
             self.bodies_version += 1

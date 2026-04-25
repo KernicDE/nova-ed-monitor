@@ -1175,7 +1175,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.client_online = True
             state.client_shutdown_pending = False
             state.system             = _s(ev, "StarSystem")
-            state.primary_star_class = _s(ev, "StarClass")
+            _loc_sc = _s(ev, "StarClass")
+            if _loc_sc:
+                state.primary_star_class = _loc_sc
             state.population         = _u(ev, "Population")
             state.economy            = _strip_economy(_loc(ev, "SystemEconomy"))
             state.security           = _strip_economy(_loc(ev, "SystemSecurity"))
@@ -1255,7 +1257,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 _bsc = state.bodies[_bidx_sc] if 0 <= _bidx_sc < len(state.bodies) else None
                 _bvars = _body_vars(_bsc) if _bsc is not None else {}
                 _say(tts_q, "SupercruiseExit", False,
-                     fallback=msg, cacheable=False, body=body_short,
+                     fallback=msg, cacheable=False, body=body, body_short=body_short,
                      **_bvars, **_system_vars(state))
             else:
                 _say(tts_q, "SupercruiseExit_nobdy", False, fallback=msg,
@@ -1279,18 +1281,19 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         g_str  = f"{g:.1f} G"
                         g_raw  = f"{g:.2f}"
                         _bvars = _body_vars(state.bodies[idx])
+                        _bshort = _short_body(body_name, state.system)
                         _say(tts_q, "HighGExtreme", True,
                              fallback=f"Extreme gravity warning: {g_str}!",
-                             g=g_str, g_raw=g_raw, body=body_name, **_bvars)
+                             g=g_str, g_raw=g_raw, body=body_name, body_short=_bshort, **_bvars)
                         # Schedule 2 repeat warnings at 10 s and 20 s.
                         # Tracked on state so LeaveBody / SupercruiseEntry /
                         # jump can cancel them.
                         for delay in (10, 20):
-                            def _repeat(bname=body_name, gs=g_str, gr=g_raw, bv=_bvars):
+                            def _repeat(bname=body_name, bs=_bshort, gs=g_str, gr=g_raw, bv=_bvars):
                                 if state.approach_body == bname and not state.landed and not state.in_srv:
                                     _say(tts_q, "HighGExtreme", True,
                                          fallback=f"Extreme gravity warning: {gs}!",
-                                         g=gs, g_raw=gr, body=bname, **bv)
+                                         g=gs, g_raw=gr, body=bname, body_short=bs, **bv)
                             t = threading.Timer(delay, _repeat)
                             t.daemon = True
                             state.high_g_timers.append(t)
@@ -1303,7 +1306,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _bvars = _body_vars(state.bodies[idx])
                         _say(tts_q, "HighGWarning", True,
                              fallback=f"High gravity: {g_str}.",
-                             g=g_str, g_raw=g_raw, body=body_name, **_bvars)
+                             g=g_str, g_raw=g_raw, body=body_name,
+                             body_short=_short_body(body_name, state.system), **_bvars)
                         return LogEvent.new(EventCategory.Warn,
                                             f"High gravity: {g:.1f} G — {body_name}.")
             return None
@@ -1427,7 +1431,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _body_td_info = state.bodies[_body_td] if 0 <= _body_td < len(state.bodies) else None
             _td_bvars = _body_vars(_body_td_info) if _body_td_info is not None else {}
             _say(tts_q, "Touchdown", False, fallback="Touchdown.",
-                 body=body or "", lat=f"{lat:.2f}", lon=f"{lon:.2f}",
+                 body=body or "", body_short=_short_body(body, state.system) if body else "",
+                 lat=f"{lat:.2f}", lon=f"{lon:.2f}",
                  **_td_bvars, **_system_vars(state))
             return LogEvent.new(EventCategory.Nav, msg)
 
@@ -1436,8 +1441,10 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _body_lo = state._bodies_by_name.get(state.nearest_body or "", -1)
             _body_lo_info = state.bodies[_body_lo] if 0 <= _body_lo < len(state.bodies) else None
             _lo_bvars = _body_vars(_body_lo_info) if _body_lo_info is not None else {}
+            _nb = state.nearest_body or ""
             _say(tts_q, "Liftoff", False, fallback="Liftoff.",
-                 body=state.nearest_body or "", **_lo_bvars, **_system_vars(state))
+                 body=_nb, body_short=_short_body(_nb, state.system) if _nb else "",
+                 **_lo_bvars, **_system_vars(state))
             return LogEvent.new(EventCategory.Nav, "Liftoff.")
 
         case "Disembark":
@@ -1520,8 +1527,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _ff_bidx = state._bodies_by_name.get(body_dis or "", -1)
                         _ff_b = state.bodies[_ff_bidx] if 0 <= _ff_bidx < len(state.bodies) else None
                         _ff_bvars = _body_vars(_ff_b) if _ff_b is not None else {}
+                        _ff_body = body_dis or ""
                         _say(tts_q, "FirstFootfall", True, fallback="First footfall on this world!",
-                             body=body_dis or "", **_ff_bvars, **_system_vars(state))
+                             body=_ff_body,
+                             body_short=_short_body(_ff_body, state.system) if _ff_body else "",
+                             **_ff_bvars, **_system_vars(state))
                     return LogEvent.new(EventCategory.Explore, f"FIRST FOOTFALL! {body_dis or 'Unknown'}.")
             return None
 
@@ -1594,11 +1604,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if mk["faction"] == victim_faction:
                         mk["done"] = min(mk["done"] + 1, mk["needed"])
                 _bgs_add(state, victim_faction, "bounty")
+            reward_raw = str(reward)
             if victim:
                 _say(tts_q, "Bounty_target", False,
-                     fallback=msg, reward=reward_str, victim=victim)
+                     fallback=msg, reward=reward_str, reward_raw=reward_raw, victim=victim)
             else:
-                _say(tts_q, "Bounty", False, fallback=msg, reward=reward_str)
+                _say(tts_q, "Bounty", False, fallback=msg, reward=reward_str, reward_raw=reward_raw)
             return LogEvent.new(EventCategory.Combat, msg)
 
         case "FactionKillBond":
@@ -1610,7 +1621,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if mk["faction"] == victim_faction:
                         mk["done"] = min(mk["done"] + 1, mk["needed"])
                 _bgs_add(state, victim_faction, "combat bond")
-            _say(tts_q, "FactionKillBond", False, fallback=msg, reward=_tts_cr(reward))
+            _say(tts_q, "FactionKillBond", False, fallback=msg, reward=_tts_cr(reward), reward_raw=str(reward))
             return LogEvent.new(EventCategory.Combat, msg)
 
         # ── Exploration ──────────────────────────────────────────────────────
@@ -1821,6 +1832,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _say(tts_q, "SAAScanComplete", False,
                  fallback=msg, body_short=short, body=body_name,
                  sig_txt=sig_txt, eff_txt=eff_txt, map_txt=map_txt,
+                 map_value=_saa_bvars.get("value_mapped", ""),
+                 map_value_raw=_saa_bvars.get("value_mapped_raw", ""),
                  **_saa_bvars, **_system_vars(state))
             return LogEvent.new(EventCategory.Explore, msg)
 
@@ -1945,6 +1958,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             )
             if body_name == "Unknown":
                 body_name = state.nearest_body or state.system or "Unknown"
+            body_short_org = _short_body(body_name, state.system)
 
             _org_nidx  = state._bodies_by_name.get(body_name, -1)
             _org_b     = state.bodies[_org_nidx] if 0 <= _org_nidx < len(state.bodies) else None
@@ -2004,12 +2018,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if first_logged:
                         _say(tts_q, "ScanOrganic_Log_NewSpecies", False,
                              fallback=f"Biological: {species_loc}. New species!",
-                             species=species_loc, body=body_name,
+                             species=species_loc, body=body_name, body_short=body_short_org,
                              **_log_bvars, **_log_body_bvars, **_bio_system_vars(state))
                     else:
                         _say(tts_q, "ScanOrganic_Log", False,
                              fallback=f"Biological: {species_loc}.",
-                             species=species_loc, body=body_name,
+                             species=species_loc, body=body_name, body_short=body_short_org,
                              **_log_bvars, **_log_body_bvars, **_bio_system_vars(state))
                     return LogEvent.new(EventCategory.Explore, f"Bio{tag}: {species_loc} [{genus_loc}]")
 
@@ -2040,7 +2054,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _smp_body_bvars = _body_vars(_smp_org_b) if _smp_org_b is not None else {}
                         _say(tts_q, "ScanOrganic_Sample", False,
                              fallback=msg, count=count, species=species_loc,
-                             remaining=3 - count, body=body_name,
+                             remaining=3 - count, body=body_name, body_short=body_short_org,
                              **_smp_bvars, **_smp_body_bvars, **_bio_system_vars(state))
                         return LogEvent.new(EventCategory.Explore, msg)
                     return None
@@ -2075,9 +2089,13 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     _anl_org_bidx = state._bodies_by_name.get(body_name, -1)
                     _anl_org_b = state.bodies[_anl_org_bidx] if 0 <= _anl_org_bidx < len(state.bodies) else None
                     _anl_body_bvars = _body_vars(_anl_org_b) if _anl_org_b is not None else {}
+                    val_raw = str(final_val) if final_val > 0 else ""
                     _say(tts_q, "ScanOrganic_Analyse", False,
-                         fallback=msg_tts, species=species_loc, val_str=val_str, ff_suffix=ff_suffix,
-                         body=body_name, **_anl_bvars, **_anl_body_bvars, **_bio_system_vars(state))
+                         fallback=msg_tts, species=species_loc,
+                         val_str=val_str, val_raw=val_raw,
+                         ff_suffix=ff_suffix,
+                         body=body_name, body_short=body_short_org,
+                         **_anl_bvars, **_anl_body_bvars, **_bio_system_vars(state))
                     # Bio completion contextual announcement
                     body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
                     _anl_idx   = state._bodies_by_name.get(body_name, -1)
@@ -2097,7 +2115,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _say(tts_q, "ScanOrganic_Analyse_BodyLeft", False,
                              fallback=f"There {verb} {body_left} more {bio_word} on this body.",
                              body_left=body_left, bio_word=bio_word, verb=verb,
-                             body=body_name, **_abl_sys_vars)
+                             body=body_name, body_short=body_short_org, **_abl_sys_vars)
                     elif remaining_by_body:
                         parts_r  = [f"{v} on {_short_body(k, state.system)}" for k, v in remaining_by_body.items()]
                         parts_str = ", ".join(parts_r)
@@ -2169,7 +2187,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             msg = f"Mission complete: {name}. Reward: {_fmt_credits(reward)}."
             _say(tts_q, "MissionCompleted", False,
                  fallback=f"Mission complete: {name}. Reward: {_tts_cr(reward)}.",
-                 name=name, reward=_tts_cr(reward), **_system_vars(state))
+                 name=name, reward=_tts_cr(reward), reward_raw=str(reward), **_system_vars(state))
             _trigger(state, "missions")
             return LogEvent.new(EventCategory.Mission, msg)
 
@@ -2216,11 +2234,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if profit > 0:
                 _say(tts_q, "MarketSell_profit", False,
                      fallback=f"Sold: {count}x {commodity} for {total_str}. Profit: {profit_str}.",
-                     count=count, commodity=commodity, total=total_str, profit=profit_str)
+                     count=count, commodity=commodity,
+                     total=total_str, total_raw=str(total),
+                     profit=profit_str, profit_raw=str(profit))
             else:
                 _say(tts_q, "MarketSell", False,
                      fallback=f"Sold: {count}x {commodity} for {total_str}.",
-                     count=count, commodity=commodity, total=total_str)
+                     count=count, commodity=commodity,
+                     total=total_str, total_raw=str(total))
             _trigger(state, "wealth")
             return LogEvent.new(EventCategory.Trade, msg)
 
@@ -2618,7 +2639,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if total:
                 _say(tts_q, "SellExplorationData", False,
                      fallback=f"Exploration data sold: {_fmt_credits(total)}.",
-                     value=_tts_cr(total), **_system_vars(state))
+                     value=_tts_cr(total), value_raw=str(total), **_system_vars(state))
                 _trigger(state, "wealth")
                 return LogEvent.new(EventCategory.Trade,
                                     f"Exploration data sold: {_fmt_credits(total)}.")

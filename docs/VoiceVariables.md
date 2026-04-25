@@ -237,7 +237,8 @@ No variables.
 #### `SupercruiseExit` — Dropping from supercruise (body nearby)
 | Variable | Example | Notes |
 |---|---|---|
-| `{body}` | `Tau Ceti 3` | Nearby body name |
+| `{body}` | `Tau Ceti 3` | Full body name |
+| `{body_short}` | `3` | Short body name (suffix without system prefix) |
 | **+ Body** | | Variables for the nearby body |
 | **+ System** | | |
 
@@ -291,7 +292,8 @@ No variables.
 #### `Touchdown` — Landing on a surface
 | Variable | Example | Notes |
 |---|---|---|
-| `{body}` | `Tau Ceti 3 a` | Body name |
+| `{body}` | `Tau Ceti 3 a` | Full body name |
+| `{body_short}` | `3 a` | Short body name |
 | `{lat}` | `12.34` | Latitude as decimal string |
 | `{lon}` | `-56.78` | Longitude as decimal string |
 | **+ Body** | | Variables for the body |
@@ -300,14 +302,16 @@ No variables.
 #### `Liftoff` — Lifting off from a surface
 | Variable | Notes |
 |---|---|
-| `{body}` | Body name |
+| `{body}` | Full body name |
+| `{body_short}` | Short body name |
 | **+ Body** | |
 | **+ System** | |
 
 #### `FirstFootfall` — First footfall on a world
 | Variable | Notes |
 |---|---|
-| `{body}` | Body name |
+| `{body}` | Full body name |
+| `{body_short}` | Short body name |
 | **+ Body** | |
 | **+ System** | |
 
@@ -318,7 +322,8 @@ No variables.
 |---|---|---|
 | `{g}` | `2.3 G` | Gravity formatted for speech |
 | `{g_raw}` | `2.31` | Raw gravity as decimal string |
-| `{body}` | `Sirius A 1` | Body name |
+| `{body}` | `Sirius A 1` | Full body name |
+| `{body_short}` | `A 1` | Short body name |
 | **+ Body** | | Full body variables |
 
 #### `HighGExtreme` — Approaching a ≥ 3.0 G body (fires 3× spaced 10 s apart)
@@ -376,17 +381,20 @@ Same variables as `HullDamage_Warning`.
 | Variable | Example | Notes |
 |---|---|---|
 | `{reward}` | `24 thousand credits` | Bounty formatted for speech |
+| `{reward_raw}` | `24000` | Raw bounty as integer string |
 
 #### `Bounty_target` — Bounty earned (specific target)
 | Variable | Example | Notes |
 |---|---|---|
 | `{reward}` | `24 thousand credits` | Bounty formatted for speech |
+| `{reward_raw}` | `24000` | Raw bounty as integer string |
 | `{victim}` | `Ardan Voss` | Target name |
 
 #### `FactionKillBond` — Combat bond awarded
 | Variable | Example | Notes |
 |---|---|---|
 | `{reward}` | `50 thousand credits` | Bond value formatted for speech |
+| `{reward_raw}` | `50000` | Raw bond value as integer string |
 
 ---
 
@@ -490,7 +498,9 @@ Same variables as `Scan_Notable`.
 | `{body}` | `Sol A 3` | Full body name |
 | `{sig_txt}` | ` Signals: 3 bio.` | Bio/geo signal summary (empty string if none) |
 | `{eff_txt}` | ` Efficiency target reached.` | Efficiency bonus message (empty if not reached) |
-| `{map_txt}` | ` Mapped value: 1.2 million credits.` | Mapping value summary |
+| `{map_txt}` | ` First map!` | `" First map!"` or `""` |
+| `{map_value}` | `3.4 million credits` | Mapped body value formatted for speech (alias of `{value_mapped}`) |
+| `{map_value_raw}` | `3400000` | Raw mapped value as integer string |
 | **+ Body** | | |
 | **+ System** | | |
 
@@ -509,7 +519,8 @@ Same variables as `Scan_Notable`.
 | Variable | Example | Notes |
 |---|---|---|
 | `{species}` | `Frutexa Acus` | Species localised name |
-| `{body}` | `Sol A 3 a` | Body name |
+| `{body}` | `Sol A 3 a` | Full body name |
+| `{body_short}` | `A 3 a` | Short body name |
 | **+ Bio scan** | | `{genus}` `{sample_count}` `{min_dist}` `{bio_value}` etc. |
 | **+ Body** | | |
 | **+ Bio system** | | System-wide progress |
@@ -524,7 +535,8 @@ Same variables as `ScanOrganic_Log`.
 |---|---|---|
 | `{count}` | `2` | Current sample number (`"2"` or `"3"`) |
 | `{species}` | `Frutexa Acus` | Species localised name |
-| `{body}` | `Sol A 3 a` | Body name |
+| `{body}` | `Sol A 3 a` | Full body name |
+| `{body_short}` | `A 3 a` | Short body name |
 | **+ Bio scan** | | |
 | **+ Body** | | |
 | **+ Bio system** | | |
@@ -536,8 +548,10 @@ Same variables as `ScanOrganic_Log`.
 |---|---|---|
 | `{species}` | `Frutexa Acus` | Species localised name |
 | `{val_str}` | `1.2 million credits` | Credit value formatted for speech |
+| `{val_raw}` | `1200000` | Raw credit value as integer string |
 | `{ff_suffix}` | ` First footfall bonus applied.` | Empty string if no footfall bonus |
-| `{body}` | `Sol A 3 a` | Body name |
+| `{body}` | `Sol A 3 a` | Full body name |
+| `{body_short}` | `A 3 a` | Short body name |
 | **+ Bio scan** | | |
 | **+ Body** | | |
 | **+ Bio system** | | |
@@ -550,7 +564,8 @@ Same variables as `ScanOrganic_Log`.
 | `{body_left}` | `2` | Remaining bio signals on this body |
 | `{bio_word}` | `bios` | `"bio"` or `"bios"` |
 | `{verb}` | `are` | `"is"` or `"are"` |
-| `{body}` | `Sol A 3 a` | Body name |
+| `{body}` | `Sol A 3 a` | Full body name |
+| `{body_short}` | `A 3 a` | Short body name |
 | **+ Bio system** | | |
 
 ---
@@ -600,6 +615,7 @@ Same variables as `ScanOrganic_Log`.
 |---|---|---|
 | `{name}` | `Massacre Wing` | Mission name |
 | `{reward}` | `2 million credits` | Reward formatted for speech |
+| `{reward_raw}` | `2000000` | Raw reward as integer string |
 | **+ System** | | |
 
 #### `MissionFailed` — Mission failed
@@ -617,6 +633,7 @@ Same variables as `ScanOrganic_Log`.
 | `{count}` | `120` | Units sold |
 | `{commodity}` | `Gold` | Commodity name |
 | `{total}` | `2.4 million credits` | Total sale value |
+| `{total_raw}` | `2400000` | Raw total as integer string |
 
 #### `MarketSell_profit` — Sold cargo (with profit)
 Same as `MarketSell` plus:
@@ -624,6 +641,7 @@ Same as `MarketSell` plus:
 | Variable | Example | Notes |
 |---|---|---|
 | `{profit}` | `800 thousand credits` | Profit on the sale |
+| `{profit_raw}` | `800000` | Raw profit as integer string |
 
 ---
 
@@ -631,6 +649,7 @@ Same as `MarketSell` plus:
 | Variable | Example | Notes |
 |---|---|---|
 | `{value}` | `4.2 million credits` | Sale value formatted for speech |
+| `{value_raw}` | `4200000` | Raw sale value as integer string |
 | **+ System** | | |
 
 ---
