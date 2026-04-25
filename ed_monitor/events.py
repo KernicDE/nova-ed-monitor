@@ -731,9 +731,6 @@ def _body_vars(b) -> dict:
     r_raw  = str(int(b.radius / 1000))             if b.radius > 0         else ""
     m_raw  = f"{b.mass_em:.2f}"                    if b.mass_em > 0        else ""
     d_raw  = str(int(b.dist_ls))                   if b.dist_ls > 0        else ""
-    # Scan value: use journal EstimatedValue if present, fall back to formula estimate
-    v_int  = b.value if b.value > 0 else _ev_base(b)
-    v_raw  = str(v_int) if v_int > 0 else ""
     # Mapped value: projected or actual DSS payout with all multipliers
     vm_int = _ev_mapped(b)
     vm_raw = str(vm_int) if vm_int > 0 else ""
@@ -747,9 +744,12 @@ def _body_vars(b) -> dict:
     # Star
     sc       = b.star_type or ""
     scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
+    # Scan value: use formula for FSS'd bodies (same base as {value_mapped}); EDSM value as fallback
+    v_int  = _ev_base(b) if b.fss_scanned else (b.value if b.value > 0 else _ev_base(b))
+    v_raw  = str(v_int) if v_int > 0 else ""
     return dict(
         body_type=b.planet_class, star_type=sc,
-        scoopable="Scoopable" if scoopable else ("Not scoopable" if sc else ""),
+        scoopable="true" if scoopable else ("false" if sc else ""),
         atmosphere=b.atmosphere, volcanism=b.volcanism,
         gravity=f"{g_raw} G" if g_raw else "",    gravity_raw=g_raw,
         temp=f"{t_raw} Kelvin" if t_raw else "",  temp_raw=t_raw,
@@ -758,7 +758,7 @@ def _body_vars(b) -> dict:
         dist_ls=_tts_ls(b.dist_ls) if b.dist_ls > 0 else "", dist_ls_raw=d_raw,
         value=_tts_cr(v_int) if v_int > 0 else "", value_raw=v_raw,
         value_mapped=_tts_cr(vm_int) if vm_int > 0 else "", value_mapped_raw=vm_raw,
-        terra="Terraformable" if b.terraform else "",
+        terra="true" if b.terraform else "false",
         landable="Landable" if b.landable else "",
         bio_count=str(b.bio_signals), geo_count=str(b.geo_signals),
         first_disc="Undiscovered" if b.first_discovered else "",
@@ -876,7 +876,7 @@ def _system_vars(state) -> dict:
         "faction": state.controlling_faction,
         "star_class": sc,
         "primary_star_class": sc,   # alias — same value, both names work in templates
-        "star_scoopable": ("Scoopable" if scoopable else ("Not scoopable" if sc else "")),
+        "star_scoopable": ("true" if scoopable else ("false" if sc else "")),
     }
 
 
@@ -1846,7 +1846,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
             rare_star  = star_type in ("N", "H", "D")
-            high_value = value > 500_000 and not is_star
+            _tts_notable_threshold = getattr(state, "notable_value_threshold", 500_000)
+            high_value = value > _tts_notable_threshold and not is_star
 
             sig_parts = []
             if bio_count > 0:

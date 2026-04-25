@@ -77,25 +77,6 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 
 ---
 
-## v2.0.0 — Production baseline
-
-v2.0.0 is the post-audit production cut. It ships an extensive refactor aimed at
-performance, resilience and dead-code removal:
-
-- **O(N²) → O(K)** `upsert_body` index updates (journal replay thousands of times faster on startup).
-- **Debounced** body-write bursts — an FSS honk no longer produces 40 × N-row DB writes.
-- **Tiered UI snapshots** — idle ticks skip all collection clones; only fingerprint-changing ticks pay for the full copy.
-- **Atomic DB migrations** (`with self._conn:` transactions) with narrow-exception logging.
-- **Cancelable high-G timers** — no more leaked `threading.Timer` threads after a body leave.
-- **Unified HTTP layer** (`ed_monitor/_http.py`): one `USER_AGENT` derived from the package version, one timeout tier per call class.
-- **Config-watcher quiet window** — self-writes from `config.load()` / `config.save()` no longer trigger a phantom reload.
-- **Hardened I/O boundaries**: schema guard in `events.handle()`, Spansh response validation, YouTube scrape-failure surfacing, twitch `sendall`, handler-exception tracebacks.
-- **205 tests** (from 171), covering haversine, upsert perf, timer cancellation, HTTP constants, config debouncing, spansh parsing, and event-handler guards.
-
-Full audit trail in [docs/audit-v2.md](docs/audit-v2.md) — each commit points back to a tracked item ID (P-*, R-*, D-*).
-
----
-
 ## Configuration
 
 The config file is created automatically on first launch. Press **`s`** inside NOVA for the in-app settings overlay — the easiest way to change anything without editing files.

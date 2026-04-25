@@ -19,7 +19,7 @@ Available in most navigation, exploration, and economy events.
 | `{system}` | `Sol` | Current star system name |
 | `{star_class}` | `G` | Primary star class (abbreviated). Also accessible as `{primary_star_class}` |
 | `{primary_star_class}` | `G` | Alias for `{star_class}` |
-| `{star_scoopable}` | `Scoopable` | `"Scoopable"` / `"Not scoopable"` / `""` if unknown |
+| `{star_scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) / `""` if unknown |
 | `{allegiance}` | `Federation` | System allegiance |
 | `{economy}` | `Agriculture` | Primary economy |
 | `{security}` | `Medium Security` | Security level |
@@ -55,7 +55,7 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 |---|---|---|
 | `{body_type}` | `High metal content body` | Planet class string |
 | `{star_type}` | `G` | Abbreviated star type (only non-empty for stars) |
-| `{scoopable}` | `Scoopable` | `"Scoopable"` / `"Not scoopable"` / `""` (stars only) |
+| `{scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) / `""` (non-star) |
 | `{atmosphere}` | `Carbon dioxide` | Atmosphere type |
 | `{volcanism}` | `Minor water magma` | Volcanism |
 | `{gravity}` | `0.83 G` | Surface gravity formatted for speech |
@@ -68,11 +68,11 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 | `{mass_raw}` | `0.58` | Raw mass as decimal string |
 | `{dist_ls}` | `42 light seconds` | Distance from arrival star |
 | `{dist_ls_raw}` | `42` | Raw distance in light seconds (integer string) |
-| `{value}` | `1.2 million credits` | FSS scan value formatted for speech |
-| `{value_raw}` | `1200000` | Raw scan value as integer string |
+| `{value}` | `1.2 million credits` | FSS scan value formatted for speech (formula-based for FSS'd bodies) |
+| `{value_raw}` | `1200000` | Raw scan value as integer string (same base as `{value_mapped}`) |
 | `{value_mapped}` | `3.4 million credits` | Projected or actual DSS payout (all bonuses) |
 | `{value_mapped_raw}` | `3400000` | Raw mapped value as integer string |
-| `{terra}` | `Terraformable` | `"Terraformable"` or `""` |
+| `{terra}` | `true` | `"true"` (terraformable) / `"false"` (not terraformable) |
 | `{landable}` | `Landable` | `"Landable"` or `""` |
 | `{bio_count}` | `3` | Number of bio signals (integer string) |
 | `{geo_count}` | `7` | Number of geo signals (integer string) |
@@ -754,7 +754,7 @@ These events have **no variables**. Silence any with `replace = []`.
 
 ## Conditional Examples
 
-Since flag variables like `{terra}` and `{landable}` are empty strings when absent and non-empty when present, they work directly with `IS TRUE`:
+Boolean variables (`{terra}`, `{scoopable}`, `{star_scoopable}`) return `"true"` or `"false"`, so both `IS TRUE`/`IS FALSE` and `== "true"`/`== "false"` comparisons work. Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent and non-empty when present — use `IS TRUE` for those.
 
 ```toml
 [Scan_Notable]
