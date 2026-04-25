@@ -1430,7 +1430,7 @@ class BodiesPanel(_Panel):
 # ── Content render helpers ────────────────────────────────────────────────────
 
 def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
-    from ..events import _BIO_GENUS_VALUE_RANGE
+    from ..events import _BIO_GENUS_VALUE_RANGE, _BIO_SPECIES_VALUES, bio_variant
 
     HDR = "bold rgb(195,160,55)"
 
@@ -1498,30 +1498,41 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             parts.append(hdr_t)
 
             if b.bio_genuses_predicted:
+                _variant = bio_variant(s.primary_star_class)
                 tbl = Table(
                     show_header=True, show_edge=False, show_lines=False,
                     padding=(0, 0), box=None,
                 )
-                tbl.add_column("Predicted Genus",  width=22, header_style=HDR)
-                tbl.add_column("Est. Value Range", width=22, header_style=HDR)
+                tbl.add_column("Predicted Species", width=24, header_style=HDR)
+                tbl.add_column("Est. Value",        width=20, header_style=HDR)
 
                 _rng_lo: list[int] = []
                 _rng_hi: list[int] = []
-                for g in b.bio_genuses_predicted:
-                    key = g.lower().split()[0] if g else ""
-                    lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
-                    val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-                    if lo > 0: _rng_lo.append(lo)
-                    if hi > 0: _rng_hi.append(hi)
+                for sp in b.bio_genuses_predicted:
+                    key = sp.lower().split()[0] if sp else ""
+                    # Use exact species value when known, else genus range
+                    exact = _BIO_SPECIES_VALUES.get(sp, 0)
+                    if exact > 0:
+                        val_s = _fmt_cr_compact(exact)
+                        _rng_lo.append(exact)
+                        _rng_hi.append(exact)
+                    else:
+                        lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                        val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                        if lo > 0: _rng_lo.append(lo)
+                        if hi > 0: _rng_hi.append(hi)
+                    label = f"? {sp}"
+                    if _variant:
+                        label += f" [{_variant}]"
                     tbl.add_row(
-                        Text(f"? {g}", style="rgb(160,160,80)"),
+                        Text(label, style="rgb(160,160,80)"),
                         Text(val_s, style="rgb(160,130,60)"),
                     )
                 parts.append(tbl)
                 hint_t = Text()
-                hint_t.append("  DSS to confirm genera", style=P.LABEL)
+                hint_t.append("  DSS to confirm", style=P.LABEL)
                 if b.bio_signals > 0:
-                    hint_t.append(f"  ·  {b.bio_signals} species", style=P.LABEL)
+                    hint_t.append(f"  ·  {b.bio_signals} bio signal{'s' if b.bio_signals != 1 else ''}", style=P.LABEL)
                 if _rng_hi:
                     _n = max(1, b.bio_signals)
                     _total_lo = sum(sorted(_rng_lo)[:_n])
@@ -1550,12 +1561,13 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             hdr_t.append("─" * 14, style="rgb(60,80,100)")
             parts.append(hdr_t)
 
+            _dss_variant = bio_variant(s.primary_star_class)
             tbl = Table(
                 show_header=True, show_edge=False, show_lines=False,
                 padding=(0, 0), box=None,
             )
-            tbl.add_column("Genus",       width=22, header_style=HDR)
-            tbl.add_column("Est. Value",  width=22, header_style=HDR)
+            tbl.add_column("Genus (DSS)",  width=24, header_style=HDR)
+            tbl.add_column("Est. Value",   width=20, header_style=HDR)
 
             for g in b.bio_genuses:
                 key = g.lower().split()[0] if g else ""
@@ -1563,8 +1575,11 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                 if _ff and lo > 0:
                     lo, hi = lo * 5, hi * 5
                 val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
+                label = g
+                if _dss_variant:
+                    label += f" [{_dss_variant}]"
                 tbl.add_row(
-                    Text(g, style=P.HUD_CYAN),
+                    Text(label, style=P.HUD_CYAN),
                     Text(val_s, style=P.AMBER),
                 )
             parts.append(tbl)

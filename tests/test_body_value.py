@@ -88,10 +88,10 @@ class TestFSSdUnmappedProjected:
         assert _body_value(b) == expected
 
     def test_first_discovered_and_mapped_applies_efficiency(self):
-        """FSS'd + first_discovered + first_mapped → 8.0956 × efficiency."""
+        """FSS'd + first_discovered + first_mapped → 3.3333 × 1.25 × 3.692 (ODExplorer stacking)."""
         b = _body(fss_scanned=True, first_discovered=True, first_mapped=True, mass_em=5.0)
         base = _estimated_value(b)
-        expected = int(base * 8.0956 * 1.25)
+        expected = int(base * 3.3333333333 * 1.25 * 3.692)
         assert _body_value(b) == expected
 
     def test_first_discovered_no_first_mapped_no_bonus(self):

@@ -241,7 +241,14 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
             capture_output=True,
             timeout=30,
         )
-        if result.returncode == 0 and os.path.exists(tmp):
+        # Some edge-tts versions return rc=1 on non-fatal warnings but still write the file.
+        # Treat the result as successful whenever the output file was actually written.
+        file_ok = os.path.exists(tmp) and os.path.getsize(tmp) > 0
+        if file_ok:
+            if result.returncode != 0:
+                _audio_logger.debug(
+                    f"edge-tts rc={result.returncode} but output written — non-fatal warning"
+                )
             if cacheable:
                 try:
                     shutil.copy2(tmp, str(cached_path))

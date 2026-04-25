@@ -209,149 +209,251 @@ def _bio_value_lookup(species_loc: str) -> int:
     return v
 
 
-def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,
-                       surface_gravity: float, volcanism: str,
-                       primary_star_type: str = "") -> list[str]:
-    """Predict possible biological genera from planet FSS conditions.
+# Star class → variant (color) for biological species
+_STAR_CLASS_VARIANT: dict[str, str] = {
+    "O": "Turquoise",
+    "B": "Grey",
+    "A": "Yellow",
+    "F": "Lime",
+    "G": "Emerald",
+    "K": "Green",
+    "M": "Teal",
+    "L": "Sage",
+    "T": "Red",
+    "Y": "Mauve",
+    "D": "Ocher",   # White Dwarf
+    "N": "Cobalt",  # Neutron star
+    "H": "White",   # Black Hole
+}
 
-    Returns deduplicated list of genus names (title-case, matching _BIO_GENUS_VALUE_RANGE keys).
-    Only makes predictions for landable bodies with atmospheres; returns [] if conditions unknown.
+
+def bio_variant(primary_star_type: str) -> str:
+    """Return variant color name for the given primary star class, or '' if unknown."""
+    if not primary_star_type:
+        return ""
+    cls = primary_star_type.strip().upper()
+    for prefix in ("O", "B", "A", "F", "G", "K", "M", "L", "T", "Y", "D", "N", "H"):
+        if cls.startswith(prefix):
+            return _STAR_CLASS_VARIANT.get(prefix, "")
+    return ""
+
+
+def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
+                        surface_gravity: float, volcanism: str,
+                        primary_star_type: str = "",
+                        dist_ls: float = 0.0) -> list[str]:
+    """Predict possible biological species from planet FSS conditions.
+
+    Returns deduplicated list of species names (e.g. "Stratum Tectonicas").
+    Each name's first word is the genus, compatible with _BIO_GENUS_VALUE_RANGE lookups.
+    Returns [] when conditions are insufficient for prediction.
     """
-    if not planet_class and not atmosphere:
+    if not atmosphere:
         return []
 
-    atm = (atmosphere or "").lower()
+    atm = atmosphere.lower()
     pc  = (planet_class or "").lower()
     g   = surface_gravity / 9.80665 if surface_gravity > 0 else 999.0
     t   = surface_temp
     vol = (volcanism or "").lower()
+    has_vol = bool(vol) and "no volcanism" not in vol and vol != "none"
 
     pst = (primary_star_type or "").upper()
-    # Electricae pluma requires type A (main sequence) or hotter
-    _a_or_hotter = pst in ("O", "B", "A") or pst.startswith(("O", "B", "A"))
+    _a_or_hotter = pst.startswith(("O", "B", "A"))
+    _is_icy = "icy" in pc or "rocky ice" in pc
+    _is_rocky = "rocky" in pc and not _is_icy
+    _is_hmc   = "high metal content" in pc
 
     predicted: list[str] = []
 
-    # ── Volcanism-dependent (Fumerola) ─────────────────────────────────────────
-    if vol and "no volcanism" not in vol and g < 0.27:
-        predicted.append("Fumerola")
-
-    # ── Helium ────────────────────────────────────────────────────────────────
+    # ── Helium ──────────────────────────────────────────────────────────────
     if "helium" in atm:
-        predicted.append("Bacterium")
+        predicted.append("Bacterium Nebulus")
 
-    # ── Neon / Neon-rich ──────────────────────────────────────────────────────
+    # ── Neon / Neon-rich ────────────────────────────────────────────────────
     if "neon" in atm:
-        predicted.append("Bacterium")
-        predicted.append("Fonticulua")
+        if has_vol and "carbon" in vol or "methane" in vol:
+            predicted.append("Bacterium Scopulum")
+        elif has_vol and "nitrogen" in vol:
+            predicted.append("Bacterium Omentum")
+        elif has_vol and "water" in vol:
+            predicted.append("Bacterium Verrata")
+        else:
+            predicted.append("Bacterium Acies")
+        if has_vol:
+            predicted.append("Fonticulua Segmentatus")
         if _a_or_hotter:
-            predicted.append("Electricae")
+            predicted.append("Electricae Pluma")
 
-    # ── Argon / Argon-rich ────────────────────────────────────────────────────
+    # ── Argon / Argon-rich ──────────────────────────────────────────────────
     if "argon" in atm:
-        predicted.append("Bacterium")
-        if "icy" in pc or "rocky ice" in pc:
-            predicted.append("Fonticulua")
-        if "rocky" in pc and "icy" not in pc:
-            predicted.append("Fungoida")
-            predicted.append("Osseus")
-            predicted.append("Tussock")
+        if _is_icy:
+            predicted.append("Bacterium Vesicula")
+            predicted.append("Fonticulua Campestris")
+        else:
+            predicted.append("Bacterium Vesicula")
+            predicted.append("Aleoida Arcus")
+            if _is_rocky or _is_hmc:
+                predicted.append("Osseus Pumice")
+                predicted.append("Tussock Capillum")
+        if "argon-rich" in atm or "rich" in atm:
+            predicted.append("Fonticulua Upupam")
         if _a_or_hotter:
-            predicted.append("Electricae")
+            predicted.append("Electricae Radialem")
 
-    # ── Methane / Methane-rich ────────────────────────────────────────────────
+    # ── Methane / Methane-rich ───────────────────────────────────────────────
     if "methane" in atm:
-        predicted.append("Bacterium")
-        predicted.append("Fungoida")
-        predicted.append("Osseus")
-        if "rocky" in pc and "icy" not in pc:
-            predicted.append("Tussock")
-        if "icy" in pc or "rocky ice" in pc:
-            predicted.append("Fonticulua")
+        if _is_icy:
+            predicted.append("Bacterium Bullaris")
+            predicted.append("Fonticulua Digitos")
+        else:
+            predicted.append("Bacterium Alcyoneum")
+        predicted.append("Fungoida Stabitis")
+        predicted.append("Osseus Pumice")
+        if _is_rocky or _is_hmc:
+            predicted.append("Tussock Capillum")
+        predicted.append("Cactoida Vermis")
 
-    # ── Nitrogen ──────────────────────────────────────────────────────────────
+    # ── Nitrogen ────────────────────────────────────────────────────────────
     if "nitrogen" in atm and "sulphur" not in atm and "sulfur" not in atm:
-        predicted.append("Bacterium")
-        predicted.append("Concha")
-        if "icy" in pc or "rocky ice" in pc:
-            predicted.append("Fonticulua")
+        predicted.append("Bacterium Informem")
+        predicted.append("Tussock Pennata")
+        predicted.append("Stratum Paleas")
+        if has_vol:
+            predicted.append("Fonticulua Lapida")
+        if has_vol:
+            predicted.append("Concha Aureolas")
+        predicted.append("Recepta Condiviva")
 
-    # ── Oxygen ────────────────────────────────────────────────────────────────
+    # ── Oxygen ──────────────────────────────────────────────────────────────
     if "oxygen" in atm:
-        predicted.append("Bacterium")
-        if "icy" in pc or "rocky ice" in pc:
-            predicted.append("Fonticulua")
-        if "high metal content" in pc:
-            predicted.append("Stratum")
+        predicted.append("Bacterium Volu")
+        predicted.append("Aleoida Gravis")
+        predicted.append("Tussock Viridan")
+        if has_vol:
+            predicted.append("Fonticulua Fluctus")
 
-    # ── Ammonia ───────────────────────────────────────────────────────────────
+    # ── Ammonia ─────────────────────────────────────────────────────────────
     if "ammonia" in atm:
-        predicted.append("Bacterium")
-        predicted.append("Aleoida")
-        predicted.append("Cactoida")
-        predicted.append("Concha")
-        predicted.append("Frutexa")
-        predicted.append("Fungoida")
-        predicted.append("Osseus")
-        predicted.append("Tussock")
-        if g < 0.15:
-            predicted.append("Tubus")
+        predicted.append("Bacterium Aurasus")
+        if g >= 0.25:
+            predicted.append("Aleoida Laminiae")
+        else:
+            predicted.append("Aleoida Spica")
+        predicted.append("Cactoida Lapis")
+        if _is_rocky or _is_hmc:
+            predicted.append("Cactoida Peperatis")
+        if has_vol:
+            predicted.append("Concha Biconcavis")
+        predicted.append("Frutexa Catena")
+        if _is_rocky or _is_hmc:
+            predicted.append("Fungoida Bullarum")
+            predicted.append("Osseus Spiralis")
+        predicted.append("Tussock Catena")
         if t > 165:
-            predicted.append("Stratum")
+            predicted.append("Stratum Paleas")
+        if g < 0.15 and has_vol:
+            predicted.append("Tubus Compagibus")
 
-    # ── Carbon dioxide / CO2-rich ─────────────────────────────────────────────
+    # ── Carbon dioxide / CO2-rich ────────────────────────────────────────────
     if "carbon dioxide" in atm:
-        predicted.append("Bacterium")
-        predicted.append("Concha")
-        predicted.append("Frutexa")
-        predicted.append("Fungoida")
-        predicted.append("Osseus")
-        predicted.append("Tussock")
+        predicted.append("Bacterium Aurasus")
+        predicted.append("Aleoida Coronamus")
+        if t < 300:
+            predicted.append("Cactoida Cortexum")
+        else:
+            predicted.append("Cactoida Pullulanta")
+        if has_vol:
+            predicted.append("Concha Labiata")
+        predicted.append("Frutexa Flammasis")
+        if _is_rocky or _is_hmc:
+            predicted.append("Fungoida Setisis")
+        if _is_rocky:
+            predicted.append("Fungoida Bullarum")
+        if t > 250:
+            predicted.append("Osseus Cornibus")
+        else:
+            predicted.append("Osseus Fractus")
         if t > 190:
-            predicted.append("Clypeus")
-        if g < 0.15:
-            predicted.append("Tubus")
-        if t > 165:
-            predicted.append("Stratum")
-        if "high metal content" in pc:
-            predicted.append("Aleoida")
-            predicted.append("Cactoida")
+            predicted.append("Clypeus Lacrimam")
+        if _is_hmc and t > 165:
+            predicted.append("Stratum Tectonicas")
+        if _is_hmc and 165 < t <= 190:
+            predicted.append("Stratum Limaxus")
+        if _is_rocky and 165 < t <= 190:
+            predicted.append("Stratum Excutitus")
+        if not _is_hmc and t > 190:
+            predicted.append("Stratum Cucumisis")
+        if _is_hmc:
+            predicted.append("Tussock Ignis")
+        elif _is_rocky:
+            predicted.append("Tussock Propagito")
+        if g < 0.15 and has_vol:
+            predicted.append("Tubus Compagibus")
 
-    # ── Water / Water-rich ────────────────────────────────────────────────────
+    # ── Water / Water-rich ───────────────────────────────────────────────────
     if "water" in atm and "sulphur" not in atm and "sulfur" not in atm:
-        predicted.append("Bacterium")
-        predicted.append("Cactoida")
-        predicted.append("Clypeus")
-        predicted.append("Concha")
-        predicted.append("Fungoida")
-        predicted.append("Osseus")
-        if "rocky" in pc and "icy" not in pc:
-            predicted.append("Frutexa")
-            predicted.append("Tussock")
+        predicted.append("Bacterium Cerbrus")
+        predicted.append("Cactoida Vermis")
+        if dist_ls > 2500:
+            predicted.append("Clypeus Speculumi")
+        if has_vol:
+            predicted.append("Concha Renibus")
+        if _is_rocky or _is_hmc:
+            predicted.append("Frutexa Sponsae")
+            predicted.append("Tussock Serrani")
+        predicted.append("Osseus Discus")
+        if _is_icy:
+            predicted.append("Fonticulua Campestris")
         if t > 165:
-            predicted.append("Stratum")
-        if "icy" in pc or "rocky ice" in pc:
-            predicted.append("Fonticulua")
+            if _is_hmc:
+                predicted.append("Stratum Tectonicas")
+            elif _is_rocky:
+                predicted.append("Stratum Excutitus")
 
-    # ── Sulphur dioxide ───────────────────────────────────────────────────────
+    # ── Sulphur dioxide ──────────────────────────────────────────────────────
     if "sulphur dioxide" in atm or "sulfur dioxide" in atm:
-        predicted.append("Bacterium")
-        predicted.append("Recepta")
-        if "rocky" in pc and "icy" not in pc:
-            predicted.append("Frutexa")
-            predicted.append("Tussock")
-            predicted.append("Stratum")
-        if ("icy" in pc or "rocky ice" in pc) and t > 165:
-            predicted.append("Stratum")
+        predicted.append("Bacterium Cerbrus")
+        predicted.append("Cactoida Lapis")
+        predicted.append("Clypeus Margaritus")
+        if has_vol:
+            predicted.append("Concha Renibus")
+        if _is_icy:
+            predicted.append("Fungoida Gelata")
+        predicted.append("Osseus Pelleas")
+        if _is_rocky or _is_hmc:
+            predicted.append("Tussock Serrani")
+            if t > 165:
+                predicted.append("Stratum Araneamus")
+            predicted.append("Frutexa Acus")
+        predicted.append("Recepta Delta")
+
+    # ── Volcanism-dependent across all atmospheres (Fumerola) ───────────────
+    if has_vol and g < 0.27:
+        predicted.append("Fumerola Aquatis")
 
     # Deduplicate preserving order
     seen: set[str] = set()
     result: list[str] = []
-    for genus in predicted:
-        if genus not in seen:
-            seen.add(genus)
-            result.append(genus)
+    for sp in predicted:
+        if sp not in seen:
+            seen.add(sp)
+            result.append(sp)
     return result
+
+
+def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,
+                       surface_gravity: float, volcanism: str,
+                       primary_star_type: str = "",
+                       dist_ls: float = 0.0) -> list[str]:
+    """Predict possible biological species (species-level predictions, not genus-only).
+
+    Kept for compatibility — delegates to predict_bio_species.
+    """
+    return predict_bio_species(
+        planet_class, atmosphere, surface_temp, surface_gravity,
+        volcanism, primary_star_type, dist_ls,
+    )
 
 
 # Default voices per language — overridable via set_voices()
@@ -1735,10 +1837,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if _sb2.star_type and _sb2.level == 0:
                         _pst2 = _sb2.star_type
                         break
-                _body_info.bio_genuses_predicted = predict_bio_genera(
+                _body_info.bio_genuses_predicted = predict_bio_species(
                     planet_class, atmosphere,
                     _f(ev, "SurfaceTemperature"), _f(ev, "SurfaceGravity"),
                     _s(ev, "Volcanism"), _pst2,
+                    _body_info.dist_ls,
                 )
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
@@ -1873,10 +1976,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         if _sb.star_type and _sb.level == 0:
                             _pst = _sb.star_type
                             break
-                    _fss_b.bio_genuses_predicted = predict_bio_genera(
+                    _fss_b.bio_genuses_predicted = predict_bio_species(
                         _fss_b.planet_class, _fss_b.atmosphere,
                         _fss_b.surface_temp, _fss_b.surface_gravity,
                         _fss_b.volcanism, _pst,
+                        _fss_b.dist_ls,
                     )
 
             parts = []

@@ -262,7 +262,7 @@ Chat TTS format: "User {name} on YouTube says: {msg}" / "User {name} on Twitch s
 Functions moved from panels.py to state.py in v1.33.8 so events.py can import without circular dependency. panels.py re-imports them as `_estimated_value` / `_body_value` aliases.
 
 - `estimate_value_base(b)`: when `b.mass_em > 0` uses exact Frontier formula `max(k*(1+Q*M^0.2), 500) + terraformable_bonus`; else uses `_BODY_EST_VALUES` table. EDSM values are **never used**.
-- `estimate_value_mapped(b)`: full projected or actual DSS payout — applies first-mapped (×3.6996), first-disc+mapped (×8.0956), efficiency bonus (×1.25), first-footfall (×1.30). FSS'd unmapped always assumes efficiency bonus (×1.25) = maximum possible payout.
+- `estimate_value_mapped(b)`: full projected or actual DSS payout. FSS projected stacking (ODExplorer-compatible): first-disc+mapped → base × 3.3333 × 1.25 × 3.692; first-mapped-only → base × 3.6996 × 1.25; no-bonus → base × 3.3333 × 1.25. Actual (b.mapped): uses same multipliers with `efficiency_bonus` flag. First-footfall adds 30 % on top of mapped value. Constant `_FIRST_DISC_MAPPED_BONUS = 3.692`.
 - Terraformable bonus: additive per `_SPECIFIC_BONUS` (HMC=100677, WW=116295, ELW=116295); other types use `BASIC_BONUS_TERRAFORMABLE=93328`
 - Color tiers (`_body_value_color`): GOLD = first disc+map, AMBER = first map, white = no bonus, AMBER/DIM = non-FSS'd
 - `_body_vars()` in events.py: `{value}/{value_raw}` use formula fallback when `b.value == 0`; `{value_mapped}/{value_mapped_raw}` always use `estimate_value_mapped()`; also exposes orbital/ring/star fields — see Voiceline Variable Reference in CLAUDE.md
@@ -329,7 +329,14 @@ Active/resolved mode shows full name in border title (e.g. BIOLOGICAL); others s
 _ODY_ENGINEERS: frozenset of 9 Odyssey engineers shown with max_rank=1 (not 5)
 
 ## Bio Panel Pre-scan Display
-When a body is DSS'd with biological signals (`bio_genuses` set on BodyInfo), the Bio panel shows genus names + value ranges (from `_BIO_GENUS_VALUE_RANGE`) and total estimated value before any sample is taken. Auto-switches to bio mode when approaching/landing on such a body.
+When a body is DSS'd with biological signals (`bio_genuses` set on BodyInfo), the Bio panel shows genus names + variant (from `bio_variant(primary_star_class)`) + value ranges and total estimated value before any sample is taken. Auto-switches to bio mode when approaching/landing on such a body.
+
+## Bio Prediction (events.py)
+- `predict_bio_species(planet_class, atmosphere, surface_temp, surface_gravity, volcanism, primary_star_type, dist_ls)` — returns predicted species names (e.g. "Stratum Tectonicas"). Species-level prediction stored in `bio_genuses_predicted`.
+- `predict_bio_genera` is a backward-compat wrapper that delegates to `predict_bio_species`.
+- `bio_variant(primary_star_type)` — returns variant color name from `_STAR_CLASS_VARIANT` (O=Turquoise, B=Grey, A=Yellow, F=Lime, G=Emerald, K=Green, M=Teal, L=Sage, T=Red, Y=Mauve, D=Ocher, N=Cobalt, H=White).
+- Pre-DSS: "Predicted Species" column shows `? Species [Variant]` with per-species value from `_BIO_SPECIES_VALUES` (or genus range fallback).
+- Post-DSS (genus confirmed): "Genus (DSS)" column shows genus + variant with genus-level value range.
 
 ## RoutePanel Context
 1. Docked: shows station services (from `state.station_*`, populated by Docked event)
