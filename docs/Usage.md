@@ -252,13 +252,23 @@ No setup required. To override folders, see [Settings → Screenshot Processing]
 
 ## Engineers Panel
 
-The **Engineers** panel shows all ~36 engineers grouped by status:
+The **Engineers** panel shows all ~40 engineers grouped by status:
 
-- **Unlocked** — rank bar (1–5), rank-progress % toward next rank, specialty
+- **Unlocked** — rank bar (1–5 Horizons, 1 Odyssey), specialty, location
 - **In Progress** — current unlock stage (Known / Invited / Acquainted), progress bar
 - **Locked / Unknown** — engineers not yet contacted
 
-Data comes from the `EngineerProgress` journal event (fired automatically at game login). The specialty and home system columns use built-in static data.
+Data comes from the `EngineerProgress` journal event (fired automatically at game login).
+
+**Interactive controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` or `k` / `j` | Move cursor between engineers |
+| `Space` | Open detail view (unlock condition + full module list) |
+| `Backspace` | Return to list from detail view |
+
+The detail view shows the unlock requirement and every module/grade this engineer handles.
 
 ---
 

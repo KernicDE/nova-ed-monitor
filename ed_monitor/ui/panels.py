@@ -5,7 +5,7 @@ import textwrap
 import time
 from datetime import datetime, timezone
 from importlib.metadata import version as _pkg_version
-from typing import Optional
+from typing import NamedTuple, Optional
 
 try:
     _NOVA_VERSION = _pkg_version("nova-ed-monitor")
@@ -1891,60 +1891,202 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
-# Odyssey (on-foot) engineers — they don't use the 1–5 grade system
+# Odyssey (on-foot) engineers — they don't use the 1–5 grade system.
+# Note: Kit Fowler, Wellington Beck, and Yarden Bond share names with Horizons engineers;
+# those are kept as Horizons in _ENGINEER_STATIC since journal conflicts would overwrite anyway.
 _ODY_ENGINEERS: frozenset = frozenset({
-    "Baltanos", "Eleanor Bresa", "Hero Ferrari", "Rosa Dayette",
+    "Jude Navarro", "Baltanos", "Eleanor Bresa", "Hero Ferrari", "Rosa Dayette",
     "Yi Shen", "Domino Green", "Uma Laszlo", "Oden Geiger", "Terra Velasquez",
 })
 
-_ENGINEER_STATIC: dict[str, tuple[str, str]] = {
-    # name → (specialty, system)
-    "Elvira Martuuk":     ("FSD",             "Long Sight Base, Kwatee"),
-    "Felicity Farseer":   ("FSD / Thrusters", "Farseer Inc, Deciat"),
-    "Ishmael Palin":      ("Thrusters",       "Mawson Dock, Arque"),
-    "Professor Palin":    ("Thrusters",       "Mawson Dock, Arque"),
-    "Chloe Sedesi":       ("FSD / Thrusters", "Synuefe XR-H d11-102"),
-    "Mel Brandon":        ("Various",         "The Brig, Luchtaine"),
-    "Marco Qwent":        ("Power Plant",     "Qwent Research Base, Sirius"),
-    "Hera Tani":          ("Power Plant",     "The Jet's Hole, Kuwemaki"),
-    "Etienne Dorn":       ("Sensors",         "Krins Survey, Los"),
-    "Juri Ishmaak":       ("Sensors/Countermeasures", "Pater's Memorial, Giryak"),
-    "Lei Cheung":         ("Shields",         "Trader's Rest, Laksak"),
-    "Selene Jean":        ("Armour",          "Prospector's Rest, Kuk"),
-    "The Dweller":        ("Weapons",         "Black Hide, Wyrd"),
-    "Tod 'The Blaster' McQuinn": ("Weapons",  "Trophy Camp, Wolf 397"),
-    "Broo Tarquin":       ("Weapons",         "Broo's Legacy, Muang"),
-    "Liz Ryder":          ("Explosives",      "Demolition Unlimited, Eurybia"),
-    "Ram Tah":            ("Electronic Countermeasures", "Phoenix Base, Meene"),
-    "Bill Turner":        ("Plasma Charger",  "Alioth Research Facility, Alioth"),
-    "Didi Vatermann":     ("Shields",         "Vatermann LLC, Leesti"),
-    "Colonel Bris Dekker":("FSD Interdictor", "Dekker's Yard, Sol"),
-    "Petra Olmanova":     ("Armour",          "Sanctuary, Asura"),
-    "Zacariah Nemo":      ("Pulse Laser",     "Nemo Cyber Party Base, Yoru"),
-    "Yarden Bond":        ("Shields",         "Brestla i-Ship Brewery, Brestla"),
-    "Corra Sang":         ("Shields",         "Piri's Retreat, Eurybia"),
-    "Kit Fowler":         ("Launch Bay",      "Fowler's Hope, Capella"),
-    "Marsha Hicks":       ("Detailed Scanner","The Watchtower, 83 Leonis"),
-    "Wellington Beck":    ("Mining Equipment","The Watchtower, 83 Leonis"),
-    "Baltanos":           ("Suit",            "Builders Croft, Deriso"),
-    "Eleanor Bresa":      ("Suit",            "Bresa Modifications, Kojeara"),
-    "Hero Ferrari":       ("Suit",            "Ferrari Salvage Inc, Siris"),
-    "Rosa Dayette":       ("Suit/Weapon",     "Rosa's Retreat, Novas"),
-    "Yi Shen":            ("Weapon",          "Shen's World, Pan Geminorum"),
-    "Domino Green":       ("Weapon",          "Prosperous Horizons, Orishis"),
-    "Uma Laszlo":         ("Weapon",          "Laszlo's Resolve, Xuane"),
-    "Oden Geiger":        ("Suit",            "Ankh's Promise, Candiaei"),
-    "Terra Velasquez":    ("Suit",            "Rascals' Choice, Shou Xing"),
+
+class _EngData(NamedTuple):
+    specialty: str
+    station:   str
+    system:    str
+    unlock:    str
+    modules:   tuple
+
+
+_ENGINEER_STATIC: dict[str, _EngData] = {
+    # ── Horizons (ship modules) ────────────────────────────────────────────────
+    "Felicity Farseer":   _EngData("FSD / Thrusters",   "Farseer Inc",              "Deciat",
+                                   "Explorer rank Scout + 1 Meta-Alloy",
+                                   ("Frame Shift Drive (G5)", "Thrusters (G3)", "Sensors (G3)",
+                                    "Detailed Surface Scanner (G3)", "Shield Booster (G1)")),
+    "Elvira Martuuk":     _EngData("FSD",               "Long Sight Base",          "Khun",
+                                   "Travel 300+ ly from start + 3 Soontill Relics",
+                                   ("Frame Shift Drive (G5)", "Shield Generator (G3)",
+                                    "Thrusters (G2)", "Shield Cell Bank (G1)")),
+    "Professor Palin":    _EngData("Thrusters",         "Abel Laboratory",          "Arque",
+                                   "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+    "Ishmael Palin":      _EngData("Thrusters",         "Abel Laboratory",          "Arque",
+                                   "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+    "Chloe Sedesi":       _EngData("Thrusters / FSD",   "Cinder Dock",              "Shenve",
+                                   "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+    "The Dweller":        _EngData("Power Distributor", "Black Hide",               "Wyrd",
+                                   "5 black market trades + 500,000 Cr bribe",
+                                   ("Power Distributor (G5)", "Pulse Laser (G4)",
+                                    "Burst Laser (G3)", "Beam Laser (G3)")),
+    "Liz Ryder":          _EngData("Explosives",        "Demolition Unlimited",     "Eurybia",
+                                   "Cordial w/ Eurybia Blue Mafia + 200 Landmines",
+                                   ("Seeker Missile Rack (G5)", "Torpedo Pylon (G5)",
+                                    "Missile Rack (G5)", "Mine Launcher (G3)",
+                                    "Hull Reinforcement Package (G1)", "Armour (G1)")),
+    "Tod 'The Blaster' McQuinn": _EngData("Weapons",   "Trophy Camp",              "Wolf 397",
+                                   "15+ bounty vouchers + 100,000 Cr in bounties",
+                                   ("Multi-cannon (G5)", "Rail Gun (G5)",
+                                    "Fragment Cannon (G3)", "Cannon (G2)")),
+    "Marco Qwent":        _EngData("Power Plant",       "Qwent Research Base",      "Sirius",
+                                   "Elvira Martuuk invite + Sirius permit + 25 Modular Terminals",
+                                   ("Power Plant (G4)", "Power Distributor (G3)")),
+    "Selene Jean":        _EngData("Armour",            "Prospector's Rest",        "Kuk",
+                                   "Tod McQuinn invite + mine 500 t + 10 Painite",
+                                   ("Hull Reinforcement Package (G5)", "Armour (G5)")),
+    "Zacariah Nemo":      _EngData("Fragment Cannon",   "Nemo Cyber Party Base",    "Yoru",
+                                   "Elvira Martuuk invite + Party of Yoru invite + 25 Xihe Companions",
+                                   ("Fragment Cannon (G5)", "Multi-cannon (G3)", "Plasma Accelerator (G2)")),
+    "Lei Cheung":         _EngData("Shields",           "Trader's Rest",            "Laksak",
+                                   "The Dweller invite + trade at 50 markets + 200 Gold",
+                                   ("Shield Generator (G5)", "Sensors (G5)",
+                                    "Detailed Surface Scanner (G5)", "Shield Booster (G3)")),
+    "Didi Vatermann":     _EngData("Shield Booster",    "Vatermann LLC",            "Leesti",
+                                   "Selene Jean invite + Trade rank Merchant + 50 Lavian Brandy",
+                                   ("Shield Booster (G5)", "Shield Generator (G3)")),
+    "Hera Tani":          _EngData("Power Plant",       "The Jet's Hole",           "Kuwemaki",
+                                   "Liz Ryder invite + Empire rank Outsider + 50 Kamitra Cigars",
+                                   ("Power Plant (G5)", "Detailed Surface Scanner (G5)",
+                                    "Sensors (G3)", "Power Distributor (G3)")),
+    "Juri Ishmaak":       _EngData("Sensors / Missiles","Pater's Memorial",         "Giryak",
+                                   "Felicity Farseer invite + 50+ fed bonds + 100k-1M Cr fed bonds",
+                                   ("Mine Launcher (G5)", "Sensors (G5)", "Detailed Surface Scanner (G5)",
+                                    "Torpedo Pylon (G3)", "Seeker Missile Rack (G3)",
+                                    "Wake Scanner (G3)", "Kill Warrant Scanner (G3)",
+                                    "Manifest Scanner (G3)", "Missile Rack (G3)")),
+    "Colonel Bris Dekker":_EngData("FSD Interdictor",  "Dekker's Yard",            "Sol",
+                                   "Juri Ishmaak invite + Friendly with Federation + 1-10M Cr fed bonds",
+                                   ("FSD Interdictor (G4)", "Frame Shift Drive (G3)")),
+    "Broo Tarquin":       _EngData("Energy Weapons",    "Broo's Legacy",            "Muang",
+                                   "Hera Tani invite + Combat rank Competent + 50 Fujin Tea",
+                                   ("Burst Laser (G5)", "Pulse Laser (G5)", "Beam Laser (G5)")),
+    "Tiana Fortune":      _EngData("Scanners / Limpets","Fortune's Loss",           "Achenar",
+                                   "Hera Tani invite + Friendly with Empire + 50 Decoded Emission Data",
+                                   ("Wake Scanner (G5)", "Kill Warrant Scanner (G5)",
+                                    "Manifest Scanner (G5)", "Collector Limpet (G5)",
+                                    "Fuel Transfer Limpet (G5)", "Hatch Breaker Limpet (G5)",
+                                    "Prospector Limpet (G5)", "Sensors (G5)",
+                                    "FSD Interdictor (G3)", "Detailed Surface Scanner (G3)")),
+    "The Sarge":          _EngData("Weapons / Limpets", "The Beach",               "Beta-3 Tucani",
+                                   "Juri Ishmaak invite + Fed Navy rank Midshipman + 50 Aberrant Shield Pattern Analysis",
+                                   ("Collector Limpet (G5)", "Fuel Transfer Limpet (G5)",
+                                    "Hatch Breaker Limpet (G5)", "Prospector Limpet (G5)",
+                                    "Cannon (G5)", "Rail Gun (G3)")),
+    "Ram Tah":            _EngData("Electronic Countermeasures", "Phoenix Base",    "Meene",
+                                   "Lei Cheung invite + Explorer rank Surveyor + 50 Classified Scan Databanks",
+                                   ("Electronic Countermeasure (G5)", "Point Defence (G5)",
+                                    "Heat Sink Launcher (G5)", "Chaff Launcher (G5)",
+                                    "Collector Limpet (G4)", "Fuel Transfer Limpet (G4)",
+                                    "Prospector Limpet (G4)", "Hatch Breaker Limpet (G3)")),
+    "Bill Turner":        _EngData("Plasma Charger",    "Turner Metallics Inc",     "Alioth",
+                                   "Selene Jean invite + Alioth permit + Friendly w/ Alioth Independents + 50 Bromellite",
+                                   ("Plasma Accelerator (G5)", "Sensors (G5)",
+                                    "Detailed Surface Scanner (G5)", "Life Support (G3)",
+                                    "Refinery (G3)", "AFMU (G3)", "Fuel Scoop (G3)",
+                                    "Wake Scanner (G3)", "Kill Warrant Scanner (G3)", "Manifest Scanner (G3)")),
+    "Lori Jameson":       _EngData("Sensors / Utilities","Jameson Base",            "Shinrarta Dezhra",
+                                   "Marco Qwent invite + Combat rank Dangerous + 25 Kongga Ale",
+                                   ("Sensors (G5)", "Detailed Surface Scanner (G5)",
+                                    "Refinery (G4)", "Fuel Scoop (G4)", "AFMU (G4)", "Life Support (G4)",
+                                    "Wake Scanner (G3)", "Kill Warrant Scanner (G3)",
+                                    "Manifest Scanner (G3)", "Shield Cell Bank (G3)")),
+    "Marsha Hicks":       _EngData("Limpets / Weapons", "The Watchtower",           "Tir",
+                                   "The Dweller invite + Explorer rank Surveyor + 10 Osmium",
+                                   ("Collector Limpet (G5)", "Fuel Transfer Limpet (G5)",
+                                    "Hatch Breaker Limpet (G5)", "Prospector Limpet (G5)",
+                                    "Refinery (G5)", "Fuel Scoop (G5)",
+                                    "Cannon (G5)", "Multi-cannon (G5)", "Fragment Cannon (G5)")),
+    "Mel Brandon":        _EngData("Various",           "The Brig",                 "Luchtaine",
+                                   "Elvira Martuuk invite + Colonia Council invite + 100k Cr bounties",
+                                   ("Frame Shift Drive (G5)", "Thrusters (G5)", "Shield Generator (G5)",
+                                    "Burst Laser (G5)", "Pulse Laser (G5)", "Beam Laser (G5)",
+                                    "FSD Interdictor (G5)", "Shield Booster (G5)", "Shield Cell Bank (G4)")),
+    "Etienne Dorn":       _EngData("Various",           "Kraken's Retreat",         "Los",
+                                   "Liz Ryder invite + Trade rank Dealer + 25 Occupied Escape Pods",
+                                   ("Plasma Accelerator (G5)", "Sensors (G5)", "Detailed Surface Scanner (G5)",
+                                    "Life Support (G5)", "Power Plant (G5)", "Power Distributor (G5)",
+                                    "Wake Scanner (G5)", "Kill Warrant Scanner (G5)",
+                                    "Manifest Scanner (G5)", "Rail Gun (G5)")),
+    "Petra Olmanova":     _EngData("Armour / Countermeasures", "Sanctuary",         "Asura",
+                                   "Tod McQuinn invite + Combat rank Expert + 200 Progenitor Cells",
+                                   ("Hull Reinforcement Package (G5)", "Mine Launcher (G5)",
+                                    "Seeker Missile Rack (G5)", "Torpedo Pylon (G5)", "Armour (G5)",
+                                    "Missile Rack (G5)", "Chaff Launcher (G5)", "ECM (G5)",
+                                    "Heat Sink Launcher (G5)", "Point Defence (G5)", "AFMU (G5)")),
+    "Yarden Bond":        _EngData("Shield Booster",    "Brestla i-Ship Brewery",   "Brestla",
+                                   "500 Lavian Brandy",
+                                   ("Shield Booster (G5)",)),
+    "Corra Sang":         _EngData("Shields",           "Piri's Retreat",           "Eurybia",
+                                   "Friendly w/ Eurybia Blue Mafia + 50 Nerve Agents",
+                                   ("Shield Cell Bank (G5)",)),
+    "Kit Fowler":         _EngData("Launch Bay",        "Fowler's Hope",            "Capella",
+                                   "25 Occupied Escape Pods",
+                                   ("Fighter Hangar (G5)", "Planetary Vehicle Hangar (G5)")),
+    "Wellington Beck":    _EngData("Mining Equipment",  "The Watchtower",           "83 Leonis",
+                                   "50 Osmium",
+                                   ("Mining Laser (G5)", "Mining Lance (G5)", "Abrasion Blaster (G5)",
+                                    "Sub-surface Missile (G5)", "Seismic Charge (G5)", "Pulse Wave Analyser (G5)")),
+    # ── Odyssey (on-foot equipment) ───────────────────────────────────────────
+    "Jude Navarro":       _EngData("Suit / Weapon",     "Marshall's Drift",         "Aurai",
+                                   "Complete 10 Restore or Reactivation missions",
+                                   ("Reload speed", "Magazine size", "Extra ammo capacity",
+                                    "Damage resistance", "Added melee damage")),
+    "Domino Green":       _EngData("Weapon",            "The Jackrabbit",           "Orishis",
+                                   "Travel 100+ ly in shuttles",
+                                   ("Greater range", "Stability", "Enhanced tracking",
+                                    "Extra backpack capacity", "Reduced tool battery consumption")),
+    "Hero Ferrari":       _EngData("Suit",              "Nevermore Terrace",        "Siris",
+                                   "Complete 10 surface conflict zones",
+                                   ("Faster handling", "Noise suppressor", "Increased sprint duration",
+                                    "Improved jump assist", "Increased air reserves")),
+    "Terra Velasquez":    _EngData("Suit",              "Rascal's Choice",          "Shou Xing",
+                                   "Jude Navarro invite + 6 covert theft/heist missions",
+                                   ("Improved hip fire accuracy", "Noise suppressor",
+                                    "Increased sprint duration", "Combat movement speed",
+                                    "Increased air reserves")),
+    "Uma Laszlo":         _EngData("Weapon",            "Laszlo's Resolve",         "Xuane",
+                                   "Wellington Beck invite + reach Unfriendly with Sirius Corp",
+                                   ("Reload speed", "Stowed reloading", "Headshot damage",
+                                    "Damage resistance", "Faster shield regen")),
+    "Oden Geiger":        _EngData("Suit",              "Ankh's Promise",           "Candiaei",
+                                   "Terra Velasquez invite + 20 biological/genetic data to bartenders",
+                                   ("Stability", "Scope", "Enhanced tracking",
+                                    "Improved battery capacity", "Night vision")),
+    "Baltanos":           _EngData("Suit",              "The Divine Apparatus",     "Deriso",
+                                   "Friendly with Colonia Council",
+                                   ("Noise suppressor", "Improved hip fire accuracy", "Faster handling",
+                                    "Improved jump assist", "Increased air reserves",
+                                    "Increased sprint duration", "Combat movement speed")),
+    "Yi Shen":            _EngData("Weapon",            "Eidolon Hold",             "Einheriar",
+                                   "Baltanos, Eleanor Bresa, or Rosa Dayette invite + referral tasks",
+                                   ("Audio masking", "Headshot damage", "Quieter footsteps", "Night vision")),
+    "Rosa Dayette":       _EngData("Suit / Weapon",     "Rosa's Shop",              "Kojeara",
+                                   "Sell 10 recipe items to Colonia stations",
+                                   ("Greater range", "Scope", "Stability", "Extra backpack capacity",
+                                    "Enhanced tracking", "Reduced tool battery consumption",
+                                    "Improved battery capacity")),
+    "Eleanor Bresa":      _EngData("Suit / Weapon",     "Bresa Modifications",      "Desy",
+                                   "Visit 5 settlements in Colonia",
+                                   ("Magazine size", "Reload speed", "Stowed reloading",
+                                    "Added melee damage", "Damage resistance",
+                                    "Extra ammo capacity", "Faster shield regen")),
 }
 
 
-def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
-    if not s.engineers:
-        t = Text()
-        t.append("No engineer data.", style=P.LABEL)
-        return t
-
-    # Classify engineers into Horizons vs Odyssey, then by progress status
+def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
+    """Return flattened [(era, section, (name, rank, rp, prog))] sorted by era/status."""
     horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
     odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
 
@@ -1962,17 +2104,101 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
         else:
             bucket["LOCKED"].append((name, rank, rp, prog))
 
-    # Flatten: (era, section, entry)
-    all_engs: list[tuple[str, str, tuple]] = []
+    result: list[tuple[str, str, tuple]] = []
     for era_label, era_dict in (("HORIZONS", horizons), ("ODYSSEY", odyssey)):
         for section_label, group in era_dict.items():
             for entry in group:
-                all_engs.append((era_label, section_label, entry))
+                result.append((era_label, section_label, entry))
+    return result
+
+
+def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> RenderableType:
+    """Full-panel detail view for one engineer. Backspace returns to list."""
+    is_ody = name in _ODY_ENGINEERS
+    eng     = _ENGINEER_STATIC.get(name)
+    spec    = eng.specialty if eng else ""
+    station = eng.station   if eng else ""
+    system  = eng.system    if eng else ""
+    unlock  = eng.unlock    if eng else ""
+    modules = eng.modules   if eng else ()
+
+    parts: list[RenderableType] = []
+
+    hdr = Text()
+    hdr.append(f"  {name}\n", style="bold white")
+    hdr.append("  ")
+    if prog == "Unlocked":
+        max_r = 1 if is_ody else 5
+        eff_r = min(1 if is_ody else rank, max_r)
+        hdr.append("█" * eff_r,           style=P.HUD_GREEN)
+        hdr.append("░" * (max_r - eff_r), style=P.LABEL)
+        hdr.append(f"  {eff_r}/{max_r}\n",style=P.LABEL)
+    elif prog in ("Invited", "Acquainted", "Known"):
+        if rp > 0:
+            w = 8; filled = int(rp / 100.0 * w)
+            hdr.append("▓" * filled,       style=P.AMBER)
+            hdr.append("░" * (w - filled), style=P.LABEL)
+            hdr.append(f"  {rp:.0f}%\n",   style=P.LABEL)
+        else:
+            hdr.append(prog + "\n", style=P.AMBER)
+    else:
+        hdr.append((prog or "Unknown") + "\n", style=P.LABEL)
+    parts.append(hdr)
+
+    loc = Text()
+    loc.append("  ")
+    sep = False
+    if spec:
+        loc.append(spec, style=P.LABEL); sep = True
+    if system:
+        if sep: loc.append("  ·  ", style=P.LABEL)
+        loc.append(system, style=P.HUD_CYAN); sep = True
+    if station:
+        if sep: loc.append("  ·  ", style=P.LABEL)
+        loc.append(station, style=P.LABEL)
+    loc.append("\n")
+    parts.append(loc)
+
+    if unlock:
+        parts.append(Text(""))
+        u = Text()
+        u.append("  UNLOCK\n", style="bold rgb(195,160,55)")
+        u.append(f"  {unlock}\n", style="white")
+        parts.append(u)
+
+    if modules:
+        parts.append(Text(""))
+        m = Text()
+        m.append("  MODULES\n", style="bold rgb(195,160,55)")
+        for mod in modules:
+            m.append(f"  {mod}\n", style="white")
+        parts.append(m)
+
+    parts.append(Text(""))
+    hint = Text()
+    hint.append("  [Backspace] back", style="dim")
+    parts.append(hint)
+
+    return Group(*parts)
+
+
+def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: bool = False) -> RenderableType:
+    if not s.engineers:
+        t = Text()
+        t.append("No engineer data.", style=P.LABEL)
+        return t
+
+    all_engs = _build_eng_list(s)
 
     if not all_engs:
         t = Text()
         t.append("No engineer data.", style=P.LABEL)
         return t
+
+    # Detail view: delegate to full-page render
+    if detail and 0 <= cursor < len(all_engs):
+        _, _, (name, rank, rp, prog) = all_engs[cursor]
+        return _render_engineer_detail(name, rank, rp, prog)
 
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
     parts: list[RenderableType] = []
@@ -1980,13 +2206,14 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
     current_era: Optional[str] = None
     current_section: Optional[str] = None
 
-    for era, section, (name, rank, rp, prog) in all_engs[effective_scroll:]:
+    for flat_idx, (era, section, (name, rank, rp, prog)) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
         is_ody = name in _ODY_ENGINEERS
-        spec, location = _ENGINEER_STATIC.get(name, ("", ""))
-        if "," in location:
-            station, system = [x.strip() for x in location.split(",", 1)]
-        else:
-            station, system = location, ""
+        eng     = _ENGINEER_STATIC.get(name)
+        spec    = eng.specialty if eng else ""
+        station = eng.station   if eng else ""
+        system  = eng.system    if eng else ""
+
+        selected = flat_idx == cursor
 
         # Era header (HORIZONS / ODYSSEY)
         if era != current_era:
@@ -2003,10 +2230,14 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
             parts.append(t)
             current_section = section
 
-        # Card line 1: name + rank/status
+        # Card line 1: cursor marker + name + rank/status
         card = Text()
-        card.append(f"  {name}", style="white")
-        padding = max(1, 26 - len(name))
+        if selected:
+            card.append("▶ ", style=P.HUD_GREEN)
+        else:
+            card.append("  ")
+        card.append(f"{name}", style="bold white" if selected else "white")
+        padding = max(1, 24 - len(name))
         card.append(" " * padding)
 
         if prog == "Unlocked":
@@ -2045,6 +2276,10 @@ def _render_engineers(s: AppState, scroll: int = 0) -> RenderableType:
             card.append(station, style=P.LABEL)
         card.append("\n")
         parts.append(card)
+
+    hint = Text()
+    hint.append("  [Space] details  [↑↓] move", style="dim")
+    parts.append(hint)
 
     return Group(*parts)
 
@@ -3166,6 +3401,8 @@ class SituationalPanel(_Panel):
     _colonisation_scroll: int  = 0
     _route_scroll:        int  = 0
     _general_scroll:      int  = 0
+    _eng_cursor:          int  = 0
+    _eng_detail:          bool = False
     _visible_modes:       list = []  # populated in update() from snap.situational_panels
     # System map cache — rebuilt only when bodies or system change
     _map_cache:           object = None
@@ -3209,6 +3446,8 @@ class SituationalPanel(_Panel):
         self._mode = modes[(idx + 1) % len(modes)]
         self._active = self._mode
         self._general_scroll = 0
+        self._eng_cursor = 0
+        self._eng_detail = False
         self.border_title = self._make_title()
         self.refresh()
 
@@ -3220,6 +3459,8 @@ class SituationalPanel(_Panel):
         self._mode = modes[(idx - 1) % len(modes)]
         self._active = self._mode
         self._general_scroll = 0
+        self._eng_cursor = 0
+        self._eng_detail = False
         self.border_title = self._make_title()
         self.refresh()
 
@@ -3265,6 +3506,21 @@ class SituationalPanel(_Panel):
     def scroll_route(self, delta: int) -> None:
         route_len = len(self._snap.route_list) if self._snap else 0
         self._route_scroll = max(0, min(self._route_scroll + delta, max(0, route_len - 3)))
+        self.refresh()
+
+    def eng_move(self, delta: int) -> None:
+        if self._eng_detail or self._snap is None:
+            return
+        total = len(_build_eng_list(self._snap)) if self._snap.engineers else 0
+        self._eng_cursor = max(0, min(self._eng_cursor + delta, max(0, total - 1)))
+        self.refresh()
+
+    def eng_select(self) -> None:
+        self._eng_detail = True
+        self.refresh()
+
+    def eng_back(self) -> None:
+        self._eng_detail = False
         self.refresh()
 
     _NON_SCROLLABLE = frozenset({"overview", "wealth", "stats", "docking", "galaxy"})
@@ -3324,10 +3580,14 @@ class SituationalPanel(_Panel):
                 self._mode = target
                 self._last_auto_target = target
                 self._general_scroll = 0
+                self._eng_cursor = 0
+                self._eng_detail = False
 
         new_active = self._mode
         if new_active != self._active:
             self._general_scroll = 0
+            self._eng_cursor = 0
+            self._eng_detail = False
         self._active = new_active
 
         # Build a mode-specific key so only the active sub-panel's data triggers a redraw.
@@ -3366,9 +3626,11 @@ class SituationalPanel(_Panel):
         elif mode == "colonisation":
             mode_key = (snap.system, len(snap.colonisation_sites))
         elif mode == "engineers":
-            mode_key = tuple(
-                (name, info.rank, info.rank_progress, info.progress)
-                for name, info in snap.engineers.items()
+            mode_key = (
+                tuple((name, info.rank, info.rank_progress, info.progress)
+                      for name, info in snap.engineers.items()),
+                self._eng_cursor,
+                self._eng_detail,
             )
         elif mode == "neutron":
             mode_key = (
@@ -3460,9 +3722,16 @@ class SituationalPanel(_Panel):
             self._general_scroll = scroll
 
         elif mode == "engineers":
-            total  = len(s.engineers) if s.engineers else 0
-            scroll = max(0, min(self._general_scroll, max(0, total - _eng_vis)))
-            self._general_scroll = scroll
+            if self._eng_detail:
+                total  = 0
+                scroll = 0
+            else:
+                all_engs = _build_eng_list(s) if s.engineers else []
+                total  = len(all_engs)
+                # Auto-scroll to keep cursor in view
+                scroll = max(self._eng_cursor - _eng_vis + 1, 0)
+                scroll = max(0, min(scroll, max(0, total - _eng_vis)))
+                self._general_scroll = scroll
 
         elif mode == "inventory":
             _inv_rows = 0
@@ -3512,7 +3781,7 @@ class SituationalPanel(_Panel):
         elif mode == "route":
             below = max(0, total - scroll - max_rows_route)
         elif mode == "engineers":
-            below = max(0, total - scroll - _eng_vis)
+            below = 0 if self._eng_detail else max(0, total - scroll - _eng_vis)
         else:
             below = max(0, total - scroll - max(1, panel_h - 2))
 
@@ -3533,7 +3802,7 @@ class SituationalPanel(_Panel):
         if mode == "missions":
             return _render_missions(s, scroll=scroll)
         if mode == "engineers":
-            return _render_engineers(s, scroll=scroll)
+            return _render_engineers(s, scroll=scroll, cursor=self._eng_cursor, detail=self._eng_detail)
         if mode == "wealth":
             return _render_wealth(s)
         if mode == "neutron":

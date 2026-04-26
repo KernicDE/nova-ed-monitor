@@ -621,6 +621,8 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "galaxy":
                 sit.toggle_galaxy_scale()
+            elif sit._active == "engineers":
+                sit.eng_move(1)
             elif sit._active == "neutron":
                 sit.scroll_neutron(1)
             elif sit._active == "bgs":
@@ -636,6 +638,8 @@ class NOVAApp(App):
             sit = self.query_one(SituationalPanel)
             if sit._active == "galaxy":
                 sit.toggle_galaxy_scale_back()
+            elif sit._active == "engineers":
+                sit.eng_move(-1)
             elif sit._active == "neutron":
                 sit.scroll_neutron(-1)
             elif sit._active == "bgs":
@@ -754,6 +758,16 @@ class NOVAApp(App):
                 with self._lock:
                     self._volume[0] = max(self._volume[0] - 5, 0)
                     self._state.volume = self._volume[0]
+
+        elif key == "space":
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "engineers" and not sit._eng_detail:
+                sit.eng_select()
+
+        elif key == "backspace":
+            sit = self.query_one(SituationalPanel)
+            if sit._active == "engineers" and sit._eng_detail:
+                sit.eng_back()
 
         elif key == "n":
             # Open neutron route input screen
