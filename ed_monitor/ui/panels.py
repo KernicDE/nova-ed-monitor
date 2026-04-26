@@ -2273,12 +2273,12 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     )
     tbl.add_column("#", width=3)
     tbl.add_column(">", width=2)
-    tbl.add_column("Era", width=3)
-    tbl.add_column("Name", width=19, no_wrap=True)
+    tbl.add_column("Era", width=4)
+    tbl.add_column("Name", width=20, no_wrap=True)
     tbl.add_column("Pips", width=5)
     tbl.add_column("Grade", width=3)
-    tbl.add_column("Specialty", width=20, no_wrap=True)
-    tbl.add_column("System", width=16, no_wrap=True)
+    tbl.add_column("Specialty", width=23, no_wrap=True)
+    tbl.add_column("System", width=19, no_wrap=True)
 
     for flat_idx, (era_tag, name, rank, rp, prog) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
         is_ody   = name in _ODY_ENGINEERS
@@ -2292,7 +2292,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         display_name = name if len(name) <= 19 else name[:18] + "…"
 
         cursor_text = Text("▶ ", style=P.HUD_GREEN) if selected else Text("  ")
-        name_text   = Text(f"{display_name:<19}", style="bold white" if selected else "white")
+        name_text   = Text(f"{display_name:<20}", style="bold white" if selected else "white")
 
         if is_ody:
             pip_text = Text(pips[0] if pips else "·", style=pip_style)
@@ -2307,7 +2307,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         tbl.add_row(
             Text(str(flat_idx + 1)),
             cursor_text,
-            Text(f"[{era_tag}]", style="dim"),
+            Text(f"[{era_tag}] ", style="dim"),
             name_text,
             pip_text,
             grade_text,
@@ -2318,7 +2318,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     hint = Text()
     hint.append("  [Space/Enter] details  [↑↓] move", style="dim")
 
-    return Group(Text("\n"), tbl, hint)
+    return Group(tbl, hint)
 
 
 def _render_wealth(s: AppState) -> RenderableType:
