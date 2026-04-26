@@ -2348,7 +2348,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                      fallback=f"Sold: {count}x {commodity} for {total_str}.",
                      count=count, commodity=commodity,
                      total=total_str, total_raw=str(total))
-            _trigger(state, "wealth")
             return LogEvent.new(EventCategory.Trade, msg)
 
         case "Materials":
@@ -2491,7 +2490,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             mjr = _f(ev, "MaxJumpRange")
             if mjr > 0.0:
                 state.jump_range = mjr
-            _trigger(state, "wealth")
             return None
 
         case "Repair":
@@ -2748,7 +2746,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 _say(tts_q, "SellExplorationData", False,
                      fallback=f"Exploration data sold: {_fmt_credits(total)}.",
                      value=_tts_cr(total), value_raw=str(total), **_system_vars(state))
-                _trigger(state, "wealth")
                 return LogEvent.new(EventCategory.Trade,
                                     f"Exploration data sold: {_fmt_credits(total)}.")
             return None

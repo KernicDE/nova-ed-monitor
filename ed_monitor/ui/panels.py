@@ -4586,9 +4586,9 @@ class FooterBar(_Panel):
         right.append(f"  v{_NOVA_VERSION}", style="rgb(70,70,70)")
 
         tbl = Table.grid(expand=True)
-        tbl.add_column("left",   no_wrap=True)
-        tbl.add_column("center", justify="center", no_wrap=True)
-        tbl.add_column("right",  justify="right",  no_wrap=True)
+        tbl.add_column("left",   no_wrap=True, ratio=1)
+        tbl.add_column("center", justify="center", no_wrap=True, ratio=1)
+        tbl.add_column("right",  justify="right",  no_wrap=True, ratio=1)
         tbl.add_row(left, center, right)
         return tbl
 
