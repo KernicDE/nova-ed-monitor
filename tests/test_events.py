@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import queue
 import pytest
-from ed_monitor.events import _fmt_credits, handle
+from ed_monitor.events import _fmt_credits, _body_vars, handle
 from ed_monitor.state import AppState, BodyInfo, EventCategory
+from ed_monitor.state import estimate_value_mapped as _ev_mapped
 
 
 def test_handle_rejects_non_dict_payload():
@@ -260,3 +261,87 @@ def test_first_footfall_via_bodyinfo_flag():
     result = handle(dis_ev, state, q, live=True)
     assert result is not None
     assert "FIRST FOOTFALL" in result.message
+
+
+# ── _body_vars value semantics (issue #108) ───────────────────────────────────
+
+def _make_body(**kw) -> BodyInfo:
+    defaults = dict(
+        name="Test A 1", body_id=1, level=1,
+        planet_class="Rocky body", star_type="", atmosphere="",
+        terraform=False, landable=True,
+        bio_signals=0, geo_signals=0, bio_genuses=[],
+        dist_ls=100.0, value=0,
+        first_discovered=False, first_mapped=False,
+        mapped=False, fss_scanned=False, radius=500_000.0,
+        mass_em=5.0, efficiency_bonus=False, first_footfall=False,
+    )
+    defaults.update(kw)
+    return BodyInfo(**defaults)
+
+
+def test_body_vars_value_fss_uses_mapped_projection():
+    """{value} for an FSS'd body must equal _ev_mapped (mapped projection), not base."""
+    b = _make_body(fss_scanned=True, mass_em=5.0)
+    vars_ = _body_vars(b)
+    assert vars_["value_raw"] == str(_ev_mapped(b))
+
+
+def test_body_vars_value_non_fss_uses_edsm():
+    """{value} for a non-FSS'd body with EDSM data must use the EDSM value."""
+    b = _make_body(fss_scanned=False, value=50_000, mass_em=0.0)
+    vars_ = _body_vars(b)
+    assert vars_["value_raw"] == str(50_000)
+
+
+def test_body_vars_scoopable_always_true_or_false():
+    """{scoopable} for a star must never be empty — always 'true' or 'false'."""
+    scoopable_star = _make_body(star_type="G")
+    vars_s = _body_vars(scoopable_star)
+    assert vars_s["scoopable"] == "true"
+
+    non_scoopable_star = _make_body(star_type="N")
+    vars_ns = _body_vars(non_scoopable_star)
+    assert vars_ns["scoopable"] == "false"
+
+    planet = _make_body(star_type="")
+    vars_p = _body_vars(planet)
+    assert vars_p["scoopable"] == "false"
+
+
+# ── _build_eng_list return type ───────────────────────────────────────────────
+
+def test_build_eng_list_returns_flat_tuples():
+    """_build_eng_list must return 5-tuples (era_tag, name, rank, rp, prog)."""
+    from ed_monitor.ui.panels import _build_eng_list
+    state = AppState()
+    result = _build_eng_list(state)
+    assert len(result) > 0
+    for entry in result:
+        assert len(entry) == 5
+        era_tag, name, rank, rp, prog = entry
+        assert era_tag in ("H", "O")
+        assert isinstance(name, str)
+        assert isinstance(rank, int)
+        assert isinstance(rp, float)
+        assert isinstance(prog, str)
+
+
+def test_build_eng_list_horizons_before_odyssey():
+    """Horizons engineers must appear before Odyssey engineers in the output."""
+    from ed_monitor.ui.panels import _build_eng_list, _ODY_ENGINEERS
+    state = AppState()
+    result = _build_eng_list(state)
+    eras = [e[0] for e in result]
+    last_h = max((i for i, e in enumerate(eras) if e == "H"), default=-1)
+    first_o = next((i for i, e in enumerate(eras) if e == "O"), len(eras))
+    assert last_h < first_o
+
+
+def test_build_eng_list_unknown_engineers_shown():
+    """All ~40 static engineers appear even when s.engineers is empty."""
+    from ed_monitor.ui.panels import _build_eng_list, _ENGINEER_STATIC
+    state = AppState()
+    result = _build_eng_list(state)
+    names_in_result = {e[1] for e in result}
+    assert names_in_result == set(_ENGINEER_STATIC.keys())

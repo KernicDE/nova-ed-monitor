@@ -711,7 +711,7 @@ def _orbital_period_parts(seconds: float) -> tuple[str, str, str, str]:
 def _body_vars(b) -> dict:
     """Return a dict of BodyInfo-derived variables for voiceline templates.
 
-    {value} / {value_raw}        — FSS scan value (formula-based; never empty for known body types)
+    {value} / {value_raw}        — mapped value projection for FSS'd bodies (matches panel); EDSM value otherwise
     {value_mapped} / {value_mapped_raw} — projected or actual DSS payout (with multipliers)
     {orbital_period} / {orbital_period_raw} — "3.1 days" / "3.1" (numeric part only)
     {orbital_period_raw_d} / {orbital_period_raw_h} / {orbital_period_raw_m} — full days / remaining hours / remaining minutes
@@ -744,12 +744,12 @@ def _body_vars(b) -> dict:
     # Star
     sc       = b.star_type or ""
     scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
-    # Scan value: use formula for FSS'd bodies (same base as {value_mapped}); EDSM value as fallback
-    v_int  = _ev_base(b) if b.fss_scanned else (b.value if b.value > 0 else _ev_base(b))
+    # Scan value: use mapped projection for FSS'd bodies (matches panel display); EDSM value as fallback
+    v_int  = _ev_mapped(b) if b.fss_scanned else (b.value if b.value > 0 else _ev_base(b))
     v_raw  = str(v_int) if v_int > 0 else ""
     return dict(
         body_type=b.planet_class, star_type=sc,
-        scoopable="true" if scoopable else ("false" if sc else ""),
+        scoopable="true" if scoopable else "false",
         atmosphere=b.atmosphere, volcanism=b.volcanism,
         gravity=f"{g_raw} G" if g_raw else "",    gravity_raw=g_raw,
         temp=f"{t_raw} Kelvin" if t_raw else "",  temp_raw=t_raw,
@@ -1158,7 +1158,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             scoopable  = is_scoopable(star_class)
 
             state.system              = system
-            state.primary_star_class  = star_class
+            if star_class:
+                state.primary_star_class = star_class
             state.population          = pop
             state.economy             = _strip_economy(economy)
             state.security            = _strip_economy(security)

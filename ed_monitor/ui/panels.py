@@ -2126,42 +2126,34 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
 }
 
 
-def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
-    """Return flattened [(era, section, (name, rank, rp, prog))] sorted by name."""
-    horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": [], "UNKNOWN": []}
-    odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": [], "UNKNOWN": []}
+def _build_eng_list(s: AppState) -> list[tuple[str, str, int, float, str]]:
+    """Return flattened [(era_tag, name, rank, rp, prog)] sorted by era, status, rank desc, name."""
+    _STATUS_ORDER = {"Unlocked": 0, "Invited": 1, "Acquainted": 1, "Known": 1, "Unknown": 3}
 
+    result: list[tuple[str, str, int, float, str]] = []
     seen_names: set[str] = set()
 
-    # engineers dict is keyed by engineer_id (int) or name (str) as fallback
-    for _, info in sorted(s.engineers.items(),
-                          key=lambda kv: kv[1].name if isinstance(kv[1], EngineerInfo) else ""):
+    for _, info in s.engineers.items():
         if isinstance(info, EngineerInfo):
             name, prog, rank, rp = info.name, info.progress, info.rank, info.rank_progress
         else:
             rank, prog = info; rp = 0.0; name = ""
+        if not name:
+            continue
+        seen_names.add(name)
+        era = "O" if name in _ODY_ENGINEERS else "H"
+        result.append((era, name, rank, rp, prog))
 
-        if name:
-            seen_names.add(name)
-        bucket = odyssey if name in _ODY_ENGINEERS else horizons
-        if prog == "Unlocked":
-            bucket["UNLOCKED"].append((name, rank, rp, prog))
-        elif prog in ("Invited", "Acquainted", "Known"):
-            bucket["IN PROGRESS"].append((name, rank, rp, prog))
-        else:
-            bucket["LOCKED"].append((name, rank, rp, prog))
-
-    # Engineers in static data that the game has never reported — shown at bottom
-    for name in sorted(_ENGINEER_STATIC):
+    for name in _ENGINEER_STATIC:
         if name not in seen_names:
-            bucket = odyssey if name in _ODY_ENGINEERS else horizons
-            bucket["UNKNOWN"].append((name, 0, 0.0, "Unknown"))
+            era = "O" if name in _ODY_ENGINEERS else "H"
+            result.append((era, name, 0, 0.0, "Unknown"))
 
-    result: list[tuple[str, str, tuple]] = []
-    for era_label, era_dict in (("HORIZONS", horizons), ("ODYSSEY", odyssey)):
-        for section_label, group in era_dict.items():
-            for entry in group:
-                result.append((era_label, section_label, entry))
+    def _sort_key(e: tuple) -> tuple:
+        era, nm, rnk, _rp, pg = e
+        return (0 if era == "H" else 1, _STATUS_ORDER.get(pg, 2), -rnk, nm)
+
+    result.sort(key=_sort_key)
     return result
 
 
@@ -2181,8 +2173,8 @@ def _eng_rank_pips(rank: int, rp: float, prog: str, is_ody: bool) -> tuple[str, 
             return pips, P.AMBER, f"{rp:.0f}%", P.AMBER
         return "·····", P.LABEL, prog[:3], P.AMBER
     if prog == "Unknown":
-        return "·····", "dim", "?", "dim"
-    return "·····", P.LABEL, "", ""
+        return "·····", "dim", "", "dim"
+    return "·····", "dim", "", "dim"
 
 
 def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> RenderableType:
@@ -2269,33 +2261,19 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
 
     # Detail view: full box-panel for the selected engineer
     if detail and 0 <= cursor < len(all_engs):
-        _, _, (name, rank, rp, prog) = all_engs[cursor]
+        _era, name, rank, rp, prog = all_engs[cursor]
         return _render_engineer_detail(name, rank, rp, prog)
 
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
     parts: list[RenderableType] = []
 
-    current_section_key: Optional[tuple] = None
-
-    for flat_idx, (era, section, (name, rank, rp, prog)) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
-        is_ody  = name in _ODY_ENGINEERS
-        eng     = _ENGINEER_STATIC.get(name)
-        spec    = eng.specialty if eng else ""
-        system  = eng.system    if eng else ""
+    for flat_idx, (era_tag, name, rank, rp, prog) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
+        is_ody   = name in _ODY_ENGINEERS
+        eng      = _ENGINEER_STATIC.get(name)
+        spec     = eng.specialty if eng else ""
+        system   = eng.system    if eng else ""
         selected = flat_idx == cursor
 
-        # Combined era+section header (one line, only when section changes)
-        section_key = (era, section)
-        if section_key != current_section_key:
-            if current_section_key is not None:
-                parts.append(Text(""))
-            hdr = Text()
-            hdr.append(f"  {era}  ", style="bold rgb(195,160,55)")
-            hdr.append(section + "\n", style="rgb(140,120,40)")
-            parts.append(hdr)
-            current_section_key = section_key
-
-        # Single-line row: cursor + name (19 chars) + pips (5) + grade (3) + specialty
         pips, pip_style, grade, grade_style = _eng_rank_pips(rank, rp, prog, is_ody)
 
         row = Text()
@@ -2304,15 +2282,19 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         else:
             row.append("  ")
 
+        # [H]/[O] era tag
+        row.append(f"[{era_tag}]", style="dim")
+        row.append(" ")
+
         # Name: fixed 19 chars, truncated with ellipsis
         display_name = name if len(name) <= 19 else name[:18] + "…"
         row.append(f"{display_name:<19}", style="bold white" if selected else "white")
         row.append(" ")
 
-        # Rank pips (always 5 chars wide for Horizons; 1+4 for Odyssey)
+        # Rank pips (5 chars wide; Odyssey: 1 pip + 4 spaces)
         if is_ody:
             row.append(pips[0] if pips else "·", style=pip_style)
-            row.append("    ")  # pad to 5 chars
+            row.append("    ")
         else:
             row.append(pips, style=pip_style)
         row.append(" ")
@@ -2321,7 +2303,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         row.append(f"{grade:<3}", style=grade_style)
         row.append("  ")
 
-        # Specialty (remaining)
+        # Specialty + system
         if spec:
             row.append(spec, style=P.LABEL if not selected else "white")
         if system:
@@ -2330,7 +2312,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         parts.append(row)
 
     hint = Text()
-    hint.append("  [Space] details  [↑↓] move", style="dim")
+    hint.append("  [Space/Enter] details  [↑↓] move", style="dim")
     parts.append(hint)
 
     return Group(*parts)
@@ -3563,7 +3545,7 @@ class SituationalPanel(_Panel):
     def eng_move(self, delta: int) -> None:
         if self._eng_detail or self._snap is None:
             return
-        total = len(_build_eng_list(self._snap)) if self._snap.engineers else 0
+        total = len(_build_eng_list(self._snap))
         self._eng_cursor = max(0, min(self._eng_cursor + delta, max(0, total - 1)))
         self.refresh()
 
@@ -3740,9 +3722,7 @@ class SituationalPanel(_Panel):
 
         # ── Compute per-mode item count + clamp scroll ────────────────────
         max_rows_route = max(5, panel_h - 5)  # matches _render_route
-        # Engineers: era/section headers add ~9-12 extra display lines on top of
-        # the engineer entries, so use a reduced vis_rows to avoid below=0 wrongly
-        _eng_vis = max(1, panel_h - 14)
+        _eng_vis = max(1, panel_h - 2)
 
         if mode in self._NON_SCROLLABLE:
             total  = 0
@@ -3779,10 +3759,10 @@ class SituationalPanel(_Panel):
                 total  = 0
                 scroll = 0
             else:
-                all_engs = _build_eng_list(s) if s.engineers else []
+                all_engs = _build_eng_list(s)
                 total  = len(all_engs)
-                # Auto-scroll to keep cursor in view
-                scroll = max(self._eng_cursor - _eng_vis + 1, 0)
+                # 4-row lookahead keeps cursor from reaching the bottom before scrolling
+                scroll = max(self._eng_cursor - _eng_vis + 4, 0)
                 scroll = max(0, min(scroll, max(0, total - _eng_vis)))
                 self._general_scroll = scroll
 

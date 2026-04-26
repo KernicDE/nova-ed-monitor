@@ -83,7 +83,7 @@ Settings overlay: `s` key → `SettingsScreen`. All `Static` widgets use `markup
 |---|---|
 | `{body_type}` | Planet class string |
 | `{star_type}` | Star type (empty for planets) |
-| `{scoopable}` | "true" (scoopable) / "false" (not scoopable) / "" (non-star) |
+| `{scoopable}` | "true" (scoopable) / "false" (not scoopable or non-star) — always "true" or "false" |
 | `{terra}` | "true" (terraformable) / "false" (not terraformable) |
 | `{atmosphere}`, `{volcanism}` | Atmosphere/volcanism strings |
 | `{gravity}`, `{gravity_raw}` | Surface gravity ("1.23 G" / "1.23") |
@@ -91,7 +91,7 @@ Settings overlay: `s` key → `SettingsScreen`. All `Static` widgets use `markup
 | `{radius}`, `{radius_raw}` | Radius ("6000 kilometres" / "6000") |
 | `{mass}`, `{mass_raw}` | Mass ("0.85 Earth masses" / "0.85") |
 | `{dist_ls}`, `{dist_ls_raw}` | Distance from arrival star |
-| `{value}`, `{value_raw}` | FSS scan value — formula for FSS'd bodies (same base as `{value_mapped}`); EDSM value for non-FSS'd |
+| `{value}`, `{value_raw}` | Mapped value projection (`_ev_mapped`) for FSS'd bodies — matches panel display; EDSM value for non-FSS'd |
 | `{value_mapped}`, `{value_mapped_raw}` | Projected or actual DSS payout (all bonuses) |
 | `{landable}` | "Landable" or "" |
 | `{bio_count}`, `{geo_count}` | Signal counts |
@@ -103,7 +103,7 @@ Settings overlay: `s` key → `SettingsScreen`. All `Static` widgets use `markup
 | `{semi_major_axis}`, `{semi_major_axis_raw}`, `{semi_major_axis_au_raw}` | Semi-major axis |
 | `{eccentricity}`, `{orbital_inclination}`, `{orbital_inclination_raw}` | Orbital shape |
 
-**Boolean variables** (`{terra}`, `{scoopable}`, `{star_scoopable}`) return `"true"`/`"false"` — both `IS TRUE`/`IS FALSE` and `== "true"`/`== "false"` comparisons work. Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent / non-empty when present.
+**Boolean variables** (`{terra}`, `{scoopable}`, `{star_scoopable}`) return `"true"`/`"false"` — both `IS TRUE`/`IS FALSE` and `== "true"`/`== "false"` comparisons work. `{star_scoopable}` returns `""` when the primary star class is unknown (rare). Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent / non-empty when present.
 
 ### Template Engine
 Three-step render pipeline inside `pick()`:

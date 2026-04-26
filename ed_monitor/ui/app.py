@@ -759,7 +759,7 @@ class NOVAApp(App):
                     self._volume[0] = max(self._volume[0] - 5, 0)
                     self._state.volume = self._volume[0]
 
-        elif key == "space":
+        elif key in ("space", "enter"):
             sit = self.query_one(SituationalPanel)
             if sit._active == "engineers" and not sit._eng_detail:
                 sit.eng_select()
