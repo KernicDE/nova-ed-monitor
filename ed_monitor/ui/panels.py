@@ -2318,7 +2318,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     hint = Text()
     hint.append("  [Space/Enter] details  [↑↓] move", style="dim")
 
-    return Group(tbl, hint)
+    return Group(hint, tbl)
 
 
 def _render_wealth(s: AppState) -> RenderableType:
@@ -3764,8 +3764,9 @@ class SituationalPanel(_Panel):
             else:
                 all_engs = _build_eng_list(s)
                 total  = len(all_engs)
-                scroll = max(self._eng_cursor - _eng_vis + 1, 0)
-                scroll = max(0, min(scroll, max(0, total - _eng_vis)))
+                _eng_list_vis = max(1, _eng_vis - 1)
+                scroll = max(self._eng_cursor - _eng_list_vis + 1, 0)
+                scroll = max(0, min(scroll, max(0, total - _eng_list_vis)))
                 self._general_scroll = scroll
 
         elif mode == "inventory":
