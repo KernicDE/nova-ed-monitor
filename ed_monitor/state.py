@@ -590,10 +590,10 @@ _BODY_EST_VALUES: dict[str, int] = {
 
 
 def estimate_value_base(b: "BodyInfo") -> int:
-    """Scan value before any mapping/discovery multipliers.
+    """Raw base scan value before any mapping/discovery multipliers.
 
     When mass_em is known (from journal Scan), uses the exact Frontier formula:
-      max(k * (1 + Q * M^0.2), MIN_VALUE) + terraformable_bonus
+      k * (1 + Q * M^0.2)
     Falls back to the _BODY_EST_VALUES table when mass is unavailable.
     Returns 0 for stars and unrecognised body types.
     """
@@ -601,7 +601,7 @@ def estimate_value_base(b: "BodyInfo") -> int:
         k = _SPECIFIC_VALUES.get(b.planet_class, _BASIC_VALUE)
         if b.terraform:
             k += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
-        return max(int(k * (1.0 + _Q * b.mass_em ** _MASS_POW)), _MIN_VALUE)
+        return int(k * (1.0 + _Q * b.mass_em ** _MASS_POW))
     base = _BODY_EST_VALUES.get(b.planet_class, 0)
     if base > 0 and b.terraform:
         base += _SPECIFIC_BONUS.get(b.planet_class, _BASIC_BONUS_TERRAFORMABLE)
@@ -612,38 +612,50 @@ def estimate_value_mapped(b: "BodyInfo") -> int:
     """Projected or actual mapped value with all ED exploration bonuses.
 
     When b.mapped is True: actual payout (player already DSS'd the body).
-    When b.fss_scanned and not mapped: projected payout assuming efficiency bonus.
-    When neither: projected payout with first-mapped/first-discovered flags applied.
+    When b.fss_scanned and not mapped: projected mapped value (optimistic:
+    always assumes efficiency bonus).
+    When neither: raw base value or EDSM estimate (no mapping multipliers).
+
+    Follows MattG's authoritative Frontier formula (Sep 2022):
+    https://forums.frontier.co.uk/threads/exploration-value-formulae.232000/
     """
-    v = estimate_value_base(b) if b.fss_scanned else (b.value if b.value > 0 else estimate_value_base(b))
-    if v <= 0:
-        return 0
-    if b.mapped:
-        if b.first_mapped and b.first_discovered:
-            mult = 8.0956
-        elif b.first_mapped:
-            mult = 3.699622554
-        else:
-            mult = 3.3333333333
-        if b.efficiency_bonus:
-            mult *= _EFFICIENCY_MULTIPLIER
-        v = int(v * mult)
-        if b.first_footfall:
-            v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
-    elif b.fss_scanned:
-        if b.first_discovered and b.first_mapped:
-            v = int(v * 8.0956 * _EFFICIENCY_MULTIPLIER)
-        elif b.first_mapped:
-            v = int(v * 3.699622554 * _EFFICIENCY_MULTIPLIER)
-        else:
-            v = int(v * 3.3333333333 * _EFFICIENCY_MULTIPLIER)
-    elif b.first_mapped:
-        if b.first_discovered:
-            v = int(v * 8.0956)
-        else:
-            v = int(v * 3.699622554)
-    elif b.first_discovered:
-        v = int(v * 2.6)
+    if b.fss_scanned:
+        base = estimate_value_base(b)
+    elif b.value > 0:
+        return b.value
     else:
-        v = int(v * 3.3333333333)
-    return v
+        return estimate_value_base(b)
+
+    if base <= 0:
+        return 0
+
+    # Mapping multiplier (MattG)
+    if b.first_discovered and b.first_mapped:
+        mult = 3.699622554
+    elif b.first_mapped:
+        mult = 8.0956
+    else:
+        mult = 3.3333333333
+
+    value = base * mult
+
+    # Odyssey / first footfall bonus — ADDITIVE, applied before efficiency
+    if b.first_footfall:
+        value += max(value * 0.3, 555)
+
+    # Efficiency bonus
+    if b.mapped:
+        if b.efficiency_bonus:
+            value *= _EFFICIENCY_MULTIPLIER
+    else:
+        # For FSS'd but not mapped: always assume efficiency (optimistic projection)
+        value *= _EFFICIENCY_MULTIPLIER
+
+    # 500-credit minimum — applied AFTER all mapping bonuses
+    value = max(_MIN_VALUE, value)
+
+    # First discoverer 2.6× — applied at the very end for ALL cases
+    if b.first_discovered:
+        value *= 2.6
+
+    return int(value)

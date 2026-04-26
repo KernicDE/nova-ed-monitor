@@ -4,6 +4,8 @@ Verifies that:
 - FSS'd bodies never use EDSM values (always formula-based)
 - FSS'd but unmapped bodies always assume efficiency bonus (×1.25)
 - Correct DSS multiplier is chosen based on first_discovered / first_mapped flags
+- First discoverer 2.6× is applied at the end for ALL cases (mapped and unmapped)
+- Odyssey / first footfall bonus is additive, not multiplicative
 - _body_value_color returns the correct tier color
 """
 from __future__ import annotations
@@ -57,11 +59,11 @@ class TestBaseValueSelection:
         assert result == expected
 
     def test_non_fss_uses_edsm_value(self):
-        """Non-FSS'd body with a stored EDSM value should use it."""
+        """Non-FSS'd body with a stored EDSM value should use it as-is."""
         b = _body(fss_scanned=False, value=50_000, mass_em=0.0)
         result = _body_value(b)
-        # No-bonus: 50000 × 3.3333 = 166665
-        assert result == int(50_000 * 3.3333333333)
+        # No mapping bonuses applied to non-FSS'd bodies
+        assert result == 50_000
 
     def test_non_fss_no_edsm_falls_back_to_table(self):
         """Non-FSS'd body with no EDSM value falls back to table estimate."""
@@ -70,7 +72,7 @@ class TestBaseValueSelection:
         assert result > 0  # table has a value for Rocky body
 
 
-# ── FSS'd unmapped: maximum projected payout ─────────────────────────────────
+# ── FSS'd unmapped: projected mapped payout ─────────────────────────────────
 
 class TestFSSdUnmappedProjected:
     def test_no_bonus_applies_efficiency(self):
@@ -81,24 +83,24 @@ class TestFSSdUnmappedProjected:
         assert _body_value(b) == expected
 
     def test_first_mapped_applies_efficiency(self):
-        """FSS'd + first_mapped → 3.6996 × efficiency."""
+        """FSS'd + first_mapped → 8.0956 × efficiency (FM-only multiplier)."""
         b = _body(fss_scanned=True, first_mapped=True, mass_em=5.0)
-        base = _estimated_value(b)
-        expected = int(base * 3.699622554 * 1.25)
-        assert _body_value(b) == expected
-
-    def test_first_discovered_and_mapped_applies_efficiency(self):
-        """FSS'd + first_discovered + first_mapped → 8.0956 × 1.25 (mirrors mapped branch)."""
-        b = _body(fss_scanned=True, first_discovered=True, first_mapped=True, mass_em=5.0)
         base = _estimated_value(b)
         expected = int(base * 8.0956 * 1.25)
         assert _body_value(b) == expected
 
-    def test_first_discovered_no_first_mapped_no_bonus(self):
-        """FSS'd + first_discovered only (already mapped by others) → basic DSS × efficiency."""
+    def test_first_discovered_and_mapped_applies_efficiency(self):
+        """FSS'd + first_discovered + first_mapped → 3.6996 × 1.25 × 2.6."""
+        b = _body(fss_scanned=True, first_discovered=True, first_mapped=True, mass_em=5.0)
+        base = _estimated_value(b)
+        expected = int(base * 3.699622554 * 1.25 * 2.6)
+        assert _body_value(b) == expected
+
+    def test_first_discovered_no_first_mapped(self):
+        """FSS'd + first_discovered only → basic DSS × efficiency × 2.6."""
         b = _body(fss_scanned=True, first_discovered=True, first_mapped=False, mass_em=5.0)
         base = _estimated_value(b)
-        expected = int(base * 3.3333333333 * 1.25)
+        expected = int(base * 3.3333333333 * 1.25 * 2.6)
         assert _body_value(b) == expected
 
 
@@ -118,24 +120,27 @@ class TestMappedActualPayout:
         assert _body_value(b) == int(base * 3.3333333333 * 1.25)
 
     def test_mapped_first_mapped(self):
-        """First mapper → 3.6996."""
+        """First mapper → 8.0956."""
         b = _body(fss_scanned=True, mapped=True, first_mapped=True, mass_em=5.0)
         base = _estimated_value(b)
-        assert _body_value(b) == int(base * 3.699622554)
+        assert _body_value(b) == int(base * 8.0956)
 
     def test_mapped_first_disc_and_map_with_efficiency(self):
-        """First disc + first map + efficiency."""
+        """First disc + first map + efficiency → 3.6996 × 1.25 × 2.6."""
         b = _body(fss_scanned=True, mapped=True,
                   first_discovered=True, first_mapped=True,
                   efficiency_bonus=True, mass_em=5.0)
         base = _estimated_value(b)
-        assert _body_value(b) == int(base * 8.0956 * 1.25)
+        assert _body_value(b) == int(base * 3.699622554 * 1.25 * 2.6)
 
     def test_mapped_first_footfall(self):
-        """First footfall adds 30% on top of mapped value."""
+        """First footfall adds +30% (additive) on top of mapped value."""
         b = _body(fss_scanned=True, mapped=True, first_footfall=True, mass_em=5.0)
         base = _estimated_value(b)
-        assert _body_value(b) == int(int(base * 3.3333333333) * 1.30)
+        mapped_val = base * 3.3333333333
+        odyssey = mapped_val + max(mapped_val * 0.3, 555)
+        expected = int(odyssey)
+        assert _body_value(b) == expected
 
 
 # ── Color tiers ───────────────────────────────────────────────────────────────
