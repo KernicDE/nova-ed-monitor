@@ -87,10 +87,13 @@ class TestEvalCondition:
         assert _eval_condition("{bio_count} > 0", {"bio_count": ""}) is False
 
     def test_is_true_via_var(self):
-        assert _eval_condition("{terra} IS TRUE", {"terra": "Terraformable"}) is True
+        assert _eval_condition("{terra} IS TRUE", {"terra": "true"}) is True
 
     def test_is_true_via_empty_var(self):
         assert _eval_condition("{terra} IS TRUE", {"terra": ""}) is False
+
+    def test_is_true_with_false_string_var(self):
+        assert _eval_condition("{terra} IS TRUE", {"terra": "false"}) is False
 
     def test_and_with_vars(self):
         assert _eval_condition(
@@ -109,7 +112,7 @@ class TestEvaluateConditionals:
     def test_condition_true_inserts_text(self):
         result = _evaluate_conditionals(
             'Hello. WHEN {terra} IS TRUE THEN "Terraformable.";',
-            {"terra": "Terraformable"},
+            {"terra": "true"},
         )
         assert result == "Hello. Terraformable."
 
@@ -130,7 +133,7 @@ class TestEvaluateConditionals:
     def test_multiple_when_blocks(self):
         result = _evaluate_conditionals(
             'X. WHEN {terra} IS TRUE THEN "TF."; WHEN {bio_count} > 0 THEN "Bio.";',
-            {"terra": "Terraformable", "bio_count": "2"},
+            {"terra": "true", "bio_count": "2"},
         )
         assert result == "X. TF. Bio."
 
@@ -246,7 +249,7 @@ class TestPickIntegration:
         vl._CACHE["en"] = {
             "MyEvent": ['Scanned. WHEN {terra} IS TRUE THEN "Terraformable.";'],
         }
-        result = vl.pick("MyEvent", lang="en", terra="Terraformable")
+        result = vl.pick("MyEvent", lang="en", terra="true")
         assert result == "Scanned. Terraformable."
 
     def test_pick_with_conditional_false(self):

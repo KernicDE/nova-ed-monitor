@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import queue
 import pytest
-from ed_monitor.events import _fmt_credits, _body_vars, handle
+from ed_monitor.events import _fmt_credits, _body_vars, handle, is_scoopable
 from ed_monitor.state import AppState, BodyInfo, EventCategory
 from ed_monitor.state import estimate_value_mapped as _ev_mapped
 
@@ -307,6 +307,38 @@ def test_body_vars_scoopable_always_true_or_false():
     planet = _make_body(star_type="")
     vars_p = _body_vars(planet)
     assert vars_p["scoopable"] == "false"
+
+
+def test_is_scoopable_normalizes_star_class_tokens():
+    assert is_scoopable("K") is True
+    assert is_scoopable("k") is True
+    assert is_scoopable(" K (Yellow-Orange) Star ") is True
+    assert is_scoopable("N") is False
+
+
+def test_scan_terraform_state_detects_journal_variants():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_location_event("TestSys"), state, q)
+
+    ev = _make_scan_ev("TestSys", "TestSys 1")
+    ev["TerraformState"] = "Terraformable"
+    handle(ev, state, q)
+    assert state.bodies[0].terraform is True
+
+    ev2 = _make_scan_ev("TestSys", "TestSys 2")
+    ev2["BodyID"] = 2
+    ev2["TerraformState"] = "$PLANET_TERRAFORMABLE;"
+    handle(ev2, state, q)
+    idx2 = state._bodies_by_name["TestSys 2"]
+    assert state.bodies[idx2].terraform is True
+
+    ev3 = _make_scan_ev("TestSys", "TestSys 3")
+    ev3["BodyID"] = 3
+    ev3["TerraformState"] = "Not terraformable"
+    handle(ev3, state, q)
+    idx3 = state._bodies_by_name["TestSys 3"]
+    assert state.bodies[idx3].terraform is False
 
 
 # ── _build_eng_list return type ───────────────────────────────────────────────

@@ -812,7 +812,7 @@ def _body_vars(b) -> dict:
     inc_raw  = f"{b.orbital_inclination:.1f}"       if b.orbital_inclination != 0 else ""
     # Star
     sc       = b.star_type or ""
-    scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
+    scoopable = is_scoopable(sc)
     # Scan value: use mapped projection for FSS'd bodies (matches panel display); EDSM value as fallback
     v_int  = _ev_mapped(b) if b.fss_scanned else (b.value if b.value > 0 else _ev_base(b))
     v_raw  = str(v_int) if v_int > 0 else ""
@@ -936,7 +936,7 @@ def _nearest_body_vars(state) -> dict:
 def _system_vars(state) -> dict:
     """Return a dict of system-derived variables for voiceline templates."""
     sc = getattr(state, "primary_star_class", "")
-    scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
+    scoopable = is_scoopable(sc)
     return {
         **_nearest_body_vars(state),
         "system": state.system, "allegiance": state.allegiance, "economy": state.economy,
@@ -1071,7 +1071,26 @@ def _parse_level(ev: dict, is_star: bool) -> int:
 
 
 def is_scoopable(star_class: str) -> bool:
-    return star_class in ("O", "B", "A", "F", "G", "K", "M")
+    token = (star_class or "").strip().upper()
+    if not token:
+        return False
+    token = token.split()[0]
+    return token[:1] in ("O", "B", "A", "F", "G", "K", "M")
+
+
+def _is_terraformable(terraform_state: str) -> bool:
+    """Return True when journal TerraformState indicates terraformability.
+
+    Handles common variants like "Terraformable", "Terraforming", and token-like
+    strings that still contain "terraform". Explicit "not terraformable" remains
+    false.
+    """
+    raw = (terraform_state or "").strip().lower()
+    if not raw:
+        return False
+    if "not" in raw and "terraform" in raw:
+        return False
+    return "terraform" in raw
 
 
 def genus_min_dist(genus: str) -> float:
@@ -1811,7 +1830,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             radius       = _f(ev, "Radius")
             body_id      = _u(ev, "BodyID")
             mass_em      = _f(ev, "MassEM") or _f(ev, "StellarMass")
-            terraformable = terraform in ("Terraformable", "Terraforming")
+            terraformable = _is_terraformable(terraform)
             is_star      = bool(star_type)
             level        = _parse_level(ev, is_star)
             short        = _short_body(body_name, state.system)
@@ -2138,6 +2157,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             _org_nidx  = state._bodies_by_name.get(body_name, -1)
             _org_b     = state.bodies[_org_nidx] if 0 <= _org_nidx < len(state.bodies) else None
             body_radius = _org_b.radius if _org_b and _org_b.radius > 0 else _DEFAULT_BODY_RADIUS_M
+            _org_sys_vars = _system_vars(state)
 
             match scan_type:
                 case "Log":
@@ -2194,12 +2214,12 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _say(tts_q, "ScanOrganic_Log_NewSpecies", False,
                              fallback=f"Biological: {species_loc}. New species!",
                              species=species_loc, body=body_name, body_short=body_short_org,
-                             **_log_bvars, **_log_body_bvars, **_bio_system_vars(state))
+                             **_log_bvars, **_log_body_bvars, **_org_sys_vars, **_bio_system_vars(state))
                     else:
                         _say(tts_q, "ScanOrganic_Log", False,
                              fallback=f"Biological: {species_loc}.",
                              species=species_loc, body=body_name, body_short=body_short_org,
-                             **_log_bvars, **_log_body_bvars, **_bio_system_vars(state))
+                             **_log_bvars, **_log_body_bvars, **_org_sys_vars, **_bio_system_vars(state))
                     return LogEvent.new(EventCategory.Explore, f"Bio{tag}: {species_loc} [{genus_loc}]")
 
                 case "Sample":
@@ -2230,7 +2250,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _say(tts_q, "ScanOrganic_Sample", False,
                              fallback=msg, count=count, species=species_loc,
                              remaining=3 - count, body=body_name, body_short=body_short_org,
-                             **_smp_bvars, **_smp_body_bvars, **_bio_system_vars(state))
+                             **_smp_bvars, **_smp_body_bvars, **_org_sys_vars, **_bio_system_vars(state))
                         return LogEvent.new(EventCategory.Explore, msg)
                     return None
 
@@ -2270,7 +2290,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                          val_str=val_str, val_raw=val_raw,
                          ff_suffix=ff_suffix,
                          body=body_name, body_short=body_short_org,
-                         **_anl_bvars, **_anl_body_bvars, **_bio_system_vars(state))
+                         **_anl_bvars, **_anl_body_bvars, **_org_sys_vars, **_bio_system_vars(state))
                     # Bio completion contextual announcement
                     body_done  = sum(1 for s in state.bio_scans if s.body == body_name and s.complete)
                     _anl_idx   = state._bodies_by_name.get(body_name, -1)
@@ -2290,17 +2310,17 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         _say(tts_q, "ScanOrganic_Analyse_BodyLeft", False,
                              fallback=f"There {verb} {body_left} more {bio_word} on this body.",
                              body_left=body_left, bio_word=bio_word, verb=verb,
-                             body=body_name, body_short=body_short_org, **_abl_sys_vars)
+                             body=body_name, body_short=body_short_org, **_org_sys_vars, **_abl_sys_vars)
                     elif remaining_by_body:
                         parts_r  = [f"{v} on {_short_body(k, state.system)}" for k, v in remaining_by_body.items()]
                         parts_str = ", ".join(parts_r)
                         _say(tts_q, "ScanOrganic_Analyse_SystemMore", False,
                              fallback=f"More bio signals: {parts_str}.",
-                             parts_str=parts_str, **_abl_sys_vars)
+                             parts_str=parts_str, **_org_sys_vars, **_abl_sys_vars)
                     else:
                         _say(tts_q, "ScanOrganic_Analyse_SystemDone", False,
                              fallback="All bio signals in this system are complete.",
-                             **_abl_sys_vars)
+                             **_org_sys_vars, **_abl_sys_vars)
                     return LogEvent.new(EventCategory.Explore, msg_log)
 
                 case _:

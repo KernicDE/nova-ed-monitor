@@ -47,6 +47,8 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 - Live TTS via **edge-tts** with random variants per event and full template engine (includes, conditionals, AND/OR). 7 built-in languages.
 - **Multi-language chat detection** for Twitch / YouTube / in-game chat — each message voiced in its detected language.
 - Hot-reloadable voiceline files (`en.toml`, `de.toml`, …) with `add` / `replace` / `replace = []` semantics.
+- Voiceline condition booleans use strict string values: `{terra}`, `{scoopable}`, `{star_scoopable}` -> `"true"` / `"false"` (and `""` only when unknown, e.g. missing primary star class).
+- Variable context matters in conditions: `{terra}` and `{scoopable}` are body-context variables, while `{star_scoopable}` is system-context.
 
 ### Exploration
 - Bio-scan assistant: sample distances, compass bearings, scan completion, first-footfall bonus detection.
