@@ -1906,6 +1906,7 @@ class _EngData(NamedTuple):
     system:    str
     unlock:    str
     modules:   tuple
+    hint:      str = ""  # leveling shortcut shown in detail view
 
 
 _ENGINEER_STATIC: dict[str, _EngData] = {
@@ -1913,188 +1914,230 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
     "Felicity Farseer":   _EngData("FSD / Thrusters",   "Farseer Inc",              "Deciat",
                                    "Explorer rank Scout + 1 Meta-Alloy",
                                    ("Frame Shift Drive (G5)", "Thrusters (G3)", "Sensors (G3)",
-                                    "Detailed Surface Scanner (G3)", "Shield Booster (G1)")),
+                                    "Detailed Surface Scanner (G3)", "Shield Booster (G1)"),
+                                   "Spam G1 FSD Increased Range — Iron only"),
     "Elvira Martuuk":     _EngData("FSD",               "Long Sight Base",          "Khun",
                                    "Travel 300+ ly from start + 3 Soontill Relics",
                                    ("Frame Shift Drive (G5)", "Shield Generator (G3)",
-                                    "Thrusters (G2)", "Shield Cell Bank (G1)")),
+                                    "Thrusters (G2)", "Shield Cell Bank (G1)"),
+                                   "Spam G3 FSD Increased Range — Iron, Nickel, Carbon"),
     "Professor Palin":    _EngData("Thrusters",         "Abel Laboratory",          "Arque",
                                    "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
-                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)"),
+                                   "Spam G1 Dirty Drives — Sulphur only"),
     "Ishmael Palin":      _EngData("Thrusters",         "Abel Laboratory",          "Arque",
                                    "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
-                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)"),
+                                   "Spam G1 Dirty Drives — Sulphur only"),
     "Chloe Sedesi":       _EngData("Thrusters / FSD",   "Cinder Dock",              "Shenve",
                                    "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
-                                   ("Thrusters (G5)", "Frame Shift Drive (G3)")),
+                                   ("Thrusters (G5)", "Frame Shift Drive (G3)"),
+                                   "Spam G1 Dirty Drives — Sulphur only"),
     "The Dweller":        _EngData("Power Distributor", "Black Hide",               "Wyrd",
                                    "5 black market trades + 500,000 Cr bribe",
                                    ("Power Distributor (G5)", "Pulse Laser (G4)",
-                                    "Burst Laser (G3)", "Beam Laser (G3)")),
+                                    "Burst Laser (G3)", "Beam Laser (G3)"),
+                                   "Spam G1 Efficient Weapon on Pulse Laser — Sulphur only"),
     "Liz Ryder":          _EngData("Explosives",        "Demolition Unlimited",     "Eurybia",
                                    "Cordial w/ Eurybia Blue Mafia + 200 Landmines",
                                    ("Seeker Missile Rack (G5)", "Torpedo Pylon (G5)",
                                     "Missile Rack (G5)", "Mine Launcher (G3)",
-                                    "Hull Reinforcement Package (G1)", "Armour (G1)")),
+                                    "Hull Reinforcement Package (G1)", "Armour (G1)"),
+                                   "Spam G1 Blast Resistant Hull — Nickel only"),
     "Tod 'The Blaster' McQuinn": _EngData("Weapons",   "Trophy Camp",              "Wolf 397",
                                    "15+ bounty vouchers + 100,000 Cr in bounties",
                                    ("Multi-cannon (G5)", "Rail Gun (G5)",
-                                    "Fragment Cannon (G3)", "Cannon (G2)")),
+                                    "Fragment Cannon (G3)", "Cannon (G2)"),
+                                   "Farm bounties at Haz RES sites — 100k Cr triggers invite"),
     "Marco Qwent":        _EngData("Power Plant",       "Qwent Research Base",      "Sirius",
                                    "Elvira Martuuk invite + Sirius permit + 25 Modular Terminals",
-                                   ("Power Plant (G4)", "Power Distributor (G3)")),
+                                   ("Power Plant (G4)", "Power Distributor (G3)"),
+                                   "Spam G1 Overcharged Power Plant — Sulphur only"),
     "Selene Jean":        _EngData("Armour",            "Prospector's Rest",        "Kuk",
                                    "Tod McQuinn invite + mine 500 t + 10 Painite",
-                                   ("Hull Reinforcement Package (G5)", "Armour (G5)")),
+                                   ("Hull Reinforcement Package (G5)", "Armour (G5)"),
+                                   "Spam G1 Heavy Duty Hull Reinforcement — Iron only"),
     "Zacariah Nemo":      _EngData("Fragment Cannon",   "Nemo Cyber Party Base",    "Yoru",
                                    "Elvira Martuuk invite + Party of Yoru invite + 25 Xihe Companions",
-                                   ("Fragment Cannon (G5)", "Multi-cannon (G3)", "Plasma Accelerator (G2)")),
+                                   ("Fragment Cannon (G5)", "Multi-cannon (G3)", "Plasma Accelerator (G2)"),
+                                   "Spam G1 Overcharged Fragment Cannon — Sulphur only"),
     "Lei Cheung":         _EngData("Shields",           "Trader's Rest",            "Laksak",
                                    "The Dweller invite + trade at 50 markets + 200 Gold",
                                    ("Shield Generator (G5)", "Sensors (G5)",
-                                    "Detailed Surface Scanner (G5)", "Shield Booster (G3)")),
+                                    "Detailed Surface Scanner (G5)", "Shield Booster (G3)"),
+                                   "Spam G1 Enhanced Low Power Shields — Germanium only"),
     "Didi Vatermann":     _EngData("Shield Booster",    "Vatermann LLC",            "Leesti",
                                    "Selene Jean invite + Trade rank Merchant + 50 Lavian Brandy",
-                                   ("Shield Booster (G5)", "Shield Generator (G3)")),
+                                   ("Shield Booster (G5)", "Shield Generator (G3)"),
+                                   "Spam G1 Resistance Augmented Shield Booster — Phosphorus only"),
     "Hera Tani":          _EngData("Power Plant",       "The Jet's Hole",           "Kuwemaki",
                                    "Liz Ryder invite + Empire rank Outsider + 50 Kamitra Cigars",
                                    ("Power Plant (G5)", "Detailed Surface Scanner (G5)",
-                                    "Sensors (G3)", "Power Distributor (G3)")),
+                                    "Sensors (G3)", "Power Distributor (G3)"),
+                                   "Spam G1 Overcharged Power Plant — Sulphur only"),
     "Juri Ishmaak":       _EngData("Sensors / Missiles","Pater's Memorial",         "Giryak",
                                    "Felicity Farseer invite + 50+ fed bonds + 100k-1M Cr fed bonds",
                                    ("Mine Launcher (G5)", "Sensors (G5)", "Detailed Surface Scanner (G5)",
                                     "Torpedo Pylon (G3)", "Seeker Missile Rack (G3)",
                                     "Wake Scanner (G3)", "Kill Warrant Scanner (G3)",
-                                    "Manifest Scanner (G3)", "Missile Rack (G3)")),
+                                    "Manifest Scanner (G3)", "Missile Rack (G3)"),
+                                   "Farm Federation combat bonds at Conflict Zones"),
     "Colonel Bris Dekker":_EngData("FSD Interdictor",  "Dekker's Yard",            "Sol",
                                    "Juri Ishmaak invite + Friendly with Federation + 1-10M Cr fed bonds",
-                                   ("FSD Interdictor (G4)", "Frame Shift Drive (G3)")),
+                                   ("FSD Interdictor (G4)", "Frame Shift Drive (G3)"),
+                                   "Farm Federation combat bonds at Conflict Zones"),
     "Broo Tarquin":       _EngData("Energy Weapons",    "Broo's Legacy",            "Muang",
                                    "Hera Tani invite + Combat rank Competent + 50 Fujin Tea",
-                                   ("Burst Laser (G5)", "Pulse Laser (G5)", "Beam Laser (G5)")),
+                                   ("Burst Laser (G5)", "Pulse Laser (G5)", "Beam Laser (G5)"),
+                                   "Spam G1 Efficient Weapon on Pulse Laser — Sulphur only"),
     "Tiana Fortune":      _EngData("Scanners / Limpets","Fortune's Loss",           "Achenar",
                                    "Hera Tani invite + Friendly with Empire + 50 Decoded Emission Data",
                                    ("Wake Scanner (G5)", "Kill Warrant Scanner (G5)",
                                     "Manifest Scanner (G5)", "Collector Limpet (G5)",
                                     "Fuel Transfer Limpet (G5)", "Hatch Breaker Limpet (G5)",
                                     "Prospector Limpet (G5)", "Sensors (G5)",
-                                    "FSD Interdictor (G3)", "Detailed Surface Scanner (G3)")),
+                                    "FSD Interdictor (G3)", "Detailed Surface Scanner (G3)"),
+                                   "Farm Empire combat bonds or bounties at Achenar CZs"),
     "The Sarge":          _EngData("Weapons / Limpets", "The Beach",               "Beta-3 Tucani",
                                    "Juri Ishmaak invite + Fed Navy rank Midshipman + 50 Aberrant Shield Pattern Analysis",
                                    ("Collector Limpet (G5)", "Fuel Transfer Limpet (G5)",
                                     "Hatch Breaker Limpet (G5)", "Prospector Limpet (G5)",
-                                    "Cannon (G5)", "Rail Gun (G3)")),
+                                    "Cannon (G5)", "Rail Gun (G3)"),
+                                   "Farm Federation combat bonds at Conflict Zones"),
     "Ram Tah":            _EngData("Electronic Countermeasures", "Phoenix Base",    "Meene",
                                    "Lei Cheung invite + Explorer rank Surveyor + 50 Classified Scan Databanks",
                                    ("Electronic Countermeasure (G5)", "Point Defence (G5)",
                                     "Heat Sink Launcher (G5)", "Chaff Launcher (G5)",
                                     "Collector Limpet (G4)", "Fuel Transfer Limpet (G4)",
-                                    "Prospector Limpet (G4)", "Hatch Breaker Limpet (G3)")),
+                                    "Prospector Limpet (G4)", "Hatch Breaker Limpet (G3)"),
+                                   "Spam G1 Lightweight Sensors — Iron only"),
     "Bill Turner":        _EngData("Plasma Charger",    "Turner Metallics Inc",     "Alioth",
                                    "Selene Jean invite + Alioth permit + Friendly w/ Alioth Independents + 50 Bromellite",
                                    ("Plasma Accelerator (G5)", "Sensors (G5)",
                                     "Detailed Surface Scanner (G5)", "Life Support (G3)",
                                     "Refinery (G3)", "AFMU (G3)", "Fuel Scoop (G3)",
-                                    "Wake Scanner (G3)", "Kill Warrant Scanner (G3)", "Manifest Scanner (G3)")),
+                                    "Wake Scanner (G3)", "Kill Warrant Scanner (G3)", "Manifest Scanner (G3)"),
+                                   "Spam G1 Efficient Weapon on Plasma Accelerator — Sulphur only"),
     "Lori Jameson":       _EngData("Sensors / Utilities","Jameson Base",            "Shinrarta Dezhra",
                                    "Marco Qwent invite + Combat rank Dangerous + 25 Kongga Ale",
                                    ("Sensors (G5)", "Detailed Surface Scanner (G5)",
                                     "Refinery (G4)", "Fuel Scoop (G4)", "AFMU (G4)", "Life Support (G4)",
                                     "Wake Scanner (G3)", "Kill Warrant Scanner (G3)",
-                                    "Manifest Scanner (G3)", "Shield Cell Bank (G3)")),
+                                    "Manifest Scanner (G3)", "Shield Cell Bank (G3)"),
+                                   "Spam G1 Lightweight Sensors — Iron only"),
     "Marsha Hicks":       _EngData("Limpets / Weapons", "The Watchtower",           "Tir",
                                    "The Dweller invite + Explorer rank Surveyor + 10 Osmium",
                                    ("Collector Limpet (G5)", "Fuel Transfer Limpet (G5)",
                                     "Hatch Breaker Limpet (G5)", "Prospector Limpet (G5)",
                                     "Refinery (G5)", "Fuel Scoop (G5)",
-                                    "Cannon (G5)", "Multi-cannon (G5)", "Fragment Cannon (G5)")),
+                                    "Cannon (G5)", "Multi-cannon (G5)", "Fragment Cannon (G5)"),
+                                   "Spam G1 Lightweight Collector Limpet — Iron only"),
     "Mel Brandon":        _EngData("Various",           "The Brig",                 "Luchtaine",
                                    "Elvira Martuuk invite + Colonia Council invite + 100k Cr bounties",
                                    ("Frame Shift Drive (G5)", "Thrusters (G5)", "Shield Generator (G5)",
                                     "Burst Laser (G5)", "Pulse Laser (G5)", "Beam Laser (G5)",
-                                    "FSD Interdictor (G5)", "Shield Booster (G5)", "Shield Cell Bank (G4)")),
+                                    "FSD Interdictor (G5)", "Shield Booster (G5)", "Shield Cell Bank (G4)"),
+                                   "Spam G1 FSD Increased Range — Iron only (Colonia)"),
     "Etienne Dorn":       _EngData("Various",           "Kraken's Retreat",         "Los",
                                    "Liz Ryder invite + Trade rank Dealer + 25 Occupied Escape Pods",
                                    ("Plasma Accelerator (G5)", "Sensors (G5)", "Detailed Surface Scanner (G5)",
                                     "Life Support (G5)", "Power Plant (G5)", "Power Distributor (G5)",
                                     "Wake Scanner (G5)", "Kill Warrant Scanner (G5)",
-                                    "Manifest Scanner (G5)", "Rail Gun (G5)")),
+                                    "Manifest Scanner (G5)", "Rail Gun (G5)"),
+                                   "Spam G1 Overcharged Power Plant — Sulphur only (Colonia)"),
     "Petra Olmanova":     _EngData("Armour / Countermeasures", "Sanctuary",         "Asura",
                                    "Tod McQuinn invite + Combat rank Expert + 200 Progenitor Cells",
                                    ("Hull Reinforcement Package (G5)", "Mine Launcher (G5)",
                                     "Seeker Missile Rack (G5)", "Torpedo Pylon (G5)", "Armour (G5)",
                                     "Missile Rack (G5)", "Chaff Launcher (G5)", "ECM (G5)",
-                                    "Heat Sink Launcher (G5)", "Point Defence (G5)", "AFMU (G5)")),
+                                    "Heat Sink Launcher (G5)", "Point Defence (G5)", "AFMU (G5)"),
+                                   "Spam G1 Blast Resistant Hull — Nickel only (Colonia)"),
     "Yarden Bond":        _EngData("Shield Booster",    "Brestla i-Ship Brewery",   "Brestla",
                                    "500 Lavian Brandy",
-                                   ("Shield Booster (G5)",)),
+                                   ("Shield Booster (G5)",),
+                                   "Buy Lavian Brandy at Leesti: George Lucas (~500 Cr each)"),
     "Corra Sang":         _EngData("Shields",           "Piri's Retreat",           "Eurybia",
                                    "Friendly w/ Eurybia Blue Mafia + 50 Nerve Agents",
-                                   ("Shield Cell Bank (G5)",)),
+                                   ("Shield Cell Bank (G5)",),
+                                   "Spam G1 Reinforced Shield Cell Bank — Iron only"),
     "Kit Fowler":         _EngData("Launch Bay",        "Fowler's Hope",            "Capella",
                                    "25 Occupied Escape Pods",
-                                   ("Fighter Hangar (G5)", "Planetary Vehicle Hangar (G5)")),
+                                   ("Fighter Hangar (G5)", "Planetary Vehicle Hangar (G5)"),
+                                   "Spam G1 Shielded Fighter Hangar — Carbon only"),
     "Wellington Beck":    _EngData("Mining Equipment",  "The Watchtower",           "83 Leonis",
                                    "50 Osmium",
                                    ("Mining Laser (G5)", "Mining Lance (G5)", "Abrasion Blaster (G5)",
-                                    "Sub-surface Missile (G5)", "Seismic Charge (G5)", "Pulse Wave Analyser (G5)")),
+                                    "Sub-surface Missile (G5)", "Seismic Charge (G5)", "Pulse Wave Analyser (G5)"),
+                                   "Spam G1 Lightweight Mining Laser — Iron only"),
     # ── Odyssey (on-foot equipment) ───────────────────────────────────────────
     "Jude Navarro":       _EngData("Suit / Weapon",     "Marshall's Drift",         "Aurai",
                                    "Complete 10 Restore or Reactivation missions",
                                    ("Reload speed", "Magazine size", "Extra ammo capacity",
-                                    "Damage resistance", "Added melee damage")),
+                                    "Damage resistance", "Added melee damage"),
+                                   "Run Restore/Reactivation missions — quick and solo-friendly"),
     "Domino Green":       _EngData("Weapon",            "The Jackrabbit",           "Orishis",
                                    "Travel 100+ ly in shuttles",
                                    ("Greater range", "Stability", "Enhanced tracking",
-                                    "Extra backpack capacity", "Reduced tool battery consumption")),
+                                    "Extra backpack capacity", "Reduced tool battery consumption"),
+                                   "Take apex shuttles between distant systems — fastest unlock"),
     "Hero Ferrari":       _EngData("Suit",              "Nevermore Terrace",        "Siris",
                                    "Complete 10 surface conflict zones",
                                    ("Faster handling", "Noise suppressor", "Increased sprint duration",
-                                    "Improved jump assist", "Increased air reserves")),
+                                    "Improved jump assist", "Increased air reserves"),
+                                   "Farm surface CZs — low-tier ones count, fastest in groups"),
     "Terra Velasquez":    _EngData("Suit",              "Rascal's Choice",          "Shou Xing",
                                    "Jude Navarro invite + 6 covert theft/heist missions",
                                    ("Improved hip fire accuracy", "Noise suppressor",
                                     "Increased sprint duration", "Combat movement speed",
-                                    "Increased air reserves")),
+                                    "Increased air reserves"),
+                                   "Run Covert Theft/Heist missions — Odyssey mission boards"),
     "Uma Laszlo":         _EngData("Weapon",            "Laszlo's Resolve",         "Xuane",
                                    "Wellington Beck invite + reach Unfriendly with Sirius Corp",
                                    ("Reload speed", "Stowed reloading", "Headshot damage",
-                                    "Damage resistance", "Faster shield regen")),
+                                    "Damage resistance", "Faster shield regen"),
+                                   "Sell Sirius data/goods to rivals until Sirius rep = Unfriendly"),
     "Oden Geiger":        _EngData("Suit",              "Ankh's Promise",           "Candiaei",
                                    "Terra Velasquez invite + 20 biological/genetic data to bartenders",
                                    ("Stability", "Scope", "Enhanced tracking",
-                                    "Improved battery capacity", "Night vision")),
+                                    "Improved battery capacity", "Night vision"),
+                                   "Sell Biological Data to bartenders at stations — easy via exobio"),
     "Baltanos":           _EngData("Suit",              "The Divine Apparatus",     "Deriso",
                                    "Friendly with Colonia Council",
                                    ("Noise suppressor", "Improved hip fire accuracy", "Faster handling",
                                     "Improved jump assist", "Increased air reserves",
-                                    "Increased sprint duration", "Combat movement speed")),
+                                    "Increased sprint duration", "Combat movement speed"),
+                                   "Run missions for Colonia Council factions until Friendly"),
     "Yi Shen":            _EngData("Weapon",            "Eidolon Hold",             "Einheriar",
                                    "Baltanos, Eleanor Bresa, or Rosa Dayette invite + referral tasks",
-                                   ("Audio masking", "Headshot damage", "Quieter footsteps", "Night vision")),
+                                   ("Audio masking", "Headshot damage", "Quieter footsteps", "Night vision"),
+                                   "Complete referral tasks given by Baltanos/Rosa/Eleanor"),
     "Rosa Dayette":       _EngData("Suit / Weapon",     "Rosa's Shop",              "Kojeara",
                                    "Sell 10 recipe items to Colonia stations",
                                    ("Greater range", "Scope", "Stability", "Extra backpack capacity",
                                     "Enhanced tracking", "Reduced tool battery consumption",
-                                    "Improved battery capacity")),
+                                    "Improved battery capacity"),
+                                   "Sell crafted suit/weapon recipe items to Colonia bartenders"),
     "Eleanor Bresa":      _EngData("Suit / Weapon",     "Bresa Modifications",      "Desy",
                                    "Visit 5 settlements in Colonia",
                                    ("Magazine size", "Reload speed", "Stowed reloading",
                                     "Added melee damage", "Damage resistance",
-                                    "Extra ammo capacity", "Faster shield regen")),
+                                    "Extra ammo capacity", "Faster shield regen"),
+                                   "Land at 5 different Colonia settlements — quick flyby counts"),
 }
 
 
 def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
-    """Return flattened [(era, section, (name, rank, rp, prog))] sorted by era/status."""
+    """Return flattened [(era, section, (name, rank, rp, prog))] sorted by name."""
     horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
     odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
 
-    for name, info in sorted(s.engineers.items()):
+    # engineers dict is keyed by engineer_id (int) or name (str) as fallback
+    for _, info in sorted(s.engineers.items(),
+                          key=lambda kv: kv[1].name if isinstance(kv[1], EngineerInfo) else ""):
         if isinstance(info, EngineerInfo):
-            prog, rank, rp = info.progress, info.rank, info.rank_progress
+            name, prog, rank, rp = info.name, info.progress, info.rank, info.rank_progress
         else:
-            rank, prog = info; rp = 0.0
+            rank, prog = info; rp = 0.0; name = ""
 
         bucket = odyssey if name in _ODY_ENGINEERS else horizons
         if prog == "Unlocked":
@@ -2139,6 +2182,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     system  = eng.system    if eng else ""
     unlock  = eng.unlock    if eng else ""
     modules = eng.modules   if eng else ()
+    hint    = eng.hint      if eng else ""
 
     pips, pip_style, grade, grade_style = _eng_rank_pips(rank, rp, prog, is_ody)
 
@@ -2169,7 +2213,10 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Unlock
     if unlock:
         inner.append("\n")
-        inner.append("UNLOCK\n", style="bold rgb(195,160,55)")
+        inner.append("UNLOCK", style="bold rgb(195,160,55)")
+        if prog == "Unlocked":
+            inner.append("  ✓", style=P.HUD_GREEN)
+        inner.append("\n")
         inner.append(f"{unlock}\n", style="white")
 
     # Modules
@@ -2186,11 +2233,17 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
             else:
                 inner.append(f"  {mod}\n", style="white")
 
+    # Leveling hint
+    if hint:
+        inner.append("\n")
+        inner.append("HINT\n", style="bold rgb(195,160,55)")
+        inner.append(f"{hint}\n", style="white")
+
     parts: list[RenderableType] = []
     parts.append(Panel(inner, border_style="rgb(90,90,90)", padding=(0, 1)))
-    hint = Text()
-    hint.append("  [Backspace] back", style="dim")
-    parts.append(hint)
+    nav = Text()
+    nav.append("  [Backspace] back", style="dim")
+    parts.append(nav)
     return Group(*parts)
 
 
@@ -3619,8 +3672,9 @@ class SituationalPanel(_Panel):
             mode_key = (snap.system, len(snap.colonisation_sites))
         elif mode == "engineers":
             mode_key = (
-                tuple((name, info.rank, info.rank_progress, info.progress)
-                      for name, info in snap.engineers.items()),
+                tuple((info.name, info.rank, info.rank_progress, info.progress)
+                      for info in snap.engineers.values()
+                      if isinstance(info, EngineerInfo)),
                 self._eng_cursor,
                 self._eng_detail,
             )

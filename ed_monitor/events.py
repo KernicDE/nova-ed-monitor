@@ -2398,14 +2398,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     rp = float(entry.get("RankProgress", 0))
                     eid = int(entry.get("EngineerID", 0))
                     if n:
-                        existing = state.engineers.get(n)
+                        key = eid if eid else n  # prefer numeric ID so same-name Horizons/Odyssey coexist
+                        existing = state.engineers.get(key)
                         if isinstance(existing, EngineerInfo):
                             existing.rank = r
                             existing.rank_progress = rp
                             existing.progress = p
                             existing.engineer_id = eid
                         else:
-                            state.engineers[n] = EngineerInfo(
+                            state.engineers[key] = EngineerInfo(
                                 name=n, rank=r, rank_progress=rp, progress=p, engineer_id=eid
                             )
                 return None
@@ -2416,7 +2417,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             rank_progress = _f(ev, "RankProgress")
             eng_id   = _u(ev, "EngineerID")
             if engineer:
-                existing = state.engineers.get(engineer)
+                key = eng_id if eng_id else engineer
+                existing = state.engineers.get(key)
                 if isinstance(existing, EngineerInfo):
                     existing.rank = rank
                     existing.rank_progress = rank_progress
@@ -2424,7 +2426,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if eng_id:
                         existing.engineer_id = eng_id
                 else:
-                    state.engineers[engineer] = EngineerInfo(
+                    state.engineers[key] = EngineerInfo(
                         name=engineer, rank=rank, rank_progress=rank_progress,
                         progress=progress, engineer_id=eng_id,
                     )

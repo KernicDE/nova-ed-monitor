@@ -2,152 +2,70 @@
 
 ## Run
 ```bash
-cd /home/kernic/Documents/ed-monitor
+cd /home/kernic/Development/nova-ed-monitor
 python -m ed_monitor
 ```
 
-## Structure
-```
-ed_monitor/
-  __main__.py      entry point: thread launch, NOVAApp
-  config.py        paths: config_dir(), data_dir(), logs_dir() — portable-root aware; k=v TOML parser
-  state.py         AppState dataclass, BodyInfo, BioScan, LogEvent, EventCategory; body value formula functions
-  events.py        handle(ev, state, tts_q) — all 50+ journal events; _say() via voiceline keys
-  journal.py       file tail + inode rotation + DB replay on startup
-  status.py        Status.json poll + Cargo.json + Materials.json; bio haversine; pips parsing
-  voicelines.py    TOML voiceline loader/picker; pick(key, lang, **kwargs); template engine (includes + conditionals)
-  voicelines/      en/de/fr/it/es/pt/ru.default.toml — 87 events × 3–5 variants each; user-overridable via config/voicelines/{lang}.toml
-  edsm.py          EDSM fetch thread (bodies + stations), dedup queue, no API key needed
-  edsm_dumps.py    EDSM nightly dump downloader: systemsPopulated, stations, powerPlay; streams gzip; daily refresh
-  spansh.py        Spansh API fleet carrier lookup (POST /api/stations/search); cache 300s; rate limit 3s
-  neutron.py       local neutron route planner; downloads systems_neutron.json.gz daily; greedy A* via SQLite
-  screenshots.py   ED screenshot watcher; BMP→PNG via Pillow; renames + moves to ~/Pictures/Elite Dangerous
-  db.py            SQLite persistence (data_dir()/events.db — portable or ~/.local/share/nova/events.db)
-  tts.py           edge-tts subprocess + pygame playback, priority queue
-  twitch.py        Twitch IRC anonymous chat monitor → ChatLogPanel + TTS
-  youtube.py       YouTube live chat anonymous monitor → ChatLogPanel + TTS
-  overlay.py       individual .txt file writer for OBS/Streamlabs overlays (~/.config/nova/overlay/)
-  ui/
-    app.py         Textual App (NOVAApp), CSS layout, keybindings
-    panels.py      all Widget subclasses
-```
-
 ## Architecture
-- Daemon threads: journal, status, TTS, EDSM, EDSM-dumps (`nova-edsm-dumps`), neutron (`nova-neutron`), screenshots (`nova-screenshots`), Spansh (`nova-spansh`, optional), twitch (optional), youtube (optional), overlay
-- **Thread watchdog** (`__main__.py _spawn_guarded`): all daemon threads run inside a restart wrapper — if a thread raises an uncaught exception it restarts after 5 s. Log goes to `nova.watchdog` logger.
-- **Thread heartbeats**: `state.journal_heartbeat` and `state.status_heartbeat` (float, unix time) are updated each loop iteration. FooterBar shows `⚠ journal/status thread stalled` when either is >60 s stale while `client_online`.
-- `AppState` + `threading.RLock` — threads write, Textual reads via shallow copy
-- Textual 250ms timer: `_snapshot()` → `update()` each panel
+- Daemon threads: journal, status, TTS, EDSM, EDSM-dumps, neutron, screenshots, Spansh (optional), twitch (optional), youtube (optional), overlay
+- **Thread watchdog** (`__main__.py _spawn_guarded`): daemon threads restart after 5 s on uncaught exception. Log → `nova.watchdog`.
+- **Thread heartbeats**: `state.journal_heartbeat` / `state.status_heartbeat` (unix time). FooterBar shows stall warning when >60 s stale while `client_online`.
+- `AppState` + `threading.RLock` — threads write, Textual reads via shallow copy at 2 Hz
 - Threads never call Textual APIs directly
-- EDSM nightly dumps: background thread checks hourly, downloads if >24h old; streams gzip via urllib without buffering full files; stores in `edsm_systems` + `edsm_stations` SQLite tables
-- Spansh carrier lookup: enabled via `carrier_lookup = true` in config; POST to `/api/stations/search`; results cached 300 s; min 3 s between calls
-- Neutron planner: downloads `systems_neutron.json.gz` daily; stores ~50k stars in `neutron_stars` SQLite table; bounding-box spatial queries; greedy A* beam_width=20
-- Screenshots: polls ED screenshot dir every 2 s; converts BMP→PNG via Pillow; renames to `YYYY-MM-DD-HH-MM_CMDR_SYSTEM_BODY.png`; moves to dest dir
 
 ## DB Resilience (db.py)
-All write methods (`insert`, `save_bodies_batch`, `save_bio_scans`, `increment_stat`, `set_hull`, `set_config`) wrap their `executemany`/`execute`+`commit` in `try/except Exception: self._conn.rollback(); raise`. This prevents half-written transactions from leaving the DB in a corrupt state.
+All write methods wrap in `try/except Exception: rollback(); raise`. Migrations run inside `with self._conn:` (atomic); leave sentinel unwritten on failure so next launch retries.
 
-**Migrations** (`_migrate_stats_v2`, `_migrate_bio_scans_v2`) run inside `with self._conn:` — explicit atomic transactions, not `executescript()`. On failure they log via `logging.getLogger("nova.db")` at WARNING and leave the sentinel unwritten so the next launch retries from a clean state.
-
-**Bodies and stats are kept indefinitely.** `Database.prune_events(days)` is wired to `cfg.prune_events_days` at startup (default 0 = disabled). A positive integer activates startup-time pruning of event rows older than N days.
-
-## Body Index (state.py)
-`AppState.upsert_body()` keeps `_bodies_by_name` / `_bodies_by_id` consistent with `self.bodies` via **in-place O(K) updates** (K = bodies shifted by the insertion). Journal replays call `upsert_body()` thousands of times; the previous full `_rebuild_body_index()` per insert was O(N²).
-
-## Body Write Debouncing (journal.py `_follow`)
-Scan-family events (`Scan`, `FSSBodySignals`, `SAASignalsFound`, `SAAScanComplete`, `ScanOrganic`) mark a dirty timestamp. Writes are batched and flushed at most every `_BODY_DEBOUNCE_S = 1.0` s — on next idle tick, before FSDJump/CarrierJump (mandatory pre-jump save), or on the `finally` block when `_follow()` exits. An FSS honk of 40 events no longer produces 40 table rewrites.
-
-## Snapshot Tiers (ui/app.py)
-`_refresh_all()` at 2 Hz uses two snapshot tiers:
-- `_snapshot_light()` — `copy.copy(state)`, no collection clones. Used for FooterBar + CSS + fingerprint.
-- `_snapshot_full()` — only when the fingerprint has changed since the last tick.
-
-Idle seconds no longer clone the bodies/events/route/carriers collections at 2 Hz.
-
-## Shared HTTP Constants (_http.py)
-`USER_AGENT`, `TIMEOUT_SHORT`, `TIMEOUT_MEDIUM`, `TIMEOUT_LONG`, `TIMEOUT_DUMP`. Every outbound service (edsm, edsm_dumps, spansh, neutron, journal route-fetch helpers) pulls from here. `USER_AGENT` is derived from `importlib.metadata.version("nova-ed-monitor")` so a version bump updates every request automatically.
-
-## High-G Timer Lifecycle (events.py `_cancel_high_g_timers`)
-`ApproachBody ≥ 3 G` schedules two `threading.Timer` objects for repeat warnings at 10 s and 20 s. Timers are tracked on `state.high_g_timers` and cancelled by **any** of: a later `ApproachBody` on a different body, `LeaveBody`, `SupercruiseEntry`, `FSDJump` / `CarrierJump`, `Shutdown`. Timers are daemonised so they never block interpreter shutdown.
-
-## Default Body Radius Constant (state.py `_DEFAULT_BODY_RADIUS_M`)
-`3_389_500.0` m (Mars-sized). Imported by both `status._check_bio_distance` and `events.ScanOrganic Log` — earlier versions had divergent `3_389_500` vs `3_000_000` defaults producing ~13 % haversine errors when the Scan event arrived after the first bio Log.
-
-## Config-Watcher Quiet Window (config_watcher.py)
-`config_watcher.notify_self_write(window_s=3.0)` silences the reload callback for `window_s` seconds after any internal write. `config.load()` (format-upgrade rewrites) and `config.save()` (Settings overlay) both call it; no more self-write → reload loops.
-
-## TTS Path Safety (tts.py)
-- Pygame subprocess fallback: path passed as `repr(str(path))` (safe Python literal, handles quotes/backslashes)
-- PowerShell MediaPlayer fallback: double-quotes escaped as `` `" `` (PowerShell backtick escape)
-
-## Layout (app.py CSS)
-```
-top-row:    [PositionPanel 4fr] [ShipPanel 5fr] [RoutePanel 3fr]
-middle-row: [left 4fr: BodiesPanel] [center 5fr: SituationalPanel] [right 3fr: EventLog 2fr / ChatLog 1fr]
-footer:     FooterBar (1 row)
-```
+`Database.prune_events(days)` wired to `cfg.prune_events_days` at startup (default 0 = disabled).
 
 ## Config (config_dir()/config.toml)
 
-**Portable mode** (set via `NOVA_PORTABLE_ROOT` env var by launcher scripts): all paths resolve relative to the launcher script directory. `config_dir()` → `<root>/config`, `data_dir()` → `<root>/data`, `logs_dir()` → `<root>/logs`. On first portable run, existing `~/.config/nova/` and `events.db` are auto-migrated (non-destructive).
+**Portable mode** (`NOVA_PORTABLE_ROOT` env var): `config_dir()` → `<root>/config`, `data_dir()` → `<root>/data`, `logs_dir()` → `<root>/logs`. First portable run auto-migrates `~/.config/nova/` and `events.db`.
 
-**System install** (no env var): `config_dir()` → `~/.config/nova/` (or `XDG_CONFIG_HOME/nova`), `data_dir()` → `~/.local/share/nova/` (or `XDG_DATA_HOME/nova`).
+**System install**: `config_dir()` → `~/.config/nova/` (or `XDG_CONFIG_HOME/nova`), `data_dir()` → `~/.local/share/nova/`.
 
-Config hot-reload: `__main__.py` uses `watchdog` to monitor `config.toml` and `voicelines/` dir; changes apply within ~2 s via `reload_config()` + `voicelines.reload_all()`.
+Config hot-reload: `watchdog` monitors `config.toml` and `voicelines/` dir; changes apply ~2 s via `reload_config()` + `voicelines.reload_all()`.
 
-Settings overlay: `s` key → `SettingsScreen` (app.py). All `Static` widgets in `compose()` use `markup=False` (Textual 8.x compat — `[en]` etc. would be parsed as Rich markup tags and stripped).
+Settings overlay: `s` key → `SettingsScreen`. All `Static` widgets use `markup=False` (Textual 8.x compat).
 
-## Config keys (~/.config/nova/config.toml or config/config.toml in portable mode)
+## Config keys
 - `journal_dir` — override auto-detected journal path
-- `twitch_channel` — Twitch channel name; leave empty/commented to disable Twitch
-- `youtube_channel` — YouTube channel handle (e.g. `@yourchannel`); leave empty/commented to disable YouTube
+- `twitch_channel` / `youtube_channel` — enable chat monitors (empty = disabled)
 - `tts_rate` — edge-tts rate (default: `+10%`)
-- `tts_lang` — NOVA's voiceover language: `en`, `de`, `fr`, `it`, `es`, `pt`, `ru` (default: `en`)
-- `tts_voice_<lang>` — voice per language code: `en`, `de`, `fr`, `it`, `es`, `pt`, `ru`
-- `overlay_dir` — directory for individual stream overlay .txt files (default: `~/.config/nova/overlay/`)
-- `default_volume` — TTS/audio volume at startup, 0–100 (default: 50)
-- `notable_value_threshold` — minimum Cr value for Overview notable bodies list (default: 500000)
-- `carrier_lookup` — enable Spansh API fleet carrier lookup for current system (default: false)
-- `screenshot_dir` — override auto-detected ED screenshot source directory
-- `screenshot_dest` — override destination directory (default: `~/Pictures/Elite Dangerous`)
-- `situational_panels` — space-separated abbrevs defining visible panels and order (e.g. `OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS`); empty = all panels in default order
-- `prune_events_days` — delete event rows older than N days at startup; 0 = disabled (default)
-
-Migration: if `~/.config/nova/config.toml` doesn't exist, old `~/.config/ed-monitor/config.toml` is copied.
+- `tts_lang` — voiceover language: `en`, `de`, `fr`, `it`, `es`, `pt`, `ru` (default: `en`)
+- `tts_voice_<lang>` — voice override per language code
+- `overlay_dir` — stream overlay `.txt` files dir (default: `~/.config/nova/overlay/`)
+- `default_volume` — 0–100 (default: 50)
+- `notable_value_threshold` — min Cr for Overview notable bodies AND `Scan_Notable` TTS trigger (default: 500000)
+- `carrier_lookup` — enable Spansh fleet carrier lookup (default: false)
+- `screenshot_dir` / `screenshot_dest` — override screenshot source/dest dirs
+- `situational_panels` — space-separated abbrevs for panel order (e.g. `OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS`)
+- `prune_events_days` — delete event rows older than N days at startup; 0 = disabled
 
 ## Voicelines System (voicelines.py)
 - `pick(key, lang, **kwargs)` → render pipeline: includes → conditionals → `format_map(_SafeDict)`, falls back to `en`, returns `None` if missing
-- Fragment keys (starting with `_`) are never spoken directly — `pick("_frag")` returns `None`
-- Cache: `_CACHE: dict[str, dict]` per lang; invalidated by `reload(lang)` / `reload_all()` (called on file change)
-- Built-in files: `ed_monitor/voicelines/{lang}.default.toml` (87 event keys, 3–5 variants each)
-- User override path: `config_dir()/voicelines/{lang}.toml` — uses `add`/`replace` per-key semantics
-  - `add = [...]` appends lines to the built-in pool
-  - `replace = [...]` replaces built-in lines entirely (empty list = silence that event)
-  - `replace = []` now correctly silences events (fixed in v1.32.4); syntax errors in user file → TTS alert + fallback to built-in
+- Fragment keys (starting with `_`) never spoken directly
+- User override: `config_dir()/voicelines/{lang}.toml` — `add`/`replace` per-key semantics; `replace = []` silences an event
 - Reference copies: `config_dir()/voicelines/default/{lang}.default.toml` — overwritten on every launch
-- Hot-reload: `watchdog` monitors the voicelines dir; changes apply within ~2 s
 - `_say(tts_q, key, priority, fallback, **kwargs)` in events.py: calls `pick()`, falls back to `fallback` string
-- status.py `_q(key, fallback, pri, **kwargs)`: reads `_ev._TTS_LANG` + `_ev._LANG_VOICES` for correct voice
-- Old-style user files (`{lang}.toml` with `lines = [...]`) are migrated to `backup/` on first run
+- Old-style user files (`lines = [...]`) auto-migrated to `backup/`
 
-### Voiceline Variable Reference (v1.36.0)
+### Voiceline Variable Reference
 
-Variable functions in `events.py` — all kwargs passed to `_say()` / `pick()`:
-
-**`_system_vars(state)`** — available in all events using `**_system_vars(state)`:
+**`_system_vars(state)`** — available in all events:
 | Variable | Content |
 |---|---|
 | `{system}` | Current star system name |
-| `{star_class}` | Primary star class (e.g. "G", "M", "K") — from FSDJump/Location |
-| `{star_scoopable}` | "Scoopable" / "Not scoopable" / "" |
+| `{star_class}` / `{primary_star_class}` | Primary star class |
+| `{star_scoopable}` | "true" (scoopable) / "false" (not scoopable) / "" (unknown) |
 | `{allegiance}`, `{economy}`, `{security}`, `{government}`, `{faction}` | System metadata |
 | `{population}`, `{population_raw}` | Population (spoken / integer string) |
-| `{nearest_body_*}` | All `_body_vars()` fields prefixed — e.g. `{nearest_body_gravity}`, `{nearest_body_has_rings}`, `{nearest_body_star_type}` (see body vars below) |
+| `{nearest_body_*}` | All `_body_vars()` fields prefixed |
 
-**`_ship_vars(state)`** — available in all events using `**_ship_vars(state)`:
+**`_ship_vars(state)`** — available in all events:
 | Variable | Content |
 |---|---|
-| `{commander}`, `{ship}`, `{ship_type}`, `{ship_name}`, `{ship_ident}` | Commander/ship identity |
+| `{commander}`, `{ship}`, `{ship_type}`, `{ship_name}`, `{ship_ident}` | Identity |
 | `{hull}`, `{hull_raw}` | Hull health ("75 percent" / "75") |
 | `{fuel}`, `{fuel_raw}`, `{fuel_max_raw}` | Fuel status |
 | `{jump_range}`, `{jump_range_raw}` | Max jump range |
@@ -156,314 +74,128 @@ Variable functions in `events.py` — all kwargs passed to `_say()` / `pick()`:
 | Variable | Content |
 |---|---|
 | `{target_type}` | "ship" / "body" / "" |
-| `{target_ship_type}` | Targeted ship type name |
-| `{target_ship_pilot}`, `{target_ship_rank}` | Pilot info (after scan stage 1) |
-| `{target_ship_faction}`, `{target_ship_legal}` | Faction/legal (after scan stage 2) |
-| `{target_ship_shield}` | Shield health 0–100 integer string |
-| `{target_ship_shield_raw}` | Shield health 0.0–1.0 fraction string |
-| `{target_ship_hull}` | Hull health 0–100 integer string |
-| `{target_ship_hull_raw}` | Hull health 0.0–1.0 fraction string |
-| `{target_ship_bounty}`, `{target_ship_bounty_raw}` | Bounty (spoken / integer string) |
-| `{target_body}` | Nav destination name (from Status.json Destination) |
-| `{target_body_*}` | All `_body_vars()` fields prefixed — e.g. `{target_body_gravity}`, `{target_body_has_rings}` (populated when destination matches a known body in state.bodies) |
+| `{target_ship_*}` | type, pilot, rank, faction, legal, shield, hull, bounty (staged scan) |
+| `{target_body}` | Nav destination name |
+| `{target_body_*}` | All `_body_vars()` fields for destination body |
 
-**`_body_vars(b)`** — available in body-specific events (Scan, ApproachBody, SAA, etc.) and via `nearest_body_*` / `target_body_*` prefixes:
+**`_body_vars(b)`** — body-specific events and `nearest_body_*` / `target_body_*` prefixes:
 | Variable | Content |
 |---|---|
 | `{body_type}` | Planet class string |
-| `{star_type}` | Star type if body is a star, else "" |
-| `{scoopable}` | "Scoopable" / "Not scoopable" / "" (stars only) |
+| `{star_type}` | Star type (empty for planets) |
+| `{scoopable}` | "true" (scoopable) / "false" (not scoopable) / "" (non-star) |
+| `{terra}` | "true" (terraformable) / "false" (not terraformable) |
 | `{atmosphere}`, `{volcanism}` | Atmosphere/volcanism strings |
 | `{gravity}`, `{gravity_raw}` | Surface gravity ("1.23 G" / "1.23") |
 | `{temp}`, `{temp_raw}` | Surface temp ("300 Kelvin" / "300") |
 | `{radius}`, `{radius_raw}` | Radius ("6000 kilometres" / "6000") |
 | `{mass}`, `{mass_raw}` | Mass ("0.85 Earth masses" / "0.85") |
-| `{dist_ls}`, `{dist_ls_raw}` | Distance from star |
-| `{value}`, `{value_raw}` | FSS scan value (spoken / integer) |
-| `{value_mapped}`, `{value_mapped_raw}` | Projected DSS payout |
-| `{terra}` | "Terraformable" or "" |
+| `{dist_ls}`, `{dist_ls_raw}` | Distance from arrival star |
+| `{value}`, `{value_raw}` | FSS scan value — formula for FSS'd bodies (same base as `{value_mapped}`); EDSM value for non-FSS'd |
+| `{value_mapped}`, `{value_mapped_raw}` | Projected or actual DSS payout (all bonuses) |
 | `{landable}` | "Landable" or "" |
 | `{bio_count}`, `{geo_count}` | Signal counts |
 | `{first_disc}` | "Undiscovered" or "" |
 | `{first_footfall_flag}` | "First footfall" or "" |
-| `{has_rings}` | "Ringed" or "" |
-| `{ring_count}` | Number of rings as string |
+| `{has_rings}`, `{ring_count}` | "Ringed" or "" / number of rings |
 | `{tidal_lock}` | "Tidal lock" or "" |
-| `{orbital_period}`, `{orbital_period_raw}` | Orbital period ("3.1 days" / numeric part "3.1") |
-| `{orbital_period_raw_d}`, `{orbital_period_raw_h}`, `{orbital_period_raw_m}` | Full days / remaining hours / remaining minutes (integers) |
-| `{semi_major_axis}`, `{semi_major_axis_raw}`, `{semi_major_axis_au_raw}` | Semi-major axis ("1.52 astronomical units" / metres string / "1.52") |
-| `{eccentricity}` | Eccentricity ("0.15") |
-| `{orbital_inclination}`, `{orbital_inclination_raw}` | Inclination ("25.3 degrees" / "25.3") |
+| `{orbital_period}`, `{orbital_period_raw}`, `{orbital_period_raw_d/h/m}` | Orbital period |
+| `{semi_major_axis}`, `{semi_major_axis_raw}`, `{semi_major_axis_au_raw}` | Semi-major axis |
+| `{eccentricity}`, `{orbital_inclination}`, `{orbital_inclination_raw}` | Orbital shape |
 
-### Template Engine (v1.35.0)
+**Boolean variables** (`{terra}`, `{scoopable}`, `{star_scoopable}`) return `"true"`/`"false"` — both `IS TRUE`/`IS FALSE` and `== "true"`/`== "false"` comparisons work. Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent / non-empty when present.
+
+### Template Engine
 Three-step render pipeline inside `pick()`:
-1. `_expand_includes(template, lines_map, kwargs, depth=0)` — expands `{include:_KeyName}` (explicit, supports hyphens) and `{_KeyName}` (shorthand, word chars only). Circular includes detected at depth > 5. Missing/non-`_` keys → `""` with warning.
-2. `_evaluate_conditionals(template, kwargs)` — replaces `WHEN condition THEN "text";` blocks; `_eval_condition()` handles `AND`/`OR` with `{var}` substitution; `_eval_clause()` evaluates single clauses (IS TRUE/FALSE, ==, !=, <, >, <=, >=).
-3. `template.format_map(_SafeDict(kwargs))` — `_SafeDict` returns `""` for missing keys instead of raising `KeyError`.
-
-Key regex: `_INCLUDE_RE = re.compile(r'\{include:([\w-]+)\}|\{(_\w+)\}')` — group 1 explicit, group 2 shorthand; handler rejects non-`_` prefix keys.
+1. `_expand_includes` — `{include:_KeyName}` (explicit) and `{_KeyName}` (shorthand). Circular includes → depth > 5 error.
+2. `_evaluate_conditionals` — `WHEN condition THEN "text";` blocks. Operators: `IS TRUE/FALSE`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `AND`, `OR`.
+3. `format_map(_SafeDict)` — unknown keys → `""`.
 
 ## TTS Language Detection (events.py)
-Supported languages and default voices:
-| Code | Language   | Default Voice          | Verb      |
-|------|-----------|------------------------|-----------|
-| en   | English   | en-GB-SoniaNeural      | says      |
-| de   | German    | de-DE-KatjaNeural      | sagt      |
-| fr   | French    | fr-FR-DeniseNeural     | dit       |
-| it   | Italian   | it-IT-ElsaNeural       | dice      |
-| es   | Spanish   | es-ES-ElviraNeural     | dice      |
-| pt   | Portuguese| pt-PT-RaquelNeural     | diz       |
-| ru   | Russian   | ru-RU-SvetlanaNeural   | говорит   |
+| Code | Language   | Default Voice          |
+|------|-----------|------------------------|
+| en   | English   | en-GB-SoniaNeural      |
+| de   | German    | de-DE-KatjaNeural      |
+| fr   | French    | fr-FR-DeniseNeural     |
+| it   | Italian   | it-IT-ElsaNeural       |
+| es   | Spanish   | es-ES-ElviraNeural     |
+| pt   | Portuguese| pt-PT-RaquelNeural     |
+| ru   | Russian   | ru-RU-SvetlanaNeural   |
 
 Detection priority: Cyrillic → ñ/¿/¡ → ã/õ → German umlauts → word list scoring → EN fallback.
-
-Chat TTS format: "User {name} on YouTube says: {msg}" / "User {name} on Twitch says: {msg}"
 
 ## Status.json Flags (status.py)
 | Constant | Bit | Meaning |
 |---|---|---|
 | FLAG_DOCKED | 1<<0 | Docked |
-| FLAG_LANDED | 1<<1 | Landed on surface |
+| FLAG_LANDED | 1<<1 | Landed |
 | FLAG_SHIELDS_UP | 1<<3 | Shields up |
 | FLAG_SUPERCRUISE | 1<<4 | In supercruise |
 | FLAG_FA_OFF | 1<<5 | Flight assist off |
 | FLAG_HARDPOINTS | 1<<6 | Hardpoints deployed |
-| FLAG_MASS_LOCKED | **1<<16** | FSD mass locked (NOT 1<<7 = In Wing) |
+| **FLAG_MASS_LOCKED** | **1<<16** | **FSD mass locked (NOT 1<<7 = In Wing)** |
 | FLAG_IN_MAIN_SHIP | 1<<24 | Player in main ship |
 | FLAG_IN_SRV | 1<<26 | Player in SRV |
 | FLAG_ANALYSIS_MODE | 1<<27 | Analysis mode |
 
-## ScanOrganic Handling (events.py)
-- `Log` → samples=1, body_name = `state.nearest_body or state.system or "Unknown"`
-- `Sample` → `sc.samples = min(sc.samples + 1, 2)` (capped; Analyse sets 3)
-- `Analyse` → samples=3, complete=True, value from event data
+## Key Event Handling Notes
 
-## First Footfall (events.py + state.py)
-- `WasFootfalled` in Scan event (Detailed): if explicitly `false`, sets `BodyInfo.first_footfall = True` immediately — no need to wait for Touchdown/Disembark
-- `upsert_body()` preserves `first_footfall=True` across subsequent upserts (e.g. DSS result)
-- Existing Touchdown/Disembark fallback logic remains for cases where Scan data is absent
+**ScanOrganic**: `Log` → samples=1; `Sample` → `min(samples+1, 2)` (capped); `Analyse` → samples=3, complete=True.
 
-## FSS Count (panels.py)
-- Counts all bodies the player received a `Scan` journal event for (FSS, auto-scan, proximity scan)
-- Formula: `sum(1 for b in s.bodies if b.fss_scanned)` — `fss_scanned=True` set for every Scan event
-- `fss_scanned` is NOT set for EDSM-injected bodies (those come from network, not journal)
+**First Footfall**: `WasFootfalled=false` in Scan event sets `BodyInfo.first_footfall = True` immediately. `upsert_body()` preserves `first_footfall=True` across subsequent upserts.
 
-## FSS System Scan Complete (events.py)
-- `FSSDiscoveryScan` (honk) sets `state.fss_honk_pending = True`
-- `FSSAllBodiesFound` only fires log+voice when `fss_honk_pending` is True; always resets the flag
-- Auto-scan completions (game fires `FSSAllBodiesFound` silently) are suppressed
-- `fss_honk_pending` resets on FSDJump/CarrierJump
+**FSS honk guard**: `FSSDiscoveryScan` sets `fss_honk_pending=True`; `FSSAllBodiesFound` only fires voice when that flag is True. Prevents silent auto-scan completions from triggering voice.
 
-## FuelScoop Logging (events.py)
-- Only emits a LogEvent when tank is full: `"Fuel full (Xt)."`
-- Intermediate scoop ticks return None (silent in event log)
+**FuelScoop**: LogEvent only when tank is full; intermediate ticks are silent.
 
-## Body Value Display (state.py `estimate_value_base` + `estimate_value_mapped`)
-Functions moved from panels.py to state.py in v1.33.8 so events.py can import without circular dependency. panels.py re-imports them as `_estimated_value` / `_body_value` aliases.
+**High-G timers**: `ApproachBody ≥ 3G` schedules two `threading.Timer` objects (at 10 s and 20 s). Tracked on `state.high_g_timers`. Cancelled by `LeaveBody`, `SupercruiseEntry`, `FSDJump`/`CarrierJump`, `Shutdown`, or later `ApproachBody` on different body.
 
-- `estimate_value_base(b)`: when `b.mass_em > 0` uses exact Frontier formula `max(k*(1+Q*M^0.2), 500) + terraformable_bonus`; else uses `_BODY_EST_VALUES` table. EDSM values are **never used**.
-- `estimate_value_mapped(b)`: full projected or actual DSS payout. FSS projected stacking (ODExplorer-compatible): first-disc+mapped → base × 3.3333 × 1.25 × 3.692; first-mapped-only → base × 3.6996 × 1.25; no-bonus → base × 3.3333 × 1.25. Actual (b.mapped): uses same multipliers with `efficiency_bonus` flag. First-footfall adds 30 % on top of mapped value. Constant `_FIRST_DISC_MAPPED_BONUS = 3.692`.
-- Terraformable bonus: additive per `_SPECIFIC_BONUS` (HMC=100677, WW=116295, ELW=116295); other types use `BASIC_BONUS_TERRAFORMABLE=93328`
-- Color tiers (`_body_value_color`): GOLD = first disc+map, AMBER = first map, white = no bonus, AMBER/DIM = non-FSS'd
-- `_body_vars()` in events.py: `{value}/{value_raw}` use formula fallback when `b.value == 0`; `{value_mapped}/{value_mapped_raw}` always use `estimate_value_mapped()`; also exposes orbital/ring/star fields — see Voiceline Variable Reference in CLAUDE.md
-- Used in Bodies panel value column, Overview notable bodies table, and notable-body threshold check
+**Mass Lock TTS**: Gated on `prev_in_main_ship and new_in_main_ship and not supercruise and not orbital_cruise`.
+
+**Startup/Shutdown**: `client_shutdown_pending` set True by `Shutdown`, cleared by `LoadGame`/`Location` — prevents `status.py` restoring `client_online=True` while Status.json is still recent.
+
+**`in_hyperspace`**: `True` on `StartJump` (JumpType==Hyperspace), `False` on `FSDJump`/`CarrierJump`. Used by `_auto_resolve` to show Route panel during jump animation.
+
+**BGS log cap**: `_bgs_add()` caps at `_BGS_LOG_CAP = 50` faction×activity pairs per system per day. New entries beyond cap discarded.
+
+## Body Value (state.py)
+- `estimate_value_base(b)`: exact Frontier formula `max(k*(1+Q*M^0.2), 500) + terraform_bonus` when `mass_em > 0`; else `_BODY_EST_VALUES` table. EDSM values **never used**.
+- `estimate_value_mapped(b)`: full DSS payout. FSS projected: first-disc+mapped → ×3.3333×1.25×3.692; first-mapped-only → ×3.6996×1.25; no-bonus → ×3.3333×1.25. First-footfall adds 30%.
+- `{value}/{value_raw}` use formula for FSS'd bodies (same base as `{value_mapped}`); EDSM for non-FSS'd.
+- Color tiers: GOLD = first disc+map, AMBER = first map, white = no bonus.
 
 ## Bio Distance (status.py `_check_bio_distance`)
 - Returns early if lat/lon is None (preserves last known distances)
-- Uses `sample_lats`/`sample_lons` lists on BioScan (falls back to `last_lat/last_lon`)
-- Always runs distance/bearing calculation (even while flying in main ship)
-- TTS fires only when `on_surface` (landed or in SRV or on foot) and `best_dist >= sc.min_dist` and not already alerted
-- `alerted` flag is only reset while on surface — prevents re-arming while ascending
-- Per-sample bearings stored in `sc.sample_bearings` (list); point TOWARD each sample
-- Bio panel layout: `BAR DIST ARROW1 ARROW2` (one arrow per recorded sample)
-
-## Mass Lock TTS (status.py)
-- Gated on `prev_in_main_ship and new_in_main_ship and not state.supercruise and not state.orbital_cruise`
-- Suppresses announce when boarding/exiting ship, in supercruise, or in glide (orbital cruise) mode
-
-## Startup / Shutdown Voice Lines
-- On launch: "NOVA active." (suppresses all COVAS callouts from the first Status.json read)
-- On `Shutdown` event: "Systems powering down. Farewell, Commander."
-- `client_shutdown_pending` flag (AppState): set True by `Shutdown`, cleared by `LoadGame`/`Location`. Prevents `status.py` from restoring `client_online=True` while Status.json is still recent (race condition fix for docked/on-foot shutdown scenarios).
+- TTS only when `on_surface` and `best_dist >= min_dist` and not already alerted
+- `alerted` only resets while on surface — prevents re-arming while ascending
+- Per-sample bearings in `sc.sample_bearings` (point TOWARD each sample)
 
 ## SituationalPanel Modes
-Default order: auto → overview → bio → galaxy → missions → engineers → bgs → colonisation → route → neutron → wealth → inventory → docking → stats → auto
-Auto-resolve priority (highest first):
-1. offline → stats
-2. **in_hyperspace + route_hops > 0 → route** (shows remaining route while jumping)
-3. docking_granted → docking
-4. incomplete bio_scans → bio
-5. DSS'd body with bio_genuses → bio
-6. colonisation active in current system → colonisation
-7. missions + not supercruise → missions
-8. **route_hops > 0 → route** (auto-switch when route set and no higher-priority task active)
-9. → overview (default)
+Auto-resolve priority: offline→stats, in_hyperspace+route→route, docking_granted→docking, incomplete bio→bio, DSS'd bio body→bio, colonisation→colonisation, missions (not supercruise)→missions, route_hops>0→route, else→overview.
 
-## in_hyperspace Flag (state.py + events.py)
-- `state.in_hyperspace = True` set by `StartJump` (JumpType == "Hyperspace")
-- `state.in_hyperspace = False` cleared by `FSDJump | CarrierJump`
-- Used by `_auto_resolve` to show Route panel during the jump animation
-
-## Position Panel Layout (panels.py PositionPanel, formerly SystemPanel — renamed v1.33.7)
-Two-column table (left: exploration data, right: BGS/human data). When `nearest_body` is set in state (approaching a body), a body detail section appears below the table showing: type, gravity (red ≥3G / yellow ≥1.5G), radius, temp, atmosphere, bio/geo counts, volcanism, terraform flag. Position footer: `At <body>     Pos <lat, lon>     Alt <n m>` — "At <body>" only shown when no body detail section is present. Panel `update()` key includes `nearest_body + rounded lat/lon/alt` for movement-triggered refreshes.
-- Stars always count as FSS-done in the `fss_done` counter
+Keys: Tab/Shift+Tab cycle visible modes; `a` toggles `_auto_locked`.
+Abbrevs: `***`=auto, `OVR`, `BIO`, `MAP`, `MIS`, `ENG`, `BGS`, `COL`, `ROU`, `NTR`, `WLT`, `INV`, `DKG`, `STS`.
 
 ## Overview Sections (panels.py `_render_overview`)
-Order: system diagram → notable bodies → NEAREST INHABITED SYSTEM → NEAREST FLEET CARRIER → system summary / PP / BGS
+Order: system diagram → notable bodies → NEAREST INHABITED SYSTEM (when pop=0) → NEAREST FLEET CARRIER (when carrier_lookup) → system summary/PP/BGS.
 
-**NEAREST INHABITED SYSTEM** (only when `population == 0`):
-- Row 1: `[System name]      [X ly]      [~N jumps]`  — jumps from `jump_range_last or jump_range`
-- Row 2: `[Allegiance]      [N stn]      [Service1, Service2, ...]`
+## Bio Panel
+Pre-scan (DSS'd body with `bio_genuses`): shows genus names, variant, value ranges, total estimated value. Auto-switches to bio mode on approach/landing.
 
-**NEAREST FLEET CARRIER** (when `carrier_lookup` enabled and carrier found):
-- Row 1: `[Carrier name]  (orange, bold)   [dist_ls or ly]      [~N jumps]`
-- Row 2: `[Last seen]      [Services ...]`
-
-## BGS Log Cap (events.py)
-- `_bgs_add()` caps at `_BGS_LOG_CAP = 50` faction×activity pairs per system per day
-- New entries beyond the cap are silently discarded (existing counts still increment)
-Tab/Shift+Tab cycle through _visible_modes (filtered/ordered by situational_panels config or default _MODES)
-`a` key toggles `_auto_locked` — freezes current resolved view without changing _mode
-Mode abbrevs: ***=auto, OVR=overview, BIO=bio, MAP=galaxy, MIS=missions, ENG=engineers, BGS=bgs, COL=colonisation, ROU=route, NTR=neutron, WLT=wealth, INV=inventory, DKG=docking, STS=stats
-Active/resolved mode shows full name in border title (e.g. BIOLOGICAL); others show abbrev
-_ODY_ENGINEERS: frozenset of 9 Odyssey engineers shown with max_rank=1 (not 5)
-
-## Bio Panel Pre-scan Display
-When a body is DSS'd with biological signals (`bio_genuses` set on BodyInfo), the Bio panel shows genus names + variant (from `bio_variant(primary_star_class)`) + value ranges and total estimated value before any sample is taken. Auto-switches to bio mode when approaching/landing on such a body.
-
-## Bio Prediction (events.py)
-- `predict_bio_species(planet_class, atmosphere, surface_temp, surface_gravity, volcanism, primary_star_type, dist_ls)` — returns predicted species names (e.g. "Stratum Tectonicas"). Species-level prediction stored in `bio_genuses_predicted`.
-- `predict_bio_genera` is a backward-compat wrapper that delegates to `predict_bio_species`.
-- `bio_variant(primary_star_type)` — returns variant color name from `_STAR_CLASS_VARIANT` (O=Turquoise, B=Grey, A=Yellow, F=Lime, G=Emerald, K=Green, M=Teal, L=Sage, T=Red, Y=Mauve, D=Ocher, N=Cobalt, H=White).
-- Pre-DSS: "Predicted Species" column shows `? Species [Variant]` with per-species value from `_BIO_SPECIES_VALUES` (or genus range fallback).
-- Post-DSS (genus confirmed): "Genus (DSS)" column shows genus + variant with genus-level value range.
+Bio prediction: `predict_bio_species(planet_class, atmosphere, temp, gravity, volcanism, star_type, dist_ls)` → species names. `bio_variant(star_type)` → variant color.
 
 ## RoutePanel Context
-1. Docked: shows station services (from `state.station_*`, populated by Docked event)
-2. ApproachBody set: shows body info
-3. Otherwise: shows nav route + stations at next waypoint (from EDSM dump data, up to 3 closest stations with service icons [M=market S=shipyard O=outfitting R=refuel])
+1. Docked → station services  2. ApproachBody set → body info  3. Otherwise → nav route + next-waypoint stations (EDSM dump, up to 3, icons: M/S/O/R)
 
 ## EDSM Dump Lookups (journal.py)
-`_update_dump_lookups(state, lock, db)` is called:
-- After FSDJump / CarrierJump / Location events
-- After NavRoute / NavRouteClear events
-- Once after `_process_backlog()` on startup
-
-It updates:
-- `state.system_power` / `state.system_power_state` — from `edsm_systems` by current system name
-- `state.nearest_populated_name/dist/allegiance` — only when `state.population == 0` (uninhabited)
-- `state.route_list_edsm` — dict name→{x,y,z,population,allegiance} for all systems in `route_list`
-- `state.route_next_stations` — list of station dicts for the next nav route waypoint
-
-## EDSM DB Tables
-- `edsm_systems`: id64 PK, name, x/y/z, allegiance, government, economy, population, security, power, power_state + idx on name
-- `edsm_stations`: id PK, name, system_id64, system_name, type, dist_ls, allegiance, government, economy, has_market, has_shipyard, has_outfitting, other_services + idx on system_name
-- Powerplay upsert: `ON CONFLICT(id64) DO UPDATE SET power=..., power_state=... WHERE excluded.power != ''` (preserves population data from systemsPopulated import)
-
-## Neutron DB Tables
-- `neutron_stars`: id INTEGER PK, name TEXT, x/y/z REAL + separate indexes on x, y, z (bounding-box queries)
-- `neutron_meta`: key TEXT PK, value TEXT — stores `last_updated` timestamp for daily refresh logic
-
-## AppState EDSM Fields
-```python
-system_power:                 str   = ""      # Power Play controlling power
-system_power_state:           str   = ""      # Exploited / Control / Fortified / etc.
-nearest_populated_name:       str   = ""      # Name of nearest inhabited system
-nearest_populated_dist:       float = 0.0     # Distance in ly
-nearest_populated_allegiance: str   = ""      # Allegiance of nearest inhabited system
-nearest_populated_stations:   list  = []      # list of station dicts for nearest inhabited system
-route_next_stations:          list  = []      # list of station dicts for next waypoint
-carriers_current_system:      list  = []      # list of carrier dicts from Spansh API
-```
-
-## AppState New Fields (v1.19.0)
-```python
-high_g_extreme:       bool  = False  # True while approaching ≥3G body (not landed/SRV)
-credits:              int   = 0      # current credit balance
-stored_ships:         list  = []     # StoredShips event data
-suit_loadout:         dict  = {}     # SuitLoadout event data
-backpack:             dict  = {}     # Backpack/BackpackChange event data
-jump_range:           float = 0.0    # max jump range from Loadout event
-neutron_route:        list  = []     # list of dicts: {system, dist, neutron}
-neutron_route_to:     str   = ""     # destination system name
-neutron_route_status: str   = ""     # "plotting" / "done" / error message
-```
-
-## AppState Pips Fields
-```python
-pips_sys: float = 4.0   # SYS pips (0.0–4.0, half-pip = 0.5 step; only valid in_main_ship)
-pips_eng: float = 2.0   # ENG pips
-pips_wep: float = 2.0   # WEP pips
-```
-Status.json `Pips` field: `[SYS, ENG, WEP]` array, each int 0–8 (game internal); divide by 2 to get displayed pip count.
-
-## Spansh API (spansh.py)
-- Endpoint: `POST https://spansh.co.uk/api/stations/search`
-- Body: `{"system_name": "...", "type": "Drake-Class Carrier", "size": 10}`
-- Cache TTL: 300 s per system; min delay 3 s between requests
-- Spawned only when `cfg.carrier_lookup = True`
-- Queue message: `("fetch_carriers", system_name)`
-- Clears `state.carriers_current_system = []` on system change before fetch completes
-
-## SRV TTS Callouts (status.py)
-- Ship → SRV: "SRV deployed" (`SRV_Deployed`)
-- On foot → SRV (boarding already-deployed SRV): "SRV boarded" (`SRV_Boarded`)
-- SRV → ship (recalled): "SRV secured" (`SRV_Secured`)
-- SRV → on foot (exiting, SRV stays on surface): "SRV exited" (`SRV_Exited`)
-- Lights TTS suppressed when SRV state also changed in the same tick (vehicle switch artefact)
-- ShipPanel border title shows "Glide" (not "Orbital Cruise") when `orbital_cruise` is True
-
-## High-G Warning (events.py + app.py)
-- `ApproachBody`: reads `surface_gravity` (m/s²) from `BodyInfo`, divides by 9.80665 to get G
-- ≥1.5 G: single TTS warning (`HighGWarning`), `state.high_g_alerted = False` reset on each approach
-- ≥3.0 G: three TTS warnings at 0/10/20 s (`HighGExtreme`), sets `state.high_g_extreme = True`, orange border + dark background flash in CSS
-- `state.high_g_extreme` cleared by `LeaveBody` and `SupercruiseEntry`; flash also gated on `not snap.landed and not snap.in_srv`
-- CSS class `high-g-flash` on Screen: orange borders `rgb(220,100,0)`, background `rgb(50,20,0)`; alternates every 1 s via `int(time.time()) % 2 == 0`
-
-## Neutron Planner (neutron.py)
-- Download: `https://downloads.spansh.co.uk/systems_neutron.json.gz` streamed via urllib, stored in `neutron_stars` SQLite table
-- `spawn(state, lock, db) -> queue.Queue` — starts `nova-neutron` daemon thread, returns queue
-- Worker handles `("plot", target_name)` messages; sets `neutron_route_status = "plotting"` then populates `neutron_route`
-- `_plan_route(db, origin_xyz, target_xyz, jump_range)`: greedy A* with beam_width=20, max_jumps=2000; bounding-box SQLite query per step
-- Target coord lookup: tries `edsm_systems` first, then `neutron_stars`
-- `NeutronInputScreen` (app.py): `n` key when in neutron mode opens Input overlay; Enter puts `("plot", dest)` on queue
-- Voicelines: no new TTS events — status shown in panel text
-
-## Screenshot Watcher (screenshots.py)
-- `monitor(state, lock, cfg)` main function — runs as `nova-screenshots` daemon
-- Auto-detects source dir: Proton default Steam → Proton Flatpak Steam → native Windows/Linux paths
-- Polls every 2 s; tracks seen files by `(path, mtime)` to avoid reprocessing
-- BMP files: converted to PNG via `PIL.Image` (wrapped in `ImportError` try/except for graceful fallback)
-- Rename pattern: `YYYY-MM-DD-HH-MM_{cmdr}_{system}_{body}.png` (spaces → underscores)
-- Moves to `screenshot_dest` (default `~/Pictures/Elite Dangerous`), creates dir if needed
-
-## EngineerInfo Dataclass (state.py)
-```python
-@dataclass
-class EngineerInfo:
-    name:          str
-    rank:          int   = 0
-    rank_progress: float = 0.0
-    progress:      str   = ""   # "Known" / "Invited" / "Acquainted" / ""
-    engineer_id:   int   = 0
-```
-- Replaces old `(rank, progress)` tuples in `state.engineers` dict
-- `EngineerProgress` handler checks `isinstance(existing, EngineerInfo)` before update
-- `_ENGINEER_STATIC` in panels.py: ~36 engineers keyed by name → `{specialty, system}`
-
-## GitHub Release Notes
-- Release notes should contain the **changelog** (what changed, what was fixed), NOT installation instructions.
-- Installation instructions live in the README only.
+`_update_dump_lookups()` called after FSDJump/CarrierJump/Location, NavRoute/NavRouteClear, and after startup backlog. Updates: `system_power`, `system_power_state`, `nearest_populated_*` (uninhabited only), `route_list_edsm`, `route_next_stations`.
 
 ## Known Quirks
-- BioScan `first_footfall` detected via `Touchdown` or `Disembark` (Apex/Frontline fallback); matched by body name and body ID
-- First footfall: fires only on `Disembark` (not Touchdown); deduplicated per body via `state.first_footfall_bodies` (set, persisted across restarts via `sc.first_footfall` in bio_scans DB)
-- Shield display: binary UP/DOWN only — ShieldHealth not present in Status.json
-- Barycentre bodies (AB 4 etc.): shown unindented, sorted after single-star children in Bodies panel and Overview diagram
-- EDSM fetch is GET-only, no API key required
+- First footfall fires only on `Disembark` (not Touchdown); deduplicated via `state.first_footfall_bodies`
+- Shield display: binary UP/DOWN only — ShieldHealth not in Status.json
+- Barycentre bodies (AB 4 etc.): shown unindented, sorted after single-star children
+- EDSM fetch GET-only, no API key required
 - `pygame.mixer.init()` called per-track (safe/idempotent)
-- ChatLogPanel filters `EventCategory.Chat` only
-- Bodies table alternating rows: `row_styles=["", "on rgb(38,38,38)"]`
-- FSS count in System panel: counts all bodies with planet_class or star_type (includes auto-scanned, excludes belt clusters)
-- Stats (persistent): written to `stats` SQLite table; only live events counted, not journal replay
-- Bodies and stats data kept indefinitely — no automatic pruning
+- Stats: only live events counted, not journal replay
+- Bodies and stats kept indefinitely — no automatic pruning
+- `_ODY_ENGINEERS`: frozenset of 9 Odyssey engineers shown with max_rank=1 (not 5)
