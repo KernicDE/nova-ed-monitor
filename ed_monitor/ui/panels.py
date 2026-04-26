@@ -2165,13 +2165,13 @@ def _eng_rank_pips(rank: int, rp: float, prog: str, is_ody: bool) -> tuple[str, 
         max_r = 5
         eff_r = min(rank, max_r)
         pips  = "●" * eff_r + "○" * (max_r - eff_r)
-        return pips, P.HUD_GREEN, f"G{eff_r}", P.LABEL
+        return pips, P.HUD_GREEN, "", ""
     if prog in ("Invited", "Acquainted", "Known"):
         if rp > 0:
             filled = int(rp / 100.0 * 5)
             pips   = "▓" * filled + "░" * (5 - filled)
             return pips, P.AMBER, f"{rp:.0f}%", P.AMBER
-        return "·····", P.LABEL, prog[:3], P.AMBER
+        return "○○○○○", P.AMBER, "", ""
     if prog == "Unknown":
         return "·····", "dim", "", "dim"
     return "·····", "dim", "", "dim"
@@ -2265,7 +2265,20 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         return _render_engineer_detail(name, rank, rp, prog)
 
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
-    parts: list[RenderableType] = []
+
+    tbl = Table(
+        show_header=False, show_edge=False, show_lines=False,
+        padding=(0, 0), box=None,
+        row_styles=["", "on rgb(38,38,38)"],
+    )
+    tbl.add_column("#", width=3)
+    tbl.add_column(">", width=2)
+    tbl.add_column("Era", width=3)
+    tbl.add_column("Name", width=19, no_wrap=True)
+    tbl.add_column("Pips", width=5)
+    tbl.add_column("Grade", width=3)
+    tbl.add_column("Specialty", width=20, no_wrap=True)
+    tbl.add_column("System", width=16, no_wrap=True)
 
     for flat_idx, (era_tag, name, rank, rp, prog) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
         is_ody   = name in _ODY_ENGINEERS
@@ -2276,46 +2289,36 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
 
         pips, pip_style, grade, grade_style = _eng_rank_pips(rank, rp, prog, is_ody)
 
-        row = Text()
-        if selected:
-            row.append("▶ ", style=P.HUD_GREEN)
-        else:
-            row.append("  ")
-
-        # [H]/[O] era tag
-        row.append(f"[{era_tag}]", style="dim")
-        row.append(" ")
-
-        # Name: fixed 19 chars, truncated with ellipsis
         display_name = name if len(name) <= 19 else name[:18] + "…"
-        row.append(f"{display_name:<19}", style="bold white" if selected else "white")
-        row.append(" ")
 
-        # Rank pips (5 chars wide; Odyssey: 1 pip + 4 spaces)
+        cursor_text = Text("▶ ", style=P.HUD_GREEN) if selected else Text("  ")
+        name_text   = Text(f"{display_name:<19}", style="bold white" if selected else "white")
+
         if is_ody:
-            row.append(pips[0] if pips else "·", style=pip_style)
-            row.append("    ")
+            pip_text = Text(pips[0] if pips else "·", style=pip_style)
+            pip_text.append("    ")
         else:
-            row.append(pips, style=pip_style)
-        row.append(" ")
+            pip_text = Text(pips, style=pip_style)
 
-        # Grade / percentage (3 chars)
-        row.append(f"{grade:<3}", style=grade_style)
-        row.append("  ")
+        grade_text = Text(f"{grade:<3}", style=grade_style)
+        spec_text  = Text(spec, style="white" if selected else P.LABEL)
+        sys_text   = Text(system, style=P.HUD_CYAN)
 
-        # Specialty + system
-        if spec:
-            row.append(spec, style=P.LABEL if not selected else "white")
-        if system:
-            row.append(f"  {system}", style=P.HUD_CYAN)
-        row.append("\n")
-        parts.append(row)
+        tbl.add_row(
+            Text(str(flat_idx + 1)),
+            cursor_text,
+            Text(f"[{era_tag}]", style="dim"),
+            name_text,
+            pip_text,
+            grade_text,
+            spec_text,
+            sys_text,
+        )
 
     hint = Text()
     hint.append("  [Space/Enter] details  [↑↓] move", style="dim")
-    parts.append(hint)
 
-    return Group(*parts)
+    return Group(Text("\n"), tbl, hint)
 
 
 def _render_wealth(s: AppState) -> RenderableType:
@@ -3761,8 +3764,7 @@ class SituationalPanel(_Panel):
             else:
                 all_engs = _build_eng_list(s)
                 total  = len(all_engs)
-                # 4-row lookahead keeps cursor from reaching the bottom before scrolling
-                scroll = max(self._eng_cursor - _eng_vis + 4, 0)
+                scroll = max(self._eng_cursor - _eng_vis + 1, 0)
                 scroll = max(0, min(scroll, max(0, total - _eng_vis)))
                 self._general_scroll = scroll
 

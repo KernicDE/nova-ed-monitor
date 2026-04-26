@@ -252,14 +252,17 @@ No setup required. To override folders, see [Settings → Screenshot Processing]
 
 ## Engineers Panel
 
-The **Engineers** panel shows all ~40 engineers in a single sorted list. Each row shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, grade, and specialty.
+The **Engineers** panel shows all ~40 engineers in a single sorted list. Each row is numbered and shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, specialty, and system in separate columns.
 
 **Rank pip colour:**
-- Green filled dots — Unlocked (1–5 for Horizons, 1 for Odyssey)
-- Amber partial bar — Known / In Progress
-- Dim grey `·····` — Locked or Unknown (not yet contacted)
+- Green filled dots — Unlocked (1–5 for Horizons, `●` for Odyssey)
+- Amber partial bar — In Progress (with percentage)
+- Amber empty dots `○○○○○` — Known / Invited / Acquainted (no progress yet)
+- Dim grey `·····` — Unknown (not yet contacted)
 
-**Sort order:** Horizons before Odyssey; within each: Unlocked → In Progress → Unknown; then by rank (highest first), then by name.
+Rows have alternating backgrounds (like the Scanned Bodies panel) for easy reading.
+
+**Sort order:** Horizons before Odyssey; within each: Unlocked → In Progress → Known / Unknown; then by rank (highest first), then by name.
 
 Data comes from the `EngineerProgress` journal event (fired automatically at game login). Engineers not yet in the journal appear at the bottom with grey dots.
 
