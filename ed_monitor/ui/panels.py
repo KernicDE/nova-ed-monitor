@@ -2112,9 +2112,27 @@ def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
     return result
 
 
+def _eng_rank_pips(rank: int, rp: float, prog: str, is_ody: bool) -> tuple[str, str, str, str]:
+    """Return (pips_str, pips_style, grade_str, grade_style) for one engineer."""
+    if prog == "Unlocked":
+        if is_ody:
+            return "●", P.HUD_GREEN, "", ""
+        max_r = 5
+        eff_r = min(rank, max_r)
+        pips  = "●" * eff_r + "○" * (max_r - eff_r)
+        return pips, P.HUD_GREEN, f"G{eff_r}", P.LABEL
+    if prog in ("Invited", "Acquainted", "Known"):
+        if rp > 0:
+            filled = int(rp / 100.0 * 5)
+            pips   = "▓" * filled + "░" * (5 - filled)
+            return pips, P.AMBER, f"{rp:.0f}%", P.AMBER
+        return "·····", P.LABEL, prog[:3], P.AMBER
+    return "·····", P.LABEL, "", ""
+
+
 def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> RenderableType:
-    """Full-panel detail view for one engineer. Backspace returns to list."""
-    is_ody = name in _ODY_ENGINEERS
+    """Box-style full-panel detail view for one engineer (Space to enter, Backspace to exit)."""
+    is_ody  = name in _ODY_ENGINEERS
     eng     = _ENGINEER_STATIC.get(name)
     spec    = eng.specialty if eng else ""
     station = eng.station   if eng else ""
@@ -2122,63 +2140,57 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     unlock  = eng.unlock    if eng else ""
     modules = eng.modules   if eng else ()
 
-    parts: list[RenderableType] = []
+    pips, pip_style, grade, grade_style = _eng_rank_pips(rank, rp, prog, is_ody)
 
-    hdr = Text()
-    hdr.append(f"  {name}\n", style="bold white")
-    hdr.append("  ")
-    if prog == "Unlocked":
-        max_r = 1 if is_ody else 5
-        eff_r = min(1 if is_ody else rank, max_r)
-        hdr.append("█" * eff_r,           style=P.HUD_GREEN)
-        hdr.append("░" * (max_r - eff_r), style=P.LABEL)
-        hdr.append(f"  {eff_r}/{max_r}\n",style=P.LABEL)
-    elif prog in ("Invited", "Acquainted", "Known"):
-        if rp > 0:
-            w = 8; filled = int(rp / 100.0 * w)
-            hdr.append("▓" * filled,       style=P.AMBER)
-            hdr.append("░" * (w - filled), style=P.LABEL)
-            hdr.append(f"  {rp:.0f}%\n",   style=P.LABEL)
-        else:
-            hdr.append(prog + "\n", style=P.AMBER)
-    else:
-        hdr.append((prog or "Unknown") + "\n", style=P.LABEL)
-    parts.append(hdr)
+    inner = Text()
 
-    loc = Text()
-    loc.append("  ")
-    sep = False
-    if spec:
-        loc.append(spec, style=P.LABEL); sep = True
-    if system:
-        if sep: loc.append("  ·  ", style=P.LABEL)
-        loc.append(system, style=P.HUD_CYAN); sep = True
-    if station:
-        if sep: loc.append("  ·  ", style=P.LABEL)
-        loc.append(station, style=P.LABEL)
-    loc.append("\n")
-    parts.append(loc)
+    # Name + rank row
+    inner.append(f"{name}\n", style="bold white")
 
+    # Rank pips row
+    inner.append(pips, style=pip_style)
+    if grade:
+        inner.append(f"  {grade}", style=grade_style)
+    inner.append("\n")
+
+    # Location
+    if system or station or spec:
+        inner.append("\n")
+        if spec:
+            inner.append(spec, style=P.LABEL)
+        if system:
+            inner.append("  ·  " if spec else "", style=P.LABEL)
+            inner.append(system, style=P.HUD_CYAN)
+        if station:
+            inner.append("  ·  " if (spec or system) else "", style=P.LABEL)
+            inner.append(station, style=P.LABEL)
+        inner.append("\n")
+
+    # Unlock
     if unlock:
-        parts.append(Text(""))
-        u = Text()
-        u.append("  UNLOCK\n", style="bold rgb(195,160,55)")
-        u.append(f"  {unlock}\n", style="white")
-        parts.append(u)
+        inner.append("\n")
+        inner.append("UNLOCK\n", style="bold rgb(195,160,55)")
+        inner.append(f"{unlock}\n", style="white")
 
+    # Modules
     if modules:
-        parts.append(Text(""))
-        m = Text()
-        m.append("  MODULES\n", style="bold rgb(195,160,55)")
+        inner.append("\n")
+        inner.append("MODULES\n", style="bold rgb(195,160,55)")
         for mod in modules:
-            m.append(f"  {mod}\n", style="white")
-        parts.append(m)
+            # Split "Module Name (G5)" into name + grade for alignment
+            if " (" in mod and mod.endswith(")"):
+                mod_name, mod_grade = mod.rsplit(" (", 1)
+                mod_grade = mod_grade.rstrip(")")
+                inner.append(f"  {mod_name:<28}", style="white")
+                inner.append(mod_grade + "\n",    style=P.LABEL)
+            else:
+                inner.append(f"  {mod}\n", style="white")
 
-    parts.append(Text(""))
+    parts: list[RenderableType] = []
+    parts.append(Panel(inner, border_style="rgb(90,90,90)", padding=(0, 1)))
     hint = Text()
     hint.append("  [Backspace] back", style="dim")
     parts.append(hint)
-
     return Group(*parts)
 
 
@@ -2195,7 +2207,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
         t.append("No engineer data.", style=P.LABEL)
         return t
 
-    # Detail view: delegate to full-page render
+    # Detail view: full box-panel for the selected engineer
     if detail and 0 <= cursor < len(all_engs):
         _, _, (name, rank, rp, prog) = all_engs[cursor]
         return _render_engineer_detail(name, rank, rp, prog)
@@ -2203,79 +2215,59 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
     parts: list[RenderableType] = []
 
-    current_era: Optional[str] = None
-    current_section: Optional[str] = None
+    current_section_key: Optional[tuple] = None
 
     for flat_idx, (era, section, (name, rank, rp, prog)) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
-        is_ody = name in _ODY_ENGINEERS
+        is_ody  = name in _ODY_ENGINEERS
         eng     = _ENGINEER_STATIC.get(name)
         spec    = eng.specialty if eng else ""
-        station = eng.station   if eng else ""
         system  = eng.system    if eng else ""
-
         selected = flat_idx == cursor
 
-        # Era header (HORIZONS / ODYSSEY)
-        if era != current_era:
-            if current_era is not None:
+        # Combined era+section header (one line, only when section changes)
+        section_key = (era, section)
+        if section_key != current_section_key:
+            if current_section_key is not None:
                 parts.append(Text(""))
-            parts.append(_section_header(era))
-            current_era = era
-            current_section = None
+            hdr = Text()
+            hdr.append(f"  {era}  ", style="bold rgb(195,160,55)")
+            hdr.append(section + "\n", style="rgb(140,120,40)")
+            parts.append(hdr)
+            current_section_key = section_key
 
-        # Section sub-header (UNLOCKED / IN PROGRESS / LOCKED)
-        if section != current_section:
-            t = Text()
-            t.append(f"  {section}\n", style="bold rgb(195,160,55)")
-            parts.append(t)
-            current_section = section
+        # Single-line row: cursor + name (19 chars) + pips (5) + grade (3) + specialty
+        pips, pip_style, grade, grade_style = _eng_rank_pips(rank, rp, prog, is_ody)
 
-        # Card line 1: cursor marker + name + rank/status
-        card = Text()
+        row = Text()
         if selected:
-            card.append("▶ ", style=P.HUD_GREEN)
+            row.append("▶ ", style=P.HUD_GREEN)
         else:
-            card.append("  ")
-        card.append(f"{name}", style="bold white" if selected else "white")
-        padding = max(1, 24 - len(name))
-        card.append(" " * padding)
+            row.append("  ")
 
-        if prog == "Unlocked":
-            max_r = 1 if is_ody else 5
-            eff_r = min(1 if is_ody else rank, max_r)
-            card.append("█" * eff_r,          style=P.HUD_GREEN)
-            card.append("░" * (max_r - eff_r), style=P.LABEL)
-            card.append(f"  {eff_r}/{max_r}",  style=P.LABEL)
-        elif prog in ("Invited", "Acquainted", "Known"):
-            if rp > 0:
-                width  = 8
-                filled = int(rp / 100.0 * width)
-                card.append("▓" * filled,          style=P.AMBER)
-                card.append("░" * (width - filled), style=P.LABEL)
-                card.append(f"  {rp:.0f}%",         style=P.LABEL)
-            else:
-                card.append(prog, style=P.AMBER)
+        # Name: fixed 19 chars, truncated with ellipsis
+        display_name = name if len(name) <= 19 else name[:18] + "…"
+        row.append(f"{display_name:<19}", style="bold white" if selected else "white")
+        row.append(" ")
+
+        # Rank pips (always 5 chars wide for Horizons; 1+4 for Odyssey)
+        if is_ody:
+            row.append(pips[0] if pips else "·", style=pip_style)
+            row.append("    ")  # pad to 5 chars
         else:
-            card.append(prog or "Unknown", style=P.LABEL)
-        card.append("\n")
+            row.append(pips, style=pip_style)
+        row.append(" ")
 
-        # Card line 2: specialty · system · station
-        card.append("    ")
-        sep = False
+        # Grade / percentage (3 chars)
+        row.append(f"{grade:<3}", style=grade_style)
+        row.append("  ")
+
+        # Specialty (remaining)
         if spec:
-            card.append(spec, style=P.LABEL)
-            sep = True
+            row.append(spec, style=P.LABEL if not selected else "white")
         if system:
-            if sep:
-                card.append("  ·  ", style=P.LABEL)
-            card.append(system, style=P.HUD_CYAN)
-            sep = True
-        if station:
-            if sep:
-                card.append("  ·  ", style=P.LABEL)
-            card.append(station, style=P.LABEL)
-        card.append("\n")
-        parts.append(card)
+            row.append(f"  {system}", style=P.HUD_CYAN)
+        row.append("\n")
+        parts.append(row)
 
     hint = Text()
     hint.append("  [Space] details  [↑↓] move", style="dim")
