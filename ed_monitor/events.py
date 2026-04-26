@@ -244,202 +244,271 @@ def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
                         dist_ls: float = 0.0) -> list[str]:
     """Predict possible biological species from planet FSS conditions.
 
+    Eliminative approach based on EDXD biosign_estimator: the thin-atmosphere gate
+    is applied first, then each genus uses its own gravity/temperature/volcanism guards.
     Returns deduplicated list of species names (e.g. "Stratum Tectonicas").
-    Each name's first word is the genus, compatible with _BIO_GENUS_VALUE_RANGE lookups.
-    Returns [] when conditions are insufficient for prediction.
+    Returns [] when thin atmosphere is absent or conditions are insufficient.
     """
     if not atmosphere:
         return []
-
     atm = atmosphere.lower()
+    if "thin" not in atm:
+        return []
+
     pc  = (planet_class or "").lower()
     g   = surface_gravity / 9.80665 if surface_gravity > 0 else 999.0
     t   = surface_temp
     vol = (volcanism or "").lower()
-    has_vol = bool(vol) and "no volcanism" not in vol and vol != "none"
+    has_vol = bool(vol) and "no volcanism" not in vol and vol not in ("", "none")
 
     pst = (primary_star_type or "").upper()
-    _a_or_hotter = pst.startswith(("O", "B", "A"))
-    _is_icy = "icy" in pc or "rocky ice" in pc
-    _is_rocky = "rocky" in pc and not _is_icy
-    _is_hmc   = "high metal content" in pc
+    _is_icy       = "icy" in pc or "rocky ice" in pc
+    _is_rocky_ice = "rocky ice" in pc
+    _is_rocky     = pc == "rocky body"
+    _is_hmc       = "high metal content" in pc
+    _hmc_rocky    = _is_hmc or _is_rocky
 
     predicted: list[str] = []
 
-    # ── Helium ──────────────────────────────────────────────────────────────
+    def add(sp: str) -> None:
+        if sp not in predicted:
+            predicted.append(sp)
+
+    # ── Aleoida (thin CO2 or ammonia, HMC/rocky, g ≤ 0.28) ─────────────────
+    if _hmc_rocky and g <= 0.28:
+        if "carbon dioxide" in atm:
+            if 175 <= t <= 180:
+                add("Aleoida Arcus")
+            if 179 <= t <= 190:
+                add("Aleoida Coronamus")
+            if 190 <= t <= 197:
+                add("Aleoida Gravis")
+        if "ammonia" in atm:
+            if 152 <= t <= 177:
+                add("Aleoida Laminiae")
+            if 170 <= t <= 177:
+                add("Aleoida Spica")
+
+    # ── Bacterium (thin, all types) ───────────────────────────────────────────
     if "helium" in atm:
-        predicted.append("Bacterium Nebulus")
-
-    # ── Neon / Neon-rich ────────────────────────────────────────────────────
+        add("Bacterium Nebulus")
     if "neon" in atm:
-        if has_vol and "carbon" in vol or "methane" in vol:
-            predicted.append("Bacterium Scopulum")
-        elif has_vol and "nitrogen" in vol:
-            predicted.append("Bacterium Omentum")
+        if has_vol and any(opt in vol for opt in ("nitrogen", "ammonia")):
+            add("Bacterium Omentum")
+        elif has_vol and any(opt in vol for opt in ("carbon", "methane")):
+            add("Bacterium Scopulum")
         elif has_vol and "water" in vol:
-            predicted.append("Bacterium Verrata")
+            add("Bacterium Verrata")
         else:
-            predicted.append("Bacterium Acies")
-        if has_vol:
-            predicted.append("Fonticulua Segmentatus")
-        if _a_or_hotter:
-            predicted.append("Electricae Pluma")
-
-    # ── Argon / Argon-rich ──────────────────────────────────────────────────
-    if "argon" in atm:
-        if _is_icy:
-            predicted.append("Bacterium Vesicula")
-            predicted.append("Fonticulua Campestris")
-        else:
-            predicted.append("Bacterium Vesicula")
-            predicted.append("Aleoida Arcus")
-            if _is_rocky or _is_hmc:
-                predicted.append("Osseus Pumice")
-                predicted.append("Tussock Capillum")
-        if "argon-rich" in atm or "rich" in atm:
-            predicted.append("Fonticulua Upupam")
-        if _a_or_hotter:
-            predicted.append("Electricae Radialem")
-
-    # ── Methane / Methane-rich ───────────────────────────────────────────────
+            add("Bacterium Acies")
     if "methane" in atm:
-        if _is_icy:
-            predicted.append("Bacterium Bullaris")
-            predicted.append("Fonticulua Digitos")
-        else:
-            predicted.append("Bacterium Alcyoneum")
-        predicted.append("Fungoida Stabitis")
-        predicted.append("Osseus Pumice")
-        if _is_rocky or _is_hmc:
-            predicted.append("Tussock Capillum")
-        predicted.append("Cactoida Vermis")
-
-    # ── Nitrogen ────────────────────────────────────────────────────────────
-    if "nitrogen" in atm and "sulphur" not in atm and "sulfur" not in atm:
-        predicted.append("Bacterium Informem")
-        predicted.append("Tussock Pennata")
-        predicted.append("Stratum Paleas")
-        if has_vol:
-            predicted.append("Fonticulua Lapida")
-        if has_vol:
-            predicted.append("Concha Aureolas")
-        predicted.append("Recepta Condiviva")
-
-    # ── Oxygen ──────────────────────────────────────────────────────────────
+        add("Bacterium Bullaris")
+    if "argon" in atm:
+        add("Bacterium Vesicula")
+    if "nitrogen" in atm:
+        add("Bacterium Informem")
     if "oxygen" in atm:
-        predicted.append("Bacterium Volu")
-        predicted.append("Aleoida Gravis")
-        predicted.append("Tussock Viridan")
-        if has_vol:
-            predicted.append("Fonticulua Fluctus")
-
-    # ── Ammonia ─────────────────────────────────────────────────────────────
+        add("Bacterium Volu")
     if "ammonia" in atm:
-        predicted.append("Bacterium Aurasus")
-        if g >= 0.25:
-            predicted.append("Aleoida Laminiae")
-        else:
-            predicted.append("Aleoida Spica")
-        predicted.append("Cactoida Lapis")
-        if _is_rocky or _is_hmc:
-            predicted.append("Cactoida Peperatis")
-        if has_vol:
-            predicted.append("Concha Biconcavis")
-        predicted.append("Frutexa Catena")
-        if _is_rocky or _is_hmc:
-            predicted.append("Fungoida Bullarum")
-            predicted.append("Osseus Spiralis")
-        predicted.append("Tussock Catena")
-        if t > 165:
-            predicted.append("Stratum Paleas")
-        if g < 0.15 and has_vol:
-            predicted.append("Tubus Compagibus")
+        add("Bacterium Alcyoneum")
+    if "carbon" in atm:
+        add("Bacterium Aurasus")
+    if "water" in atm or "sulphur" in atm or "sulfur" in atm:
+        add("Bacterium Cerbrus")
+    if has_vol and any(opt in vol for opt in ("helium", "metallic", "silicate")):
+        add("Bacterium Tela")
 
-    # ── Carbon dioxide / CO2-rich ────────────────────────────────────────────
-    if "carbon dioxide" in atm:
-        predicted.append("Bacterium Aurasus")
-        predicted.append("Aleoida Coronamus")
-        if t < 300:
-            predicted.append("Cactoida Cortexum")
-        else:
-            predicted.append("Cactoida Pullulanta")
-        if has_vol:
-            predicted.append("Concha Labiata")
-        predicted.append("Frutexa Flammasis")
-        if _is_rocky or _is_hmc:
-            predicted.append("Fungoida Setisis")
-        if _is_rocky:
-            predicted.append("Fungoida Bullarum")
-        if t > 250:
-            predicted.append("Osseus Cornibus")
-        else:
-            predicted.append("Osseus Fractus")
-        if t > 190:
-            predicted.append("Clypeus Lacrimam")
-        if _is_hmc and t > 165:
-            predicted.append("Stratum Tectonicas")
-        if _is_hmc and 165 < t <= 190:
-            predicted.append("Stratum Limaxus")
-        if _is_rocky and 165 < t <= 190:
-            predicted.append("Stratum Excutitus")
-        if not _is_hmc and t > 190:
-            predicted.append("Stratum Cucumisis")
-        if _is_hmc:
-            predicted.append("Tussock Ignis")
-        elif _is_rocky:
-            predicted.append("Tussock Propagito")
-        if g < 0.15 and has_vol:
-            predicted.append("Tubus Compagibus")
+    # ── Cactoida (thin CO2/CO2-rich/ammonia/water, HMC/rocky, g ≤ 0.28) ────
+    if _hmc_rocky and g <= 0.28:
+        if ("carbon" in atm and "rich" not in atm) or ("rich" in atm and 180 <= t <= 195):
+            add("Cactoida Cortexum")
+            add("Cactoida Pullulanta")
+        if "ammonia" in atm:
+            add("Cactoida Lapis")
+            add("Cactoida Peperatis")
+        if "water" in atm:
+            add("Cactoida Vermis")
 
-    # ── Water / Water-rich ───────────────────────────────────────────────────
-    if "water" in atm and "sulphur" not in atm and "sulfur" not in atm:
-        predicted.append("Bacterium Cerbrus")
-        predicted.append("Cactoida Vermis")
+    # ── Clypeus (thin water or CO2, HMC/rocky, t > 190, g ≤ 0.27) ──────────
+    if _hmc_rocky and g <= 0.27 and t > 190 and ("water" in atm or "carbon" in atm):
+        add("Clypeus Lacrimam")
+        add("Clypeus Margaritus")
         if dist_ls > 2500:
-            predicted.append("Clypeus Speculumi")
-        if has_vol:
-            predicted.append("Concha Renibus")
-        if _is_rocky or _is_hmc:
-            predicted.append("Frutexa Sponsae")
-            predicted.append("Tussock Serrani")
-        predicted.append("Osseus Discus")
-        if _is_icy:
-            predicted.append("Fonticulua Campestris")
-        if t > 165:
-            if _is_hmc:
-                predicted.append("Stratum Tectonicas")
-            elif _is_rocky:
-                predicted.append("Stratum Excutitus")
+            add("Clypeus Speculum")
 
-    # ── Sulphur dioxide ──────────────────────────────────────────────────────
-    if "sulphur dioxide" in atm or "sulfur dioxide" in atm:
-        predicted.append("Bacterium Cerbrus")
-        predicted.append("Cactoida Lapis")
-        predicted.append("Clypeus Margaritus")
-        if has_vol:
-            predicted.append("Concha Renibus")
+    # ── Concha (thin, HMC/rocky, g ≤ 0.28) ───────────────────────────────────
+    if _hmc_rocky and g <= 0.28:
+        if "ammonia" in atm:
+            add("Concha Aureolas")
+        if "nitrogen" in atm:
+            add("Concha Biconcavis")
+        if "carbon" in atm:
+            if t < 190:
+                add("Concha Labiata")
+            if 180 <= t <= 195:
+                add("Concha Renibus")
+        if "water" in atm:
+            add("Concha Renibus")
+
+    # ── Electricae (thin noble-gas, icy, g ≤ 0.28) ──────────────────────────
+    if _is_icy and g <= 0.28 and any(opt in atm for opt in ("helium", "neon", "argon")):
+        _hot_star = any(pst.startswith(p) for p in ("O", "B", "N", "H", "D"))
+        if _hot_star or pst.startswith("A"):
+            add("Electricae Pluma")
+        # Electricae Radialem skipped — requires nebula context unavailable at FSS
+
+    # ── Fonticulua (thin, icy, g ≤ 0.28) ─────────────────────────────────────
+    if _is_icy and g <= 0.28:
+        if "neon" in atm:
+            add("Fonticulua Segmentatus")
+        if "methane" in atm:
+            add("Fonticulua Digitos")
+        if "argon" in atm:
+            if "rich" in atm:
+                add("Fonticulua Upsilon")
+            else:
+                add("Fonticulua Campestris")
+        if "nitrogen" in atm:
+            add("Fonticulua Lapida")
+        if "oxygen" in atm:
+            add("Fonticulua Fluctus")
+
+    # ── Frutexa (thin) ────────────────────────────────────────────────────────
+    if "ammonia" in atm:
+        if _is_rocky:
+            add("Frutexa Flabellum")
+            add("Frutexa Flammasis")
+        if _is_hmc:
+            add("Frutexa Metallicum")
+    if "carbon" in atm and t < 195:
+        if _is_rocky:
+            add("Frutexa Erigia")
+            add("Frutexa Acus")
+        if _is_hmc:
+            add("Frutexa Metallicum")
+    if "sulphur" in atm or "sulfur" in atm:
+        add("Frutexa Collum")
+    if "water" in atm and _is_rocky:
+        add("Frutexa Sponsae")
+
+    # ── Fumerola (thin, volcanism, g ≤ 0.28) ─────────────────────────────────
+    if has_vol and g <= 0.28:
+        if _is_icy and "water" in vol:
+            add("Fumerola Aquatis")
+        if _is_icy and any(opt in vol for opt in ("methane", "carbon")):
+            add("Fumerola Carbosis")
+        if _hmc_rocky and any(opt in vol for opt in ("metallic", "rocky", "silicate")):
+            add("Fumerola Extremus")
+        if _is_icy and any(opt in vol for opt in ("nitrogen", "ammonia")):
+            add("Fumerola Nitris")
+
+    # ── Fungoida (thin, g ≤ 0.28) ────────────────────────────────────────────
+    if g <= 0.28:
+        if any(opt in atm for opt in ("methane", "ammonia")):
+            add("Fungoida Setulus")
+        if "argon" in atm:
+            add("Fungoida Bullarum")
+        if "water" in atm or ("carbon" in atm and 180 <= t <= 195):
+            add("Fungoida Gelata")
+            add("Fungoida Stabitis")
+
+    # ── Osseus (thin, g ≤ 0.28) ──────────────────────────────────────────────
+    if g <= 0.28:
+        if _is_rocky_ice and any(opt in atm for opt in ("methane", "argon", "nitrogen")):
+            add("Osseus Pumice")
+        if _hmc_rocky:
+            if "carbon" in atm:
+                if 180 <= t <= 195:
+                    add("Osseus Cornibus")
+                    add("Osseus Pellebantus")
+                if 180 <= t <= 190:
+                    add("Osseus Fractus")
+            if "water" in atm:
+                add("Osseus Discus")
+            if "ammonia" in atm:
+                add("Osseus Spiralis")
+
+    # ── Recepta (thin sulphur dioxide, g < 0.28) ─────────────────────────────
+    if ("sulphur" in atm or "sulfur" in atm) and g < 0.28:
         if _is_icy:
-            predicted.append("Fungoida Gelata")
-        predicted.append("Osseus Pelleas")
-        if _is_rocky or _is_hmc:
-            predicted.append("Tussock Serrani")
+            add("Recepta Conditivus")
+        if _hmc_rocky:
+            add("Recepta Deltahedronix")
+        add("Recepta Umbrux")
+
+    # ── Stratum (thin) ────────────────────────────────────────────────────────
+    if _is_hmc and t > 165:
+        add("Stratum Tectonicas")
+    if _is_rocky:
+        if "ammonia" in atm and t > 165:
+            add("Stratum Paleas")
+            add("Stratum Laminamus")
+        if "water" in atm:
+            add("Stratum Paleas")
+        if "carbon" in atm:
             if t > 165:
-                predicted.append("Stratum Araneamus")
-            predicted.append("Frutexa Acus")
-        predicted.append("Recepta Delta")
+                add("Stratum Paleas")
+            if t > 190:
+                add("Stratum Cucumisis")
+                add("Stratum Frigus")
+            if 165 <= t <= 190:
+                add("Stratum Limaxus")
+                add("Stratum Excutitus")
+        if "sulphur" in atm or "sulfur" in atm:
+            if t > 165:
+                add("Stratum Araneamus")
+            if t > 190:
+                add("Stratum Cucumisis")
+                add("Stratum Frigus")
+            if 165 <= t <= 190:
+                add("Stratum Limaxus")
+                add("Stratum Excutitus")
 
-    # ── Volcanism-dependent across all atmospheres (Fumerola) ───────────────
-    if has_vol and g < 0.27:
-        predicted.append("Fumerola Aquatis")
+    # ── Tubus (thin, g ≤ 0.16) ────────────────────────────────────────────────
+    if g <= 0.16:
+        if _is_hmc and any(opt in atm for opt in ("ammonia", "carbon")):
+            add("Tubus Sororibus")
+        if _is_rocky:
+            if "ammonia" in atm:
+                add("Tubus Rosarium")
+            if "carbon" in atm:
+                add("Tubus Cavas")
+                if 160 <= t <= 190:
+                    add("Tubus Compagibus")
+                    add("Tubus Conifer")
 
-    # Deduplicate preserving order
-    seen: set[str] = set()
-    result: list[str] = []
-    for sp in predicted:
-        if sp not in seen:
-            seen.add(sp)
-            result.append(sp)
-    return result
+    # ── Tussock (thin, HMC/rocky, g ≤ 0.28) ──────────────────────────────────
+    if _hmc_rocky and g <= 0.28:
+        if "carbon" in atm:
+            if 175 <= t <= 180:
+                add("Tussock Albata")
+            if 180 <= t <= 190:
+                add("Tussock Caputus")
+            if 160 <= t <= 170:
+                add("Tussock Ignis")
+            if 145 <= t <= 155:
+                add("Tussock Pennata")
+            if t < 195:
+                add("Tussock Pennatis")
+                add("Tussock Propagito")
+            if 170 <= t <= 175:
+                add("Tussock Serrati")
+            if 190 <= t <= 195:
+                add("Tussock Triticum")
+            if 155 <= t <= 160:
+                add("Tussock Ventusa")
+        if any(opt in atm for opt in ("methane", "argon")):
+            add("Tussock Capillum")
+        if "ammonia" in atm:
+            add("Tussock Catena")
+            add("Tussock Cultro")
+            add("Tussock Divisa")
+        if "sulphur" in atm or "sulfur" in atm:
+            add("Tussock Stigmasis")
+        if "water" in atm:
+            add("Tussock Virgam")
+
+    return predicted
 
 
 def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,

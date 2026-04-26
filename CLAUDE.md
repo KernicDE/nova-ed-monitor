@@ -160,7 +160,7 @@ Detection priority: Cyrillic → ñ/¿/¡ → ã/õ → German umlauts → word 
 
 ## Body Value (state.py)
 - `estimate_value_base(b)`: exact Frontier formula `max(k*(1+Q*M^0.2), 500) + terraform_bonus` when `mass_em > 0`; else `_BODY_EST_VALUES` table. EDSM values **never used**.
-- `estimate_value_mapped(b)`: full DSS payout. FSS projected: first-disc+mapped → ×3.3333×1.25×3.692; first-mapped-only → ×3.6996×1.25; no-bonus → ×3.3333×1.25. First-footfall adds 30%.
+- `estimate_value_mapped(b)`: full DSS payout. FSS projected: first-disc+mapped → ×8.0956×1.25; first-mapped-only → ×3.6996×1.25; no-bonus → ×3.3333×1.25. First-footfall adds 30%.
 - `{value}/{value_raw}` use formula for FSS'd bodies (same base as `{value_mapped}`); EDSM for non-FSS'd.
 - Color tiers: GOLD = first disc+map, AMBER = first map, white = no bonus.
 
@@ -183,6 +183,8 @@ Order: system diagram → notable bodies → NEAREST INHABITED SYSTEM (when pop=
 Pre-scan (DSS'd body with `bio_genuses`): shows genus names, variant, value ranges, total estimated value. Auto-switches to bio mode on approach/landing.
 
 Bio prediction: `predict_bio_species(planet_class, atmosphere, temp, gravity, volcanism, star_type, dist_ls)` → species names. `bio_variant(star_type)` → variant color.
+
+**Prediction approach (v2.4.0+):** Eliminative — first gate is `"thin" not in atmosphere → []`. Genus-specific g/temperature/volcanism conditions then filter species. Based on EDXD biosign_estimator.py. Species names authoritative from `_BIO_SPECIES_VALUES` (differ from EDXD in several cases: Erigia not Fera, Setulus not Setisis, Speculum not Speculumi, Upsilon not Upupam). Electricae Radialem not predicted (nebula context unavailable). Amphora/Brain Tree/Bark Mound/Crystalline/Sinuous Tubers not predicted (no-atmosphere bodies).
 
 ## RoutePanel Context
 1. Docked → station services  2. ApproachBody set → body info  3. Otherwise → nav route + next-waypoint stations (EDSM dump, up to 3, icons: M/S/O/R)

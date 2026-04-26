@@ -547,7 +547,6 @@ _MIN_VALUE                 = 500
 _BASIC_VALUE               = 300
 _BASIC_BONUS_TERRAFORMABLE = 93328
 _EFFICIENCY_MULTIPLIER     = 1.25
-_FIRST_DISC_MAPPED_BONUS   = 3.692  # additional multiplier when first-discovered AND first-mapped
 _ODYSSEY_MAPPING_BONUS     = 0.3   # 30 % extra on mapped value for first footfall
 
 _SPECIFIC_VALUES: dict[str, int] = {
@@ -632,10 +631,8 @@ def estimate_value_mapped(b: "BodyInfo") -> int:
         if b.first_footfall:
             v = int(v * (1.0 + _ODYSSEY_MAPPING_BONUS))
     elif b.fss_scanned:
-        # ODExplorer-compatible stacking: map × efficiency × first-disc bonus (order matters).
-        # For first_disc+first_mapped: base × 3.3333 × 1.25 × 3.692 (NOT 8.0956 × 1.25).
         if b.first_discovered and b.first_mapped:
-            v = int(v * 3.3333333333 * _EFFICIENCY_MULTIPLIER * _FIRST_DISC_MAPPED_BONUS)
+            v = int(v * 8.0956 * _EFFICIENCY_MULTIPLIER)
         elif b.first_mapped:
             v = int(v * 3.699622554 * _EFFICIENCY_MULTIPLIER)
         else:
