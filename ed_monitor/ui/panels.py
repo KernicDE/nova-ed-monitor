@@ -2128,8 +2128,10 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
 
 def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
     """Return flattened [(era, section, (name, rank, rp, prog))] sorted by name."""
-    horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
-    odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": []}
+    horizons: dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": [], "UNKNOWN": []}
+    odyssey:  dict[str, list] = {"UNLOCKED": [], "IN PROGRESS": [], "LOCKED": [], "UNKNOWN": []}
+
+    seen_names: set[str] = set()
 
     # engineers dict is keyed by engineer_id (int) or name (str) as fallback
     for _, info in sorted(s.engineers.items(),
@@ -2139,6 +2141,8 @@ def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
         else:
             rank, prog = info; rp = 0.0; name = ""
 
+        if name:
+            seen_names.add(name)
         bucket = odyssey if name in _ODY_ENGINEERS else horizons
         if prog == "Unlocked":
             bucket["UNLOCKED"].append((name, rank, rp, prog))
@@ -2146,6 +2150,12 @@ def _build_eng_list(s: AppState) -> list[tuple[str, str, tuple]]:
             bucket["IN PROGRESS"].append((name, rank, rp, prog))
         else:
             bucket["LOCKED"].append((name, rank, rp, prog))
+
+    # Engineers in static data that the game has never reported — shown at bottom
+    for name in sorted(_ENGINEER_STATIC):
+        if name not in seen_names:
+            bucket = odyssey if name in _ODY_ENGINEERS else horizons
+            bucket["UNKNOWN"].append((name, 0, 0.0, "Unknown"))
 
     result: list[tuple[str, str, tuple]] = []
     for era_label, era_dict in (("HORIZONS", horizons), ("ODYSSEY", odyssey)):
@@ -2170,6 +2180,8 @@ def _eng_rank_pips(rank: int, rp: float, prog: str, is_ody: bool) -> tuple[str, 
             pips   = "▓" * filled + "░" * (5 - filled)
             return pips, P.AMBER, f"{rp:.0f}%", P.AMBER
         return "·····", P.LABEL, prog[:3], P.AMBER
+    if prog == "Unknown":
+        return "·····", "dim", "?", "dim"
     return "·····", P.LABEL, "", ""
 
 
@@ -2248,11 +2260,6 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
 
 
 def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: bool = False) -> RenderableType:
-    if not s.engineers:
-        t = Text()
-        t.append("No engineer data.", style=P.LABEL)
-        return t
-
     all_engs = _build_eng_list(s)
 
     if not all_engs:
