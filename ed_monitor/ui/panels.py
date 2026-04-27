@@ -130,7 +130,7 @@ def _pip_bar(value: float, col: str) -> Text:
     t.append("●" * full,  style=f"bold {col}")
     if half:
         t.append("◑", style=f"bold {col}")
-    t.append("○" * empty, style="rgb(60,60,60)")
+    t.append("○" * empty, style=P.DIM)
     return t
 
 
@@ -287,6 +287,14 @@ class _Panel(Widget):
         self._snap = snap
         self.refresh()
 
+    def jump_top(self) -> None:
+        """Jump to the top of the panel content. No-op by default."""
+        pass
+
+    def jump_bottom(self) -> None:
+        """Jump to the bottom of the panel content. No-op by default."""
+        pass
+
 
 # ── System panel ──────────────────────────────────────────────────────────────
 
@@ -295,8 +303,8 @@ class SystemPanel(_Panel):
 
     DEFAULT_CSS = """
     SystemPanel {
-        border: solid rgb(0,175,185);
-        border-title-color: rgb(0,175,185);
+        border: solid rgb(0,175,185);         /* P.HUD_CYAN */
+        border-title-color: rgb(0,175,185);   /* P.HUD_CYAN */
         border-title-style: bold;
         height: auto;
         min-height: 11;
@@ -520,8 +528,8 @@ class ShipPanel(_Panel):
 
     DEFAULT_CSS = """
     ShipPanel {
-        border: solid rgb(210,115,0);
-        border-title-color: rgb(210,115,0);
+        border: solid rgb(210,115,0);         /* P.AMBER */
+        border-title-color: rgb(210,115,0);   /* P.AMBER */
         border-title-style: bold;
         height: auto;
         min-height: 11;
@@ -808,7 +816,7 @@ class ShipPanel(_Panel):
 
 
 def _append_buttons(t: Text, items: list[tuple[str, bool, str]]) -> None:
-    INACTIVE = "rgb(160,160,160)"
+    INACTIVE = P.LABEL_LIGHT
     for i, (label, active, col) in enumerate(items):
         if i:
             t.append(" ")
@@ -864,8 +872,8 @@ class RoutePanel(_Panel):
 
     DEFAULT_CSS = """
     RoutePanel {
-        border: solid rgb(210,115,0);
-        border-title-color: rgb(210,115,0);
+        border: solid rgb(210,115,0);         /* P.AMBER */
+        border-title-color: rgb(210,115,0);   /* P.AMBER */
         border-title-style: bold;
         height: auto;
         min-height: 11;
@@ -960,7 +968,7 @@ class RoutePanel(_Panel):
                 t.append("Services\n", style=P.LABEL)
                 for i in range(0, len(services), 2):
                     pair = services[i:i+2]
-                    t.append("  " + "  ·  ".join(pair) + "\n", style="rgb(160,160,160)")
+                    t.append("  " + "  ·  ".join(pair) + "\n", style=P.LABEL_LIGHT)
 
         return t
 
@@ -1087,7 +1095,7 @@ class RoutePanel(_Panel):
             bio_str = f"{body.bio_signals} signals"
             if complete_count > 0:
                 bio_str += f"  ({complete_count} done)"
-            bio_col = P.GOLD if complete_count >= body.bio_signals else "bold rgb(0,220,80)"
+            bio_col = P.GOLD if complete_count >= body.bio_signals else f"bold {P.BIO_DSS}"
             row("Bio", bio_str, bio_col)
             if body.bio_genuses:
                 for g in body.bio_genuses[:4]:
@@ -1149,7 +1157,7 @@ class RoutePanel(_Panel):
                 bio_str = f"{body.bio_signals} signals"
                 if complete_count > 0:
                     bio_str += f"  ({complete_count} done)"
-                bio_col = P.GOLD if complete_count >= body.bio_signals else "bold rgb(0,220,80)"
+                bio_col = P.GOLD if complete_count >= body.bio_signals else f"bold {P.BIO_DSS}"
                 row("Bio", bio_str, bio_col)
                 if body.bio_genuses:
                     for g in body.bio_genuses[:4]:
@@ -1207,8 +1215,8 @@ class BodiesPanel(_Panel):
 
     DEFAULT_CSS = """
     BodiesPanel {
-        border: solid rgb(0,175,185);
-        border-title-color: rgb(0,175,185);
+        border: solid rgb(0,175,185);         /* P.HUD_CYAN */
+        border-title-color: rgb(0,175,185);   /* P.HUD_CYAN */
         border-title-style: bold;
     }
     """
@@ -1230,6 +1238,15 @@ class BodiesPanel(_Panel):
         self._scroll = max(0, self._scroll + delta)
         self.refresh()
 
+    def jump_top(self) -> None:
+        self._scroll = 0
+        self.refresh()
+
+    def jump_bottom(self) -> None:
+        # Render clamps to valid range automatically
+        self._scroll = 9999
+        self.refresh()
+
     def render(self) -> RenderableType:
         s = self._snap
         if s is None or not s.bodies:
@@ -1240,9 +1257,9 @@ class BodiesPanel(_Panel):
         tbl = Table(
             show_header=True, show_edge=False, show_lines=False,
             padding=(0, 1), box=None,
-            row_styles=["", "on rgb(38,38,38)"],
+            row_styles=["", f"on {P.ROW_ALT}"],
         )
-        HDR = "bold rgb(195,160,55)"
+        HDR = "bold " + P.HEADER
         tbl.add_column("Body", style="white", width=11, header_style=HDR, no_wrap=True)
         tbl.add_column("Type", width=8,  header_style=HDR)
         tbl.add_column("Est Val", width=11, header_style=HDR, justify="right")
@@ -1363,9 +1380,9 @@ class BodiesPanel(_Panel):
             # High-G coloring: orange ≥1.5G, red-orange ≥3.0G (landable planets only)
             g_val = b.surface_gravity / 9.80665 if b.surface_gravity > 0 and b.landable else 0.0
             if g_val >= 3.0:
-                name_style = "bold rgb(220,60,0)"
+                name_style = f"bold {P.HIGH_G_CRIT}"
             elif g_val >= 1.5:
-                name_style = "bold rgb(220,140,0)"
+                name_style = f"bold {P.HIGH_G_WARN}"
             else:
                 name_style = "white"
             name  = Text(indent + display_name, style=name_style)
@@ -1396,7 +1413,7 @@ class BodiesPanel(_Panel):
                 bio_col = f"bold {P.GOLD}"
             elif needs_dss:
                 bio     = str(b.bio_signals)
-                bio_col = "bold rgb(0,220,80)"
+                bio_col = f"bold {P.BIO_DSS}"
             elif b.bio_signals > 0:
                 bio     = str(b.bio_signals)
                 bio_col = P.HUD_GREEN
@@ -1432,7 +1449,7 @@ class BodiesPanel(_Panel):
 def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
     from ..events import _BIO_GENUS_VALUE_RANGE, _BIO_SPECIES_VALUES, bio_variant
 
-    HDR = "bold rgb(195,160,55)"
+    HDR = "bold " + P.HEADER
 
     # Group by body
     from collections import defaultdict as _dd
@@ -1710,7 +1727,7 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
 
 def _section_header(title: str) -> Text:
     t = Text()
-    t.append(f" {title} ", style="bold rgb(180,140,50) on rgb(45,35,10)")
+    t.append(f" {title} ", style=f"bold {P.HEADER} on {P.HEADER_BG}")
     t.append("\n")
     return t
 
@@ -1874,7 +1891,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
         show_header=True, show_edge=False, show_lines=False,
         padding=(0, 1), box=None,
     )
-    HDR = "bold rgb(195,160,55)"
+    HDR = "bold " + P.HEADER
     tbl.add_column("Mission",     header_style=HDR)
     tbl.add_column("Destination", width=20, header_style=HDR)
     tbl.add_column("Time left",   width=9,  header_style=HDR, justify="right")
@@ -2217,7 +2234,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Unlock
     if unlock:
         inner.append("\n")
-        inner.append("UNLOCK", style="bold rgb(195,160,55)")
+        inner.append("UNLOCK", style="bold " + P.HEADER)
         if prog == "Unlocked":
             inner.append("  ✓", style=P.HUD_GREEN)
         inner.append("\n")
@@ -2226,7 +2243,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Modules
     if modules:
         inner.append("\n")
-        inner.append("MODULES\n", style="bold rgb(195,160,55)")
+        inner.append("MODULES\n", style="bold " + P.HEADER)
         for mod in modules:
             # Split "Module Name (G5)" into name + grade for alignment
             if " (" in mod and mod.endswith(")"):
@@ -2240,7 +2257,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Leveling hint
     if hint:
         inner.append("\n")
-        inner.append("HINT\n", style="bold rgb(195,160,55)")
+        inner.append("HINT\n", style="bold " + P.HEADER)
         inner.append(f"{hint}\n", style="white")
 
     parts: list[RenderableType] = []
@@ -2269,7 +2286,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     tbl = Table(
         show_header=False, show_edge=False, show_lines=False,
         padding=(0, 0), box=None,
-        row_styles=["", "on rgb(38,38,38)"],
+        row_styles=["", f"on {P.ROW_ALT}"],
     )
     tbl.add_column("#", width=3)
     tbl.add_column(">", width=2)
@@ -2328,7 +2345,7 @@ def _render_wealth(s: AppState) -> RenderableType:
 
     # ── Balance ──────────────────────────────────────────────────────────────
     bal_text = Text()
-    bal_text.append("BALANCE\n", style="bold rgb(195,160,55)")
+    bal_text.append("BALANCE\n", style="bold " + P.HEADER)
     if s.credits > 0:
         bal_text.append(f"  {_de(s.credits)} Cr\n", style="bold white")
     else:
@@ -2338,7 +2355,7 @@ def _render_wealth(s: AppState) -> RenderableType:
     # ── Fleet ────────────────────────────────────────────────────────────────
     # Current ship always first
     cur_ship = Text()
-    cur_ship.append("\nFLEET\n", style="bold rgb(195,160,55)")
+    cur_ship.append("\nFLEET\n", style="bold " + P.HEADER)
     if s.ship_type or s.ship_name:
         label = s.ship_name or s.ship_type
         cur_ship.append(f"  {label}", style="bold white")
@@ -2383,7 +2400,7 @@ def _render_wealth(s: AppState) -> RenderableType:
     # ── Suit / backpack ──────────────────────────────────────────────────────
     if s.suit_loadout:
         suit_text = Text()
-        suit_text.append("\nSUIT LOADOUT\n", style="bold rgb(195,160,55)")
+        suit_text.append("\nSUIT LOADOUT\n", style="bold " + P.HEADER)
         suit_name = s.suit_loadout.get("suit") or "Unknown Suit"
         suit_text.append(f"  {suit_name}\n", style="white")
         weapons = s.suit_loadout.get("weapons") or []
@@ -2412,7 +2429,7 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     route  = s.neutron_route
 
     hdr = Text()
-    hdr.append("NEUTRON ROUTE PLOTTER  ", style="bold rgb(195,160,55)")
+    hdr.append("NEUTRON ROUTE PLOTTER  ", style="bold " + P.HEADER)
     hdr.append("via Spansh API\n", style=P.LABEL)
     if s.jump_range > 0:
         hdr.append(f"  Unladen max: ", style=P.LABEL)
@@ -2459,7 +2476,7 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         visible = display_route[scroll:scroll + PAGE]
 
         tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1))
-        HDR = "bold rgb(195,160,55)"
+        HDR = "bold " + P.HEADER
         tbl.add_column("#",    width=4,  header_style=HDR, justify="right")
         tbl.add_column("System", header_style=HDR)
         tbl.add_column("Boost", width=9, header_style=HDR, justify="right")
@@ -2543,16 +2560,16 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
         if standalone:
             t = Text()
             t.append("No bodies scanned yet.\n", style=P.LABEL)
-            t.append("Use FSS to scan the system.", style="dim rgb(100,100,100)")
+            t.append("Use FSS to scan the system.", style=f"dim {P.LABEL_DIM}")
             return t
         return None
 
     diag = Text()
     if standalone:
         diag.append(f"{_sys}\n", style="bold white")
-        diag.append("\nSYSTEM DIAGRAM\n", style="bold rgb(195,160,55)")
+        diag.append("\nSYSTEM DIAGRAM\n", style="bold " + P.HEADER)
     else:
-        diag.append("\nSYSTEM\n", style="bold rgb(195,160,55)")
+        diag.append("\nSYSTEM\n", style="bold " + P.HEADER)
 
     # Map star short-name key → BodyInfo (reuse _sn cache)
     star_index: dict[str, BodyInfo] = {
@@ -2610,9 +2627,9 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
         if body.landable and body.surface_gravity > 0:
             g = body.surface_gravity / 9.80665
             if g >= 3.0:
-                return "bold rgb(220,60,0)"
+                return f"bold {P.HIGH_G_CRIT}"
             if g >= 1.5:
-                return "bold rgb(220,140,0)"
+                return f"bold {P.HIGH_G_WARN}"
         return f"bold {_body_color(body.planet_class, body.star_type)}"
 
     first_star = True
@@ -2685,7 +2702,7 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
                             name_body[rel_pos + i] = b
             row2 = Text("  ")
             for ch, b in zip(name_arr, name_body):
-                style = (f"bold {P.HUD_GREEN}") if (b and b.mapped) else "rgb(160,160,160)"
+                style = (f"bold {P.HUD_GREEN}") if (b and b.mapped) else P.LABEL_LIGHT
                 row2.append(ch, style=style)
             row2.append("\n")
 
@@ -2729,9 +2746,9 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     if standalone:
         # Legend
         legend = Text()
-        legend.append("\n  * star   O planet   o moon\n", style="dim rgb(100,100,100)")
-        legend.append("  + notable body   ✓/N bio signals\n", style="dim rgb(100,100,100)")
-        legend.append("  green = DSS mapped   orange/red = high-G\n", style="dim rgb(100,100,100)")
+        legend.append("\n  * star   O planet   o moon\n", style=f"dim {P.LABEL_DIM}")
+        legend.append("  + notable body   ✓/N bio signals\n", style=f"dim {P.LABEL_DIM}")
+        legend.append("  green = DSS mapped   orange/red = high-G\n", style=f"dim {P.LABEL_DIM}")
         diag.append_text(legend)
 
     return diag
@@ -2756,7 +2773,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
     show_neutron = remaining >= 3
     show_carrier = remaining >= 4
 
-    HDR = "bold rgb(195,160,55)"
+    HDR = "bold " + P.HEADER
 
     # ── Session strip (always) ─────────────────────────────────────────────────
     session_txt = Text()
@@ -2949,18 +2966,18 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
             if b.landable and b.surface_gravity > 0:
                 g_val = b.surface_gravity / 9.80665
                 g_s = f"{g_val:.1f}G"
-                g_col = ("bold rgb(220,60,0)" if g_val >= 3.0
-                         else "bold rgb(220,140,0)" if g_val >= 1.5
-                         else "rgb(160,160,160)")
+                g_col = (f"bold {P.HIGH_G_CRIT}" if g_val >= 3.0
+                         else f"bold {P.HIGH_G_WARN}" if g_val >= 1.5
+                         else P.LABEL_LIGHT)
             else:
                 g_s = "—"
                 g_col = P.DIM
 
             dim_done = all_done
-            name_style = "rgb(110,110,110)" if dim_done else "white"
+            name_style = P.LABEL_DIM if dim_done else P.WHITE
             type_prefix = "! " if is_unusual else ""
-            type_style = "rgb(110,110,110)" if dim_done else (
-                f"bold rgb(220,140,0)" if is_unusual else f"bold {body_col}"
+            type_style = P.LABEL_DIM if dim_done else (
+                f"bold {P.HIGH_G_WARN}" if is_unusual else f"bold {body_col}"
             )
 
             why_parts = []
@@ -3093,7 +3110,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
         if c_dist_str:
             car_txt.append(f"  {c_dist_str}", style=P.LABEL)
         if svc_icons:
-            car_txt.append(f"  [{svc_icons}]", style="rgb(160,160,160)")
+            car_txt.append(f"  [{svc_icons}]", style=P.LABEL_LIGHT)
         parts.append(car_txt)
 
     # ── Neutron route (conditional) ────────────────────────────────────────────
@@ -3585,7 +3602,7 @@ class SituationalPanel(_Panel):
     def _make_title(self) -> str:
         # *** indicator: bright = auto ON, dim = auto OFF
         if self._auto:
-            auto_tag = "[bold rgb(255,220,80)]***[/]"
+            auto_tag = "[bold {P.GOLD}]***[/]"
         else:
             auto_tag = "[dim]***[/]"
 
@@ -3595,7 +3612,7 @@ class SituationalPanel(_Panel):
         for m in self._active_modes():
             abbr = self._MODE_ABBREVS[m]
             if m == self._mode:
-                col = "rgb(255,220,80)" if self._auto else "white"
+                col = P.GOLD if self._auto else "white"
                 parts.append(f"[bold {col}]{abbr}[/]")
             else:
                 parts.append(f"[dim]{abbr}[/]")
@@ -3901,7 +3918,7 @@ def _render_stats(s: AppState) -> RenderableType:
         if n >= 1_000:         return f"{n/1_000:.1f}k"
         return str(n)
 
-    HDR  = "bold rgb(195,160,55)"
+    HDR  = "bold " + P.HEADER
     MAIN = "white"
     SUB  = P.LABEL
 
@@ -4139,13 +4156,13 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
     if not s.colonisation_sites:
         t = Text()
         t.append("No colonisation sites tracked.\n", style=P.LABEL)
-        t.append("Approach a construction depot to populate this view.", style="dim rgb(100,100,100)")
+        t.append("Approach a construction depot to populate this view.", style=f"dim {P.LABEL_DIM}")
         return t
 
     import math as _math
     parts: list[RenderableType] = []
     head = Text()
-    head.append("COLONISATION SITES\n", style="bold rgb(255,200,0)")
+    head.append("COLONISATION SITES\n", style=f"bold {P.GOLD}")
     parts.append(head)
 
     # Sort sites: current system first, then by name
@@ -4163,7 +4180,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
         site_head = Text()
         site_head.append(f"  {sys_name}", style="bold white" if in_cur else "white")
         if mkt_id:
-            site_head.append(f"  #{mkt_id}\n", style="dim rgb(100,100,100)")
+            site_head.append(f"  #{mkt_id}\n", style=f"dim {P.LABEL_DIM}")
         else:
             site_head.append("\n", style="")
         parts.append(site_head)
@@ -4192,7 +4209,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
                     parts.append(row_t)
         else:
             t = Text()
-            t.append("    Approach depot for commodity details\n", style="dim rgb(100,100,100)")
+            t.append("    Approach depot for commodity details\n", style=f"dim {P.LABEL_DIM}")
             parts.append(t)
 
     return Group(*parts)
@@ -4206,7 +4223,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     if not route:
         t = Text()
         t.append("No nav route active.\n", style=P.LABEL)
-        t.append("Set a route in-game to populate this view.", style="dim rgb(100,100,100)")
+        t.append("Set a route in-game to populate this view.", style=f"dim {P.LABEL_DIM}")
         return t
 
     edsm   = getattr(s, "route_list_edsm",   {})
@@ -4377,7 +4394,7 @@ def _render_log_lines(
         lines_text, msg_style, first_extra = format_message(ev)
         for i, line in enumerate(lines_text):
             if i == 0:
-                t.append(f"{time_str} ", style="rgb(100,100,100)")
+                t.append(f"{time_str} ", style=P.LABEL_DIM)
                 for txt, sty in prefix_parts:
                     t.append(txt, style=sty)
                 for txt, sty in first_extra:
@@ -4419,6 +4436,12 @@ class EventLogPanel(_Panel):
         max_s = max(0, len(events) - 1)
         self._scroll = max(0, min(self._scroll + delta, max_s))
         self.refresh()
+
+    def jump_top(self) -> None:
+        self.scroll_log(-9999)
+
+    def jump_bottom(self) -> None:
+        self.scroll_log(9999)
 
     _CAT_ABBR = {
         EventCategory.Nav:     "NAV",
@@ -4500,15 +4523,21 @@ class ChatLogPanel(_Panel):
         self._scroll = max(0, min(self._scroll + delta, max_s))
         self.refresh()
 
+    def jump_top(self) -> None:
+        self.scroll_chat(-9999)
+
+    def jump_bottom(self) -> None:
+        self.scroll_chat(9999)
+
     # Source tag → (3-char abbrev, color)
     _SRC_TAGS: dict[str, tuple[str, str]] = {
         "[Twitch]":  ("TWI", "rgb(145,70,255)"),   # Twitch purple
         "[YouTube]": ("YTL", "rgb(255,70,70)"),    # YouTube red
-        "[Wing]":    ("WNG", "rgb(0,175,185)"),    # Cyan
-        "[Local]":   ("LCL", "rgb(160,160,160)"),  # Grey
+        "[Wing]":    ("WNG", P.HUD_CYAN),    # Cyan
+        "[Local]":   ("LCL", P.LABEL_LIGHT),  # Grey
         "[Sqn]":     ("SQN", "rgb(0,200,100)"),    # Green
-        "[System]":  ("SYS", "rgb(195,150,0)"),    # Amber
-        "[Friend]":  ("FRD", "rgb(60,130,210)"),   # Blue
+        "[System]":  ("SYS", P.HUD_WARN),    # Amber
+        "[Friend]":  ("FRD", P.BLUE_SH),   # Blue
     }
 
     def render(self) -> RenderableType:
@@ -4542,7 +4571,7 @@ class ChatLogPanel(_Panel):
 
         def _strip_tag(ev):
             msg = ev.message
-            src_abbr, src_col = "MSG", "rgb(160,160,160)"
+            src_abbr, src_col = "MSG", P.LABEL_LIGHT
             for tag, (abbr, col) in self._SRC_TAGS.items():
                 if msg.startswith(tag + " "):
                     src_abbr, src_col = abbr, col
@@ -4606,7 +4635,7 @@ class FooterBar(_Panel):
                 stall_msg = f"⚠ {'+'.join(stalled)} thread stalled"
 
         if stall_msg:
-            left.append(f" {stall_msg} ", style="bold rgb(220,60,0)")
+            left.append(f" {stall_msg} ", style=f"bold {P.HIGH_G_CRIT}")
         else:
             left.append(" q",      style=key); left.append(" Quit ", style=lbl)
             left.append(" Tab",    style=key); left.append(" Mode ", style=lbl)
@@ -4622,12 +4651,12 @@ class FooterBar(_Panel):
         if stall_msg:
             pass  # stall takes over left side; still show volume on the right
         elif muted:
-            left.append(" MUTED ", style="bold rgb(220,60,0)")
+            left.append(" MUTED ", style=f"bold {P.HIGH_G_CRIT}")
         else:
             left.append(" +/-",    style=key); left.append(f" Vol {vol}%", style="bold white")
 
         # Chat TTS mute indicators (shown after volume, always visible when active)
-        _mute_style = "bold rgb(220,60,0)"
+        _mute_style = f"bold {P.HIGH_G_CRIT}"
         _ok_style   = "rgb(80,80,80)"
         if not stall_msg:
             left.append("  ")
@@ -4656,7 +4685,7 @@ class FooterBar(_Panel):
 
 
 def _append_edsm(t: Text, st) -> None:
-    t.append("EDSM ", style="bold rgb(100,100,100)")
+    t.append("EDSM ", style=f"bold {P.LABEL_DIM}")
     if not st.enabled:
         t.append("—", style=P.DIM)
         return

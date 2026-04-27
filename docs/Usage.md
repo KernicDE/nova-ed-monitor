@@ -44,16 +44,22 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `q` / `Esc` | Quit |
 | `s` | Open Settings overlay |
 | `?` | Help & About screen |
-| `Tab` | Cycle situational panel forward |
-| `Shift+Tab` | Cycle situational panel backward |
+| `Tab` | Cycle focused panel forward (1→6) |
+| `Shift+Tab` | Cycle focused panel backward (6→1) |
 | `a` | Toggle auto panel switching on/off |
 | `↑` / `k` | Scroll situational panel up (MAP mode: previous sub-view) |
 | `↓` / `j` | Scroll situational panel down (MAP mode: next sub-view) |
 | `PgUp` / `PgDn` | Scroll focused panel by 5 (or situational panel when none focused) |
-| `Home` / `g` | Jump to latest events (event log) |
-| `w` / `s` | Scroll bodies panel up / down |
-| `r` | Cycle Maps sub-screen (system diagram → regional → galaxy) |
+| `Home` / `End` | Jump to top / bottom of focused panel |
+| `s` | Open settings overlay |
+| `r` | Cycle Maps sub-screen forward (system → regional → galaxy) |
 | `n` | Open neutron route destination input (Neutron mode only) |
+| `m` | Mute / unmute all TTS |
+| `Enter` | Engineers: open detail / return to list |
+| `g` | Toggle in-game chat TTS |
+| `t` | Toggle Twitch chat TTS |
+| `y` | Toggle YouTube chat TTS |
+| `p` | Toggle all chat TTS at once |
 | `+` / `=` | Volume up (+5%) |
 | `−` | Volume down (−5%) |
 

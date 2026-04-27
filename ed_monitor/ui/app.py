@@ -13,6 +13,7 @@ from textual import events
 
 from ..state import AppState
 from .settings_screen import SettingsScreen
+from . import palette as P
 from .panels import (
     BodiesPanel,
     ChatLogPanel,
@@ -28,7 +29,7 @@ from .panels import (
 class HelpScreen(Screen):
     CSS = """
     HelpScreen {
-        background: rgb(18,18,18);
+        background: rgb(18,18,18);  /* P.BG_DARK */
         align: center middle;
         padding: 2 4;
     }
@@ -49,9 +50,9 @@ class HelpScreen(Screen):
         from rich.panel import Panel
         from rich.console import Group
 
-        GOLD  = "bold rgb(195,160,55)"
-        WHITE = "white"
-        DIM   = "rgb(140,140,140)"
+        GOLD  = f"bold {P.HEADER}"
+        WHITE = P.WHITE
+        DIM   = P.LABEL
 
         # ── Header ────────────────────────────────────────────────────────────
         header = Text()
@@ -66,19 +67,19 @@ class HelpScreen(Screen):
         for key, desc in [
             ("q / Esc",          "Quit"),
             ("?",                "This help screen"),
-            ("Tab",              "Cycle situational panel forward"),
-            ("Shift+Tab",        "Cycle situational panel backward"),
+            ("Tab",              "Cycle focused panel forward (1→6)"),
+            ("Shift+Tab",        "Cycle focused panel backward (6→1)"),
             ("a",                "Toggle auto panel switching on/off"),
             ("↑ / k",            "Scroll situational panel up (MAP mode: previous sub-view)"),
             ("↓ / j",            "Scroll situational panel down (MAP mode: next sub-view)"),
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
-            ("Home",             "Jump to latest events (event/chat panel focused)"),
-            ("w",                "Scroll bodies panel up"),
+            ("Home / End",       "Jump to top / bottom of focused panel"),
             ("s",                "Open settings overlay"),
-            ("r",                "Cycle Maps sub-screen (system → regional → galaxy)"),
+            ("r",                "Cycle Maps sub-screen forward (system → regional → galaxy)"),
             ("n",                "Neutron route destination input (Neutron mode only)"),
             ("m",                "Mute / unmute all TTS"),
-            ("g",                "Toggle chat TTS (in-game, Twitch, YouTube)"),
+            ("Enter",            "Engineers: open detail / return to list"),
+            ("g",                "Toggle in-game chat TTS"),
             ("t",                "Toggle Twitch chat TTS"),
             ("y",                "Toggle YouTube chat TTS"),
             ("p",                "Toggle all chat TTS at once"),
@@ -133,7 +134,7 @@ class HelpScreen(Screen):
             ),
             title="NOVA — Help & About",
             title_align="left",
-            border_style="rgb(195,160,55)",
+            border_style=P.HEADER,
             padding=(1, 2),
         )
         yield Static(content, id="help-static")
@@ -155,12 +156,12 @@ class NeutronInputScreen(Screen):
     #neutron-box {
         width: 60;
         height: auto;
-        background: rgb(28,28,28);
-        border: solid rgb(195,160,55);
+        background: rgb(28,28,28);       /* near P.BG_DARK, slightly lighter */
+        border: solid rgb(195,160,55);   /* P.HEADER */
         padding: 1 2;
     }
     #neutron-label {
-        color: rgb(195,160,55);
+        color: rgb(195,160,55);          /* P.HEADER */
         text-style: bold;
         margin-bottom: 1;
     }
@@ -168,7 +169,7 @@ class NeutronInputScreen(Screen):
         margin-top: 1;
     }
     #neutron-hint {
-        color: rgb(100,100,100);
+        color: rgb(100,100,100);         /* P.LABEL_DIM */
         margin-top: 1;
     }
     """
@@ -203,7 +204,7 @@ class NeutronInputScreen(Screen):
 class NOVAApp(App):
     CSS = """
     Screen {
-        background: rgb(18,18,18);
+        background: rgb(18,18,18);  /* P.BG_DARK */
     }
 
     #top-row {
@@ -276,7 +277,7 @@ class NOVAApp(App):
     Screen.combat-mode SituationalPanel,
     Screen.combat-mode EventLogPanel,
     Screen.combat-mode ChatLogPanel {
-        border: solid rgb(185,40,40) !important;
+        border: solid rgb(185,40,40) !important;           /* P.HUD_CRIT */
         border-title-color: rgb(185,40,40) !important;
     }
 
@@ -288,8 +289,8 @@ class NOVAApp(App):
     Screen.on-foot-mode SituationalPanel,
     Screen.on-foot-mode EventLogPanel,
     Screen.on-foot-mode ChatLogPanel {
-        border: solid rgb(175,85,220) !important;
-        border-title-color: rgb(175,85,220) !important;
+        border: solid rgb(140,100,165) !important;         /* P.PURPLE / on-foot */
+        border-title-color: rgb(140,100,165) !important;
     }
 
     /* Analysis mode overrides */
@@ -300,7 +301,7 @@ class NOVAApp(App):
     Screen.analysis-mode SituationalPanel,
     Screen.analysis-mode EventLogPanel,
     Screen.analysis-mode ChatLogPanel {
-        border: solid rgb(120,190,120) !important;
+        border: solid rgb(120,190,120) !important;         /* P.ANALYSIS_BORDER */
         border-title-color: rgb(120,190,120) !important;
     }
 
@@ -312,12 +313,12 @@ class NOVAApp(App):
     Screen.offline-mode SituationalPanel,
     Screen.offline-mode EventLogPanel,
     Screen.offline-mode ChatLogPanel {
-        border: solid rgb(70,70,70) !important;
-        border-title-color: rgb(90,90,90) !important;
+        border: solid rgb(70,70,70) !important;             /* P.OFFLINE_BORDER */
+        border-title-color: rgb(90,90,90) !important;       /* P.OFFLINE_TITLE */
     }
 
     Screen.alert-flash {
-        background: rgb(80, 0, 0);
+        background: rgb(80, 0, 0);  /* deep combat red */
     }
 
     /* High-G extreme warning flash */
@@ -328,12 +329,12 @@ class NOVAApp(App):
     Screen.high-g-flash SituationalPanel,
     Screen.high-g-flash EventLogPanel,
     Screen.high-g-flash ChatLogPanel {
-        border: solid rgb(220,100,0) !important;
+        border: solid rgb(220,100,0) !important;            /* P.HIGH_G_FLASH */
         border-title-color: rgb(220,100,0) !important;
     }
 
     Screen.high-g-flash {
-        background: rgb(50, 20, 0);
+        background: rgb(50, 20, 0);  /* deep amber warning */
     }
     """
 
@@ -685,10 +686,34 @@ class NOVAApp(App):
                     sit.scroll_general(-5)
 
         elif key == "home":
-            if self._focused_panel == 5:
-                self.query_one(EventLogPanel).scroll_log(-9999)
-            elif self._focused_panel == 6:
-                self.query_one(ChatLogPanel).scroll_chat(-9999)
+            n = self._focused_panel
+            if n == 1:
+                self.query_one(SystemPanel).jump_top()
+            elif n == 2:
+                self.query_one(ShipPanel).jump_top()
+            elif n == 3:
+                self.query_one(RoutePanel).jump_top()
+            elif n == 4:
+                self.query_one(BodiesPanel).jump_top()
+            elif n == 5:
+                self.query_one(EventLogPanel).jump_top()
+            elif n == 6:
+                self.query_one(ChatLogPanel).jump_top()
+
+        elif key == "end":
+            n = self._focused_panel
+            if n == 1:
+                self.query_one(SystemPanel).jump_bottom()
+            elif n == 2:
+                self.query_one(ShipPanel).jump_bottom()
+            elif n == 3:
+                self.query_one(RoutePanel).jump_bottom()
+            elif n == 4:
+                self.query_one(BodiesPanel).jump_bottom()
+            elif n == 5:
+                self.query_one(EventLogPanel).jump_bottom()
+            elif n == 6:
+                self.query_one(ChatLogPanel).jump_bottom()
 
         elif key == "g":
             with self._lock:
@@ -718,9 +743,6 @@ class NOVAApp(App):
             if self._cfg is not None:
                 self.push_screen(SettingsScreen(self._cfg))
             return
-
-        elif key == "w":
-            self.query_one(BodiesPanel).scroll_bodies(-1)
 
         elif key == "a":
             self.query_one(SituationalPanel).toggle_auto_lock()

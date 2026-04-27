@@ -247,7 +247,74 @@ Set `NOVA_PORTABLE_ROOT` env var (launcher scripts do this automatically). All d
 
 ---
 
-## 11. Conventions for AI Agents
+## 11. UI Style Guide
+
+### Design Philosophy
+NOVA is a cockpit-style HUD. The visual language should feel like an extension of the Elite Dangerous in-game interface: dark, functional, and immediately readable at a glance. Bright neon colours are forbidden except for critical warnings.
+
+### Colour Palette
+All colours **must** be defined in `ed_monitor/ui/palette.py` and imported as `from . import palette as P`. No inline `rgb()` values in panel/app logic except for gameplay-specific scientific mappings (star classes, planet types, pip colours).
+
+| Constant | Value | Semantic Use |
+|----------|-------|--------------|
+| `P.AMBER` | `rgb(210,115,0)` | Primary accent — ship status, target, actions |
+| `P.HUD_CYAN` | `rgb(0,175,185)` | Info / exploration / position panels |
+| `P.HUD_GREEN` | `rgb(0,170,60)` | Positive / success / scoopable / bio present |
+| `P.HUD_WARN` | `rgb(195,150,0)` | Warning states |
+| `P.HUD_CRIT` | `rgb(185,40,40)` | Critical / combat / error |
+| `P.GOLD` | `rgb(230,185,0)` | First discovery / mapping / notable value |
+| `P.PURPLE` | `rgb(140,100,165)` | On-foot mode / geo signals |
+| `P.HEADER` | `rgb(195,160,55)` | Table headers, section titles, modal borders |
+| `P.HEADER_BG` | `rgb(45,35,10)` | Background behind section headers |
+| `P.ROW_ALT` | `rgb(38,38,38)` | Alternating table row background |
+| `P.LABEL` | `rgb(145,145,145)` | Secondary text / labels |
+| `P.LABEL_DIM` | `rgb(100,100,100)` | Timestamps / hints / tertiary text |
+| `P.LABEL_LIGHT` | `rgb(160,160,160)` | Muted primary text / inactive buttons |
+| `P.DIM` | `rgb(60,60,60)` | Disabled / faint / no-data |
+| `P.WHITE` | `white` | Primary high-contrast text |
+| `P.BG_DARK` | `rgb(18,18,18)` | App background |
+
+### Border Colour Rules
+Panel borders communicate function. Follow this hierarchy:
+- **Cyan (`P.HUD_CYAN`)** = Information / position / exploration (`SystemPanel`, `BodiesPanel`)
+- **Amber (`P.AMBER`)** = Ship status / target / actionable (`ShipPanel`, `RoutePanel`)
+- **Neutral grey** = Secondary readouts / logs (`EventLogPanel`, `ChatLogPanel`, `SituationalPanel`)
+- **Mode overlays** (applied at `Screen` level): Red = combat, Green = analysis, Purple = on-foot, Dark grey = offline
+
+### Typography Hierarchy
+1. **Headers** — `bold P.HEADER` (gold-brown, section titles and table headers)
+2. **Labels** — `P.LABEL` (grey, field names)
+3. **Values** — `P.WHITE` or semantic colour (data content)
+4. **Dim / Hints** — `P.LABEL_DIM` or `P.DIM` (tertiary info, disabled states)
+
+### Scrolling & Focus Rules
+- **SituationalPanel** (center) scrolls with `↑` / `↓` (arrow keys or `k`/`j`)
+- **All other panels** scroll with `PgUp` / `PgDn` **only when focused** (keys `1`–`6`)
+- **Home / End** jump to top / bottom of the **focused** panel
+- **No global scroll keys** — do not add single-key shortcuts like `w` for specific panels
+- Focus is shown with a `heavy white` border and underlined title (`.focused` CSS class)
+
+### Styling Mechanisms (pick one per layer)
+| Layer | Mechanism | Example |
+|-------|-----------|---------|
+| Widget chrome (borders, height, width) | Textual `DEFAULT_CSS` | `border: solid {P.HUD_CYAN};` |
+| Data tables | Rich `Table` with shared helpers | `Table(..., row_styles=["", f"on {P.ROW_ALT}"])` |
+| Inline highlights | Rich `Text.append(..., style=...)` | `t.append(label, style=P.LABEL)` |
+| Dynamic markup | Rich markup strings | Avoid unless absolutely necessary |
+
+### Adding a New Panel
+1. Inherit from `_Panel` in `ui/panels.py`
+2. Set `DEFAULT_CSS` with a border colour following the semantic rules above
+3. Use `P.*` constants for all colours in `render()`
+4. If the panel scrolls, implement `jump_top()` and `jump_bottom()`
+5. Register in `NOVAApp.compose()` in `ui/app.py`
+6. Add focus handling in `NOVAApp.on_key()` and `_scroll_focused()` if needed
+7. Add to `HelpScreen` keyboard shortcuts table
+8. Document in `docs/Usage.md`
+
+---
+
+## 12. Conventions for AI Agents
 
 ### Before you change anything
 1. Run `pytest` and confirm the baseline is green.
@@ -286,7 +353,7 @@ Set `NOVA_PORTABLE_ROOT` env var (launcher scripts do this automatically). All d
 
 ---
 
-## 12. Useful Files for Quick Reference
+## 13. Useful Files for Quick Reference
 
 | File | What to look up |
 |------|-----------------|

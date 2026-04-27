@@ -94,6 +94,7 @@ from textual.containers import Vertical
 
 from .. import config as _config
 from ..config import Config
+from . import palette as P
 
 _SUPPORTED_LANGS = ["en", "de", "fr", "it", "es", "pt", "ru"]
 # "auto" = empty string in config (language auto-detected from message content)
@@ -148,12 +149,12 @@ class SettingsScreen(Screen):
         width: 74;
         height: 90%;
         background: rgb(28,28,28);
-        border: solid rgb(195,160,55);
+        border: solid rgb(195,160,55);  /* P.HEADER */
         padding: 1 2;
         overflow-y: auto;
     }
     #settings-title {
-        color: rgb(195,160,55);
+        color: rgb(195,160,55);  /* P.HEADER */
         text-style: bold;
         margin-bottom: 1;
     }
@@ -162,17 +163,17 @@ class SettingsScreen(Screen):
         padding: 0 0;
     }
     .setting-row.focused-row {
-        background: rgb(45,45,45);
+        background: rgb(45,45,45);  /* P.HEADER_BG adjacent */
     }
     #save-row {
         height: 1;
         margin-top: 1;
         background: rgb(28,28,28);
-        color: rgb(195,160,55);
+        color: rgb(195,160,55);  /* P.HEADER */
         text-style: bold;
     }
     #save-row.focused-row {
-        background: rgb(195,160,55);
+        background: rgb(195,160,55);  /* P.HEADER */
         color: rgb(10,10,10);
         text-style: bold;
     }
@@ -180,7 +181,7 @@ class SettingsScreen(Screen):
         margin-top: 1;
     }
     #settings-hint {
-        color: rgb(100,100,100);
+        color: rgb(100,100,100);  /* P.LABEL_DIM */
         margin-top: 1;
     }
     """
