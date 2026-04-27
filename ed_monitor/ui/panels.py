@@ -3597,7 +3597,7 @@ class SituationalPanel(_Panel):
     def _make_title(self) -> str:
         # *** indicator: bright = auto ON, dim = auto OFF
         if self._auto:
-            auto_tag = "[bold {P.GOLD}]***[/]"
+            auto_tag = f"[bold {P.GOLD}]***[/]"
         else:
             auto_tag = "[dim]***[/]"
 
