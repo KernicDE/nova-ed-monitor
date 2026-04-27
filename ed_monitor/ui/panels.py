@@ -2240,8 +2240,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
         inner.append("HINT\n", style="bold " + P.HEADER)
         inner.append(f"{hint}\n", style="white")
 
-    parts: list[RenderableType] = []
-    parts.append(Panel(inner, border_style=P.PANEL_BORDER, padding=(0, 1)))
+    parts: list[RenderableType] = [inner]
     nav = Text()
     nav.append("  [Enter] back", style="dim")
     parts.append(nav)
@@ -4340,6 +4339,7 @@ def _render_log_lines(
     events: list,
     prefix_w: int,
     msg_w: int,
+    line_width: int,
     format_prefix,  # Callable[[ev], Iterable[(str, str)]] → (text, style) pairs before message
     format_message,  # Callable[[ev], (lines: list[str], style: str, first_line_prefix: list)]
 ) -> Text:
@@ -4350,31 +4350,32 @@ def _render_log_lines(
                          first_extra is appended on the first line before the message text.
     """
     t = Text()
-    line_idx = 0
+    entry_idx = 0
     for ev in events:
         time_str = ev.time[:5]
         prefix_parts = format_prefix(ev)
         lines_text, msg_style, first_extra = format_message(ev)
+        base = f"on {P.ROW_ALT}" if entry_idx % 2 == 1 else ""
         for i, line in enumerate(lines_text):
-            base = f"on {P.ROW_ALT}" if line_idx % 2 == 1 else ""
+            seg = Text(style=base)
             if i == 0:
-                seg = Text(style=base)
                 seg.append(f"{time_str} ", style=P.LABEL_DIM)
                 for txt, sty in prefix_parts:
                     seg.append(txt, style=sty)
                 for txt, sty in first_extra:
                     seg.append(txt, style=sty)
-                seg.append(line + "\n", style=msg_style)
-                if base:
-                    seg.stylize(base)
-                t.append_text(seg)
+                seg.append(line, style=msg_style)
             else:
-                seg = Text(style=base)
-                seg.append(" " * prefix_w + line + "\n", style=msg_style)
-                if base:
-                    seg.stylize(base)
-                t.append_text(seg)
-            line_idx += 1
+                seg.append(" " * prefix_w + line, style=msg_style)
+            # Pad to full line width so background fills the whole row
+            visual_len = len(seg.plain)
+            if visual_len < line_width:
+                seg.append(" " * (line_width - visual_len), style="")
+            seg.append("\n")
+            if base:
+                seg.stylize(base)
+            t.append_text(seg)
+        entry_idx += 1
     return t
 
 
@@ -4464,7 +4465,7 @@ class EventLogPanel(_Panel):
             lines     = textwrap.wrap(ev.message, width=msg_w) or [""]
             return lines, msg_style, []
 
-        return _render_log_lines(visible, prefix_w, msg_w, _prefix, _message)
+        return _render_log_lines(visible, prefix_w, msg_w, content_w, _prefix, _message)
 
 
 # ── Chat log panel ────────────────────────────────────────────────────────────
@@ -4574,7 +4575,7 @@ class ChatLogPanel(_Panel):
                 lines = ([""] + lines[1:]) if len(lines) > 1 else [""]
             return lines, "white", first_extra
 
-        return _render_log_lines(chats, prefix_w, msg_w, _prefix, _message)
+        return _render_log_lines(chats, prefix_w, msg_w, content_w, _prefix, _message)
 
 
 
