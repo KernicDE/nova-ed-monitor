@@ -252,7 +252,7 @@ No setup required. To override folders, see [Settings → Screenshot Processing]
 
 ## Engineers Panel
 
-The **Engineers** panel shows all ~40 engineers in a single sorted list. Each row is numbered and shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, specialty, and system in separate columns.
+The **Engineers** panel shows all 38 engineers in a single sorted list. Each row is numbered and shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, specialty, and system in separate columns.
 
 **Rank pip colour:**
 - Green filled dots — Unlocked (1–5 for Horizons, `●` for Odyssey)
@@ -271,8 +271,7 @@ Data comes from the `EngineerProgress` journal event (fired automatically at gam
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` or `k` / `j` | Move cursor between engineers |
-| `Space` / `Enter` | Open detail view (unlock condition + full module list) |
-| `Backspace` | Return to list from detail view |
+| `Enter` | Open detail view (unlock condition + full module list) or return to list |
 
 The detail view shows the unlock requirement, leveling hint, and every module/grade this engineer handles.
 

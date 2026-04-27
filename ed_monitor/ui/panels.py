@@ -1899,11 +1899,10 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
 
 
 # Odyssey (on-foot) engineers — they don't use the 1–5 grade system.
-# Note: Kit Fowler, Wellington Beck, and Yarden Bond share names with Horizons engineers;
-# those are kept as Horizons in _ENGINEER_STATIC since journal conflicts would overwrite anyway.
 _ODY_ENGINEERS: frozenset = frozenset({
     "Jude Navarro", "Baltanos", "Eleanor Bresa", "Hero Ferrari", "Rosa Dayette",
     "Yi Shen", "Domino Green", "Uma Laszlo", "Oden Geiger", "Terra Velasquez",
+    "Kit Fowler", "Wellington Beck", "Yarden Bond",
 })
 
 
@@ -1929,10 +1928,6 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
                                     "Thrusters (G2)", "Shield Cell Bank (G1)"),
                                    "Spam G3 FSD Increased Range — Iron, Nickel, Carbon"),
     "Professor Palin":    _EngData("Thrusters",         "Abel Laboratory",          "Arque",
-                                   "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
-                                   ("Thrusters (G5)", "Frame Shift Drive (G3)"),
-                                   "Spam G1 Dirty Drives — Sulphur only"),
-    "Ishmael Palin":      _EngData("Thrusters",         "Abel Laboratory",          "Arque",
                                    "Marco Qwent invite + 5,000 ly from start + 25 Sensor Fragments",
                                    ("Thrusters (G5)", "Frame Shift Drive (G3)"),
                                    "Spam G1 Dirty Drives — Sulphur only"),
@@ -2059,23 +2054,6 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
                                     "Missile Rack (G5)", "Chaff Launcher (G5)", "ECM (G5)",
                                     "Heat Sink Launcher (G5)", "Point Defence (G5)", "AFMU (G5)"),
                                    "Spam G1 Blast Resistant Hull — Nickel only (Colonia)"),
-    "Yarden Bond":        _EngData("Shield Booster",    "Brestla i-Ship Brewery",   "Brestla",
-                                   "500 Lavian Brandy",
-                                   ("Shield Booster (G5)",),
-                                   "Buy Lavian Brandy at Leesti: George Lucas (~500 Cr each)"),
-    "Corra Sang":         _EngData("Shields",           "Piri's Retreat",           "Eurybia",
-                                   "Friendly w/ Eurybia Blue Mafia + 50 Nerve Agents",
-                                   ("Shield Cell Bank (G5)",),
-                                   "Spam G1 Reinforced Shield Cell Bank — Iron only"),
-    "Kit Fowler":         _EngData("Launch Bay",        "Fowler's Hope",            "Capella",
-                                   "25 Occupied Escape Pods",
-                                   ("Fighter Hangar (G5)", "Planetary Vehicle Hangar (G5)"),
-                                   "Spam G1 Shielded Fighter Hangar — Carbon only"),
-    "Wellington Beck":    _EngData("Mining Equipment",  "The Watchtower",           "83 Leonis",
-                                   "50 Osmium",
-                                   ("Mining Laser (G5)", "Mining Lance (G5)", "Abrasion Blaster (G5)",
-                                    "Sub-surface Missile (G5)", "Seismic Charge (G5)", "Pulse Wave Analyser (G5)"),
-                                   "Spam G1 Lightweight Mining Laser — Iron only"),
     # ── Odyssey (on-foot equipment) ───────────────────────────────────────────
     "Jude Navarro":       _EngData("Suit / Weapon",     "Marshall's Drift",         "Aurai",
                                    "Complete 10 Restore or Reactivation missions",
@@ -2130,6 +2108,21 @@ _ENGINEER_STATIC: dict[str, _EngData] = {
                                     "Added melee damage", "Damage resistance",
                                     "Extra ammo capacity", "Faster shield regen"),
                                    "Land at 5 different Colonia settlements — quick flyby counts"),
+    "Kit Fowler":         _EngData("Weapon",            "The Last Call",            "Capoya",
+                                   "Domino Green invite + sell 5 Opinion Polls to bartenders",
+                                   ("Added melee damage", "Extra ammo capacity", "Faster shield regen",
+                                    "Magazine size", "Stowed reloading"),
+                                   "Buy Opinion Polls at stations and sell to bartenders"),
+    "Wellington Beck":    _EngData("Suit",              "Beck Facility",            "Jolapa",
+                                   "Hero Ferrari invite + sell 15 entertainment items to bartenders",
+                                   ("Extra backpack capacity", "Improved battery capacity",
+                                    "Reduced tool battery consumption", "Greater range", "Scope"),
+                                   "Buy entertainment items at stations and sell to bartenders"),
+    "Yarden Bond":        _EngData("Suit",              "Salamander Bank",          "Bayan",
+                                   "Kit Fowler invite + sell 5 Smear Campaign Plans to bartenders",
+                                   ("Faster handling", "Improved hip fire accuracy", "Audio masking",
+                                    "Improved jump assist", "Combat movement speed", "Quieter footsteps"),
+                                   "Buy Smear Campaign Plans at stations and sell to bartenders"),
 }
 
 
@@ -2253,7 +2246,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     parts: list[RenderableType] = []
     parts.append(Panel(inner, border_style="rgb(90,90,90)", padding=(0, 1)))
     nav = Text()
-    nav.append("  [Backspace] back", style="dim")
+    nav.append("  [Enter] back", style="dim")
     parts.append(nav)
     return Group(*parts)
 
@@ -2285,6 +2278,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     tbl.add_column("Pips", width=5)
     tbl.add_column("Grade", width=3)
     tbl.add_column("Specialty", width=23, no_wrap=True)
+    tbl.add_column("", width=1)
     tbl.add_column("System", width=19, no_wrap=True)
 
     for flat_idx, (era_tag, name, rank, rp, prog) in enumerate(all_engs[effective_scroll:], start=effective_scroll):
@@ -2319,11 +2313,12 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
             pip_text,
             grade_text,
             spec_text,
+            Text(""),
             sys_text,
         )
 
     hint = Text()
-    hint.append("  [Space/Enter] details  [↑↓] move", style="dim")
+    hint.append("  [Enter] details  [↑↓] move", style="dim")
 
     return Group(hint, tbl)
 
@@ -3956,6 +3951,7 @@ def _render_stats(s: AppState) -> RenderableType:
 def _render_docking(s: AppState) -> RenderableType:
     """Docking pad circular diagram — top-down view of the station.
 
+    Only the assigned landing pad is shown readable; other pads are hidden.
     Ring layout (Coriolis/Orbis):
       Outer (1–12): large pads, outermost ring
       Mid-1 (13–24): large pads, second ring
@@ -3979,45 +3975,74 @@ def _render_docking(s: AppState) -> RenderableType:
     parts.append(head)
 
     # ── Circular grid diagram ────────────────────────────────────────────────
-    # Characters are ~2× taller than wide, so rx ≈ 2 × ry for a round circle.
     W, H = 38, 13
     cx, cy = W // 2, H // 2
 
-    # grid[row][col] = (char, style)
     BLANK = (" ", "")
     grid: list[list[tuple]] = [[BLANK] * W for _ in range(H)]
 
     def place(gx: int, gy: int, label: str, style: str) -> None:
-        """Place label centred at (gx, gy), clipping to grid bounds."""
         sx = gx - len(label) // 2
         for j, ch in enumerate(label):
             x = sx + j
             if 0 <= gy < H and 0 <= x < W:
                 grid[gy][x] = (ch, style)
 
-    # Ring definitions: (start_pad, count, rx, ry)
-    # Each ring has enough radius clearance so pad labels don't overlap.
-    ring_defs = [
-        ( 1, 12, 16, 5),  # outer large
-        (13, 12, 11, 3),  # mid large
-        (25, 12,  7, 2),  # mid medium
-        (37,  4,  4, 1),  # inner small
+    # Ring geometry: (rx, ry) only — used for faint outline and pad placement
+    ring_geoms = [
+        (16, 5),  # outer
+        (11, 3),  # mid-1
+        (7, 2),   # mid-2
+        (4, 1),   # inner
     ]
 
-    for start, count, rx, ry in ring_defs:
-        for i in range(count):
-            p = start + i
-            # Angle 0 = top (pad 1 at 12 o'clock), clockwise
-            angle = i * 2 * _math.pi / count
+    # Draw faint dotted ring outlines
+    for rx, ry in ring_geoms:
+        steps = max(rx, ry) * 6
+        for i in range(steps):
+            angle = _math.pi + i * 2 * _math.pi / steps
             gx = int(round(cx + rx * _math.sin(angle)))
             gy = int(round(cy - ry * _math.cos(angle)))
-            is_mine = (p == pad)
-            label   = f"[{p}]" if is_mine else f"{p:2}"
-            style   = "bold rgb(0,255,150)" if is_mine else "dim rgb(65,65,65)"
-            place(gx, gy, label, style)
+            if 0 <= gy < H and 0 <= gx < W and grid[gy][gx] == BLANK:
+                grid[gy][gx] = ("·", "rgb(40,40,40)")
 
-    # Centre marker
+    # Place only the assigned pad on its ring
+    if 1 <= pad <= 12:
+        rx, ry = 16, 5
+        count = 12
+        hint_text = "Outer ring (large pad) — stay near the wall"
+    elif 13 <= pad <= 24:
+        rx, ry = 11, 3
+        count = 12
+        hint_text = "Mid ring (large pad) — mid-distance from wall"
+    elif 25 <= pad <= 36:
+        rx, ry = 7, 2
+        count = 12
+        hint_text = "Inner ring (medium pad)"
+    elif 37 <= pad <= 40:
+        rx, ry = 4, 1
+        count = 4
+        hint_text = "Centre pad (small) — fly through the axis"
+    else:
+        rx, ry = 0, 0
+        count = 0
+        hint_text = ""
+
+    if rx:
+        i = (pad - 1) % count
+        angle = _math.pi + i * 2 * _math.pi / count
+        gx = int(round(cx + rx * _math.sin(angle)))
+        gy = int(round(cy - ry * _math.cos(angle)))
+        place(gx, gy, f"[{pad}]", "bold rgb(0,255,150)")
+
+    # Centre marker (station axis)
     place(cx, cy, "·", "rgb(80,80,120)")
+
+    # Mailslot and navigation-light indicators at the bottom (front)
+    # Green on starboard (right), red on port (left) when entering.
+    place(cx - 10, H - 1, "●", "bold rgb(255,60,60)")   # red  — port / left
+    place(cx,      H - 1, "▼", "bold white")             # mailslot
+    place(cx + 10, H - 1, "●", "bold rgb(0,255,100)")   # green — starboard / right
 
     diag = Text()
     for row in grid:
@@ -4026,16 +4051,9 @@ def _render_docking(s: AppState) -> RenderableType:
         diag.append("\n")
     parts.append(diag)
 
-    # Ring hint
     hint = Text()
-    if 1 <= pad <= 12:
-        hint.append("Outer ring (large pad) — stay near the wall\n", style=P.LABEL)
-    elif 13 <= pad <= 24:
-        hint.append("Mid ring (large pad) — mid-distance from wall\n", style=P.LABEL)
-    elif 25 <= pad <= 36:
-        hint.append("Inner ring (medium pad)\n", style=P.LABEL)
-    else:
-        hint.append("Centre pad (small) — fly through the axis\n", style=P.LABEL)
+    if hint_text:
+        hint.append(f"{hint_text}\n", style=P.LABEL)
     parts.append(hint)
 
     return Group(*parts)

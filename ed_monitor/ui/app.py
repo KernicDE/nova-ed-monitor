@@ -759,15 +759,13 @@ class NOVAApp(App):
                     self._volume[0] = max(self._volume[0] - 5, 0)
                     self._state.volume = self._volume[0]
 
-        elif key in ("space", "enter"):
+        elif key == "enter":
             sit = self.query_one(SituationalPanel)
-            if sit._active == "engineers" and not sit._eng_detail:
-                sit.eng_select()
-
-        elif key == "backspace":
-            sit = self.query_one(SituationalPanel)
-            if sit._active == "engineers" and sit._eng_detail:
-                sit.eng_back()
+            if sit._active == "engineers":
+                if sit._eng_detail:
+                    sit.eng_back()
+                else:
+                    sit.eng_select()
 
         elif key == "n":
             # Open neutron route input screen
