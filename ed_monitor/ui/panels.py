@@ -1490,10 +1490,13 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
         if gtype == "predicted":
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
+            _ff_pred = getattr(b, "first_footfall", False)
             hdr_t = Text()
             hdr_t.append("─" * 3, style="rgb(60,80,100)")
             hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
             hdr_t.append(f"(FSS · {b.bio_signals} bio) ", style="rgb(120,120,80)")
+            if _ff_pred:
+                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
             hdr_t.append("─" * 8, style="rgb(60,80,100)")
             parts.append(hdr_t)
 
@@ -1513,14 +1516,18 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                     # Use exact species value when known, else genus range
                     exact = _BIO_SPECIES_VALUES.get(sp, 0)
                     if exact > 0:
-                        val_s = _fmt_cr_compact(exact)
-                        _rng_lo.append(exact)
-                        _rng_hi.append(exact)
+                        lo = hi = exact
                     else:
                         lo, hi = _BIO_GENUS_VALUE_RANGE.get(key, (0, 0))
+                    if _ff_pred and lo > 0:
+                        lo *= 5
+                        hi *= 5
+                    if exact > 0:
+                        val_s = _fmt_cr_compact(exact * 5 if _ff_pred else exact)
+                    else:
                         val_s = f"~{_fmt_cr_compact(lo)}–{_fmt_cr_compact(hi)}" if lo > 0 else "?"
-                        if lo > 0: _rng_lo.append(lo)
-                        if hi > 0: _rng_hi.append(hi)
+                    _rng_lo.append(lo)
+                    _rng_hi.append(hi)
                     label = f"? {sp}"
                     if _variant:
                         label += f" [{_variant}]"

@@ -220,3 +220,171 @@ class TestSpeciesPlacement:
         assert "Tussock Albata" in at_177       # 175-180K
         assert "Tussock Albata" not in at_185
         assert "Tussock Caputus" in at_185      # 180-190K
+
+
+# ── No-atmosphere genera (require system context or specific star/planet types) ─
+
+class TestNoAtmosphereGenera:
+    def test_amphora_requires_metal_rich_star_a_and_system_life(self):
+        """Amphora Plant: no atmo, metal-rich, star A, system has ELW/GG life."""
+        base = predict_bio_species(
+            "Metal rich body", "", 300.0, 2.0,
+            "No volcanism", "A", 500.0,
+            system_has_earth_like=True,
+        )
+        assert "Amphora Plant" in base
+        # Missing system context → no Amphora
+        no_ctx = predict_bio_species(
+            "Metal rich body", "", 300.0, 2.0,
+            "No volcanism", "A", 500.0,
+        )
+        assert "Amphora Plant" not in no_ctx
+        # Wrong star type → no Amphora
+        wrong_star = predict_bio_species(
+            "Metal rich body", "", 300.0, 2.0,
+            "No volcanism", "G", 500.0,
+            system_has_earth_like=True,
+        )
+        assert "Amphora Plant" not in wrong_star
+
+    def test_brain_tree_requires_volcanism(self):
+        """Brain Trees need volcanism and planet type + temp match."""
+        # Roseum is the only species that doesn't need system context
+        roseum = predict_bio_species(
+            "Rocky body", "", 250.0, 2.0,
+            "Silicate Vapour Geysers Volcanism", "G", 500.0,
+        )
+        assert "Brain Tree Roseum" in roseum
+        # No volcanism → no Brain Trees
+        no_vol = predict_bio_species(
+            "Rocky body", "", 250.0, 2.0,
+            "No volcanism", "G", 500.0,
+        )
+        assert "Brain Tree Roseum" not in no_vol
+
+    def test_brain_tree_system_context_for_non_roseum(self):
+        """Aureum etc. need system ELW/GG life context."""
+        with_ctx = predict_bio_species(
+            "Metal rich body", "", 400.0, 2.0,
+            "Silicate Vapour Geysers Volcanism", "G", 500.0,
+            system_has_earth_like=True,
+        )
+        assert "Brain Tree Aureum" in with_ctx
+        assert "Brain Tree Ostrinum" in with_ctx
+        without_ctx = predict_bio_species(
+            "Metal rich body", "", 400.0, 2.0,
+            "Silicate Vapour Geysers Volcanism", "G", 500.0,
+        )
+        assert "Brain Tree Aureum" not in without_ctx
+        # Roseum still appears without context
+        assert "Brain Tree Roseum" in without_ctx
+
+    def test_crystalline_shard_conditions(self):
+        """Crystalline Shard: no atmo, star A/F/G/K/M/S, dist>12000 LS, system life."""
+        ok = predict_bio_species(
+            "Rocky body", "", 50.0, 2.0,
+            "No volcanism", "G", 15000.0,
+            system_has_ammonia_world=True,
+        )
+        assert "Crystalline Shard" in ok
+        # Too close → no shard
+        close = predict_bio_species(
+            "Rocky body", "", 50.0, 2.0,
+            "No volcanism", "G", 5000.0,
+            system_has_ammonia_world=True,
+        )
+        assert "Crystalline Shard" not in close
+        # Wrong star → no shard
+        wrong_star = predict_bio_species(
+            "Rocky body", "", 50.0, 2.0,
+            "No volcanism", "O", 15000.0,
+            system_has_ammonia_world=True,
+        )
+        assert "Crystalline Shard" not in wrong_star
+
+    def test_sinuous_tuber_by_planet_type(self):
+        """Sinuous Tubers appear on volcanism bodies by planet type."""
+        rocky = predict_bio_species(
+            "Rocky body", "", 200.0, 2.0,
+            "Water Geysers Volcanism", "G", 500.0,
+        )
+        assert "Sinuous Tuber Albidum" in rocky
+        assert "Sinuous Tuber Caeruleum" in rocky
+        mr = predict_bio_species(
+            "Metal rich body", "", 200.0, 2.0,
+            "Water Geysers Volcanism", "G", 500.0,
+        )
+        assert "Sinuous Tuber Blatteum" in mr
+        # No volcanism → none
+        no_vol = predict_bio_species(
+            "Rocky body", "", 200.0, 2.0,
+            "No volcanism", "G", 500.0,
+        )
+        assert not any(s.startswith("Sinuous Tuber") for s in no_vol)
+
+    def test_anemone_star_type_filtering(self):
+        """Anemones only on O/B/A stars, planet-type dependent."""
+        o_star = predict_bio_species(
+            "Rocky body", "", 200.0, 2.0,
+            "No volcanism", "O", 500.0,
+        )
+        assert "Anemone Prasinum Bioluminescent" in o_star
+        b_star = predict_bio_species(
+            "Rocky body", "", 200.0, 2.0,
+            "No volcanism", "B", 500.0,
+        )
+        assert "Anemone Luteolum" in b_star
+        g_star = predict_bio_species(
+            "Rocky body", "", 200.0, 2.0,
+            "No volcanism", "G", 500.0,
+        )
+        assert not any(s.startswith("Anemone") for s in g_star)
+
+
+# ── max_predictions capping ───────────────────────────────────────────────────
+
+class TestMaxPredictions:
+    def test_cap_limits_output_length(self):
+        """When max_predictions is set, output is capped to that many species."""
+        result = predict_bio_species(
+            "Rocky body", "Thin Carbon dioxide atmosphere", 185.0, 2.5,
+            "No volcanism", "G", 500.0,
+            max_predictions=3,
+        )
+        assert len(result) <= 3
+
+    def test_no_cap_when_zero(self):
+        """max_predictions=0 means no cap."""
+        result = predict_bio_species(
+            "Rocky body", "Thin Carbon dioxide atmosphere", 185.0, 2.5,
+            "No volcanism", "G", 500.0,
+            max_predictions=0,
+        )
+        assert len(result) > 3  # normally many predictions on CO2 rocky
+
+    def test_cap_prefers_higher_value_species(self):
+        """Capping should keep higher-value species over lower-value ones."""
+        full = predict_bio_species(
+            "Rocky body", "Thin Carbon dioxide atmosphere", 185.0, 2.5,
+            "No volcanism", "G", 500.0,
+            max_predictions=0,
+        )
+        capped = predict_bio_species(
+            "Rocky body", "Thin Carbon dioxide atmosphere", 185.0, 2.5,
+            "No volcanism", "G", 500.0,
+            max_predictions=2,
+        )
+        assert len(capped) == 2
+        # The top 2 by value from the full list should be the capped result
+        from ed_monitor.events import _BIO_SPECIES_VALUES, _BIO_GENUS_VALUE_RANGE
+
+        def _score(sp: str) -> int:
+            v = _BIO_SPECIES_VALUES.get(sp, 0)
+            if v == 0:
+                genus = sp.split()[0].lower() if sp else ""
+                lo, hi = _BIO_GENUS_VALUE_RANGE.get(genus, (0, 0))
+                v = hi
+            return v
+
+        full_sorted = sorted(full, key=_score, reverse=True)
+        assert capped == full_sorted[:2]

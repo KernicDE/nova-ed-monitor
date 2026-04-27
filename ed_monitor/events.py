@@ -78,11 +78,11 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     "Aleoida Spica":            3_385_200,
     # Bacterium
     "Bacterium Aurasus":        1_000_600,
-    "Bacterium Nebulus":        5_289_900,
-    "Bacterium Scopulum":       4_638_000,
+    "Bacterium Nebulus":        9_116_600,
+    "Bacterium Scopulum":       8_633_800,
     "Bacterium Acies":          1_000_600,
     "Bacterium Vesicula":       1_000_600,
-    "Bacterium Alcyoneum":      1_644_500,
+    "Bacterium Alcyoneum":      1_658_500,
     "Bacterium Tela":           1_949_000,
     "Bacterium Informem":       8_418_000,
     "Bacterium Volu":           7_774_000,
@@ -112,7 +112,7 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     # Fonticulua
     "Fonticulua Campestris":    1_000_600,
     "Fonticulua Digitos":       1_804_900,
-    "Fonticulua Fluctus":      20_000_200,
+    "Fonticulua Fluctus":      16_777_215,
     "Fonticulua Lapida":        3_111_600,
     "Fonticulua Segmentatus":  19_010_800,
     "Fonticulua Upsilon":       5_727_600,
@@ -120,10 +120,10 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     "Frutexa Acus":             7_774_000,
     "Frutexa Collum":           1_639_800,
     "Frutexa Erigia":           1_639_800,
-    "Frutexa Flabellum":        1_639_800,
+    "Frutexa Flabellum":        1_808_900,
     "Frutexa Flammasis":       10_326_000,
     "Frutexa Metallicum":       1_632_400,
-    "Frutexa Sponsae":          6_284_600,
+    "Frutexa Sponsae":          5_988_000,
     # Fumerola
     "Fumerola Aquatis":         6_284_600,
     "Fumerola Carbosis":        6_284_600,
@@ -132,7 +132,7 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     # Fungoida
     "Fungoida Bullarum":        3_703_200,
     "Fungoida Gelata":          3_330_300,
-    "Fungoida Setulus":         1_000_600,
+    "Fungoida Setulus":         1_670_100,
     "Fungoida Stabitis":        2_680_300,
     # Osseus
     "Osseus Cornibus":          1_483_000,
@@ -176,6 +176,37 @@ _BIO_SPECIES_VALUES: dict[str, int] = {
     "Tussock Triticum":         7_774_000,
     "Tussock Ventusa":          3_227_700,
     "Tussock Virgam":           1_849_000,
+    # Amphora Plant
+    "Amphora Plant":            3_626_400,
+    # Brain Tree
+    "Brain Tree Aureum":        3_565_100,
+    "Brain Tree Gypseeum":      3_565_100,
+    "Brain Tree Lindigoticum":  3_565_100,
+    "Brain Tree Lividum":       1_593_700,
+    "Brain Tree Ostrinum":      3_565_100,
+    "Brain Tree Puniceum":      3_565_100,
+    "Brain Tree Roseum":        1_593_700,
+    "Brain Tree Viride":        1_593_700,
+    # Crystalline Shard
+    "Crystalline Shard":        3_626_400,
+    # Sinuous Tuber
+    "Sinuous Tuber Albidum":    3_425_600,
+    "Sinuous Tuber Blatteum":   1_514_500,
+    "Sinuous Tuber Caeruleum":  1_514_500,
+    "Sinuous Tuber Lindigoticum": 1_514_500,
+    "Sinuous Tuber Prasinum":   1_514_500,
+    "Sinuous Tuber Roseum":     1_514_500,
+    "Sinuous Tuber Violaceum":  1_514_500,
+    "Sinuous Tuber Viride":     1_514_500,
+    # Anemone
+    "Anemone Blatteum Bioluminescent": 1_499_900,
+    "Anemone Croceum":          3_399_800,
+    "Anemone Luteolum":         1_499_900,
+    "Anemone Prasinum Bioluminescent": 1_499_900,
+    "Anemone Puniceum":         1_499_900,
+    "Anemone Roseum":           1_499_900,
+    "Anemone Roseum Bioluminescent": 1_499_900,
+    "Anemone Rubeum Bioluminescent": 1_499_900,
 }
 
 # Lowercase-keyed alias for case-insensitive fallback lookups
@@ -183,21 +214,27 @@ _BIO_SPECIES_VALUES_LC: dict[str, int] = {k.lower(): v for k, v in _BIO_SPECIES_
 
 # Min/max value range per genus (first word of genus localised name, lowercase)
 _BIO_GENUS_VALUE_RANGE: dict[str, tuple[int, int]] = {
-    "aleoida":    (3_385_200,  12_934_900),
-    "bacterium":  (1_000_600,   8_418_000),
-    "cactoida":   (2_483_600,  16_202_800),
-    "clypeus":    (8_418_000,  16_202_800),
-    "concha":     (2_352_400,  19_010_800),
-    "electricae": (6_284_600,   6_284_600),
-    "fonticulua": (1_000_600,  20_000_200),
-    "frutexa":    (1_632_400,  10_326_000),
-    "fumerola":   (6_284_600,  16_202_800),
-    "fungoida":   (1_000_600,   3_703_200),
-    "osseus":     (1_483_000,  12_934_900),
-    "recepta":    (12_934_900, 16_202_800),
-    "stratum":    (1_362_000,  19_010_800),
-    "tubus":      (2_415_500,  11_873_200),
-    "tussock":    (1_000_600,  19_010_800),
+    "aleoida":           (3_385_200,  12_934_900),
+    "amphora":           (3_626_400,   3_626_400),
+    "anemone":           (1_499_900,   3_399_800),
+    "bacterium":         (1_000_600,   8_418_000),
+    "bark":              (1_471_900,   1_471_900),
+    "brain":             (1_593_700,   3_565_100),
+    "cactoida":          (2_483_600,  16_202_800),
+    "crystalline":       (3_626_400,   3_626_400),
+    "clypeus":           (8_418_000,  16_202_800),
+    "concha":            (2_352_400,  19_010_800),
+    "electricae":        (6_284_600,   6_284_600),
+    "fonticulua":        (1_000_600,  20_000_200),
+    "frutexa":           (1_632_400,  10_326_000),
+    "fumerola":          (6_284_600,  16_202_800),
+    "fungoida":          (1_000_600,   3_703_200),
+    "osseus":            (1_483_000,  12_934_900),
+    "recepta":           (12_934_900, 16_202_800),
+    "sinuous":           (1_514_500,   3_425_600),
+    "stratum":           (1_362_000,  19_010_800),
+    "tubus":             (2_415_500,  11_873_200),
+    "tussock":           (1_000_600,  19_010_800),
 }
 
 
@@ -207,6 +244,42 @@ def _bio_value_lookup(species_loc: str) -> int:
     if v == 0:
         v = _BIO_SPECIES_VALUES_LC.get(species_loc.strip().lower(), 0)
     return v
+
+
+def _system_bio_context(bodies: list) -> dict[str, bool]:
+    """Compute system-level context flags for bio prediction from scanned bodies."""
+    return {
+        "system_has_earth_like": any(
+            b.planet_class == "Earthlike body" for b in bodies
+        ),
+        "system_has_ammonia_world": any(
+            b.planet_class == "Ammonia world" for b in bodies
+        ),
+        "system_has_water_giant": any(
+            b.planet_class == "Water giant" for b in bodies
+        ),
+        "system_has_gas_giant_with_water_life": any(
+            b.planet_class in (
+                "Gas giant with water-based life",
+                "Gas giant with water based life",
+            )
+            for b in bodies
+        ),
+        "system_has_gas_giant_with_ammonia_life": any(
+            b.planet_class in (
+                "Gas giant with ammonia-based life",
+                "Gas giant with ammonia based life",
+            )
+            for b in bodies
+        ),
+        "system_has_neutron_star": any(
+            b.star_type and b.star_type.startswith("N") for b in bodies
+        ),
+        "system_has_white_dwarf": any(
+            b.star_type and b.star_type.startswith("D") for b in bodies
+        ),
+        "system_has_nebula": False,  # not detectable from journal
+    }
 
 
 # Star class → variant (color) for biological species
@@ -238,23 +311,36 @@ def bio_variant(primary_star_type: str) -> str:
     return ""
 
 
-def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
-                        surface_gravity: float, volcanism: str,
-                        primary_star_type: str = "",
-                        dist_ls: float = 0.0) -> list[str]:
+def predict_bio_species(
+    planet_class: str,
+    atmosphere: str,
+    surface_temp: float,
+    surface_gravity: float,
+    volcanism: str,
+    primary_star_type: str = "",
+    dist_ls: float = 0.0,
+    max_predictions: int = 0,
+    system_has_earth_like: bool = False,
+    system_has_ammonia_world: bool = False,
+    system_has_water_giant: bool = False,
+    system_has_gas_giant_with_water_life: bool = False,
+    system_has_gas_giant_with_ammonia_life: bool = False,
+    system_has_neutron_star: bool = False,
+    system_has_white_dwarf: bool = False,
+    system_has_nebula: bool = False,
+) -> list[str]:
     """Predict possible biological species from planet FSS conditions.
 
-    Eliminative approach based on EDXD biosign_estimator: the thin-atmosphere gate
-    is applied first, then each genus uses its own gravity/temperature/volcanism guards.
-    Returns deduplicated list of species names (e.g. "Stratum Tectonicas").
-    Returns [] when thin atmosphere is absent or conditions are insufficient.
-    """
-    if not atmosphere:
-        return []
-    atm = atmosphere.lower()
-    if "thin" not in atm:
-        return []
+    Eliminative approach based on EDXD biosign_estimator: no-atmosphere genera
+    are checked first, then the thin-atmosphere gate, then each thin-atmosphere
+    genus uses its own gravity/temperature/volcanism guards.
 
+    Returns deduplicated list of species names (e.g. "Stratum Tectonicas").
+    Returns [] when conditions are insufficient.
+
+    When *max_predictions* > 0 the list is capped to the N highest-scoring
+    species, ranked by value (higher = more likely to be the actual signal).
+    """
     pc  = (planet_class or "").lower()
     g   = surface_gravity / 9.80665 if surface_gravity > 0 else 999.0
     t   = surface_temp
@@ -266,6 +352,7 @@ def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
     _is_rocky_ice = "rocky ice" in pc
     _is_rocky     = pc == "rocky body"
     _is_hmc       = "high metal content" in pc
+    _is_mr        = "metal rich" in pc
     _hmc_rocky    = _is_hmc or _is_rocky
 
     predicted: list[str] = []
@@ -273,6 +360,105 @@ def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
     def add(sp: str) -> None:
         if sp not in predicted:
             predicted.append(sp)
+
+    # ── System context helper ────────────────────────────────────────────────
+    _sys_life = (
+        system_has_earth_like
+        or system_has_ammonia_world
+        or system_has_water_giant
+        or system_has_gas_giant_with_water_life
+        or system_has_gas_giant_with_ammonia_life
+    )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  NO-ATMOSPHERE genera (Odyssey pre-Odyssey POI biology)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # ── Amphora Plant (no atmo, metal-rich, star A, system life context) ─────
+    if _is_mr and pst.startswith("A") and _sys_life:
+        add("Amphora Plant")
+
+    # ── Brain Tree (no atmo, volcanism, planet type + temp, system ELW/GG WBL)
+    if has_vol:
+        _bt_sys = _sys_life  # Roseum does NOT require this
+        if _is_mr:
+            if _bt_sys:
+                if 300 <= t <= 500:
+                    add("Brain Tree Aureum")
+                add("Brain Tree Ostrinum")
+                add("Brain Tree Puniceum")
+        if _is_hmc:
+            if _bt_sys and 300 <= t <= 500:
+                add("Brain Tree Lindigoticum")
+        if _is_rocky:
+            if _bt_sys:
+                if 200 <= t <= 300:
+                    add("Brain Tree Gypseeum")
+                if 300 <= t <= 500:
+                    add("Brain Tree Lividum")
+        if _is_rocky_ice:
+            if _bt_sys and 100 <= t <= 270:
+                add("Brain Tree Viride")
+        # Roseum appears on any planet type, 200-500K, no system requirement
+        if 200 <= t <= 500:
+            add("Brain Tree Roseum")
+
+    # ── Crystalline Shard (no atmo, star A/F/G/K/M/S, dist > 12000 LS, system life)
+    if (
+        _sys_life
+        and dist_ls > 12000
+        and any(pst.startswith(p) for p in ("A", "F", "G", "K", "M", "S"))
+    ):
+        add("Crystalline Shard")
+
+    # ── Bark Mound (no atmo, volcanism, near nebula — skipped unless flag set)
+    if has_vol and system_has_nebula:
+        add("Bark Mound")
+
+    # ── Sinuous Tuber (no atmo, volcanism, planet type + volcanism type) ─────
+    if has_vol:
+        if _is_rocky:
+            add("Sinuous Tuber Albidum")
+            add("Sinuous Tuber Caeruleum")
+            add("Sinuous Tuber Lindigoticum")
+        if _is_mr or _is_hmc:
+            add("Sinuous Tuber Blatteum")
+            add("Sinuous Tuber Prasinum")
+            add("Sinuous Tuber Violaceum")
+            add("Sinuous Tuber Viride")
+        if "silicate" in vol:
+            add("Sinuous Tuber Roseum")
+
+    # ── Anemone (no atmo, star O/B/A, planet type based) ─────────────────────
+    if any(pst.startswith(p) for p in ("O", "B", "A")):
+        if pst.startswith("O"):
+            if _is_mr or _is_hmc or _is_rocky:
+                add("Anemone Prasinum Bioluminescent")
+            if _is_icy or _is_rocky_ice:
+                add("Anemone Puniceum")
+        if pst.startswith("B"):
+            if _is_mr or _is_hmc:
+                add("Anemone Blatteum Bioluminescent")
+                add("Anemone Rubeum Bioluminescent")
+                add("Anemone Roseum Bioluminescent")
+            if _is_rocky:
+                add("Anemone Luteolum")
+                add("Anemone Croceum")
+                add("Anemone Roseum")
+        if pst.startswith("A"):
+            if _is_mr or _is_hmc:
+                add("Anemone Rubeum Bioluminescent")
+            if _is_rocky:
+                add("Anemone Croceum")
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  THIN-ATMOSPHERE gate
+    # ═══════════════════════════════════════════════════════════════════════
+    if not atmosphere:
+        return _cap_bio_predictions(predicted, max_predictions)
+    atm = atmosphere.lower()
+    if "thin" not in atm:
+        return _cap_bio_predictions(predicted, max_predictions)
 
     # ── Aleoida (thin CO2 or ammonia, HMC/rocky, g ≤ 0.28) ─────────────────
     if _hmc_rocky and g <= 0.28:
@@ -355,7 +541,9 @@ def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
         _hot_star = any(pst.startswith(p) for p in ("O", "B", "N", "H", "D"))
         if _hot_star or pst.startswith("A"):
             add("Electricae Pluma")
-        # Electricae Radialem skipped — requires nebula context unavailable at FSS
+        # Electricae Radialem — only with nebula context
+        if system_has_nebula and (_hot_star or pst.startswith("A")):
+            add("Electricae Radialem")
 
     # ── Fonticulua (thin, icy, g ≤ 0.28) ─────────────────────────────────────
     if _is_icy and g <= 0.28:
@@ -508,13 +696,49 @@ def predict_bio_species(planet_class: str, atmosphere: str, surface_temp: float,
         if "water" in atm:
             add("Tussock Virgam")
 
-    return predicted
+    return _cap_bio_predictions(predicted, max_predictions)
 
 
-def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,
-                       surface_gravity: float, volcanism: str,
-                       primary_star_type: str = "",
-                       dist_ls: float = 0.0) -> list[str]:
+def _cap_bio_predictions(predicted: list[str], max_predictions: int) -> list[str]:
+    """Cap predictions to *max_predictions* by scoring each species.
+
+    Score is based on species credit value (higher = more specific/valuable,
+    therefore more likely to be the actual signal).  Falls back to genus max.
+    """
+    if max_predictions <= 0 or len(predicted) <= max_predictions:
+        return predicted
+
+    def _score(sp: str) -> int:
+        v = _BIO_SPECIES_VALUES.get(sp, 0)
+        if v == 0:
+            genus = sp.split()[0].lower() if sp else ""
+            lo, hi = _BIO_GENUS_VALUE_RANGE.get(genus, (0, 0))
+            v = hi
+        return v
+
+    # Sort by value descending and slice
+    predicted.sort(key=_score, reverse=True)
+    return predicted[:max_predictions]
+
+
+def predict_bio_genera(
+    planet_class: str,
+    atmosphere: str,
+    surface_temp: float,
+    surface_gravity: float,
+    volcanism: str,
+    primary_star_type: str = "",
+    dist_ls: float = 0.0,
+    max_predictions: int = 0,
+    system_has_earth_like: bool = False,
+    system_has_ammonia_world: bool = False,
+    system_has_water_giant: bool = False,
+    system_has_gas_giant_with_water_life: bool = False,
+    system_has_gas_giant_with_ammonia_life: bool = False,
+    system_has_neutron_star: bool = False,
+    system_has_white_dwarf: bool = False,
+    system_has_nebula: bool = False,
+) -> list[str]:
     """Predict possible biological species (species-level predictions, not genus-only).
 
     Kept for compatibility — delegates to predict_bio_species.
@@ -522,6 +746,15 @@ def predict_bio_genera(planet_class: str, atmosphere: str, surface_temp: float,
     return predict_bio_species(
         planet_class, atmosphere, surface_temp, surface_gravity,
         volcanism, primary_star_type, dist_ls,
+        max_predictions,
+        system_has_earth_like,
+        system_has_ammonia_world,
+        system_has_water_giant,
+        system_has_gas_giant_with_water_life,
+        system_has_gas_giant_with_ammonia_life,
+        system_has_neutron_star,
+        system_has_white_dwarf,
+        system_has_nebula,
     )
 
 
@@ -1907,11 +2140,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     if _sb2.star_type and _sb2.level == 0:
                         _pst2 = _sb2.star_type
                         break
+                _ctx = _system_bio_context(state.bodies)
                 _body_info.bio_genuses_predicted = predict_bio_species(
                     planet_class, atmosphere,
                     _f(ev, "SurfaceTemperature"), _f(ev, "SurfaceGravity"),
                     _s(ev, "Volcanism"), _pst2,
                     _body_info.dist_ls,
+                    max_predictions=bio_count,
+                    **_ctx,
                 )
 
             valuable   = planet_class in ("Earthlike body", "Water world", "Ammonia world", "Metal rich body")
@@ -2047,11 +2283,14 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         if _sb.star_type and _sb.level == 0:
                             _pst = _sb.star_type
                             break
+                    _ctx = _system_bio_context(state.bodies)
                     _fss_b.bio_genuses_predicted = predict_bio_species(
                         _fss_b.planet_class, _fss_b.atmosphere,
                         _fss_b.surface_temp, _fss_b.surface_gravity,
                         _fss_b.volcanism, _pst,
                         _fss_b.dist_ls,
+                        max_predictions=bio_count,
+                        **_ctx,
                     )
 
             parts = []

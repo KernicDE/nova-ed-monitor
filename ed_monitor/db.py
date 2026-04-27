@@ -525,11 +525,45 @@ class Database:
             result.append(b)
         # Re-run bio prediction on load (not stored in DB; derived field)
         primary_star_type = next((b.star_type for b in result if b.star_type and b.level == 0), "")
+        _sys_ctx = {
+            "system_has_earth_like": any(
+                b.planet_class == "Earthlike body" for b in result
+            ),
+            "system_has_ammonia_world": any(
+                b.planet_class == "Ammonia world" for b in result
+            ),
+            "system_has_water_giant": any(
+                b.planet_class == "Water giant" for b in result
+            ),
+            "system_has_gas_giant_with_water_life": any(
+                b.planet_class in (
+                    "Gas giant with water-based life",
+                    "Gas giant with water based life",
+                )
+                for b in result
+            ),
+            "system_has_gas_giant_with_ammonia_life": any(
+                b.planet_class in (
+                    "Gas giant with ammonia-based life",
+                    "Gas giant with ammonia based life",
+                )
+                for b in result
+            ),
+            "system_has_neutron_star": any(
+                b.star_type and b.star_type.startswith("N") for b in result
+            ),
+            "system_has_white_dwarf": any(
+                b.star_type and b.star_type.startswith("D") for b in result
+            ),
+            "system_has_nebula": False,
+        }
         for b in result:
             if b.bio_signals > 0 and not b.bio_genuses and b.planet_class:
                 b.bio_genuses_predicted = _pbg(
                     b.planet_class, b.atmosphere, b.surface_temp,
                     b.surface_gravity, b.volcanism, primary_star_type,
+                    b.dist_ls, b.bio_signals,
+                    **_sys_ctx,
                 )
         return result
 
