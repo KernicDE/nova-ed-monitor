@@ -43,10 +43,12 @@ jobs:
             _nova_entry.py
           mv dist/nova dist/nova-linux-x86_64
 
-      - name: Extract release notes from commit message
+      - name: Extract release notes from annotated tag
         run: |
-          git log -1 --pretty=format:"%b" | grep -v "^Co-Authored-By:" > /tmp/release_notes.md || true
-          if [ ! -s /tmp/release_notes.md ]; then
+          NOTES=$(git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME" 2>/dev/null | grep -v "^Co-Authored-By:")
+          if [ -n "$NOTES" ]; then
+            echo "$NOTES" > /tmp/release_notes.md
+          else
             echo "No release notes provided." > /tmp/release_notes.md
           fi
 
