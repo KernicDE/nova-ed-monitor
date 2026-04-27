@@ -2737,54 +2737,118 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
     return diag
 
 
-def _render_overview(s: AppState) -> RenderableType:
-    """Travel overview: route + galaxy position + system diagram + notable bodies + session stats."""
+def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> RenderableType:
+    """Dashboard overview: session stats, wallet, navigation, notable bodies, activity."""
     import math
+    from collections import defaultdict as _dd2
+
     parts: list[RenderableType] = []
 
-    # ── Two-column header: ROUTE (left) + POSITION (right) ────────────────────
-    _R = "      "  # ~6-char indent for ROUTE column (visual separation from POSITION)
-    route_col = Text()
-    route_col.append(f"{_R}ROUTE\n", style=f"bold {P.AMBER}")
-    if s.route_destination:
-        route_col.append(f"{_R}→ ", style=P.LABEL)
-        route_col.append(s.route_destination + "\n", style="bold white")
-        word = "jump" if s.route_hops == 1 else "jumps"
-        route_col.append(f"{_R}  {s.route_hops} {word} remaining\n", style=P.AMBER)
-        if s.route_next:
-            route_col.append(f"{_R}→ ", style=P.LABEL)
-            route_col.append(s.route_next, style=P.HUD_CYAN)
-            if s.route_next_star:
-                mark     = " ⛽" if s.route_next_scoopable else " ✗"
-                star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
-                route_col.append(f"  {s.route_next_star}{mark}", style=f"bold {star_col}")
-            route_col.append("\n")
-    else:
-        route_col.append(f"{_R}No route set.\n", style=P.AMBER_DIM)
+    # ── Row budget ─────────────────────────────────────────────────────────────
+    fixed_rows = 1 + 1 + 1 + 1 + 1  # session + wallet + nav + body_hdr + body_tbl_hdr
+    separators = 2
+    extra = panel_h - fixed_rows - separators
+    max_body_rows = max(3, min(extra, 8))
+    remaining = extra - max_body_rows
 
-    pos_col = Text()
+    show_activity = remaining >= 1
+    show_scan_prog = remaining >= 2
+    show_neutron = remaining >= 3
+    show_carrier = remaining >= 4
+
+    HDR = "bold rgb(195,160,55)"
+
+    # ── Session strip (always) ─────────────────────────────────────────────────
+    session_txt = Text()
+    session_txt.append("SESSION  ", style=HDR)
+    if s.session_jumps or s.session_first_disc or s.session_mapped or s.session_value:
+        chunks: list[tuple[str, str]] = []
+        chunks.append((f"{s.session_jumps} jumps", "white"))
+        if s.session_first_disc:
+            chunks.append((f"{s.session_first_disc} FD", P.GOLD))
+        if s.session_mapped:
+            chunks.append((f"{s.session_mapped} mapped", P.HUD_GREEN))
+        if s.session_value:
+            chunks.append((f"{_fmt_cr_compact(s.session_value)}", "white"))
+        if s.session_start_ts:
+            mins = int((time.time() - s.session_start_ts) / 60)
+            if mins >= 60:
+                dur = f"{mins//60}h {mins%60}m"
+            else:
+                dur = f"{mins}m"
+            chunks.append((dur, P.LABEL))
+        for i, (txt, col) in enumerate(chunks):
+            if i:
+                session_txt.append("  ·  ", style=P.LABEL)
+            session_txt.append(txt, style=col)
+    else:
+        session_txt.append("—", style=P.DIM)
+    parts.append(session_txt)
+
+    # ── Wallet strip (always) ──────────────────────────────────────────────────
+    wallet_txt = Text()
+    wallet_txt.append("WALLET   ", style=HDR)
+    if s.credits:
+        wallet_txt.append(f"{_fmt_cr_compact(s.credits)} Cr", style="white")
+    else:
+        wallet_txt.append("—", style=P.DIM)
+    if s.cargo_capacity > 0:
+        wallet_txt.append("  ·  ", style=P.LABEL)
+        wallet_txt.append(f"Cargo {s.cargo}/{s.cargo_capacity} t", style="white")
+    missions_active = len(s.missions)
+    if missions_active:
+        wallet_txt.append("  ·  ", style=P.LABEL)
+        word = "mission" if missions_active == 1 else "missions"
+        wallet_txt.append(f"{missions_active} {word}", style=P.HUD_CYAN)
+    parts.append(wallet_txt)
+
+    # ── Navigation + Position (1–2 rows) ───────────────────────────────────────
+    nav_parts: list[RenderableType] = []
+
+    route_txt = Text()
+    route_txt.append("NAV      ", style=HDR)
+    if s.route_destination:
+        route_txt.append("→ ", style=P.LABEL)
+        route_txt.append(s.route_destination, style="bold white")
+        route_txt.append(f"  {s.route_hops}j", style=P.AMBER)
+        if s.route_next:
+            route_txt.append("  ·  Next ", style=P.LABEL)
+            route_txt.append(s.route_next, style=P.HUD_CYAN)
+            if s.route_next_star:
+                mark = " ⛽" if s.route_next_scoopable else " ✗"
+                star_col = P.HUD_GREEN if s.route_next_scoopable else P.HUD_CRIT
+                route_txt.append(f" {s.route_next_star}{mark}", style=f"bold {star_col}")
+    else:
+        route_txt.append("No route", style=P.AMBER_DIM)
+
+    pos_txt = Text()
+    pos_txt.append("POS      ", style=HDR)
     if s.star_pos:
         x, y, z = s.star_pos
-        dist_sol  = math.sqrt(x**2 + y**2 + z**2)
+        dist_sol = math.sqrt(x**2 + y**2 + z**2)
         core_x, core_y, core_z = 25.21875, -20.90625, 25899.96875
         dist_core = math.sqrt((x - core_x)**2 + (y - core_y)**2 + (z - core_z)**2)
-        pos_col.append("POSITION\n", style=f"bold {P.AMBER}")
-        pos_col.append(f"{x:.0f} / {y:.0f} / {z:.0f}\n", style="rgb(150,150,150)")
-        pos_col.append("Sol   ", style=P.LABEL)
-        pos_col.append(f"{dist_sol:,.0f} ly\n".replace(",", _NNBSP), style="white")
-        pos_col.append("Core  ", style=P.LABEL)
-        pos_col.append(f"{dist_core:,.0f} ly\n".replace(",", _NNBSP), style="white")
+        pos_txt.append(f"Sol {dist_sol/1000:.1f}k ly", style="white")
+        pos_txt.append("  ·  ", style=P.LABEL)
+        pos_txt.append(f"Core {dist_core/1000:.1f}k ly", style="white")
     else:
-        pos_col.append("POSITION\n", style=f"bold {P.AMBER}")
-        pos_col.append("No position data.\n", style=P.LABEL)
+        pos_txt.append("—", style=P.DIM)
 
-    hdr_grid = Table.grid(padding=(0, 2))
-    hdr_grid.add_column(ratio=1)
-    hdr_grid.add_column(ratio=1)
-    hdr_grid.add_row(pos_col, route_col)
-    parts.append(hdr_grid)
+    if panel_w >= 50:
+        nav_grid = Table.grid(padding=(0, 1), expand=True)
+        nav_grid.add_column(ratio=1)
+        nav_grid.add_column(ratio=1)
+        nav_grid.add_row(route_txt, pos_txt)
+        nav_parts.append(nav_grid)
+    else:
+        nav_parts.append(route_txt)
+        nav_parts.append(pos_txt)
 
-    # Notable bodies in current system
+    parts.append(Text(""))  # separator
+    parts.extend(nav_parts)
+    parts.append(Text(""))  # separator
+
+    # ── Notable bodies ─────────────────────────────────────────────────────────
     def _is_notable(b: BodyInfo) -> bool:
         if b.planet_class in ("Earthlike body", "Water world", "Ammonia world"):
             return True
@@ -2797,74 +2861,67 @@ def _render_overview(s: AppState) -> RenderableType:
         return False
 
     notable = [b for b in s.bodies if _is_notable(b)]
+    notable.sort(key=lambda b: _natural_key(_short_name(b.name, s.system)))
+
+    bodies_hdr = Text()
+    bodies_hdr.append("NOTABLE BODIES", style=HDR)
+    parts.append(bodies_hdr)
+
     if notable:
-        notable.sort(key=lambda b: _natural_key(_short_name(b.name, s.system)))
-        hdr = Text()
-        hdr.append("\nNOTABLE BODIES\n", style="bold rgb(195,160,55)")
-        parts.append(hdr)
-
-        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1),
-                    header_style="dim rgb(130,130,130)")
-        tbl.add_column("BODY",  style="white", width=10, no_wrap=True)
-        tbl.add_column("TYPE",  width=11, no_wrap=True)
-        tbl.add_column("G",     width=6,  justify="right", no_wrap=True)
-        tbl.add_column("SCAN",  width=9,  justify="right", no_wrap=True)
-        tbl.add_column("BIO",   width=12, justify="right", no_wrap=True)
-        tbl.add_column("WHY",   width=18, no_wrap=True)
-
         # Pre-compute actual bio values and completion per body
-        from collections import defaultdict as _dd2
-        _bio_done_cnt:  dict = _dd2(int)
+        _bio_done_cnt: dict = _dd2(int)
         _bio_actual_cr: dict = _dd2(int)
         for _sc in s.bio_scans:
             if _sc.complete:
-                _bio_done_cnt[_sc.body]  += 1
+                _bio_done_cnt[_sc.body] += 1
                 _bio_actual_cr[_sc.body] += _sc.value
 
-        for b in notable:
-            short  = _short_name(b.name, s.system)
-            btype  = _abbrev_type(b.planet_class, b.star_type)
+        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 0),
+                    header_style="dim rgb(130,130,130)")
+        tbl.add_column("Body", style="white", width=8, no_wrap=True)
+        tbl.add_column("Type", width=9, no_wrap=True)
+        tbl.add_column("Val", width=7, justify="right", no_wrap=True)
+        tbl.add_column("G", width=5, justify="right", no_wrap=True)
+        tbl.add_column("Bio", width=6, justify="right", no_wrap=True)
+        tbl.add_column("Why", width=8, no_wrap=True)
+
+        for b in notable[:max_body_rows]:
+            short = _short_name(b.name, s.system)
+            btype = _abbrev_type(b.planet_class, b.star_type)
             body_col = _body_color(b.planet_class, b.star_type)
             is_unusual = bool(b.unusual_body)
 
-            # Bio completion state
-            has_bio      = b.bio_signals > 0
+            has_bio = b.bio_signals > 0
             bio_done_cnt = _bio_done_cnt.get(b.name, 0)
             bio_all_done = has_bio and bio_done_cnt >= b.bio_signals
-            actual_bio   = _bio_actual_cr.get(b.name, 0) if bio_all_done else 0
+            actual_bio = _bio_actual_cr.get(b.name, 0) if bio_all_done else 0
 
-            # "Done" = body scanned (mapped) AND bio complete (or no bio)
             scan_done = b.mapped
-            bio_done  = bio_all_done or not has_bio
-            all_done  = scan_done and bio_done
-
-            # Body scan value (includes first-mapping bonus when applicable)
+            bio_done = bio_all_done or not has_bio
+            all_done = scan_done and bio_done
             body_v = _body_value(b)
 
             if all_done:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = P.GOLD
+                vcol = P.GOLD
                 bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else ("✓" if has_bio else "—")
                 bio_c = P.HUD_GREEN
             elif bio_all_done:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = P.AMBER if body_v == 0 else P.GOLD
+                vcol = P.AMBER if body_v == 0 else P.GOLD
                 bio_s = _fmt_notable_val(actual_bio) if actual_bio > 0 else "✓"
                 bio_c = P.GOLD
             else:
                 val_s = _fmt_notable_val(body_v)
-                vcol  = _body_value_color(b)
+                vcol = _body_value_color(b)
                 if has_bio:
                     if b.bio_value_max > 0:
-                        # DSS confirmed genus ranges (sum of all confirmed genera)
                         bio_s = f"~{_fmt_cr_compact(b.bio_value_min)}–{_fmt_cr_compact(b.bio_value_max)}"
                         bio_c = P.AMBER
                     elif b.bio_genuses:
-                        # DSS confirmed genera but no value estimate (unknown genera)
                         bio_s = f"{len(b.bio_genuses)}×✓"
                         bio_c = P.AMBER
                     elif b.bio_genuses_predicted:
-                        # FSS prediction — show range: cheapest to most expensive predicted genus
                         from ..events import _BIO_GENUS_VALUE_RANGE as _BGVR
                         _pred_lo: list[int] = []
                         _pred_hi: list[int] = []
@@ -2878,7 +2935,7 @@ def _render_overview(s: AppState) -> RenderableType:
                             _total_lo = sum(sorted(_pred_lo)[:_n])
                             _total_hi = sum(sorted(_pred_hi, reverse=True)[:_n])
                             bio_s = f"?~{_fmt_cr_compact(_total_lo)}–{_fmt_cr_compact(_total_hi)}"
-                            bio_c = "rgb(140,130,60)"  # dimmer gold — uncertain prediction
+                            bio_c = "rgb(140,130,60)"
                         else:
                             bio_s = f"{b.bio_signals}×?"
                             bio_c = P.LABEL
@@ -2889,211 +2946,165 @@ def _render_overview(s: AppState) -> RenderableType:
                     bio_s = "—"
                     bio_c = P.DIM
 
-            # Gravity
             if b.landable and b.surface_gravity > 0:
                 g_val = b.surface_gravity / 9.80665
-                g_s   = f"{g_val:.2f}G"
-                g_col = ("bold rgb(220,60,0)"   if g_val >= 3.0
+                g_s = f"{g_val:.1f}G"
+                g_col = ("bold rgb(220,60,0)" if g_val >= 3.0
                          else "bold rgb(220,140,0)" if g_val >= 1.5
                          else "rgb(160,160,160)")
             else:
-                g_s   = "—"
+                g_s = "—"
                 g_col = P.DIM
 
-            # Name/type style — dim when all done (already collected)
             dim_done = all_done
             name_style = "rgb(110,110,110)" if dim_done else "white"
             type_prefix = "! " if is_unusual else ""
-            type_style  = "rgb(110,110,110)" if dim_done else (
+            type_style = "rgb(110,110,110)" if dim_done else (
                 f"bold rgb(220,140,0)" if is_unusual else f"bold {body_col}"
             )
 
-            # WHY column — build reason string
             why_parts = []
-            if b.planet_class == "Earthlike body":  why_parts.append("ELW")
-            if b.planet_class == "Water world":      why_parts.append("WW")
-            if b.planet_class == "Ammonia world":    why_parts.append("AW")
-            if b.terraform:                           why_parts.append("TF")
-            if b.bio_signals > 0:                    why_parts.append(f"{b.bio_signals}B")
-            if body_v > s.notable_value_threshold:  why_parts.append("HV")
-            if b.unusual_body:                        why_parts.append(b.unusual_body)
+            if b.planet_class == "Earthlike body": why_parts.append("ELW")
+            if b.planet_class == "Water world": why_parts.append("WW")
+            if b.planet_class == "Ammonia world": why_parts.append("AW")
+            if b.terraform: why_parts.append("TF")
+            if b.bio_signals > 0: why_parts.append(f"{b.bio_signals}B")
+            if body_v > s.notable_value_threshold: why_parts.append("HV")
+            if b.unusual_body: why_parts.append(b.unusual_body)
             why_str = ", ".join(why_parts)
 
             tbl.add_row(
-                Text(short,                  style=name_style),
-                Text(type_prefix + btype,    style=type_style),
-                Text(g_s,                    style=g_col),
-                Text(val_s,                  style=vcol),
-                Text(bio_s,                  style=bio_c),
-                Text(why_str,                style=P.LABEL),
+                Text(short, style=name_style),
+                Text(type_prefix + btype, style=type_style),
+                Text(val_s, style=vcol),
+                Text(g_s, style=g_col),
+                Text(bio_s, style=bio_c),
+                Text(why_str, style=P.LABEL),
             )
         parts.append(tbl)
+        if len(notable) > max_body_rows:
+            more = Text(f"+{len(notable) - max_body_rows} more", style="dim rgb(80,80,80)")
+            parts.append(more)
+    else:
+        parts.append(Text("No notable bodies.", style=P.DIM))
 
-    # System summary — when no notable bodies and system is inhabited
-    has_notable = any(_is_notable(b) for b in s.bodies) if s.bodies else False
-    if not has_notable and s.economy and s.population > 0:
-        sys_head = Text()
-        sys_head.append("\nCURRENT SYSTEM\n", style=f"bold rgb(195,160,55)")
-        parts.append(sys_head)
-        sys_info = Text()
-        if s.economy:
-            sys_info.append("  Economy    ", style=P.LABEL)
-            sys_info.append(s.economy + "\n", style="white")
-        if s.allegiance:
-            sys_info.append("  Allegiance ", style=P.LABEL)
-            sys_info.append(s.allegiance + "\n", style="white")
-        if s.controlling_faction:
-            faction_str = (
-                f"{s.controlling_faction} [{s.controlling_state}]"
-                if s.controlling_state and s.controlling_state != "None"
-                else s.controlling_faction
-            )
-            sys_info.append("  Faction    ", style=P.LABEL)
-            sys_info.append(faction_str + "\n", style="white")
-        parts.append(sys_info)
+    # ── Activity summary (conditional) ─────────────────────────────────────────
+    if show_activity:
+        activity_parts: list[RenderableType] = []
 
-    # PowerPlay merits summary
-    if s.pp_power:
-        pp_head = Text()
-        pp_head.append("\nPOWERPLAY\n", style="bold rgb(130,80,200)")
-        parts.append(pp_head)
-        pp_info = Text()
-        rank_str = f" Rank {s.pp_rank}" if s.pp_rank > 0 else ""
-        pp_info.append("  Power      ", style=P.LABEL)
-        pp_info.append(f"{s.pp_power}{rank_str}\n", style="white")
-        if s.pp_total_merits > 0:
-            pp_info.append("  Merits     ", style=P.LABEL)
-            pp_info.append(f"{_de(s.pp_total_merits)}", style="rgb(180,130,255)")
-            if s.pp_session_merits > 0:
-                pp_info.append(f"  (+{_de(s.pp_session_merits)} session)", style=P.LABEL)
-            pp_info.append("\n", style="")
-        parts.append(pp_info)
+        # BGS
+        if s.bgs_log:
+            bgs_txt = Text()
+            bgs_txt.append("BGS  ", style=HDR)
+            first_sys = next(iter(s.bgs_log))
+            first_fac = next(iter(s.bgs_log[first_sys]))
+            acts = s.bgs_log[first_sys][first_fac]
+            act_str = ", ".join(f"{v}×{k}" for k, v in sorted(acts.items(), key=lambda x: -x[1])[:3])
+            bgs_txt.append(f"{first_fac[:18]}  ", style="white")
+            bgs_txt.append(act_str, style=P.LABEL)
+            activity_parts.append(bgs_txt)
 
-    # BGS activity summary (today's log)
-    if s.bgs_log:
-        bgs_head = Text()
-        bgs_head.append("\nBGS ACTIVITY\n", style="bold rgb(0,180,100)")
-        parts.append(bgs_head)
-        bgs_info = Text()
-        for sys_name, fac_map in list(s.bgs_log.items())[:3]:
-            short_sys = _short_name(sys_name, s.system) if sys_name == s.system else sys_name
-            for faction, acts in fac_map.items():
-                total = sum(acts.values())
-                act_str = ", ".join(f"{v}×{k}" for k, v in sorted(acts.items(), key=lambda x: -x[1]))
-                bgs_info.append(f"  {faction[:20]}\n", style="white")
-                bgs_info.append(f"    {act_str}\n", style=P.LABEL)
-        parts.append(bgs_info)
+        # PowerPlay
+        if s.pp_power:
+            pp_txt = Text()
+            pp_txt.append("PP   ", style=HDR)
+            rank_str = f" R{s.pp_rank}" if s.pp_rank > 0 else ""
+            pp_txt.append(f"{s.pp_power}{rank_str}", style="white")
+            if s.pp_total_merits > 0:
+                pp_txt.append(f"  ·  {_de(s.pp_total_merits)}", style="rgb(180,130,255)")
+                if s.pp_session_merits > 0:
+                    pp_txt.append(f" (+{_de(s.pp_session_merits)})", style=P.LABEL)
+            activity_parts.append(pp_txt)
 
-    # Nearest inhabited system — shown only when current system is uninhabited
-    if s.nearest_populated_name and s.population == 0:
-        import math as _imath
-        inh_head = Text()
-        inh_head.append("\nNEAREST INHABITED SYSTEM\n", style="bold rgb(100,180,255)")
-        parts.append(inh_head)
-        dist_ly   = s.nearest_populated_dist
-        dist_str  = f"{dist_ly:.0f} ly"
-        jrange    = s.jump_range_last or s.jump_range
-        jumps_est = _imath.ceil(dist_ly / jrange) if jrange > 0 and dist_ly > 0 else None
-        jumps_str = f"~{jumps_est} jump{'s' if jumps_est != 1 else ''}" if jumps_est else ""
-        stn_count = sum(
-            1 for _s in s.nearest_populated_stations
-            if _s.get("type", "") != "Drake-Class Carrier"
+        # Nearest inhabited
+        if s.nearest_populated_name and s.population == 0:
+            inh_txt = Text()
+            inh_txt.append("Near ", style=HDR)
+            inh_txt.append(s.nearest_populated_name, style=P.HUD_CYAN)
+            if s.nearest_populated_dist > 0:
+                inh_txt.append(f"  {s.nearest_populated_dist:.0f} ly", style="white")
+            jrange = s.jump_range_last or s.jump_range
+            if jrange > 0 and s.nearest_populated_dist > 0:
+                jumps_est = math.ceil(s.nearest_populated_dist / jrange)
+                inh_txt.append(f"  ~{jumps_est}j", style=P.LABEL)
+            activity_parts.append(inh_txt)
+
+        if activity_parts:
+            parts.append(Text(""))  # separator
+            for ap in activity_parts:
+                parts.append(ap)
+
+    # ── System scan progress (conditional) ─────────────────────────────────────
+    if show_scan_prog and s.bodies:
+        mapped_count = sum(1 for b in s.bodies if b.mapped)
+        from collections import defaultdict as _dd3
+        complete_by_body = _dd3(int)
+        for _sc in s.bio_scans:
+            if _sc.complete:
+                complete_by_body[_sc.body] += 1
+        bio_done_count = sum(
+            min(complete_by_body.get(b.name, 0), b.bio_signals)
+            for b in s.bodies if b.bio_signals > 0
         )
-        svcs: set[str] = set()
-        for _stn in s.nearest_populated_stations:
-            if _stn.get("market"):     svcs.add("Market")
-            if _stn.get("shipyard"):   svcs.add("Shipyard")
-            if _stn.get("outfitting"): svcs.add("Outfitting")
-            for _sv in _stn.get("services", []):
-                if _sv in ("Repair", "Refuel", "Rearm", "BlackMarket"):
-                    svcs.add(_sv)
-        inh_tbl = Table(show_header=False, show_edge=False, box=None,
-                        padding=(0, 1), expand=False)
-        inh_tbl.add_column("name",   style="white",           no_wrap=True)
-        inh_tbl.add_column("dist",   style=P.LABEL,           no_wrap=True, justify="right")
-        inh_tbl.add_column("jumps",  style="rgb(130,130,130)", no_wrap=True, justify="right")
-        inh_tbl.add_row(
-            s.nearest_populated_name, dist_str, jumps_str,
-        )
-        row2_col1 = Text(s.nearest_populated_allegiance or "", style=P.LABEL)
-        row2_col2 = Text(f"{stn_count} Station{'s' if stn_count != 1 else ''}" if stn_count else "", style=P.LABEL)
-        row2_col3 = Text(", ".join(sorted(svcs)) if svcs else "", style=P.LABEL)
-        inh_tbl.add_row(row2_col1, row2_col2, row2_col3)
-        parts.append(inh_tbl)
-        parts.append(Text(""))
+        bio_total = sum(b.bio_signals for b in s.bodies if b.bio_signals > 0)
+        fss_done = len({b.name for b in s.bodies if b.fss_scanned and (b.planet_class or b.star_type)})
 
-    # Fleet carrier (from Spansh API, when carrier_lookup enabled) — nearest only
-    if s.carriers_current_system:
-        import math as _math
-        car_head = Text()
-        car_head.append("\nNEAREST FLEET CARRIER\n", style="bold rgb(100,180,255)")
-        parts.append(car_head)
+        scan_txt = Text()
+        scan_txt.append("Scan  ", style=HDR)
+        if s.fss_body_count:
+            scan_txt.append(f"FSS {fss_done}/{s.fss_body_count}  ", style="white")
+        else:
+            scan_txt.append(f"FSS {fss_done}  ", style="white")
+        scan_txt.append(f"Mapped {mapped_count}  ", style="white")
+        if bio_total:
+            scan_txt.append(f"Bio {bio_done_count}/{bio_total}", style=P.HUD_GREEN if bio_done_count >= bio_total else "white")
+        parts.append(scan_txt)
 
+    # ── Fleet carrier (conditional) ────────────────────────────────────────────
+    if show_carrier and s.carriers_current_system:
         nearest = min(s.carriers_current_system, key=lambda c: c.get("dist_ls", float("inf")))
-        c          = nearest
-        c_name     = c.get("name", "")
-        c_system   = c.get("system_name", "")
-        c_dist_ls  = c.get("dist_ls", 0.0)
-        c_updated  = c.get("updated_at", "")
-        c_x        = c.get("sys_x", 0.0)
-        c_y        = c.get("sys_y", 0.0)
-        c_z        = c.get("sys_z", 0.0)
-
-        ly_dist: Optional[float] = None
-        car_jumps_est: Optional[int] = None
-        if s.star_pos and (c_x or c_y or c_z):
-            px, py, pz = s.star_pos
-            ly_dist = _math.sqrt((px-c_x)**2 + (py-c_y)**2 + (pz-c_z)**2)
-            if s.jump_dist > 0 and ly_dist > 0:
-                car_jumps_est = _math.ceil(ly_dist / s.jump_dist)
-
+        c = nearest
+        c_name = c.get("name", "")
+        c_dist_ls = c.get("dist_ls", 0.0)
+        c_system = c.get("system_name", "")
         in_current = c_system and c_system.lower() == s.system.lower()
         if in_current and c_dist_ls > 0:
-            c_dist_str  = _fmt_ls_compact(c_dist_ls)
-            c_jumps_str = ""
-        elif ly_dist is not None:
-            c_dist_str  = f"{ly_dist:.0f} ly"
-            c_jumps_str = f"~{car_jumps_est} jump{'s' if car_jumps_est != 1 else ''}" if car_jumps_est else ""
+            c_dist_str = _fmt_ls_compact(c_dist_ls)
         else:
-            c_dist_str  = ""
-            c_jumps_str = ""
+            c_dist_str = ""
+            if s.star_pos:
+                c_x, c_y, c_z = c.get("sys_x", 0.0), c.get("sys_y", 0.0), c.get("sys_z", 0.0)
+                if c_x or c_y or c_z:
+                    px, py, pz = s.star_pos
+                    ly_dist = math.sqrt((px-c_x)**2 + (py-c_y)**2 + (pz-c_z)**2)
+                    c_dist_str = f"{ly_dist:.0f} ly"
 
-        if c_updated:
-            ago = _fmt_ago(c_updated)
-            c_location_str = ago if ago else (c_system or "")
-            c_location_style = "rgb(100,100,100)" if ago else "white"
-        elif c_system:
-            c_location_str  = c_system
-            c_location_style = "white"
-        else:
-            c_location_str  = ""
-            c_location_style = P.LABEL
+        svc_icons = ""
+        if c.get("market"): svc_icons += "M"
+        if c.get("shipyard"): svc_icons += "S"
+        if c.get("outfitting"): svc_icons += "O"
+        if c.get("rearm"): svc_icons += "R"
+        if c.get("refuel"): svc_icons += "F"
+        if c.get("repair"): svc_icons += "r"
 
-        svc_parts = []
-        if c.get("market"):     svc_parts.append("Market")
-        if c.get("shipyard"):   svc_parts.append("Shipyard")
-        if c.get("outfitting"): svc_parts.append("Outfitting")
-        if c.get("rearm"):      svc_parts.append("Rearm")
-        if c.get("refuel"):     svc_parts.append("Refuel")
-        if c.get("repair"):     svc_parts.append("Repair")
+        car_txt = Text()
+        car_txt.append("Carrier  ", style=HDR)
+        car_txt.append(c_name, style=f"bold {P.AMBER}")
+        if c_dist_str:
+            car_txt.append(f"  {c_dist_str}", style=P.LABEL)
+        if svc_icons:
+            car_txt.append(f"  [{svc_icons}]", style="rgb(160,160,160)")
+        parts.append(car_txt)
 
-        car_tbl = Table(show_header=False, show_edge=False, box=None,
-                        padding=(0, 1), expand=False)
-        car_tbl.add_column("name",  no_wrap=True)
-        car_tbl.add_column("dist",  no_wrap=True, justify="right")
-        car_tbl.add_column("jumps", no_wrap=True, justify="right")
-        car_tbl.add_row(
-            Text(c_name, style=f"bold {P.AMBER}"),
-            Text(c_dist_str, style=P.LABEL),
-            Text(c_jumps_str, style="rgb(130,130,130)"),
-        )
-        car_tbl.add_row(
-            Text(c_location_str, style=c_location_style),
-            Text(""),
-            Text(", ".join(svc_parts) if svc_parts else "", style=P.LABEL),
-        )
-        parts.append(car_tbl)
-        parts.append(Text(""))
+    # ── Neutron route (conditional) ────────────────────────────────────────────
+    if show_neutron and s.neutron_route:
+        ntr_txt = Text()
+        ntr_txt.append("Neutron  ", style=HDR)
+        ntr_txt.append(f"→ {s.neutron_route_to or '?'}", style=P.HUD_CYAN)
+        ntr_txt.append(f"  {len(s.neutron_route)} jumps", style="white")
+        if s.neutron_route_status and s.neutron_route_status != "done":
+            ntr_txt.append(f"  ({s.neutron_route_status})", style=P.AMBER)
+        parts.append(ntr_txt)
 
     if not parts:
         return Text("No data.", style=P.LABEL)
@@ -3640,6 +3651,8 @@ class SituationalPanel(_Panel):
                 len(snap.carriers_current_system),
                 snap.controlling_faction, snap.controlling_state, len(snap.factions),
                 snap.pp_power, snap.pp_total_merits,
+                snap.session_jumps, snap.session_first_disc, snap.session_mapped,
+                snap.session_value, snap.credits, snap.cargo, len(snap.missions),
             )
         elif mode == "bio":
             mode_key = (
@@ -3857,7 +3870,7 @@ class SituationalPanel(_Panel):
             return _render_colonisation(s, scroll=scroll)
         if mode == "route":
             return _render_route(s, scroll=scroll, panel_height=panel_h)
-        return _render_overview(s)
+        return _render_overview(s, panel_h=panel_h, panel_w=panel_w)
 
 
 def _render_stats(s: AppState) -> RenderableType:

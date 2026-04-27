@@ -319,6 +319,7 @@ class AppState:
 
     # Session stats (since app launch, live events only)
     session_start:      str = ""
+    session_start_ts:   float = 0.0
     session_jumps:      int = 0
     session_first_disc: int = 0
     session_mapped:     int = 0

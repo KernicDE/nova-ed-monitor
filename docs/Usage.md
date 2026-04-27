@@ -80,7 +80,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Mode | Abbrev | Auto? | Description |
 |------|--------|-------|-------------|
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
-| Overview | `OVR` | ✓ | Route summary + galactic position · notable bodies · PowerPlay/BGS · nearest inhabited system |
+| Overview | `OVR` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits) |
 | Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
 | Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` or `↑`/`↓` to cycle) |
 | Missions | `MIS` | ✓ | Active missions and massacre kill progress bars |

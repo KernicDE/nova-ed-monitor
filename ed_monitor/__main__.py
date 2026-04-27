@@ -123,6 +123,7 @@ def main() -> None:
         state.twitch_tts_muted          = not cfg.tts_twitch
         state.youtube_tts_muted         = not cfg.tts_youtube
         state.session_start             = datetime.now().strftime("%H:%M")
+        state.session_start_ts          = time.time()
         state.edsm_status.enabled = True
         state.client_online = False  # Start offline until we see LoadGame/Location event
         # Reset session statistics
