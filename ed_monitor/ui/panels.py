@@ -3850,7 +3850,7 @@ class SituationalPanel(_Panel):
         if mode == "stats":
             return _render_stats(s)
         if mode == "docking":
-            return _render_docking(s)
+            return _render_docking(s, panel_w=panel_w, panel_h=panel_h)
         if mode == "bgs":
             return _render_bgs(s, scroll=scroll)
         if mode == "colonisation":
@@ -3948,7 +3948,7 @@ def _render_stats(s: AppState) -> RenderableType:
     return Group(hdr, tbl, disclaimer)
 
 
-def _render_docking(s: AppState) -> RenderableType:
+def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> RenderableType:
     """Docking pad circular diagram — front view of the station.
 
     Mailslot is at the centre; rings go outward from front to back.
@@ -3967,16 +3967,32 @@ def _render_docking(s: AppState) -> RenderableType:
 
     parts: list[RenderableType] = []
 
+    # ── Header ───────────────────────────────────────────────────────────────
     head = Text()
     head.append(f"DOCKING: {stn}\n", style="bold white")
     if stype:
-        head.append(f"{stype}  ", style=P.LABEL)
-    head.append("Pad ", style=P.LABEL)
-    head.append(f"{pad}\n", style="bold rgb(0,255,150)")
+        head.append(f"{stype}\n", style=P.LABEL)
+    if pad > 0:
+        head.append("Pad ", style=P.LABEL)
+        head.append(f"{pad}\n", style="bold rgb(0,255,150)")
     parts.append(head)
 
     # ── Circular grid diagram ────────────────────────────────────────────────
-    W, H = 38, 13
+    # Scale to fill available space (2× to 2.5× relative to original 38×13)
+    header_lines = 2 + (1 if stype else 0) + (1 if pad > 0 else 0)
+    avail_h = max(13, panel_h - header_lines - 2)  # reserve 2 for hint + margin
+    avail_w = max(38, panel_w)
+    scale = min(avail_w / 38, avail_h / 13)
+    scale = max(scale, 2.0)
+    scale = min(scale, 2.5)
+
+    base_w, base_h = 38, 13
+    W = int(base_w * scale)
+    H = int(base_h * scale)
+    if W % 2 == 0:
+        W -= 1
+    if H % 2 == 0:
+        H -= 1
     cx, cy = W // 2, H // 2
 
     BLANK = (" ", "")
@@ -3992,11 +4008,10 @@ def _render_docking(s: AppState) -> RenderableType:
     # Ring geometry: (rx, ry, start_pad, count)
     # Evenly-spaced circular rings (rx ≈ 2×ry for round shape in monospace).
     # Reversed: inner ring = nearest to mailslot, outer = furthest.
+    base_rings = [(4, 2, 1, 12), (6, 3, 13, 12), (8, 4, 25, 12), (10, 5, 37, 4)]
     ring_defs = [
-        (4, 2, 1, 12),   # inner  — nearest to mailslot
-        (6, 3, 13, 12),  # mid-1
-        (8, 4, 25, 12),  # mid-2
-        (10, 5, 37, 4),  # outer  — back wall
+        (max(3, int(rx * scale)), max(2, int(ry * scale)), start, count)
+        for rx, ry, start, count in base_rings
     ]
 
     # Determine active ring and hint
@@ -4040,12 +4055,22 @@ def _render_docking(s: AppState) -> RenderableType:
     place(cx,     cy, "▼", "bold white")             # mailslot
     place(cx + 2, cy, "●", "bold rgb(0,255,100)")   # green — starboard / right
 
+    # Build diagram Text and centre horizontally within the panel
     diag = Text()
+    h_pad = max(0, (panel_w - W) // 2)
     for row in grid:
+        if h_pad:
+            diag.append(" " * h_pad)
         for ch, sty in row:
             diag.append(ch, style=sty) if sty else diag.append(ch)
         diag.append("\n")
     parts.append(diag)
+
+    # Centre vertically: add blank lines above if there's extra room
+    v_pad = max(0, panel_h - header_lines - H - (1 if hint_text else 0))
+    if v_pad > 1:
+        top_pad = v_pad // 2
+        parts.insert(1, Text("\n" * top_pad))
 
     hint = Text()
     if hint_text:
