@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import queue
 import pytest
-from ed_monitor.events import _fmt_credits, _body_vars, handle
+from ed_monitor.events import _fmt_credits, _body_vars, handle, is_scoopable, _is_terraformable
 from ed_monitor.state import AppState, BodyInfo, EventCategory
 from ed_monitor.state import estimate_value_mapped as _ev_mapped
 
@@ -307,6 +307,48 @@ def test_body_vars_scoopable_always_true_or_false():
     planet = _make_body(star_type="")
     vars_p = _body_vars(planet)
     assert vars_p["scoopable"] == "false"
+
+
+def test_is_scoopable_normalizes_star_class_tokens():
+    """is_scoopable must handle journal star types with extra text or whitespace."""
+    assert is_scoopable("K") is True
+    assert is_scoopable("k") is True
+    assert is_scoopable(" K (Yellow-Orange) Star ") is True
+    assert is_scoopable("G (White-Yellow) Star") is True
+    assert is_scoopable("N") is False
+    assert is_scoopable("White Dwarf") is False
+    assert is_scoopable("") is False
+
+
+def test_is_terraformable_handles_journal_variants():
+    """_is_terraformable must handle $-prefixed tokens and plain English."""
+    assert _is_terraformable("Terraformable") is True
+    assert _is_terraformable("$PLANET_TERRAFORMABLE;") is True
+    assert _is_terraformable("Terraforming") is True
+    assert _is_terraformable("$PLANET_TERRAFORMING;") is True
+    assert _is_terraformable("Not terraformable") is False
+    assert _is_terraformable("$PLANET_NOTERRAFORMABLE;") is False
+    assert _is_terraformable("") is False
+    assert _is_terraformable("$TERRAFORMSTATE_NONE;") is False
+
+
+def test_scan_terraform_state_detects_dollar_prefixed():
+    """Scan events with $-prefixed TerraformState must set body.terraform correctly."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_location_event(), state, q)
+
+    ev = _make_scan_ev("TestSys", "TestSys 1")
+    ev["TerraformState"] = "$PLANET_TERRAFORMABLE;"
+    handle(ev, state, q)
+    assert state.bodies[0].terraform is True
+
+    ev2 = _make_scan_ev("TestSys", "TestSys 2")
+    ev2["BodyID"] = 2
+    ev2["TerraformState"] = "$PLANET_NOTERRAFORMABLE;"
+    handle(ev2, state, q)
+    idx2 = state._bodies_by_name["TestSys 2"]
+    assert state.bodies[idx2].terraform is False
 
 
 # ── _build_eng_list return type ───────────────────────────────────────────────

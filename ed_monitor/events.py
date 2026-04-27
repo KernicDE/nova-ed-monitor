@@ -1024,7 +1024,7 @@ def _body_vars(b) -> dict:
     {ring_count}     — number of rings as string
     {tidal_lock}     — "Tidal lock" or ""
     {star_type}      — star type if body is a star, else ""
-    {scoopable}      — "Scoopable" or "" (stars only)
+    {scoopable}      — "true" or "false"
     """
     _AU = 149_597_870_700.0  # metres per AU
 
@@ -1304,7 +1304,25 @@ def _parse_level(ev: dict, is_star: bool) -> int:
 
 
 def is_scoopable(star_class: str) -> bool:
-    return star_class in ("O", "B", "A", "F", "G", "K", "M")
+    token = (star_class or "").strip().upper()
+    if not token:
+        return False
+    token = token.split()[0]
+    return token[:1] in ("O", "B", "A", "F", "G", "K", "M")
+
+
+def _is_terraformable(terraform_state: str) -> bool:
+    """Return True when journal TerraformState indicates terraformability.
+
+    Handles localized $-prefixed tokens (e.g. $PLANET_TERRAFORMABLE;)
+    as well as plain English forms.
+    """
+    raw = (terraform_state or "").strip().lower()
+    if not raw:
+        return False
+    if "not" in raw:
+        return False
+    return "terraformable" in raw or "terraforming" in raw
 
 
 def genus_min_dist(genus: str) -> float:
@@ -2044,7 +2062,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             radius       = _f(ev, "Radius")
             body_id      = _u(ev, "BodyID")
             mass_em      = _f(ev, "MassEM") or _f(ev, "StellarMass")
-            terraformable = terraform in ("Terraformable", "Terraforming")
+            terraformable = _is_terraformable(terraform)
             is_star      = bool(star_type)
             level        = _parse_level(ev, is_star)
             short        = _short_body(body_name, state.system)

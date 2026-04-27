@@ -30,7 +30,7 @@
 #   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
 #           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
 #           {dist_ls} {dist_ls_raw} {value} {value_raw}
-#           {terra} ("true"/"false")  {scoopable} ("true"/"false"/""=non-star)
+#           {terra} ("true"/"false")  {scoopable} ("true"/"false")
 #           {landable} {bio_count} {geo_count}
 #           {first_disc} {first_footfall_flag}
 #

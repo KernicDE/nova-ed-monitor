@@ -55,7 +55,7 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 |---|---|---|
 | `{body_type}` | `High metal content body` | Planet class string |
 | `{star_type}` | `G` | Abbreviated star type (only non-empty for stars) |
-| `{scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) / `""` (non-star) |
+| `{scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) |
 | `{atmosphere}` | `Carbon dioxide` | Atmosphere type |
 | `{volcanism}` | `Minor water magma` | Volcanism |
 | `{gravity}` | `0.83 G` | Surface gravity formatted for speech |
