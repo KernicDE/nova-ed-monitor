@@ -91,7 +91,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Neutron | `NTR` | — | Neutron route planner — press `n` to enter destination |
 | Wallet | `WLT` | — | Balance · fleet · cargo · suit loadout + weapons · backpack |
 | Inventory | `INV` | — | Cargo · raw / manufactured / encoded materials |
-| Docking | `DKG` | ✓ | Station pad diagram (top-down) |
+| Docking | `DKG` | ✓ | Station pad diagram — concentric rings with mailslot at centre; only assigned pad shown, active ring highlighted |
 | Statistics | `STS` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
 **Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
