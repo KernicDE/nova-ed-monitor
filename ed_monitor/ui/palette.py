@@ -26,6 +26,7 @@ LABEL_LIGHT = "rgb(160,160,160)" # Muted primary text / inactive buttons
 LABEL_DIM   = "rgb(100,100,100)" # Timestamps / footer hints / tertiary text
 DIM         = "rgb(60,60,60)"    # Disabled / faint / no-data
 BG_DARK     = "rgb(18,18,18)"    # App background
+PANEL_BORDER = "rgb(90,90,90)"   # Default border for logs / secondary panels
 
 # ── Semantic constants (derived from core palette) ────────────────────────────
 # Use these for specific UI elements to keep styling consistent across panels.

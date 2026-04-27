@@ -552,13 +552,7 @@ class NOVAApp(App):
     def _scroll_focused(self, delta: int) -> None:
         """Scroll up/down in the currently focused numbered panel."""
         n = self._focused_panel
-        if n == 1:
-            self.query_one(SystemPanel).scroll_system(delta)
-        elif n == 2:
-            self.query_one(ShipPanel).scroll_ship(delta)
-        elif n == 3:
-            self.query_one(RoutePanel).scroll_route_panel(delta)
-        elif n == 4:
+        if n == 4:
             self.query_one(BodiesPanel).scroll_bodies(delta)
         elif n == 5:
             self.query_one(EventLogPanel).scroll_log(delta)

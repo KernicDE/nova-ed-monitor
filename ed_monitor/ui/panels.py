@@ -270,6 +270,64 @@ def _mission_time_remaining(expiry: str) -> str:
         return ""
 
 
+# ── Shared rendering helpers ──────────────────────────────────────────────────
+
+def _data_table() -> Table:
+    """Create a consistently styled Rich Table for panel data.
+
+    Uses ``box=None``, alternating row backgrounds, and gold headers.
+    Callers add columns with ``tbl.add_column(...)``.
+    """
+    return Table(
+        show_header=True, show_edge=False, show_lines=False,
+        padding=(0, 1), box=None,
+        row_styles=["", f"on {P.ROW_ALT}"],
+        header_style=f"bold {P.HEADER}",
+    )
+
+
+def _kv_row(label: str, value: str, value_style: str = P.WHITE, width: int = 0) -> Text:
+    """Return a label:value Text row with consistent label styling.
+
+    *width* sets a fixed left-padding for the label (e.g. 8 for single-column
+    layouts).  When 0 the label is followed by a single space.
+    """
+    t = Text()
+    if width:
+        t.append(f"{label:<{width}}", style=P.LABEL)
+    else:
+        t.append(f"{label} ", style=P.LABEL)
+    t.append(value, style=value_style)
+    return t
+
+
+def _kv_line(t: Text, label: str, value: str, value_style: str = P.WHITE, width: int = 8) -> None:
+    """Append a label:value line (with trailing newline) to an existing Text."""
+    t.append_text(_kv_row(label, value, value_style, width))
+    t.append("\n")
+
+
+def _two_column_table(left_cells: list[Text], right_cells: list[Text]) -> Table:
+    """Build a 1:1 two-column table from lists of Text cells."""
+    tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    tbl.add_column("left", ratio=1)
+    tbl.add_column("right", ratio=1)
+    rows = max(len(left_cells), len(right_cells))
+    for i in range(rows):
+        lc = left_cells[i] if i < len(left_cells) else Text("")
+        rc = right_cells[i] if i < len(right_cells) else Text("")
+        tbl.add_row(lc, rc)
+    return tbl
+
+
+def _section_header(title: str) -> Text:
+    """Return a gold-on-dark section header bar."""
+    t = Text()
+    t.append(f" {title} ", style=f"bold {P.HEADER} on {P.HEADER_BG}")
+    t.append("\n")
+    return t
+
+
 # ── Base class ────────────────────────────────────────────────────────────────
 
 class _Panel(Widget):
@@ -311,12 +369,6 @@ class SystemPanel(_Panel):
         width: 1fr;
     }
     """
-
-    _scroll: int = 0
-
-    def scroll_system(self, delta: int) -> None:
-        self._scroll = max(0, self._scroll + delta)
-        self.refresh()
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -365,12 +417,6 @@ class SystemPanel(_Panel):
         fss_total = s.fss_body_count
 
         # Build two column lists: left = natural/exploration, right = human/BGS
-        def _cell(label: str, value: str, vstyle: str = P.WHITE) -> Text:
-            t = Text()
-            t.append(f"{label} ", style=P.LABEL)
-            t.append(value, style=vstyle)
-            return t
-
         left_cells: list[Text]  = []
         right_cells: list[Text] = []
 
@@ -379,55 +425,47 @@ class SystemPanel(_Panel):
             body_parts = [f"{stars}★"]
             if planets: body_parts.append(f"{planets}P")
             if moons:   body_parts.append(f"{moons}M")
-            left_cells.append(_cell("Bodies", " ".join(body_parts)))
+            left_cells.append(_kv_row("Bodies", " ".join(body_parts)))
 
         if fss_total > 0:
             fss_col = P.HUD_GREEN if fss_done >= fss_total else P.AMBER
-            left_cells.append(_cell("FSS", f"{fss_done}/{fss_total}", fss_col))
+            left_cells.append(_kv_row("FSS", f"{fss_done}/{fss_total}", fss_col))
 
         if s.system_power:
             pp     = s.system_power
             pp_col = _power_state_color(s.system_power_state)
             if s.system_power_state:
                 pp += f" [{s.system_power_state}]"
-            left_cells.append(_cell("Power", pp, pp_col))
+            left_cells.append(_kv_row("Power", pp, pp_col))
 
 
         # Right column — human/BGS data
         if s.population > 0:
-            right_cells.append(_cell("Pop", _fmt_pop(s.population)))
+            right_cells.append(_kv_row("Pop", _fmt_pop(s.population)))
         if s.economy:
-            right_cells.append(_cell("Economy", s.economy))
+            right_cells.append(_kv_row("Economy", s.economy))
         if s.security:
             sec_col = (P.HUD_GREEN if "High" in s.security
                        else P.HUD_WARN if "Medium" in s.security
                        else P.HUD_CRIT)
-            right_cells.append(_cell("Security", s.security, f"bold {sec_col}"))
+            right_cells.append(_kv_row("Security", s.security, f"bold {sec_col}"))
         if s.government:
-            right_cells.append(_cell("Gov", s.government))
+            right_cells.append(_kv_row("Gov", s.government))
         if s.allegiance:
-            right_cells.append(_cell("Alleg", s.allegiance))
+            right_cells.append(_kv_row("Alleg", s.allegiance))
         if s.controlling_faction:
             faction_str = (
                 f"{s.controlling_faction} [{s.controlling_state}]"
                 if s.controlling_state and s.controlling_state != "None"
                 else s.controlling_faction
             )
-            right_cells.append(_cell("Faction", faction_str))
+            right_cells.append(_kv_row("Faction", faction_str))
         if s.station_count > 0:
-            right_cells.append(_cell("Stations", str(s.station_count)))
+            right_cells.append(_kv_row("Stations", str(s.station_count)))
 
         # Build two-column table
         if left_cells or right_cells:
-            tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-            tbl.add_column("left",  ratio=1)
-            tbl.add_column("right", ratio=1)
-            rows = max(len(left_cells), len(right_cells))
-            for i in range(rows):
-                lc = left_cells[i]  if i < len(left_cells)  else Text("")
-                rc = right_cells[i] if i < len(right_cells) else Text("")
-                tbl.add_row(lc, rc)
-            parts.append(tbl)
+            parts.append(_two_column_table(left_cells, right_cells))
 
         # ── Body section — shown when near a known body ───────────────────────
         body_info: "BodyInfo | None" = None
@@ -448,7 +486,7 @@ class SystemPanel(_Panel):
             btype = _abbrev_type(body_info.planet_class, body_info.star_type)
             if btype:
                 tcol = _body_color(body_info.planet_class, body_info.star_type)
-                bleft.append(_cell("Type", btype, tcol))
+                bleft.append(_kv_row("Type", btype, tcol))
 
             # Gravity (planets only)
             if body_info.surface_gravity > 0 and body_info.planet_class:
@@ -456,59 +494,51 @@ class SystemPanel(_Panel):
                 gcol  = (P.HUD_CRIT if g >= 3.0
                          else P.HUD_WARN if g >= 1.5
                          else P.WHITE)
-                bleft.append(_cell("Gravity", f"{g:.2f} G", gcol))
+                bleft.append(_kv_row("Gravity", f"{g:.2f} G", gcol))
 
             # Radius
             if body_info.radius > 0:
                 km = body_info.radius / 1000
-                bleft.append(_cell("Radius", f"{km:,.0f} km"))
+                bleft.append(_kv_row("Radius", f"{km:,.0f} km"))
 
             # Surface temperature
             if body_info.surface_temp > 0:
-                bleft.append(_cell("Temp", f"{body_info.surface_temp:.0f} K"))
+                bleft.append(_kv_row("Temp", f"{body_info.surface_temp:.0f} K"))
 
             # Atmosphere (skip "No atmosphere")
             atm = body_info.atmosphere or ""
             if atm and "no atmosphere" not in atm.lower():
                 atm_short = re.sub(r"\s+atmosphere$", "", atm, flags=re.IGNORECASE)
-                bright.append(_cell("Atm", atm_short))
+                bright.append(_kv_row("Atm", atm_short))
 
             # Bio and Geo signals
             if body_info.bio_signals > 0:
-                bright.append(_cell("Bio", str(body_info.bio_signals), P.HUD_GREEN))
+                bright.append(_kv_row("Bio", str(body_info.bio_signals), P.HUD_GREEN))
             if body_info.geo_signals > 0:
-                bright.append(_cell("Geo", str(body_info.geo_signals), P.AMBER))
+                bright.append(_kv_row("Geo", str(body_info.geo_signals), P.AMBER))
 
             # Volcanism (strip trailing " volcanism", title-case)
             if body_info.volcanism:
                 vol = re.sub(r"\s+volcanism$", "", body_info.volcanism,
                              flags=re.IGNORECASE).title()
-                bright.append(_cell("Volc", vol))
+                bright.append(_kv_row("Volc", vol))
 
             # Terraformable
             if body_info.terraform:
-                bright.append(_cell("TF", "Candidate", P.HUD_GREEN))
+                bright.append(_kv_row("TF", "Candidate", P.HUD_GREEN))
 
             if bleft or bright:
-                btbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-                btbl.add_column("left",  ratio=1)
-                btbl.add_column("right", ratio=1)
-                brows = max(len(bleft), len(bright))
-                for i in range(brows):
-                    lc = bleft[i]  if i < len(bleft)  else Text("")
-                    rc = bright[i] if i < len(bright) else Text("")
-                    btbl.add_row(lc, rc)
-                parts.append(btbl)
+                parts.append(_two_column_table(bleft, bright))
 
         # Position footer — Pos/Alt (and "At" when no body section is shown)
         pos_parts: list[Text] = []
         if s.nearest_body and body_info is None:
             # Only show "At" when we have no detailed body section above
-            pos_parts.append(_cell("At", _short_name(s.nearest_body, s.system)))
+            pos_parts.append(_kv_row("At", _short_name(s.nearest_body, s.system)))
         if s.lat is not None and s.lon is not None:
-            pos_parts.append(_cell("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
+            pos_parts.append(_kv_row("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
             if s.altitude is not None:
-                pos_parts.append(_cell("Alt", f"{s.altitude:,.0f} m"))
+                pos_parts.append(_kv_row("Alt", f"{s.altitude:,.0f} m"))
         if pos_parts:
             pos_line = Text()
             pos_line.append("\n ")   # blank line + 1-space left margin matching table padding
@@ -536,12 +566,6 @@ class ShipPanel(_Panel):
         width: 2fr;
     }
     """
-
-    _scroll: int = 0
-
-    def scroll_ship(self, delta: int) -> None:
-        self._scroll = max(0, self._scroll + delta)
-        self.refresh()
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -881,12 +905,6 @@ class RoutePanel(_Panel):
     }
     """
 
-    _scroll: int = 0
-
-    def scroll_route_panel(self, delta: int) -> None:
-        self._scroll = max(0, self._scroll + delta)
-        self.refresh()
-
     def update(self, snap: AppState) -> None:
         self._snap = snap
         if snap.docked:
@@ -941,8 +959,7 @@ class RoutePanel(_Panel):
         t = Text()
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            t.append(f"{label:<8}", style=P.LABEL)
-            t.append(value + "\n", style=vstyle)
+            _kv_line(t, label, value, vstyle)
 
         t.append("DOCKED\n", style=f"bold {P.HUD_GREEN}")
         row("Station", s.station, "bold white")
@@ -977,8 +994,7 @@ class RoutePanel(_Panel):
         t = Text()
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            t.append(f"{label:<8}", style=P.LABEL)
-            t.append(value + "\n", style=vstyle)
+            _kv_line(t, label, value, vstyle)
 
         # Legal status colour
         _legal_col = {
@@ -1024,7 +1040,7 @@ class RoutePanel(_Panel):
         stage_s = stage_label[min(s.target_ship_stage, 3)]
         t.append(f"\n  scan: {stage_s}", style=P.LABEL)
         if s.target_ship_stage < 3:
-            t.append("  (target to advance)", style="dim rgb(80,80,80)")
+            t.append("  (target to advance)", style=f"dim {P.DIM}")
         t.append("\n")
 
         return t
@@ -1039,8 +1055,7 @@ class RoutePanel(_Panel):
             t = Text()
 
             def _row(label: str, value: str, vstyle: str = "white") -> None:
-                t.append(f"{label:<8}", style=P.LABEL)
-                t.append(value + "\n", style=vstyle)
+                _kv_line(t, label, value, vstyle)
 
             t.append(f"{body_name}\n", style="bold white")
             if body_name == s.route_next:
@@ -1060,8 +1075,7 @@ class RoutePanel(_Panel):
         t = Text()
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            t.append(f"{label:<8}", style=P.LABEL)
-            t.append(value + "\n", style=vstyle)
+            _kv_line(t, label, value, vstyle)
 
         short = _short_name(body_name, s.system)
         btype = _abbrev_type(body.planet_class, body.star_type)
@@ -1117,8 +1131,7 @@ class RoutePanel(_Panel):
         t = Text()
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            t.append(f"{label:<8}", style=P.LABEL)
-            t.append(value + "\n", style=vstyle)
+            _kv_line(t, label, value, vstyle)
 
         # Prefer the body the player is actively approaching, then the nearest tracked body
         near_name = s.approach_body or s.nearest_body
@@ -1254,21 +1267,16 @@ class BodiesPanel(_Panel):
             t.append("No bodies scanned yet.", style=P.LABEL)
             return t
 
-        tbl = Table(
-            show_header=True, show_edge=False, show_lines=False,
-            padding=(0, 1), box=None,
-            row_styles=["", f"on {P.ROW_ALT}"],
-        )
-        HDR = "bold " + P.HEADER
-        tbl.add_column("Body", style="white", width=11, header_style=HDR, no_wrap=True)
-        tbl.add_column("Type", width=8,  header_style=HDR)
-        tbl.add_column("Est Val", width=11, header_style=HDR, justify="right")
-        tbl.add_column("Dist", width=11, header_style=HDR, justify="right")
-        tbl.add_column("B",    width=4,  header_style=HDR)
-        tbl.add_column("G",    width=2,  header_style=HDR)
-        tbl.add_column("LTA",  width=5,  header_style=HDR)
-        tbl.add_column("F",    width=2,  header_style=HDR)
-        tbl.add_column("D",    width=2,  header_style=HDR)
+        tbl = _data_table()
+        tbl.add_column("Body", style="white", width=11, no_wrap=True)
+        tbl.add_column("Type", width=8)
+        tbl.add_column("Est Val", width=11, justify="right")
+        tbl.add_column("Dist", width=11, justify="right")
+        tbl.add_column("B",    width=4)
+        tbl.add_column("G",    width=2)
+        tbl.add_column("LTA",  width=5)
+        tbl.add_column("F",    width=2)
+        tbl.add_column("D",    width=2)
 
         system = s.system
         _star_short_names: set[str] = set()
@@ -1393,7 +1401,7 @@ class BodiesPanel(_Panel):
             val_col = _body_value_color(b)
 
             dist     = _fmt_ls_compact(b.dist_ls)
-            dist_col = "rgb(80,80,80)" if b.dist_ls == 0.0 else "white"
+            dist_col = P.DIM if b.dist_ls == 0.0 else "white"
 
             geo     = str(b.geo_signals) if b.geo_signals else "—"
             geo_col = P.PURPLE if b.geo_signals > 0 else P.DIM
@@ -1725,13 +1733,6 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
     return Group(*parts)
 
 
-def _section_header(title: str) -> Text:
-    t = Text()
-    t.append(f" {title} ", style=f"bold {P.HEADER} on {P.HEADER_BG}")
-    t.append("\n")
-    return t
-
-
 def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
     _ody_sort = lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()
 
@@ -1806,7 +1807,7 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
                 current_tbl.add_column("name",  style="white")
                 current_tbl.add_column("count", justify="right", style=P.AMBER)
             item = row[1]
-            style = "rgb(255,80,80)" if item.get("stolen") else "white"
+            style = P.HUD_CRIT if item.get("stolen") else "white"
             current_tbl.add_row(
                 Text(item["name"], style=style),
                 Text(str(item["count"]), style=f"bold {P.AMBER}"),
@@ -1869,7 +1870,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
             fac_kills[fac]["done"]   += mk["done"]
 
         kill_head = Text()
-        kill_head.append("MASSACRE PROGRESS\n", style="bold rgb(195,60,60)")
+        kill_head.append("MASSACRE PROGRESS\n", style=f"bold {P.HUD_CRIT}")
         parts.append(kill_head)
 
         for fac, kd in fac_kills.items():
@@ -1878,7 +1879,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
             filled = int(10 * done / needed) if needed > 0 else 0
             bar    = "█" * filled + "░" * (10 - filled)
             pct_t  = Text()
-            pct_t.append(f"  [{bar}] ", style="rgb(200,80,80)")
+            pct_t.append(f"  [{bar}] ", style=P.HUD_CRIT)
             pct_t.append(f"{done}/{needed}", style="white")
             pct_t.append(f"  {fac}\n", style=P.LABEL)
             parts.append(pct_t)
@@ -1887,14 +1888,10 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
     effective_scroll = min(scroll, max(0, len(missions) - 1))
     visible_missions = missions[effective_scroll:]
 
-    tbl = Table(
-        show_header=True, show_edge=False, show_lines=False,
-        padding=(0, 1), box=None,
-    )
-    HDR = "bold " + P.HEADER
-    tbl.add_column("Mission",     header_style=HDR)
-    tbl.add_column("Destination", width=20, header_style=HDR)
-    tbl.add_column("Time left",   width=9,  header_style=HDR, justify="right")
+    tbl = _data_table()
+    tbl.add_column("Mission")
+    tbl.add_column("Destination", width=20)
+    tbl.add_column("Time left",   width=9, justify="right")
 
     for m in visible_missions:
         remaining = _mission_time_remaining(m.expiry)
@@ -2261,7 +2258,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
         inner.append(f"{hint}\n", style="white")
 
     parts: list[RenderableType] = []
-    parts.append(Panel(inner, border_style="rgb(90,90,90)", padding=(0, 1)))
+    parts.append(Panel(inner, border_style=P.PANEL_BORDER, padding=(0, 1)))
     nav = Text()
     nav.append("  [Enter] back", style="dim")
     parts.append(nav)
@@ -2393,7 +2390,7 @@ def _render_wealth(s: AppState) -> RenderableType:
         tbl.add_column("name",  style="white")
         tbl.add_column("count", justify="right", style=P.AMBER)
         for item in s.cargo_items[:12]:
-            style = "rgb(255,80,80)" if item.get("stolen") else "white"
+            style = P.HUD_CRIT if item.get("stolen") else "white"
             tbl.add_row(Text(item["name"], style=style), Text(str(item["count"]), style=f"bold {P.AMBER}"))
         parts.append(tbl)
 
@@ -2475,12 +2472,11 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         scroll = max(0, min(scroll, max(0, len(display_route) - PAGE)))
         visible = display_route[scroll:scroll + PAGE]
 
-        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1))
-        HDR = "bold " + P.HEADER
-        tbl.add_column("#",    width=4,  header_style=HDR, justify="right")
-        tbl.add_column("System", header_style=HDR)
-        tbl.add_column("Boost", width=9, header_style=HDR, justify="right")
-        tbl.add_column("",     width=5,  header_style=HDR)
+        tbl = _data_table()
+        tbl.add_column("#",    width=4, justify="right")
+        tbl.add_column("System")
+        tbl.add_column("Boost", width=9, justify="right")
+        tbl.add_column("",     width=5)
 
         for i, jump in enumerate(visible, scroll + 1):
             sys_name  = jump.get("system") or "—"
@@ -2893,8 +2889,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
                 _bio_done_cnt[_sc.body] += 1
                 _bio_actual_cr[_sc.body] += _sc.value
 
-        tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 0),
-                    header_style="dim rgb(130,130,130)")
+        tbl = _data_table()
         tbl.add_column("Body", style="white", width=8, no_wrap=True)
         tbl.add_column("Type", width=9, no_wrap=True)
         tbl.add_column("Val", width=7, justify="right", no_wrap=True)
@@ -3000,7 +2995,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
             )
         parts.append(tbl)
         if len(notable) > max_body_rows:
-            more = Text(f"+{len(notable) - max_body_rows} more", style="dim rgb(80,80,80)")
+            more = Text(f"+{len(notable) - max_body_rows} more", style=f"dim {P.DIM}")
             parts.append(more)
     else:
         parts.append(Text("No notable bodies.", style=P.DIM))
@@ -3493,8 +3488,8 @@ class SituationalPanel(_Panel):
 
     DEFAULT_CSS = """
     SituationalPanel {
-        border: solid rgb(90,90,90);
-        border-title-color: rgb(180,180,180);
+        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
+        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
         border-title-style: bold;
         height: 1fr;
     }
@@ -3973,7 +3968,7 @@ def _render_stats(s: AppState) -> RenderableType:
 
     disclaimer = Text(
         "* Estimated payouts incl. bonuses. Unsold data is retained if killed.",
-        style="rgb(70,70,70)",
+        style=P.DIM,
     )
     return Group(hdr, tbl, disclaimer)
 
@@ -4133,8 +4128,7 @@ def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
     rows.sort(key=lambda r: -r[3])
     visible = rows[scroll:]
 
-    tbl = Table(show_header=True, show_edge=False, box=None, padding=(0, 1),
-                header_style="dim rgb(130,130,130)")
+    tbl = _data_table()
     tbl.add_column("System/Faction", no_wrap=True)
     tbl.add_column("Activity",       no_wrap=True)
     tbl.add_column("Total", width=5, justify="right", no_wrap=True)
@@ -4289,8 +4283,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
 
     effective_scroll = min(scroll, max(0, len(display_route) - 1))
 
-    tbl = Table(show_header=True, show_edge=False, box=None,
-                padding=(0, 1), header_style=f"bold {P.LABEL}")
+    tbl = _data_table()
     tbl.add_column("#",      width=3,  justify="right",  no_wrap=True)
     tbl.add_column("System", width=28)
     tbl.add_column("★",      width=5,  no_wrap=True)
@@ -4412,8 +4405,8 @@ class EventLogPanel(_Panel):
 
     DEFAULT_CSS = """
     EventLogPanel {
-        border: solid rgb(70,70,70);
-        border-title-color: white;
+        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
+        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
         border-title-style: bold;
     }
     """
@@ -4501,8 +4494,8 @@ class ChatLogPanel(_Panel):
 
     DEFAULT_CSS = """
     ChatLogPanel {
-        border: solid rgb(0,120,160);
-        border-title-color: rgb(0,160,210);
+        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
+        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
         border-title-style: bold;
     }
     """
@@ -4657,7 +4650,7 @@ class FooterBar(_Panel):
 
         # Chat TTS mute indicators (shown after volume, always visible when active)
         _mute_style = f"bold {P.HIGH_G_CRIT}"
-        _ok_style   = "rgb(80,80,80)"
+        _ok_style   = P.DIM
         if not stall_msg:
             left.append("  ")
             left.append("CHAT", style=_mute_style if chat_tts_muted else _ok_style)
@@ -4667,14 +4660,14 @@ class FooterBar(_Panel):
             left.append("YT",   style=_mute_style if (youtube_tts_muted or chat_tts_muted) else _ok_style)
 
         center = Text(justify="center")
-        center.append(datetime.now().strftime("%H:%M:%S"), style="bold rgb(160,160,160)")
+        center.append(datetime.now().strftime("%H:%M:%S"), style=f"bold {P.LABEL_LIGHT}")
 
         right = Text(justify="right")
         if s is not None:
             if s.session_start:
-                right.append(f"Online: {s.session_start}  ", style="rgb(110,110,110)")
+                right.append(f"Online: {s.session_start}  ", style=P.LABEL_DIM)
             _append_edsm(right, s.edsm_status)
-        right.append(f"  v{_NOVA_VERSION}", style="rgb(70,70,70)")
+        right.append(f"  v{_NOVA_VERSION}", style=P.DIM)
 
         tbl = Table.grid(expand=True)
         tbl.add_column("left",   no_wrap=True, ratio=1)
@@ -4696,7 +4689,7 @@ def _append_edsm(t: Text, st) -> None:
     else:
         t.append("✗", style=P.HUD_CRIT)
     if st.last_rx:
-        t.append(f"  {st.last_rx}", style="rgb(90,90,90)")
+        t.append(f"  {st.last_rx}", style=P.PANEL_BORDER)
     if st.last_error:
         t.append(f"  {st.last_error}", style=P.HUD_WARN)
     t.append(" ")
