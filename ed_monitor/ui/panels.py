@@ -3949,14 +3949,15 @@ def _render_stats(s: AppState) -> RenderableType:
 
 
 def _render_docking(s: AppState) -> RenderableType:
-    """Docking pad circular diagram — top-down view of the station.
+    """Docking pad circular diagram — front view of the station.
 
+    Mailslot is at the centre; rings go outward from front to back.
     Only the assigned landing pad is shown readable; other pads are hidden.
     Ring layout (Coriolis/Orbis):
-      Outer (1–12): large pads, outermost ring
-      Mid-1 (13–24): large pads, second ring
-      Mid-2 (25–36): medium pads, third ring
-      Inner (37–40): small pads, axis centre
+      Inner  (1–12):  large pads, nearest to mailslot
+      Mid-1  (13–24): large pads
+      Mid-2  (25–36): medium pads
+      Outer  (37–40): small pads, back wall
     """
     import math as _math
 
@@ -3988,61 +3989,56 @@ def _render_docking(s: AppState) -> RenderableType:
             if 0 <= gy < H and 0 <= x < W:
                 grid[gy][x] = (ch, style)
 
-    # Ring geometry: (rx, ry) only — used for faint outline and pad placement
-    ring_geoms = [
-        (16, 5),  # outer
-        (11, 3),  # mid-1
-        (7, 2),   # mid-2
-        (4, 1),   # inner
+    # Ring geometry: (rx, ry, start_pad, count)
+    # Evenly-spaced circular rings (rx ≈ 2×ry for round shape in monospace).
+    # Reversed: inner ring = nearest to mailslot, outer = furthest.
+    ring_defs = [
+        (4, 2, 1, 12),   # inner  — nearest to mailslot
+        (6, 3, 13, 12),  # mid-1
+        (8, 4, 25, 12),  # mid-2
+        (10, 5, 37, 4),  # outer  — back wall
     ]
 
-    # Draw faint dotted ring outlines
-    for rx, ry in ring_geoms:
+    # Determine active ring and hint
+    active_idx = -1
+    hint_text = ""
+    for idx, (_, _, start, count) in enumerate(ring_defs):
+        if start <= pad < start + count:
+            active_idx = idx
+            break
+    if active_idx == 0:
+        hint_text = "Front ring (large pad) — nearest mailslot"
+    elif active_idx == 1:
+        hint_text = "Mid-front ring (large pad)"
+    elif active_idx == 2:
+        hint_text = "Mid-rear ring (medium pad)"
+    elif active_idx == 3:
+        hint_text = "Rear ring (small pad) — back wall"
+
+    # Draw concentric ring outlines — active ring bright, others dim
+    for idx, (rx, ry, _, _) in enumerate(ring_defs):
         steps = max(rx, ry) * 6
+        dot_style = "rgb(150,150,150)" if idx == active_idx else "rgb(40,40,40)"
         for i in range(steps):
             angle = _math.pi + i * 2 * _math.pi / steps
             gx = int(round(cx + rx * _math.sin(angle)))
             gy = int(round(cy - ry * _math.cos(angle)))
             if 0 <= gy < H and 0 <= gx < W and grid[gy][gx] == BLANK:
-                grid[gy][gx] = ("·", "rgb(40,40,40)")
+                grid[gy][gx] = ("·", dot_style)
 
-    # Place only the assigned pad on its ring
-    if 1 <= pad <= 12:
-        rx, ry = 16, 5
-        count = 12
-        hint_text = "Outer ring (large pad) — stay near the wall"
-    elif 13 <= pad <= 24:
-        rx, ry = 11, 3
-        count = 12
-        hint_text = "Mid ring (large pad) — mid-distance from wall"
-    elif 25 <= pad <= 36:
-        rx, ry = 7, 2
-        count = 12
-        hint_text = "Inner ring (medium pad)"
-    elif 37 <= pad <= 40:
-        rx, ry = 4, 1
-        count = 4
-        hint_text = "Centre pad (small) — fly through the axis"
-    else:
-        rx, ry = 0, 0
-        count = 0
-        hint_text = ""
-
-    if rx:
-        i = (pad - 1) % count
+    # Place only the assigned pad on the active ring
+    if active_idx >= 0:
+        rx, ry, start, count = ring_defs[active_idx]
+        i = pad - start
         angle = _math.pi + i * 2 * _math.pi / count
         gx = int(round(cx + rx * _math.sin(angle)))
         gy = int(round(cy - ry * _math.cos(angle)))
-        place(gx, gy, f"[{pad}]", "bold rgb(0,255,150)")
+        place(gx, gy, f"[{pad}]", "bold white")
 
-    # Centre marker (station axis)
-    place(cx, cy, "·", "rgb(80,80,120)")
-
-    # Mailslot and navigation-light indicators at the bottom (front)
-    # Green on starboard (right), red on port (left) when entering.
-    place(cx - 10, H - 1, "●", "bold rgb(255,60,60)")   # red  — port / left
-    place(cx,      H - 1, "▼", "bold white")             # mailslot
-    place(cx + 10, H - 1, "●", "bold rgb(0,255,100)")   # green — starboard / right
+    # Mailslot in the centre with red/green nav lights beside it
+    place(cx - 2, cy, "●", "bold rgb(255,60,60)")   # red  — port / left
+    place(cx,     cy, "▼", "bold white")             # mailslot
+    place(cx + 2, cy, "●", "bold rgb(0,255,100)")   # green — starboard / right
 
     diag = Text()
     for row in grid:
