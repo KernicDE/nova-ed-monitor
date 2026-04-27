@@ -1516,23 +1516,16 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
             _ff_pred = getattr(b, "first_footfall", False)
-            hdr_t = Text()
-            hdr_t.append("─" * 3, style="rgb(60,80,100)")
-            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
-            hdr_t.append(f"(FSS · {b.bio_signals} bio) ", style="rgb(120,120,80)")
+            subtitle = f"FSS · {b.bio_signals} bio"
             if _ff_pred:
-                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
-            hdr_t.append("─" * 8, style="rgb(60,80,100)")
-            parts.append(hdr_t)
+                subtitle += " · ✦ FF"
+            parts.append(_section_header(f"{short}  ({subtitle})"))
 
             if b.bio_genuses_predicted:
                 _variant = bio_variant(s.primary_star_class)
-                tbl = Table(
-                    show_header=True, show_edge=False, show_lines=False,
-                    padding=(0, 0), box=None,
-                )
-                tbl.add_column("Predicted Species", width=24, header_style=HDR)
-                tbl.add_column("Est. Value",        width=20, header_style=HDR)
+                tbl = _data_table()
+                tbl.add_column("Predicted Species", width=24)
+                tbl.add_column("Est. Value",        width=20)
 
                 _rng_lo: list[int] = []
                 _rng_hi: list[int] = []
@@ -1557,8 +1550,8 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                     if _variant:
                         label += f" [{_variant}]"
                     tbl.add_row(
-                        Text(label, style="rgb(160,160,80)"),
-                        Text(val_s, style="rgb(160,130,60)"),
+                        Text(label, style=P.LABEL),
+                        Text(val_s, style=P.AMBER),
                     )
                 parts.append(tbl)
                 hint_t = Text()
@@ -1570,12 +1563,12 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
                     _total_lo = sum(sorted(_rng_lo)[:_n])
                     _total_hi = sum(sorted(_rng_hi, reverse=True)[:_n])
                     _est = f"~{_fmt_cr_compact(_total_lo)}–{_fmt_cr_compact(_total_hi)}"
-                    hint_t.append(f"  ·  pot. {_est}", style="rgb(140,130,60)")
+                    hint_t.append(f"  ·  pot. {_est}", style=P.LABEL)
                 hint_t.append("\n")
                 parts.append(hint_t)
             else:
                 unk_t = Text()
-                unk_t.append(f"  ? unknown  ", style="rgb(120,120,80)")
+                unk_t.append(f"  ? unknown  ", style=P.LABEL)
                 unk_t.append(f"({b.bio_signals} bio signal{'s' if b.bio_signals != 1 else ''})", style=P.LABEL)
                 unk_t.append("  DSS to identify\n", style=P.LABEL)
                 parts.append(unk_t)
@@ -1584,22 +1577,15 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             b = gdata
             short = _short_name(b.name, s.system) if b.name and s.system else b.name
             _ff = getattr(b, "first_footfall", False)
-            hdr_t = Text()
-            hdr_t.append("─" * 3, style="rgb(60,80,100)")
-            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
-            hdr_t.append("(DSS) ", style="rgb(100,140,180)")
+            subtitle = "DSS"
             if _ff:
-                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
-            hdr_t.append("─" * 14, style="rgb(60,80,100)")
-            parts.append(hdr_t)
+                subtitle += " · ✦ FF"
+            parts.append(_section_header(f"{short}  ({subtitle})"))
 
             _dss_variant = bio_variant(s.primary_star_class)
-            tbl = Table(
-                show_header=True, show_edge=False, show_lines=False,
-                padding=(0, 0), box=None,
-            )
-            tbl.add_column("Genus (DSS)",  width=24, header_style=HDR)
-            tbl.add_column("Est. Value",   width=20, header_style=HDR)
+            tbl = _data_table()
+            tbl.add_column("Genus (DSS)",  width=24)
+            tbl.add_column("Est. Value",   width=20)
 
             for g in b.bio_genuses:
                 key = g.lower().split()[0] if g else ""
@@ -1631,24 +1617,18 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             body_name, scans = gdata
             short = _short_name(body_name, s.system) if body_name and s.system else body_name
             _scan_ff = any(sc.first_footfall for sc in scans)
-            hdr_t = Text()
-            hdr_t.append("─" * 3, style="rgb(60,80,100)")
-            hdr_t.append(f" {short} ", style="bold rgb(80,200,240)")
+            subtitle = f"{len(scans)} sample{'s' if len(scans) != 1 else ''}"
             if _scan_ff:
-                hdr_t.append("✦ FF ", style=P.HUD_GREEN)
-            hdr_t.append("─" * 20, style="rgb(60,80,100)")
-            parts.append(hdr_t)
+                subtitle += " · ✦ FF"
+            parts.append(_section_header(f"{short}  ({subtitle})"))
 
-            tbl = Table(
-                show_header=True, show_edge=False, show_lines=False,
-                padding=(0, 0), box=None,
-            )
-            tbl.add_column("Species",  width=21, header_style=HDR)
-            tbl.add_column("Genus",    width=13, header_style=HDR)
-            tbl.add_column("Smp",      width=5,  header_style=HDR)
-            tbl.add_column("MinDist",  width=8,  header_style=HDR)
-            tbl.add_column("Travel",   width=22, header_style=HDR)
-            tbl.add_column("Value",    width=14, header_style=HDR)
+            tbl = _data_table()
+            tbl.add_column("Species",  width=21)
+            tbl.add_column("Genus",    width=13)
+            tbl.add_column("Smp",      width=5)
+            tbl.add_column("MinDist",  width=8)
+            tbl.add_column("Travel",   width=22)
+            tbl.add_column("Value",    width=14)
 
             for sc in scans:
                 samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: "rgb(210,210,0)"}.get(sc.samples, P.LABEL)
@@ -1798,12 +1778,14 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
             if parts:
                 parts.append(Text("\n"))
             parts.append(_section_header(row[1]))
-            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                row_styles=["", f"on {P.ROW_ALT}"])
             current_tbl.add_column("name",  style="white")
             current_tbl.add_column("count", justify="right")
         elif kind == "cargo":
             if current_tbl is None:
-                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                    row_styles=["", f"on {P.ROW_ALT}"])
                 current_tbl.add_column("name",  style="white")
                 current_tbl.add_column("count", justify="right", style=P.AMBER)
             item = row[1]
@@ -1815,7 +1797,8 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
         elif kind == "mat":
             _, name, cnt = row
             if current_tbl is None:
-                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                    row_styles=["", f"on {P.ROW_ALT}"])
                 current_tbl.add_column("name",  style="white")
                 current_tbl.add_column("count", justify="right")
             cnt_col = P.HUD_WARN if cnt >= 150 else ("white" if cnt >= 50 else P.LABEL)
@@ -1825,20 +1808,22 @@ def _render_inventory(s: AppState, scroll: int = 0) -> RenderableType:
             if parts:
                 parts.append(Text("\n"))
             div = Text()
-            div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.AMBER}")
+            div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.HEADER}")
             parts.append(div)
         elif kind == "ody_header":
             _flush_tbl()
             if parts:
                 parts.append(Text("\n"))
             parts.append(_section_header(row[1]))
-            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-            current_tbl.add_column("name",  style="rgb(200,220,255)")
+            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                row_styles=["", f"on {P.ROW_ALT}"])
+            current_tbl.add_column("name",  style=P.HUD_CYAN)
             current_tbl.add_column("count", justify="right")
         elif kind == "ody_item":
             if current_tbl is None:
-                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
-                current_tbl.add_column("name",  style="rgb(200,220,255)")
+                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                    row_styles=["", f"on {P.ROW_ALT}"])
+                current_tbl.add_column("name",  style=P.HUD_CYAN)
                 current_tbl.add_column("count", justify="right")
             item = row[1]
             name  = item.get("Name_Localised") or item.get("Name", "?")
@@ -1869,9 +1854,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
             fac_kills[fac]["needed"] += mk["needed"]
             fac_kills[fac]["done"]   += mk["done"]
 
-        kill_head = Text()
-        kill_head.append("MASSACRE PROGRESS\n", style=f"bold {P.HUD_CRIT}")
-        parts.append(kill_head)
+        parts.append(_section_header("MASSACRE PROGRESS"))
 
         for fac, kd in fac_kills.items():
             done   = kd["done"]
@@ -2334,7 +2317,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     hint = Text()
     hint.append("  [Enter] details  [↑↓] move", style="dim")
 
-    return Group(hint, tbl)
+    return Group(_section_header("ENGINEERS"), hint, tbl)
 
 
 def _render_wealth(s: AppState) -> RenderableType:
@@ -2342,27 +2325,28 @@ def _render_wealth(s: AppState) -> RenderableType:
 
     # ── Balance ──────────────────────────────────────────────────────────────
     bal_text = Text()
-    bal_text.append("BALANCE\n", style="bold " + P.HEADER)
     if s.credits > 0:
         bal_text.append(f"  {_de(s.credits)} Cr\n", style="bold white")
     else:
         bal_text.append("  Unknown\n", style=P.LABEL)
+    parts.append(_section_header("BALANCE"))
     parts.append(bal_text)
 
     # ── Fleet ────────────────────────────────────────────────────────────────
     # Current ship always first
     cur_ship = Text()
-    cur_ship.append("\nFLEET\n", style="bold " + P.HEADER)
     if s.ship_type or s.ship_name:
         label = s.ship_name or s.ship_type
         cur_ship.append(f"  {label}", style="bold white")
         if s.ship_ident:
             cur_ship.append(f"  [{s.ship_ident}]", style=P.LABEL)
         cur_ship.append("  ◀ HERE\n", style=P.HUD_GREEN)
+    parts.append(_section_header("FLEET"))
     parts.append(cur_ship)
 
     if s.stored_ships:
-        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                    row_styles=["", f"on {P.ROW_ALT}"])
         tbl.add_column("name",    style="white")
         tbl.add_column("ident",   style=P.LABEL,    width=8)
         tbl.add_column("system",  style=P.HUD_CYAN,  width=20)
@@ -2386,7 +2370,8 @@ def _render_wealth(s: AppState) -> RenderableType:
     # ── Cargo ────────────────────────────────────────────────────────────────
     if s.cargo_items:
         parts.append(_section_header(f"CARGO  {s.cargo}/{s.cargo_capacity}t"))
-        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1))
+        tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                    row_styles=["", f"on {P.ROW_ALT}"])
         tbl.add_column("name",  style="white")
         tbl.add_column("count", justify="right", style=P.AMBER)
         for item in s.cargo_items[:12]:
@@ -2397,7 +2382,6 @@ def _render_wealth(s: AppState) -> RenderableType:
     # ── Suit / backpack ──────────────────────────────────────────────────────
     if s.suit_loadout:
         suit_text = Text()
-        suit_text.append("\nSUIT LOADOUT\n", style="bold " + P.HEADER)
         suit_name = s.suit_loadout.get("suit") or "Unknown Suit"
         suit_text.append(f"  {suit_name}\n", style="white")
         weapons = s.suit_loadout.get("weapons") or []
@@ -2405,6 +2389,7 @@ def _render_wealth(s: AppState) -> RenderableType:
             wname = (w.get("SuitModuleName_Localised") or w.get("SuitModuleName") or "")
             if wname:
                 suit_text.append(f"  ▸ {wname}\n", style=P.LABEL)
+        parts.append(_section_header("SUIT LOADOUT"))
         parts.append(suit_text)
 
 
@@ -2562,7 +2547,7 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
 
     diag = Text()
     if standalone:
-        diag.append(f"{_sys}\n", style="bold white")
+        diag.append(f"{_sys}\n", style=f"bold {P.HEADER}")
         diag.append("\nSYSTEM DIAGRAM\n", style="bold " + P.HEADER)
     else:
         diag.append("\nSYSTEM\n", style="bold " + P.HEADER)
@@ -3295,10 +3280,10 @@ def _render_galaxy(s: AppState, regional: bool = False,
 
     scale_str = f"±{int(half_range/1000)}k ly" if half_range >= 1000 else f"±{int(half_range)} ly"
     mode_str  = "regional" if regional else "galactic"
-    title_str = f"GALAXY  {scale_str} ({mode_str})  [R]"
+    title_str = f"GALAXY  {scale_str} ({mode_str})"
 
     title_line = Text()
-    title_line.append(f"  {title_str}\n", style=f"bold {P.LABEL}")
+    title_line.append(f"  {title_str}\n", style=f"bold {P.HEADER}")
     framed = Group(title_line, canvas_text)
 
     # ── Legend and route info ─────────────────────────────────────────────────
@@ -3917,24 +3902,13 @@ def _render_stats(s: AppState) -> RenderableType:
     MAIN = "white"
     SUB  = P.LABEL
 
-    tbl = Table(show_header=False, show_edge=False, show_lines=False,
-                padding=(0, 1), box=None)
-    tbl.add_column("label", width=12)
-    tbl.add_column("today", width=7,  justify="right")
-    tbl.add_column("week",  width=7,  justify="right")
-    tbl.add_column("month", width=7,  justify="right")
-    tbl.add_column("year",  width=8,  justify="right")
-    tbl.add_column("total", width=8,  justify="right")
-
-    # Header
-    tbl.add_row(
-        Text("",      style=HDR),
-        Text("Today", style=HDR),
-        Text("Week",  style=HDR),
-        Text("Month", style=HDR),
-        Text("Year",  style=HDR),
-        Text("Total", style=HDR),
-    )
+    tbl = _data_table()
+    tbl.add_column("",      width=12)
+    tbl.add_column("Today", width=7,  justify="right")
+    tbl.add_column("Week",  width=7,  justify="right")
+    tbl.add_column("Month", width=7,  justify="right")
+    tbl.add_column("Year",  width=8,  justify="right")
+    tbl.add_column("Total", width=8,  justify="right")
 
     PERIODS = ("today", "week", "month", "year", "total")
 
@@ -3963,14 +3937,11 @@ def _render_stats(s: AppState) -> RenderableType:
     row("Enemies",    "enemies_destroyed",   _fmt_count)
     row("Ships Lost", "ships_lost",          _fmt_count)
 
-    hdr = Text()
-    hdr.append("STATISTICS\n", style=f"bold {P.AMBER}")
-
     disclaimer = Text(
         "* Estimated payouts incl. bonuses. Unsold data is retained if killed.",
         style=P.DIM,
     )
-    return Group(hdr, tbl, disclaimer)
+    return Group(_section_header("STATISTICS"), tbl, disclaimer)
 
 
 def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> RenderableType:
@@ -3993,14 +3964,15 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
     parts: list[RenderableType] = []
 
     # ── Header ───────────────────────────────────────────────────────────────
+    parts.append(_section_header("DOCKING"))
     head = Text()
-    head.append(f"DOCKING: {stn}\n", style="bold white")
     if stype:
         head.append(f"{stype}\n", style=P.LABEL)
     if pad > 0:
         head.append("Pad ", style=P.LABEL)
         head.append(f"{pad}\n", style="bold rgb(0,255,150)")
-    parts.append(head)
+    if head:
+        parts.append(head)
 
     # ── Circular grid diagram ────────────────────────────────────────────────
     # Scale to fill available space (2× to 2.5× relative to original 38×13)
@@ -4058,7 +4030,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
     # Draw concentric ring outlines — active ring bright, others dim
     for idx, (rx, ry, _, _) in enumerate(ring_defs):
         steps = max(rx, ry) * 6
-        dot_style = "rgb(150,150,150)" if idx == active_idx else "rgb(40,40,40)"
+        dot_style = "rgb(150,150,150)" if idx == active_idx else P.DIM
         for i in range(steps):
             angle = _math.pi + i * 2 * _math.pi / steps
             gx = int(round(cx + rx * _math.sin(angle)))
@@ -4113,10 +4085,9 @@ def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
         return t
 
     parts: list[RenderableType] = []
-    head = Text()
-    head.append(f"BGS ACTIVITY  ", style="bold rgb(0,180,100)")
-    head.append(f"({s.bgs_log_date})\n", style=P.LABEL)
-    parts.append(head)
+    parts.append(_section_header("BGS ACTIVITY"))
+    date_txt = Text(f"({s.bgs_log_date})\n", style=P.LABEL)
+    parts.append(date_txt)
 
     rows: list[tuple] = []  # (system, faction, act_str, total)
     for sys_name, fac_map in s.bgs_log.items():
@@ -4155,9 +4126,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
 
     import math as _math
     parts: list[RenderableType] = []
-    head = Text()
-    head.append("COLONISATION SITES\n", style=f"bold {P.GOLD}")
-    parts.append(head)
+    parts.append(_section_header("COLONISATION SITES"))
 
     # Sort sites: current system first, then by name
     sites = sorted(
@@ -4271,7 +4240,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     hops = s.route_hops
     word = "jump" if hops == 1 else "jumps"
     hdr = Text()
-    hdr.append(f"  {hops} {word} remaining", style=P.AMBER)
+    hdr.append(f"  {hops} {word} remaining", style=f"bold {P.HEADER}")
     if total_ly > 0:
         hdr.append(f" ({_fmt_ly(total_ly)} ly)", style=P.LABEL)
     if s.route_destination:
@@ -4381,20 +4350,31 @@ def _render_log_lines(
                          first_extra is appended on the first line before the message text.
     """
     t = Text()
+    line_idx = 0
     for ev in events:
         time_str = ev.time[:5]
         prefix_parts = format_prefix(ev)
         lines_text, msg_style, first_extra = format_message(ev)
         for i, line in enumerate(lines_text):
+            base = f"on {P.ROW_ALT}" if line_idx % 2 == 1 else ""
             if i == 0:
-                t.append(f"{time_str} ", style=P.LABEL_DIM)
+                seg = Text(style=base)
+                seg.append(f"{time_str} ", style=P.LABEL_DIM)
                 for txt, sty in prefix_parts:
-                    t.append(txt, style=sty)
+                    seg.append(txt, style=sty)
                 for txt, sty in first_extra:
-                    t.append(txt, style=sty)
-                t.append(line + "\n", style=msg_style)
+                    seg.append(txt, style=sty)
+                seg.append(line + "\n", style=msg_style)
+                if base:
+                    seg.stylize(base)
+                t.append_text(seg)
             else:
-                t.append(" " * prefix_w + line + "\n", style=msg_style)
+                seg = Text(style=base)
+                seg.append(" " * prefix_w + line + "\n", style=msg_style)
+                if base:
+                    seg.stylize(base)
+                t.append_text(seg)
+            line_idx += 1
     return t
 
 

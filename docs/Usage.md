@@ -47,12 +47,12 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 | `Tab` | Cycle focused panel forward (1→6) |
 | `Shift+Tab` | Cycle focused panel backward (6→1) |
 | `a` | Toggle auto panel switching on/off |
-| `↑` / `k` | Scroll situational panel up (MAP mode: previous sub-view) |
-| `↓` / `j` | Scroll situational panel down (MAP mode: next sub-view) |
+| `↑` / `k` | Scroll situational panel up (MAP mode: previous scale) |
+| `↓` / `j` | Scroll situational panel down (MAP mode: next scale) |
 | `PgUp` / `PgDn` | Scroll focused panel by 5 (or situational panel when none focused) |
 | `Home` / `End` | Jump to top / bottom of focused panel |
 | `s` | Open settings overlay |
-| `r` | Cycle Maps sub-screen forward (system → regional → galaxy) |
+| `↑` / `k` / `↓` / `j` | Cycle Maps sub-screen (system ↔ regional ↔ galaxy) |
 | `n` | Open neutron route destination input (Neutron mode only) |
 | `m` | Mute / unmute all TTS |
 | `Enter` | Engineers: open detail / return to list |
@@ -88,7 +88,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
 | Overview | `OVR` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits) |
 | Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
-| Maps | `MAP` | — | System diagram → regional map → galaxy map (`r` or `↑`/`↓` to cycle) |
+| Maps | `MAP` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
 | Missions | `MIS` | ✓ | Active missions and massacre kill progress bars |
 | Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |

@@ -75,7 +75,7 @@ class HelpScreen(Screen):
             ("PgUp / PgDn",      "Scroll focused panel (or situational when none focused)"),
             ("Home / End",       "Jump to top / bottom of focused panel"),
             ("s",                "Open settings overlay"),
-            ("r",                "Cycle Maps sub-screen forward (system → regional → galaxy)"),
+            ("↑ / k / ↓ / j",    "Cycle Maps sub-screen (system ↔ regional ↔ galaxy)"),
             ("n",                "Neutron route destination input (Neutron mode only)"),
             ("m",                "Mute / unmute all TTS"),
             ("Enter",            "Engineers: open detail / return to list"),
@@ -96,7 +96,7 @@ class HelpScreen(Screen):
             ("*** / Auto",       "Auto-switches by context; a = toggle lock"),
             ("OVR / Overview",   "Route + position · notable bodies · PP/BGS · nearest inhabited"),
             ("BIO / Biological", "Active bio scans with distances and bearings"),
-            ("MAP / Maps",       "System diagram → regional → galaxy map (r = cycle)"),
+            ("MAP / Maps",       "System diagram → regional → galaxy map (↑/↓ to cycle)"),
             ("MIS / Mission",    "Active missions and massacre kill progress"),
             ("ENG / Engineers",  "Engineer unlock progress and rank"),
             ("BGS",              "BGS activity log — per-faction activity counts"),
@@ -740,9 +740,6 @@ class NOVAApp(App):
 
         elif key == "a":
             self.query_one(SituationalPanel).toggle_auto_lock()
-
-        elif key == "r":
-            self.query_one(SituationalPanel).toggle_galaxy_scale()
 
         elif key == "m":
             with self._vol_lock:
