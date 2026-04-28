@@ -311,7 +311,7 @@ add = ["Arrived in {system}. {include:_ship_status}"]
 add = ['Scanned {body_short}. WHEN {value_raw} > 500000 THEN "Worth {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals.";']
 
 [FSDJump]
-add = ['Jumped to {system}. WHEN {terra} IS TRUE THEN "Terraformable system.";']
+add = ['Jumped to {system}. WHEN {is_star_scoopable} IS TRUE THEN "Scoopable star.";']
 ```
 
 Condition true → text is inserted. Condition false → the whole `WHEN...;` block is replaced with `""`. The `;` at the end is optional when the block is the last thing in the string.
@@ -320,14 +320,14 @@ Condition true → text is inserted. Condition false → the whole `WHEN...;` bl
 
 | Operator | Example |
 |----------|---------|
-| `IS TRUE` | `WHEN {terra} IS TRUE THEN "..."` |
+| `IS TRUE` | `WHEN {is_terraformable} IS TRUE THEN "..."` |
 | `IS FALSE` | `WHEN {first_disc} IS FALSE THEN "..."` |
 | `IS NOT TRUE` | `WHEN {landable} IS NOT TRUE THEN "..."` |
 | `==` / `!=` | `WHEN {economy} == "Refinery" THEN "..."` |
 | `<` / `>` / `<=` / `>=` | `WHEN {value_raw} > 500000 THEN "..."` |
 | `AND` / `OR` | `WHEN {bio_count} > 0 AND {first_disc} IS TRUE THEN "..."` |
 
-Truthy: non-empty value that is not `"0"` or `"false"`. Flag variables (`{terra}`, `{landable}`, `{first_disc}`, etc.) are `""` when absent, so `IS TRUE` works naturally. Unknown `{variable}` names silently expand to `""`.
+Truthy: non-empty value that is not `"0"` or `"false"`. Boolean variables (`{is_terraformable}`, `{is_scoopable}`, `{is_star_scoopable}`) are `True`/`False` — use `IS TRUE` / `IS FALSE`. Flag variables (`{landable}`, `{first_disc}`, etc.) are `""` when absent, so `IS TRUE` works naturally. Unknown `{variable}` names silently expand to `""`.
 
 ### Available template variables
 
@@ -341,7 +341,7 @@ Variables differ per event key — see the reference files in `default/` for the
 | `{body}` / `{body_short}` | Full / short body name |
 | `{value}` / `{value_raw}` | FSS scan value (formatted / raw number) |
 | `{value_mapped}` / `{value_mapped_raw}` | Projected or actual DSS payout with all bonuses |
-| `{terra}` | Non-empty when terraformable |
+| `{is_terraformable}` | `True` when terraformable (alias `{terra}`) |
 | `{landable}` | Non-empty when landable |
 | `{first_disc}` | Non-empty when first discovered |
 | `{bio_count}` / `{geo_count}` | Bio / geo signal counts |
