@@ -19,6 +19,7 @@ env/
 
 # Development / IDE / personal notes
 .claude/
+AGENTS.md
 CLAUDE.md
 .vscode/
 *.sublime-project

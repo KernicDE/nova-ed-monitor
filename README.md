@@ -1,7 +1,7 @@
 # NOVA — Navigation, Operations, and Vessel Assistance
 
 > [!NOTE]
-> This project is 100 % vibe-coded with LLM AI (Claude by Anthropic). Every line of code, every feature, and every bug fix was written through AI-assisted development.
+> This project is 100 % vibe-coded with LLM AI (Claude by Anthropic, Kimi by Moonshot AI). Every line of code, every feature, and every bug fix was written through AI-assisted development.
 
 A real-time TUI companion for **Elite Dangerous**. Tails the journal, speaks events via TTS, and renders a cockpit-style dashboard in your terminal.
 
@@ -37,7 +37,6 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 | **[Installation & Update](docs/Installation.md)** | Launcher scripts, pip install, data paths, uninstall, troubleshooting. |
 | **[Settings](docs/Settings.md)** | Every `config.toml` key, voiceline customisation, template engine, stream overlay. |
 | **[Usage Guide](docs/Usage.md)** | Keyboard shortcuts, every panel explained, bio/neutron/high-G workflows, stats. |
-| **[Audit v2.0.0](docs/audit-v2.md)** | Status of the Senior Architect Audit that shaped the v2.0.0 baseline. |
 
 ---
 
