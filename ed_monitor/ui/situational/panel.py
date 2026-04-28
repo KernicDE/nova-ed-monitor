@@ -26,6 +26,17 @@ from ..panels import (
     _fmt_cr_compact, _fmt_value, _fmt_ls_compact, _fmt_metres,
     _fmt_notable_val, _de,
 )
+from .assets import _render_assets
+from .bgs import _render_bgs
+from .bio import _render_bio
+from .colonisation import _render_colonisation
+from .engineers import _render_engineers
+from .maps import _render_galaxy, _render_system_map
+from .missions import _render_missions
+from .neutron import _render_neutron
+from .overview import _render_overview
+from .route import _render_route
+from .stats import _render_stats
 
 
 class SituationalPanel(_Panel):
