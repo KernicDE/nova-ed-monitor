@@ -388,17 +388,29 @@ class SituationalPanel(_Panel):
                 self._general_scroll = scroll
 
         elif mode == "assets":
-            # Unified assets scroll count — approximate row count
+            # Unified assets scroll count — exact match to _render_assets
             _asset_rows = 0
-            # Balance + Fleet sections
-            _asset_rows += 2 + len(s.stored_ships) + (1 if not s.stored_ships else 0)
+            # Balance (always present: header + value row)
+            _asset_rows += 2
+            # Fleet (header + current ship + stored ships or placeholder)
+            _asset_rows += 1
+            if s.ship_type or s.ship_name:
+                _asset_rows += 1
+            if s.stored_ships:
+                _asset_rows += len(s.stored_ships)
+            else:
+                _asset_rows += 1
+            # Cargo
             if s.cargo_items:
                 _asset_rows += 1 + len(s.cargo_items)
+            # Suit loadout (header + suit name + weapons)
             if s.suit_loadout:
-                _asset_rows += 1 + len(s.suit_loadout.get("weapons", []))
+                _asset_rows += 2 + len(s.suit_loadout.get("weapons", []))
+            # Materials
             for _md in (s.materials_raw, s.materials_mfg, s.materials_enc):
                 if _md:
                     _asset_rows += 1 + len(_md)
+            # Odyssey
             _has_bp = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
             _has_lk = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
             if _has_bp or _has_lk:
