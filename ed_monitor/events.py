@@ -1024,7 +1024,10 @@ def _body_vars(b) -> dict:
     {ring_count}     — number of rings as string
     {tidal_lock}     — "Tidal lock" or ""
     {star_type}      — star type if body is a star, else ""
-    {scoopable}      — "true" or "false"
+    {is_scoopable}   — True/False
+    {is_terraformable} — True/False
+    {scoopable}      — deprecated alias for {is_scoopable}
+    {terra}          — deprecated alias for {is_terraformable}
     """
     _AU = 149_597_870_700.0  # metres per AU
 
@@ -1051,7 +1054,8 @@ def _body_vars(b) -> dict:
     v_raw  = str(v_int) if v_int > 0 else ""
     return dict(
         body_type=b.planet_class, star_type=sc,
-        scoopable="true" if scoopable else "false",
+        is_scoopable=scoopable,
+        is_terraformable=b.terraform,
         atmosphere=b.atmosphere, volcanism=b.volcanism,
         gravity=f"{g_raw} G" if g_raw else "",    gravity_raw=g_raw,
         temp=f"{t_raw} Kelvin" if t_raw else "",  temp_raw=t_raw,
@@ -1060,7 +1064,6 @@ def _body_vars(b) -> dict:
         dist_ls=_tts_ls(b.dist_ls) if b.dist_ls > 0 else "", dist_ls_raw=d_raw,
         value=_tts_cr(v_int) if v_int > 0 else "", value_raw=v_raw,
         value_mapped=_tts_cr(vm_int) if vm_int > 0 else "", value_mapped_raw=vm_raw,
-        terra="true" if b.terraform else "false",
         landable="Landable" if b.landable else "",
         bio_count=str(b.bio_signals), geo_count=str(b.geo_signals),
         first_disc="Undiscovered" if b.first_discovered else "",
@@ -1073,6 +1076,9 @@ def _body_vars(b) -> dict:
         semi_major_axis=sma_au, semi_major_axis_raw=sma_raw, semi_major_axis_au_raw=sma_au_f,
         eccentricity=ecc_str,
         orbital_inclination=f"{inc_raw} degrees" if inc_raw else "", orbital_inclination_raw=inc_raw,
+        # Backward-compat aliases (deprecated — migrate to is_* names)
+        scoopable=scoopable,
+        terra=b.terraform,
     )
 
 
@@ -1166,9 +1172,33 @@ def _nearest_body_vars(state) -> dict:
     return {f"nearest_body_{k}": v for k, v in _body_vars(state.bodies[idx]).items()}
 
 
+def _primary_star_class(state: AppState) -> str:
+    """Return the best available primary star class for the current system.
+
+    Tries, in order:
+      1. state.primary_star_class (set by Scan or FSDJump)
+      2. Any star body at arrival distance (dist_ls == 0)
+      3. Current route entry (route_list[0])
+    """
+    sc = getattr(state, "primary_star_class", "")
+    if sc:
+        return sc
+    # Fallback 1: arrival star already in bodies
+    for b in state.bodies:
+        if b.star_type and b.level == 0 and b.dist_ls == 0.0:
+            return b.star_type
+    # Fallback 2: current system from plotted route
+    route = getattr(state, "route_list", [])
+    if isinstance(route, list) and len(route) > 0:
+        rs = _s(route[0], "StarClass")
+        if rs:
+            return rs
+    return ""
+
+
 def _system_vars(state) -> dict:
     """Return a dict of system-derived variables for voiceline templates."""
-    sc = getattr(state, "primary_star_class", "")
+    sc = _primary_star_class(state)
     scoopable = sc[:1] in ("O", "B", "A", "F", "G", "K", "M") if sc else False
     return {
         **_nearest_body_vars(state),
@@ -1178,7 +1208,8 @@ def _system_vars(state) -> dict:
         "faction": state.controlling_faction,
         "star_class": sc,
         "primary_star_class": sc,   # alias — same value, both names work in templates
-        "star_scoopable": ("true" if scoopable else ("false" if sc else "")),
+        "is_star_scoopable": scoopable,
+        "star_scoopable": scoopable,   # backward-compat alias
     }
 
 
@@ -1475,11 +1506,16 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             gov        = _loc(ev, "SystemGovernment")
             allegiance = _s(ev, "SystemAllegiance")
             star_class = _s(ev, "StarClass")
+            # Fallback: journal FSDJump may omit StarClass; use route if available.
+            # route_list[0] is the departure system, route_list[1] is the arrival.
+            if not star_class:
+                route = getattr(state, "route_list", [])
+                if isinstance(route, list) and len(route) > 1:
+                    star_class = _s(route[1], "StarClass")
             scoopable  = is_scoopable(star_class)
 
             state.system              = system
-            if star_class:
-                state.primary_star_class = star_class
+            state.primary_star_class   = star_class   # always update (empty = unknown)
             state.population          = pop
             state.economy             = _strip_economy(economy)
             state.security            = _strip_economy(security)

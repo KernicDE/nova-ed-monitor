@@ -30,11 +30,11 @@
 #   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
 #           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
 #           {dist_ls} {dist_ls_raw} {value} {value_raw}
-#           {terra} ("true"/"false")  {scoopable} ("true"/"false")
+#           {is_terraformable} (True/False)  {is_scoopable} (True/False)
 #           {landable} {bio_count} {geo_count}
 #           {first_disc} {first_footfall_flag}
 #
-#   System: {star_scoopable} ("true"/"false"/""=unknown)
+#   System: {is_star_scoopable} (True/False)
 #
 #   Bio scan (active scan): {genus} {sample_count} {samples_left}
 #           {min_dist} {min_dist_raw} {bio_value} {bio_value_raw}
@@ -85,8 +85,9 @@
 #     AND   OR
 #
 #   Truthy: non-empty value that is not "0" or "false" (case-insensitive).
-#   Boolean variables ({terra}, {scoopable}, {star_scoopable}) return "true"/"false"
-#   so both IS TRUE/IS FALSE and == "true"/== "false" comparisons work.
+#   Boolean variables ({is_scoopable}, {is_terraformable}) return Python True/False.
+#   Use "WHEN {is_scoopable} IS TRUE THEN ..." or "WHEN {is_terraformable} IS FALSE THEN ...".
+#   Deprecated aliases ({terra}, {scoopable}, {star_scoopable}) still work for one release.
 #   Other flag variables ({landable}, {first_disc} etc.) are "" when absent,
 #   non-empty when present — so "WHEN {landable} IS TRUE" works naturally.
 

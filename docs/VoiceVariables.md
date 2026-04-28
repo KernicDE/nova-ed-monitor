@@ -19,7 +19,7 @@ Available in most navigation, exploration, and economy events.
 | `{system}` | `Sol` | Current star system name |
 | `{star_class}` | `G` | Primary star class (abbreviated). Also accessible as `{primary_star_class}` |
 | `{primary_star_class}` | `G` | Alias for `{star_class}` |
-| `{star_scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) / `""` if unknown |
+| `{is_star_scoopable}` | `True` | `True` (primary star is scoopable) / `False` (not scoopable). Alias `{star_scoopable}` still works. |
 | `{allegiance}` | `Federation` | System allegiance |
 | `{economy}` | `Agriculture` | Primary economy |
 | `{security}` | `Medium Security` | Security level |
@@ -55,7 +55,7 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 |---|---|---|
 | `{body_type}` | `High metal content body` | Planet class string |
 | `{star_type}` | `G` | Abbreviated star type (only non-empty for stars) |
-| `{scoopable}` | `true` | `"true"` (scoopable) / `"false"` (not scoopable) |
+| `{is_scoopable}` | `True` | `True` (scoopable) / `False` (not scoopable). Alias `{scoopable}` still works. |
 | `{atmosphere}` | `Carbon dioxide` | Atmosphere type |
 | `{volcanism}` | `Minor water magma` | Volcanism |
 | `{gravity}` | `0.83 G` | Surface gravity formatted for speech |
@@ -72,7 +72,7 @@ Available in scan, approach, and surface events. When listed as **"Nearest body"
 | `{value_raw}` | `1200000` | Raw scan value as integer string (same base as `{value_mapped}`) |
 | `{value_mapped}` | `3.4 million credits` | Projected or actual DSS payout (all bonuses) |
 | `{value_mapped_raw}` | `3400000` | Raw mapped value as integer string |
-| `{terra}` | `true` | `"true"` (terraformable) / `"false"` (not terraformable) |
+| `{is_terraformable}` | `True` | `True` (terraformable) / `False` (not terraformable). Alias `{terra}` still works. |
 | `{landable}` | `Landable` | `"Landable"` or `""` |
 | `{bio_count}` | `3` | Number of bio signals (integer string) |
 | `{geo_count}` | `7` | Number of geo signals (integer string) |
@@ -192,7 +192,7 @@ Fires on every FSD or carrier jump.
 Example:
 ```toml
 [FSDJump]
-add = ["Arrived in {system}. WHEN {star_scoopable} IS TRUE THEN \"Scoopable {star_class} star.\"; WHEN {hops_remaining} > 0 THEN \"{hops_remaining} jumps left.\";"]
+add = ["Arrived in {system}. WHEN {is_star_scoopable} IS TRUE THEN \"Scoopable {star_class} star.\"; WHEN {hops_remaining} > 0 THEN \"{hops_remaining} jumps left.\";"]
 ```
 
 ---
@@ -754,17 +754,20 @@ These events have **no variables**. Silence any with `replace = []`.
 
 ## Conditional Examples
 
-Boolean variables (`{terra}`, `{scoopable}`, `{star_scoopable}`) return `"true"` or `"false"`, so both `IS TRUE`/`IS FALSE` and `== "true"`/`== "false"` comparisons work. Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent and non-empty when present — use `IS TRUE` for those.
+Boolean variables (`{is_scoopable}`, `{is_terraformable}`) return Python `True`/`False`.
+Use `IS TRUE` / `IS FALSE` for these (e.g. `WHEN {is_scoopable} IS TRUE THEN "Scoopable.";`).
+Deprecated aliases (`{terra}`, `{scoopable}`, `{star_scoopable}`) still evaluate the same way.
+Other flag variables (`{landable}`, `{first_disc}` etc.) are `""` when absent and non-empty when present — use `IS TRUE` for those.
 
 ```toml
 [Scan_Notable]
 add = [
-  'Scanned {body_short}. WHEN {value_raw} > 1000000 THEN "Value: {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals."; WHEN {terra} IS TRUE THEN "Terraformable!";'
+  'Scanned {body_short}. WHEN {value_raw} > 1000000 THEN "Value: {value}."; WHEN {bio_count} > 0 THEN "{bio_count} bio signals."; WHEN {is_terraformable} IS TRUE THEN "Terraformable!";'
 ]
 
 [FSDJump]
 add = [
-  'Arrived in {system}. WHEN {star_scoopable} IS TRUE THEN "Scoopable {star_class} star."; WHEN {hops_remaining} > 0 THEN "{hops_remaining} jumps remaining.";'
+  'Arrived in {system}. WHEN {is_star_scoopable} IS TRUE THEN "Scoopable {star_class} star."; WHEN {hops_remaining} > 0 THEN "{hops_remaining} jumps remaining.";'
 ]
 
 [FSSAllBodiesFound]

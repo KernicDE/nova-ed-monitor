@@ -320,7 +320,10 @@ def _eval_condition(condition: str, kwargs: dict) -> bool:
     OR has lower precedence than AND: each OR-group is ANDed together.
     """
     def _sub(m: re.Match) -> str:
-        return str(kwargs.get(m.group(1), ""))
+        v = kwargs.get(m.group(1), "")
+        if isinstance(v, bool):
+            return "TRUE" if v else "FALSE"
+        return str(v)
 
     cond = _COND_VAR_RE.sub(_sub, condition)
 

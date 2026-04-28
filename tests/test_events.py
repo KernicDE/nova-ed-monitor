@@ -294,19 +294,35 @@ def test_body_vars_value_non_fss_uses_edsm():
     assert vars_["value_raw"] == str(50_000)
 
 
-def test_body_vars_scoopable_always_true_or_false():
-    """{scoopable} for a star must never be empty — always 'true' or 'false'."""
+def test_body_vars_scoopable_is_boolean():
+    """{is_scoopable} must be a proper bool; legacy alias {scoopable} also present."""
     scoopable_star = _make_body(star_type="G")
     vars_s = _body_vars(scoopable_star)
-    assert vars_s["scoopable"] == "true"
+    assert vars_s["is_scoopable"] is True
+    assert vars_s["scoopable"] is True   # backward-compat alias
 
     non_scoopable_star = _make_body(star_type="N")
     vars_ns = _body_vars(non_scoopable_star)
-    assert vars_ns["scoopable"] == "false"
+    assert vars_ns["is_scoopable"] is False
+    assert vars_ns["scoopable"] is False
 
     planet = _make_body(star_type="")
     vars_p = _body_vars(planet)
-    assert vars_p["scoopable"] == "false"
+    assert vars_p["is_scoopable"] is False
+    assert vars_p["scoopable"] is False
+
+
+def test_body_vars_terraformable_is_boolean():
+    """{is_terraformable} must be a proper bool; legacy alias {terra} also present."""
+    terraformable = _make_body(terraform=True)
+    vars_t = _body_vars(terraformable)
+    assert vars_t["is_terraformable"] is True
+    assert vars_t["terra"] is True   # backward-compat alias
+
+    not_terra = _make_body(terraform=False)
+    vars_nt = _body_vars(not_terra)
+    assert vars_nt["is_terraformable"] is False
+    assert vars_nt["terra"] is False
 
 
 def test_is_scoopable_normalizes_star_class_tokens():
