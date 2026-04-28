@@ -98,14 +98,14 @@ See **[docs/Settings.md](docs/Settings.md)** for every key.
 | `q` / `Esc` | Quit |
 | `s` | Open Settings overlay |
 | `?` | Help & About screen |
-| `Tab` / `Shift+Tab` | Cycle situational panel |
+| `Tab` / `Shift+Tab` | Cycle focused panel forward/backward (1→6) |
 | `a` | Toggle auto-switching |
-| `↑` / `↓` / `k` / `j` | Scroll situational panel (`MAP`: sub-view) |
-| `PgUp` / `PgDn` | Scroll by 5 |
-| `Home` | Jump to latest events |
-| `w` | Scroll bodies panel up |
-| `n` | Neutron route destination input |
-| `r` | Cycle `MAP` sub-screen |
+| `↑` / `↓` / `k` / `j` | Scroll situational panel (`MAP`: cycle sub-view) |
+| `←` / `→` | Cycle situational panel modes |
+| `PgUp` / `PgDn` | Scroll focused panel (or situational when none focused) |
+| `Home` / `End` | Jump to top / bottom of focused panel |
+| `Enter` | Engineers: open detail / return to list |
+| `n` | Neutron route destination input (Neutron mode only) |
 | `+` / `=` / `−` | Volume ±5 % |
 | `m` / `g` / `t` / `y` / `p` | Mute all / chat / twitch / youtube / all-chat |
 
