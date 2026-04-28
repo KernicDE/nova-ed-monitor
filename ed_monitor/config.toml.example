@@ -97,7 +97,7 @@
 # Leave commented to show all panels in the default order.
 #
 # Available abbreviations (in default order):
-#   OVR  — OVERVIEW      System diagram, notable bodies, session stats
+#   OVR  — OVERVIEW      System diagram, notable bodies, session stats, docking pad
 #   BIO  — BIOLOGICAL    Active bio scans with distances and bearings
 #   MAP  — GALAXY MAP    Braille top-down galaxy map
 #   MIS  — MISSION       Active mission list
@@ -106,22 +106,22 @@
 #   COL  — COLONISATION  Construction site commodity progress
 #   ROU  — ROUTE         Nav route: star type, scoopable, distances, EDSM
 #   NTR  — NEUTRON       Local neutron route planner
-#   WLT  — WALLET        Credits, fleet, cargo, suit loadout, backpack
-#   INV  — INVENTORY     Cargo and materials
-#   DKG  — DOCKING       Station pad diagram
+#   AST  — ASSETS        Balance, fleet, cargo, materials, suit, backpack
 #   STS  — STATISTICS    Persistent session statistics
+#
+#   Legacy abbreviations (still accepted): WLT → AST, INV → AST, DKG → OVR
 #
 # Examples:
 #   Show all panels (default order):
-#   situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+#   situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
 #
-#   Exploration-focused (hide BGS, COL, WLT, INV, DKG):
+#   Exploration-focused (hide BGS, COL, AST):
 #   situational_panels = OVR BIO MAP MIS ENG ROU NTR STS
 #
 #   Minimal — only the most used panels:
 #   situational_panels = OVR BIO MIS ROU
 #
-# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
 
 
 # ── Notable Bodies ────────────────────────────────────────────────────────────

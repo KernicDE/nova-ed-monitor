@@ -19,9 +19,10 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 │ System/faction    │ Hull/Shield/Fuel gauges     │ Nearby /   │
 │ Body on approach  │                             │ targeted   │
 ├───────────────────┴─────────────────────────────┴────────────┤
-│ Scanned Bodies    │ Overview / Wealth / Bio /    │ Events     │
-│ (FSS, DSS,        │ Missions / Engineers /       ├────────────┤
-│  values, dist)    │ Neutron / Galaxy / Stats     │ Chat log   │
+│ Scanned Bodies    │ Overview / Bio / Maps /      │ Events     │
+│ (FSS, DSS,        │ Missions / Engineers / BGS / ├────────────┤
+│  values, dist)    │ Colonise / Route / Neutron / │ Chat log   │
+│                   │ Assets / Stats               │            │
 ├───────────────────┴──────────────────────────────┴────────────┤
 │ q s Tab ? ↑↓ +/-                                Vol 50% ●   │
 └────────────────────────────────────────────────────────────────┘
@@ -86,21 +87,19 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Mode | Abbrev | Auto? | Description |
 |------|--------|-------|-------------|
 | **Auto** | `***` | — | Switches by context; `a` to toggle lock |
-| Overview | `OVR` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits) |
-| Biological | `BIO` | ✓ | Active bio scans — distances, bearings, sample counts |
-| Maps | `MAP` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
-| Missions | `MIS` | ✓ | Active missions and massacre kill progress bars |
-| Engineers | `ENG` | — | Rank bars, rank-progress %, specialty and system per engineer |
+| Overview | `Overview` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits). Also shows station pad diagram when docking is granted |
+| Bio | `Bio` | ✓ | Active bio scans — distances, bearings, sample counts |
+| Maps | `Maps` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
+| Missions | `Missions` | ✓ | Active missions and massacre kill progress bars |
+| Engineers | `Engineers` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |
-| Colonisation | `COL` | ✓ | Construction site commodity progress |
-| Route | `ROU` | ✓ | Nav route: jumps remaining + total ly → destination at top; star class, scoopable, distances, EDSM body counts; auto-activates when a route is set |
-| Neutron | `NTR` | — | Neutron route planner — press `n` to enter destination |
-| Wallet | `WLT` | — | Balance · fleet · cargo · suit loadout + weapons · backpack |
-| Inventory | `INV` | — | Cargo · raw / manufactured / encoded materials |
-| Docking | `DKG` | ✓ | Station pad diagram — concentric rings with mailslot at centre; only assigned pad shown, active ring highlighted |
-| Statistics | `STS` | ✓ (offline) | Persistent stats: today / week / month / year / total |
+| Colonise | `Colonise` | ✓ | Construction site commodity progress |
+| Route | `Route` | ✓ | Nav route: jumps remaining + total ly → destination at top; star class, scoopable, distances, EDSM body counts; auto-activates when a route is set |
+| Neutron | `Neutron` | — | Neutron route planner — press `n` to enter destination |
+| Assets | `Assets` | — | Balance · fleet · cargo · suit loadout + weapons · backpack · materials |
+| Stats | `Stats` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
-**Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Docking · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
+**Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Overview (shows pad diagram) · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
 
 ---
 
@@ -212,9 +211,9 @@ Repeat warnings and the flash **cancel instantly** on any of: landing, entering 
 
 ---
 
-## Wealth Panel
+## Assets Panel
 
-The **Wealth** panel shows your financial and inventory overview across all locations:
+The **Assets** panel shows your financial and inventory overview across all locations:
 
 - **Balance** — current credit total, tracked from login, market transactions, missions, and exploration sales
 - **Fleet** — current ship plus all stored ships with their station and system

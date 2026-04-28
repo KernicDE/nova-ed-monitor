@@ -129,8 +129,8 @@ DEFAULT_CONFIG = """\
 # ── Situational Panels ────────────────────────────────────────────────────────
 # Define visibility and order of SITUATION panel tabs (space-separated).
 # Panels not listed here will not appear in NOVA and auto mode won't switch to them.
-# Available: OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
-# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR WLT INV DKG STS
+# Available: OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
 
 # ── Chat TTS ─────────────────────────────────────────────────────────────────
 # Disable TTS for chat messages at startup (messages are still shown in the UI).
@@ -345,9 +345,17 @@ def load() -> Config:
                             "OVR": "overview", "BIO": "bio", "MAP": "galaxy",
                             "MIS": "missions", "ENG": "engineers", "BGS": "bgs",
                             "COL": "colonisation", "ROU": "route", "NTR": "neutron",
-                            "WLT": "wealth", "INV": "inventory", "DKG": "docking", "STS": "stats",
+                            "AST": "assets", "STS": "stats",
+                            # Legacy abbrevs — silently migrate old configs
+                            "WLT": "assets", "INV": "assets", "DKG": "overview",
                         }
-                        _panels = [_abbrev_to_mode[a.upper()] for a in v.split() if a.upper() in _abbrev_to_mode]
+                        _panels = []
+                        _seen = set()
+                        for a in v.split():
+                            mode = _abbrev_to_mode.get(a.upper())
+                            if mode and mode not in _seen:
+                                _panels.append(mode)
+                                _seen.add(mode)
                         if _panels:
                             situational_panels = _panels
                     case "tts_chat":
@@ -572,7 +580,7 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
             "overview": "OVR", "bio": "BIO", "galaxy": "MAP",
             "missions": "MIS", "engineers": "ENG", "bgs": "BGS",
             "colonisation": "COL", "route": "ROU", "neutron": "NTR",
-            "wealth": "WLT", "inventory": "INV", "docking": "DKG", "stats": "STS",
+            "assets": "AST", "stats": "STS",
         }
         abbrevs = " ".join(_mode_to_abbrev.get(m, m.upper()) for m in cfg.situational_panels)
         lines.append(f"situational_panels = {abbrevs}\n")

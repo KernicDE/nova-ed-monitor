@@ -2965,7 +2965,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             msg  = f"Docking request granted. Proceed to pad {pad}."
             _say(tts_q, "DockingGranted", False, fallback=msg,
                  pad=pad, station=stn, **_system_vars(state))
-            _trigger(state, "docking")
+            _trigger(state, "overview")
             return LogEvent.new(EventCategory.Nav, f"Docking at {stn} (Pad {pad}).")
 
         case "DockingDenied":
