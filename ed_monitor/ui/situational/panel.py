@@ -30,7 +30,7 @@ from .assets import _render_assets
 from .bgs import _render_bgs
 from .bio import _render_bio
 from .colonisation import _render_colonisation
-from .engineers import _render_engineers
+from .engineers import _render_engineers, _build_eng_list
 from .maps import _render_galaxy, _render_system_map
 from .missions import _render_missions
 from .neutron import _render_neutron
@@ -69,8 +69,8 @@ class SituationalPanel(_Panel):
 
     _MODE_ABBREVS = {
         "auto": "***", "overview": "Overview", "bio": "Bio", "galaxy": "Maps",
-        "missions": "Missions", "engineers": "Engineers", "bgs": "BGS", "colonisation": "Colonise",
-        "route": "Route", "neutron": "Neutron", "assets": "Assets",
+        "missions": "Mission", "engineers": "Engineer", "bgs": "BGS", "colonisation": "Colony",
+        "route": "Route", "neutron": "Plot", "assets": "Assets",
         "stats": "Stats",
     }
 

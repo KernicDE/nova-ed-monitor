@@ -20,8 +20,8 @@ NOVA automatically finds your Elite Dangerous journal files and starts monitorin
 │ Body on approach  │                             │ targeted   │
 ├───────────────────┴─────────────────────────────┴────────────┤
 │ Scanned Bodies    │ Overview / Bio / Maps /      │ Events     │
-│ (FSS, DSS,        │ Missions / Engineers / BGS / ├────────────┤
-│  values, dist)    │ Colonise / Route / Neutron / │ Chat log   │
+│ (FSS, DSS,        │ Mission / Engineer / BGS /   ├────────────┤
+│  values, dist)    │ Colony / Route / Plot /      │ Chat log   │
 │                   │ Assets / Stats               │            │
 ├───────────────────┴──────────────────────────────┴────────────┤
 │ q s Tab ? ↑↓ +/-                                Vol 50% ●   │
@@ -90,16 +90,16 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Overview | `Overview` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits). Also shows station pad diagram when docking is granted |
 | Bio | `Bio` | ✓ | Active bio scans — distances, bearings, sample counts |
 | Maps | `Maps` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
-| Missions | `Missions` | ✓ | Active missions and massacre kill progress bars |
-| Engineers | `Engineers` | — | Rank bars, rank-progress %, specialty and system per engineer |
+| Mission | `Mission` | ✓ | Active missions and massacre kill progress bars |
+| Engineer | `Engineer` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |
-| Colonise | `Colonise` | ✓ | Construction site commodity progress |
+| Colony | `Colony` | ✓ | Construction site commodity progress |
 | Route | `Route` | ✓ | Nav route: jumps remaining + total ly → destination at top; star class, scoopable, distances, EDSM body counts; auto-activates when a route is set |
-| Neutron | `Neutron` | — | Neutron route planner — press `n` to enter destination |
+| Plot | `Plot` | — | Neutron route planner — press `n` to enter destination |
 | Assets | `Assets` | — | Balance · fleet · cargo · suit loadout + weapons · backpack · materials |
 | Stats | `Stats` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
-**Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Overview (shows pad diagram) · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colonisation · missions (not in supercruise) → Missions · route set → Route · default → Overview.
+**Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Overview (shows pad diagram) · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colony · mission (not in supercruise) → Mission · route set → Route · default → Overview.
 
 ---
 
@@ -229,9 +229,9 @@ Data updates automatically from journal events. Open the in-game outfitting or s
 
 ## Neutron Route Planner
 
-The **Neutron** panel plots neutron-boosted routes to any destination entirely offline:
+The **Plot** panel plots neutron-boosted routes to any destination entirely offline:
 
-1. Press `Tab` until the Neutron panel is active
+1. Press `Tab` until the Plot panel is active
 2. Press `n` — a destination input box appears
 3. Type the exact system name (as shown in-game) and press Enter
 4. The route appears: each row shows the system, jump distance, and a `⚡` marker for neutron boosts
@@ -255,9 +255,9 @@ No setup required. To override folders, see [Settings → Screenshot Processing]
 
 ---
 
-## Engineers Panel
+## Engineer Panel
 
-The **Engineers** panel shows all 38 engineers in a single sorted list. Each row is numbered and shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, specialty, and system in separate columns.
+The **Engineer** panel shows all 38 engineers in a single sorted list. Each row is numbered and shows `[H]` (Horizons) or `[O]` (Odyssey) prefix, name, rank pips, specialty, and system in separate columns.
 
 **Rank pip colour:**
 - Green filled dots — Unlocked (1–5 for Horizons, `●` for Odyssey)
