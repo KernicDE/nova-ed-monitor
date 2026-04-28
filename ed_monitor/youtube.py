@@ -138,11 +138,9 @@ def monitor(
         return
 
     channel = cfg.youtube_channel
-    # Surface a single breakage notice when the regex scrape stops finding
-    # *anything*, so users know to report it rather than silently wonder why
-    # chat isn't showing up. We only emit the notice on the transition from
-    # "was working / never tried" to "scrape broke".
-    _last_scrape_ok = True
+    # Only emit a single "stream detected" Event Log entry per go-live
+    # transition so users get positive confirmation without spam.
+    _notified_live = False
 
     while True:
         try:
@@ -159,6 +157,7 @@ def monitor(
                 video_id = _get_live_video_id(channel, client)
                 if not video_id:
                     _log.debug(f"YouTube: no live stream for @{channel}")
+                    _notified_live = False
                     time.sleep(60)
                     continue
 
@@ -166,20 +165,17 @@ def monitor(
                 continuation = _get_continuation(video_id, client)
                 if not continuation:
                     _log.debug("YouTube: could not get chat continuation token")
-                    # The /live page returned a valid video ID but we
-                    # couldn't find a "continuation":"..." token — this is
-                    # what happens when YouTube changes their page markup.
-                    if _last_scrape_ok:
-                        _last_scrape_ok = False
-                        with lock:
-                            state.push_event(LogEvent.new(
-                                EventCategory.Warn,
-                                "YouTube chat scrape failed — page markup may have changed; "
-                                "please file an issue if this persists.",
-                            ))
+                    _notified_live = False
                     time.sleep(60)
                     continue
-                _last_scrape_ok = True
+
+                if not _notified_live:
+                    _notified_live = True
+                    with lock:
+                        state.push_event(LogEvent.new(
+                            EventCategory.System,
+                            f"YouTube stream detected for @{channel}",
+                        ))
 
                 # Poll chat until continuation runs out or error
                 while continuation:

@@ -27,6 +27,10 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
     irc_channel = f"#{channel}"
     nickname = "justinfan87234"  # Anonymous read-only login
 
+    # Only emit a single "go live" Event Log entry per session.  We use the
+    # arrival of the first chat message as a proxy for the stream being live.
+    _notified_live = False
+
     while True:
         try:
             sock = socket.socket()
@@ -61,6 +65,14 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
                             user = parts[1].split("!", 1)[0]
                             msg  = parts[2].strip()
 
+                            if not _notified_live:
+                                _notified_live = True
+                                with lock:
+                                    state.push_event(LogEvent.new(
+                                        EventCategory.System,
+                                        f"Twitch stream live: {irc_channel}",
+                                    ))
+
                             log_msg = f"[Twitch] {user}: {msg}"
                             with lock:
                                 state.push_event(LogEvent.new(EventCategory.Chat, log_msg))
@@ -71,6 +83,7 @@ def monitor(state: AppState, lock: threading.RLock, tts_q: queue.Queue, cfg: Con
 
         except Exception as exc:
             _log.warning(f"Twitch IRC error (will reconnect): {exc}")
+            _notified_live = False
         finally:
             try:
                 sock.close()
