@@ -51,7 +51,8 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
     parts: list[RenderableType] = []
 
     # ── Header ───────────────────────────────────────────────────────────────
-    parts.append(_section_header("DOCKING"))
+    _mp = P.mp(s.ui_mode)
+    parts.append(_section_header("DOCKING", _mp["h1"], _mp["bg"]))
     head = Text()
     if stype:
         head.append(f"{stype}\n", style=P.LABEL)

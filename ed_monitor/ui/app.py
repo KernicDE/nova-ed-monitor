@@ -468,7 +468,7 @@ class NOVAApp(App):
         srv      = snap_light.in_srv and not offline
         on_foot  = not snap_light.in_main_ship and not snap_light.in_srv and not offline
         analysis = snap_light.analysis_mode and snap_light.in_main_ship and not offline
-        combat   = snap_light.hardpoints and not snap_light.analysis_mode and snap_light.in_main_ship and not offline
+        combat   = not snap_light.analysis_mode and snap_light.in_main_ship and not offline
         ship     = not offline and not srv and not on_foot and not combat and not analysis
 
         # Derive ui_mode string and write it back so renderers can pick the right palette

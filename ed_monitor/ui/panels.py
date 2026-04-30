@@ -687,9 +687,7 @@ class ShipPanel(_Panel):
             else:
                 btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.AMBER), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Scoop", s.cargo_scoop, P.AMBER), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT)]
 
-            btn_txt = Text()
-            _append_buttons(btn_txt, btn_row)
-            parts.append(Align.center(btn_txt))
+            parts.append(_button_bar(btn_row))
 
         warns_txt = Text()
         warns = []
@@ -803,9 +801,7 @@ class ShipPanel(_Panel):
         if s.srv_turret_view or not s.srv_turret_retracted:
             btn_row.append(("Turret", s.srv_turret_view, P.HUD_CYAN))
 
-        btn_txt = Text()
-        _append_buttons(btn_txt, btn_row)
-        parts.append(Align.center(btn_txt))
+        parts.append(_button_bar(btn_row))
 
         warns_txt = Text()
         warns = []
@@ -821,17 +817,38 @@ class ShipPanel(_Panel):
         return Group(*parts)
 
 
-def _append_buttons(t: Text, items: list[tuple[str, bool, str]]) -> None:
-    INACTIVE = P.LABEL_LIGHT
-    for i, (label, active, col) in enumerate(items):
-        if i:
-            t.append(" ")
-        if active:
-            t.append("◀ ", style=f"bold {col}")
-            t.append(label, style=f"bold reverse {col}")
-            t.append(" ▶", style=f"bold {col}")
-        else:
-            t.append(f"[ {label} ]", style=INACTIVE)
+def _button_bar(items: list[tuple[str, bool, str]]) -> Table:
+    """Return a fixed-position button bar using an invisible table.
+
+    Buttons are arranged in a 2×4 grid so they fit narrow panels.
+    Active buttons are shown in their designated colour; inactive ones
+    are grey.  Both use ``[Label]`` to look like cockpit switches.
+    """
+    tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 0), expand=True)
+    for _ in range(4):
+        tbl.add_column(ratio=1)
+
+    cells: list[list[Text]] = [
+        [Text("", justify="center") for _ in range(4)],
+        [Text("", justify="center") for _ in range(4)],
+    ]
+    _pos: dict[str, tuple[int, int]] = {
+        "Combat":   (0, 0), "Analysis": (0, 0), "SRV":      (0, 0),
+        "Gear":     (0, 1), "Assist":   (0, 1),
+        "Manual":   (0, 2),
+        "Scoop":    (0, 3),
+        "Lights":   (1, 0),
+        "Night":    (1, 1),
+        "Silent":   (1, 2), "Turret":   (1, 2),
+    }
+    for label, active, col in items:
+        r, c = _pos.get(label, (0, 0))
+        style = f"bold {col}" if active else P.LABEL_LIGHT
+        cells[r][c] = Text(f"[{label}]", style=style, justify="center")
+
+    for row in cells:
+        tbl.add_row(*row)
+    return tbl
 
 
 # ── Route panel ───────────────────────────────────────────────────────────────
