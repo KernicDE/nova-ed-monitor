@@ -27,8 +27,9 @@ from ..panels import (
 )
 
 
-def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> RenderableType:
+def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40, mp: dict | None = None) -> RenderableType:
     """Nav route panel: jump#, system, star class+scoopable, body count, dist, jump dist, EDSM."""
+    mp = mp or P.mp("ship")
     import math as _math
 
     route = s.route_list
@@ -89,7 +90,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
     hops = s.route_hops
     word = "jump" if hops == 1 else "jumps"
     hdr = Text()
-    hdr.append(f"  {hops} {word} remaining", style=f"bold {P.HEADER}")
+    hdr.append(f"  {hops} {word} remaining", style=f"bold {mp['h1']}")
     if total_ly > 0:
         hdr.append(f" ({_fmt_ly(total_ly)} ly)", style=P.LABEL)
     if s.route_destination:
@@ -101,7 +102,7 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40) -> Rende
 
     effective_scroll = min(scroll, max(0, len(display_route) - 1))
 
-    tbl = _data_table()
+    tbl = _data_table(mp["h2"])
     tbl.add_column("#",      width=3,  justify="right",  no_wrap=True)
     tbl.add_column("System", width=28)
     tbl.add_column("★",      width=5,  no_wrap=True)

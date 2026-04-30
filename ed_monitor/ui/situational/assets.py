@@ -27,8 +27,9 @@ from ..panels import (
 )
 
 
-def _render_assets(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
     """Unified assets panel: balance, fleet, cargo, suit, materials, Odyssey items."""
+    mp = mp or P.mp("ship")
     _ody_sort = lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()
 
     # Build a flat list of renderable entries for unified scrolling
@@ -129,7 +130,7 @@ def _render_assets(s: AppState, scroll: int = 0) -> RenderableType:
             _flush_tbl()
             if parts:
                 parts.append(Text("\n"))
-            parts.append(_section_header(row[1]))
+            parts.append(_section_header(row[1], mp["h1"], mp["bg"]))
         elif kind == "text":
             _flush_tbl()
             parts.append(Text(row[1], style=row[2]))
@@ -173,13 +174,13 @@ def _render_assets(s: AppState, scroll: int = 0) -> RenderableType:
             if parts:
                 parts.append(Text("\n"))
             div = Text()
-            div.append("── ODYSSEY ──────────────────────\n", style=f"bold {P.HEADER}")
+            div.append("── ODYSSEY ──────────────────────\n", style=f"bold {mp['h1']}")
             parts.append(div)
         elif kind == "ody_header":
             _flush_tbl()
             if parts:
                 parts.append(Text("\n"))
-            parts.append(_section_header(row[1]))
+            parts.append(_section_header(row[1], mp["h1"], mp["bg"]))
             current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
                                 row_styles=["", f"on {P.ROW_ALT}"])
             current_tbl.add_column("name",  style=P.HUD_CYAN)

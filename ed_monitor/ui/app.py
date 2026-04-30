@@ -269,6 +269,18 @@ class NOVAApp(App):
         height: 1;
     }
     
+    /* Ship / analysis mode — ED orange (default when in-ship, docked, supercruise, or analysis) */
+    Screen.ship-mode SystemPanel,
+    Screen.ship-mode ShipPanel,
+    Screen.ship-mode RoutePanel,
+    Screen.ship-mode BodiesPanel,
+    Screen.ship-mode SituationalPanel,
+    Screen.ship-mode EventLogPanel,
+    Screen.ship-mode ChatLogPanel {
+        border: solid rgb(255,128,0) !important;
+        border-title-color: rgb(255,128,0) !important;
+    }
+
     /* Combat mode overrides */
     Screen.combat-mode SystemPanel,
     Screen.combat-mode ShipPanel,
@@ -277,11 +289,11 @@ class NOVAApp(App):
     Screen.combat-mode SituationalPanel,
     Screen.combat-mode EventLogPanel,
     Screen.combat-mode ChatLogPanel {
-        border: solid rgb(185,40,40) !important;           /* P.HUD_CRIT */
-        border-title-color: rgb(185,40,40) !important;
+        border: solid rgb(200,55,35) !important;
+        border-title-color: rgb(200,55,35) !important;
     }
 
-    /* On-foot mode overrides */
+    /* On-foot (EVA) mode overrides */
     Screen.on-foot-mode SystemPanel,
     Screen.on-foot-mode ShipPanel,
     Screen.on-foot-mode RoutePanel,
@@ -289,11 +301,23 @@ class NOVAApp(App):
     Screen.on-foot-mode SituationalPanel,
     Screen.on-foot-mode EventLogPanel,
     Screen.on-foot-mode ChatLogPanel {
-        border: solid rgb(140,100,165) !important;         /* P.PURPLE / on-foot */
-        border-title-color: rgb(140,100,165) !important;
+        border: solid rgb(80,160,235) !important;
+        border-title-color: rgb(80,160,235) !important;
     }
 
-    /* Analysis mode overrides */
+    /* SRV mode overrides */
+    Screen.srv-mode SystemPanel,
+    Screen.srv-mode ShipPanel,
+    Screen.srv-mode RoutePanel,
+    Screen.srv-mode BodiesPanel,
+    Screen.srv-mode SituationalPanel,
+    Screen.srv-mode EventLogPanel,
+    Screen.srv-mode ChatLogPanel {
+        border: solid rgb(45,115,185) !important;
+        border-title-color: rgb(45,115,185) !important;
+    }
+
+    /* Analysis mode overrides — same orange as ship mode */
     Screen.analysis-mode SystemPanel,
     Screen.analysis-mode ShipPanel,
     Screen.analysis-mode RoutePanel,
@@ -301,8 +325,8 @@ class NOVAApp(App):
     Screen.analysis-mode SituationalPanel,
     Screen.analysis-mode EventLogPanel,
     Screen.analysis-mode ChatLogPanel {
-        border: solid rgb(120,190,120) !important;         /* P.ANALYSIS_BORDER */
-        border-title-color: rgb(120,190,120) !important;
+        border: solid rgb(255,128,0) !important;
+        border-title-color: rgb(255,128,0) !important;
     }
 
     /* Offline mode overrides */
@@ -313,8 +337,8 @@ class NOVAApp(App):
     Screen.offline-mode SituationalPanel,
     Screen.offline-mode EventLogPanel,
     Screen.offline-mode ChatLogPanel {
-        border: solid rgb(70,70,70) !important;             /* P.OFFLINE_BORDER */
-        border-title-color: rgb(90,90,90) !important;       /* P.OFFLINE_TITLE */
+        border: solid rgb(70,70,70) !important;
+        border-title-color: rgb(90,90,90) !important;
     }
 
     Screen.alert-flash {
@@ -441,9 +465,21 @@ class NOVAApp(App):
         # Apply mode border class to the main screen — only call set_class when value changes
         # (set_class triggers CSS recalculation; guarding it eliminates ~8 DOM mutations per tick)
         offline  = not snap_light.client_online
+        srv      = snap_light.in_srv and not offline
         on_foot  = not snap_light.in_main_ship and not snap_light.in_srv and not offline
-        analysis = snap_light.analysis_mode and not offline
-        combat   = not snap_light.analysis_mode and snap_light.in_main_ship and not offline
+        analysis = snap_light.analysis_mode and snap_light.in_main_ship and not offline
+        combat   = snap_light.hardpoints and not snap_light.analysis_mode and snap_light.in_main_ship and not offline
+        ship     = not offline and not srv and not on_foot and not combat and not analysis
+
+        # Derive ui_mode string and write it back so renderers can pick the right palette
+        if offline:      _ui_mode = "offline"
+        elif srv:        _ui_mode = "srv"
+        elif on_foot:    _ui_mode = "on_foot"
+        elif combat:     _ui_mode = "combat"
+        elif analysis:   _ui_mode = "analysis"
+        else:            _ui_mode = "ship"
+        with self._lock:
+            self._state.ui_mode = _ui_mode
 
         _css = self._prev_css
         def _sc(name: str, val: bool) -> None:
@@ -452,9 +488,11 @@ class NOVAApp(App):
                 self.screen.set_class(val, name)
 
         _sc("offline-mode",   offline)
+        _sc("ship-mode",      ship)
         _sc("analysis-mode",  analysis)
         _sc("combat-mode",    combat)
         _sc("on-foot-mode",   on_foot)
+        _sc("srv-mode",       srv)
 
         # Flash classes toggle every second when active — still guard to avoid 2× updates per second
         has_hazard = (

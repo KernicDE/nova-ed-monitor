@@ -27,10 +27,9 @@ from ..panels import (
 )
 
 
-def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_bio(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
     from ...events import _BIO_GENUS_VALUE_RANGE, _BIO_SPECIES_VALUES, bio_variant
-
-    HDR = "bold " + P.HEADER
 
     # Group by body
     from collections import defaultdict as _dd
@@ -92,11 +91,11 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             subtitle = f"FSS · {b.bio_signals} bio"
             if _ff_pred:
                 subtitle += " · ✦ FF"
-            parts.append(_section_header(f"{short}  ({subtitle})"))
+            parts.append(_section_header(f"{short}  ({subtitle})", mp["h1"], mp["bg"]))
 
             if b.bio_genuses_predicted:
                 _variant = bio_variant(s.primary_star_class)
-                tbl = _data_table()
+                tbl = _data_table(mp["h2"])
                 tbl.add_column("Predicted Species", width=24)
                 tbl.add_column("Est. Value",        width=20)
 
@@ -153,10 +152,10 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             subtitle = "DSS"
             if _ff:
                 subtitle += " · ✦ FF"
-            parts.append(_section_header(f"{short}  ({subtitle})"))
+            parts.append(_section_header(f"{short}  ({subtitle})", mp["h1"], mp["bg"]))
 
             _dss_variant = bio_variant(s.primary_star_class)
-            tbl = _data_table()
+            tbl = _data_table(mp["h2"])
             tbl.add_column("Genus (DSS)",  width=24)
             tbl.add_column("Est. Value",   width=20)
 
@@ -193,9 +192,9 @@ def _render_bio(s: AppState, scroll: int = 0) -> RenderableType:
             subtitle = f"{len(scans)} sample{'s' if len(scans) != 1 else ''}"
             if _scan_ff:
                 subtitle += " · ✦ FF"
-            parts.append(_section_header(f"{short}  ({subtitle})"))
+            parts.append(_section_header(f"{short}  ({subtitle})", mp["h1"], mp["bg"]))
 
-            tbl = _data_table()
+            tbl = _data_table(mp["h2"])
             tbl.add_column("Species",  width=21)
             tbl.add_column("Genus",    width=13)
             tbl.add_column("Smp",      width=5)

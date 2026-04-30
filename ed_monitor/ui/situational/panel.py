@@ -190,9 +190,10 @@ class SituationalPanel(_Panel):
         self.refresh()
 
     def _make_title(self) -> str:
+        _mp = P.mp(self._snap.ui_mode if self._snap else "ship")
         # *** indicator: bright = auto ON, dim = auto OFF
         if self._auto:
-            auto_tag = f"[bold {P.GOLD}]***[/]"
+            auto_tag = f"[bold {_mp['h1']}]***[/]"
         else:
             auto_tag = "[dim]***[/]"
 
@@ -201,7 +202,7 @@ class SituationalPanel(_Panel):
         for m in self._active_modes():
             abbr = self._MODE_ABBREVS[m]
             if m == self._mode:
-                col = P.GOLD if self._auto else "white"
+                col = _mp["h1"] if self._auto else "white"
                 parts.append(f"[bold {col}]{abbr}[/]")
             else:
                 parts.append(f"[dim]{abbr}[/]")
@@ -322,6 +323,8 @@ class SituationalPanel(_Panel):
         panel_h = self.size.height or 20
         panel_w = self.size.width  or 40
 
+        _mp = P.mp(s.ui_mode)
+
         # ── Galaxy: sub-view indicator only, no scroll ────────────────────
         if mode == "galaxy":
             _subs = ("system", "regional", "galaxy")
@@ -333,13 +336,13 @@ class SituationalPanel(_Panel):
                 # Re-render only when bodies or system change
                 if (s.bodies_version != self._map_cache_version or
                         s.system != self._map_cache_system):
-                    self._map_standalone_cache = _render_system_map(s, standalone=True)
+                    self._map_standalone_cache = _render_system_map(s, standalone=True, mp=_mp)
                     self._map_cache_version = s.bodies_version
                     self._map_cache_system  = s.system
                 result = self._map_standalone_cache
                 return result if result is not None else Text("No bodies scanned yet.", style=P.LABEL)
             return _render_galaxy(s, regional=(sub == "regional"),
-                                  panel_w=panel_w, panel_h=panel_h)
+                                  panel_w=panel_w, panel_h=panel_h, mp=_mp)
 
         # ── Compute per-mode item count + clamp scroll ────────────────────
         max_rows_route = max(5, panel_h - 5)  # matches _render_route
@@ -468,23 +471,23 @@ class SituationalPanel(_Panel):
 
         # ── Dispatch to render functions ──────────────────────────────────
         if mode == "bio":
-            return _render_bio(s, scroll=scroll)
+            return _render_bio(s, scroll=scroll, mp=_mp)
         if mode == "missions":
-            return _render_missions(s, scroll=scroll)
+            return _render_missions(s, scroll=scroll, mp=_mp)
         if mode == "engineers":
-            return _render_engineers(s, scroll=scroll, cursor=self._eng_cursor, detail=self._eng_detail)
+            return _render_engineers(s, scroll=scroll, cursor=self._eng_cursor, detail=self._eng_detail, mp=_mp)
         if mode == "assets":
-            return _render_assets(s, scroll=scroll)
+            return _render_assets(s, scroll=scroll, mp=_mp)
         if mode == "neutron":
-            return _render_neutron(s, scroll=scroll)
+            return _render_neutron(s, scroll=scroll, mp=_mp)
         if mode == "stats":
-            return _render_stats(s)
+            return _render_stats(s, mp=_mp)
         if mode == "bgs":
-            return _render_bgs(s, scroll=scroll)
+            return _render_bgs(s, scroll=scroll, mp=_mp)
         if mode == "colonisation":
-            return _render_colonisation(s, scroll=scroll)
+            return _render_colonisation(s, scroll=scroll, mp=_mp)
         if mode == "route":
-            return _render_route(s, scroll=scroll, panel_height=panel_h)
-        return _render_overview(s, panel_h=panel_h, panel_w=panel_w)
+            return _render_route(s, scroll=scroll, panel_height=panel_h, mp=_mp)
+        return _render_overview(s, panel_h=panel_h, panel_w=panel_w, mp=_mp)
 
 

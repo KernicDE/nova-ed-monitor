@@ -310,8 +310,9 @@ def _eng_rank_pips(rank: int, rp: float, prog: str, is_ody: bool) -> tuple[str, 
 
 
 
-def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> RenderableType:
+def _render_engineer_detail(name: str, rank: int, rp: float, prog: str, mp: dict | None = None) -> RenderableType:
     """Box-style full-panel detail view for one engineer (Space to enter, Backspace to exit)."""
+    mp = mp or P.mp("ship")
     is_ody  = name in _ODY_ENGINEERS
     eng     = _ENGINEER_STATIC.get(name)
     spec    = eng.specialty if eng else ""
@@ -350,7 +351,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Unlock
     if unlock:
         inner.append("\n")
-        inner.append("UNLOCK", style="bold " + P.HEADER)
+        inner.append("UNLOCK", style=f"bold {mp['h1']}")
         if prog == "Unlocked":
             inner.append("  ✓", style=P.HUD_GREEN)
         inner.append("\n")
@@ -359,7 +360,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Modules
     if modules:
         inner.append("\n")
-        inner.append("MODULES\n", style="bold " + P.HEADER)
+        inner.append("MODULES\n", style=f"bold {mp['h1']}")
         for mod in modules:
             # Split "Module Name (G5)" into name + grade for alignment
             if " (" in mod and mod.endswith(")"):
@@ -373,7 +374,7 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
     # Leveling hint
     if hint:
         inner.append("\n")
-        inner.append("HINT\n", style="bold " + P.HEADER)
+        inner.append("HINT\n", style=f"bold {mp['h1']}")
         inner.append(f"{hint}\n", style="white")
 
     parts: list[RenderableType] = [inner]
@@ -384,7 +385,8 @@ def _render_engineer_detail(name: str, rank: int, rp: float, prog: str) -> Rende
 
 
 
-def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: bool = False) -> RenderableType:
+def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: bool = False, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
     all_engs = _build_eng_list(s)
 
     if not all_engs:
@@ -395,7 +397,7 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     # Detail view: full box-panel for the selected engineer
     if detail and 0 <= cursor < len(all_engs):
         _era, name, rank, rp, prog = all_engs[cursor]
-        return _render_engineer_detail(name, rank, rp, prog)
+        return _render_engineer_detail(name, rank, rp, prog, mp=mp)
 
     effective_scroll = min(scroll, max(0, len(all_engs) - 1))
 
@@ -453,6 +455,6 @@ def _render_engineers(s: AppState, scroll: int = 0, cursor: int = 0, detail: boo
     hint = Text()
     hint.append("  [Enter] details  [↑↓] move", style="dim")
 
-    return Group(_section_header("ENGINEERS"), hint, tbl)
+    return Group(_section_header("ENGINEERS", mp["h1"], mp["bg"]), hint, tbl)
 
 

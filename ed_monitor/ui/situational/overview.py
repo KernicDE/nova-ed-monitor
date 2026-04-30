@@ -29,8 +29,9 @@ from ..panels import (
 from .docking import _render_docking
 
 
-def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> RenderableType:
+def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40, mp: dict | None = None) -> RenderableType:
     """Dashboard overview: session stats, wallet, navigation, notable bodies, activity."""
+    mp = mp or P.mp("ship")
     import math
     from collections import defaultdict as _dd2
 
@@ -48,7 +49,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
     show_carrier = remaining >= 3
     show_neutron = remaining >= 4
 
-    HDR = "bold " + P.HEADER
+    HDR = f"bold {mp['h1']}"
 
     # ── Session strip (always) ─────────────────────────────────────────────────
     session_txt = Text()
@@ -168,7 +169,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40) -> Rende
                 _bio_done_cnt[_sc.body] += 1
                 _bio_actual_cr[_sc.body] += _sc.value
 
-        tbl = _data_table()
+        tbl = _data_table(mp["h2"])
         tbl.add_column("Body", style="white", width=8, no_wrap=True)
         tbl.add_column("Type", width=9, no_wrap=True)
         tbl.add_column("Val", width=7, justify="right", no_wrap=True)

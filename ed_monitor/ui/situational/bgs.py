@@ -27,15 +27,16 @@ from ..panels import (
 )
 
 
-def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_bgs(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
     """BGS activity log: per-system per-faction activity counts (today's tick)."""
+    mp = mp or P.mp("ship")
     if not s.bgs_log:
         t = Text()
         t.append("No BGS activity recorded today.", style=P.LABEL)
         return t
 
     parts: list[RenderableType] = []
-    parts.append(_section_header("BGS ACTIVITY"))
+    parts.append(_section_header("BGS ACTIVITY", mp["h1"], mp["bg"]))
     date_txt = Text(f"({s.bgs_log_date})\n", style=P.LABEL)
     parts.append(date_txt)
 
@@ -57,7 +58,7 @@ def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
     effective_scroll = min(scroll, max(0, len(flat_rows) - 1))
     visible = flat_rows[effective_scroll:]
 
-    tbl = _data_table()
+    tbl = _data_table(mp["h2"])
     tbl.add_column("System/Faction", no_wrap=True)
     tbl.add_column("Activity",       no_wrap=True)
     tbl.add_column("Total", width=5, justify="right", no_wrap=True)
@@ -66,7 +67,7 @@ def _render_bgs(s: AppState, scroll: int = 0) -> RenderableType:
         if row[0] == "header":
             sys_name = row[1]
             sys_str = sys_name if sys_name != s.system else f"● {sys_name}"
-            hdr_style = f"bold {P.HEADER}" if sys_name == s.system else P.LABEL
+            hdr_style = f"bold {mp['h1']}" if sys_name == s.system else P.LABEL
             tbl.add_row(
                 Text(f"{sys_str}", style=hdr_style),
                 Text("", style=""),

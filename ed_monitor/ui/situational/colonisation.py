@@ -27,8 +27,9 @@ from ..panels import (
 )
 
 
-def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_colonisation(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
     """Colonisation construction sites with commodity progress."""
+    mp = mp or P.mp("ship")
     if not s.colonisation_sites:
         t = Text()
         t.append("No colonisation sites tracked.\n", style=P.LABEL)
@@ -37,7 +38,7 @@ def _render_colonisation(s: AppState, scroll: int = 0) -> RenderableType:
 
     import math as _math
     parts: list[RenderableType] = []
-    parts.append(_section_header("COLONISATION SITES"))
+    parts.append(_section_header("COLONISATION SITES", mp["h1"], mp["bg"]))
 
     # Sort sites: current system first, then by name
     sites = sorted(

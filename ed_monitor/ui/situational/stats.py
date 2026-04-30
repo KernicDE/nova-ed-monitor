@@ -27,7 +27,8 @@ from ..panels import (
 )
 
 
-def _render_stats(s: AppState) -> RenderableType:
+def _render_stats(s: AppState, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
     st = s.stats  # {stat_key: {today, week, month, year, total}}
 
     def _g(key: str, period: str) -> float:
@@ -55,11 +56,10 @@ def _render_stats(s: AppState) -> RenderableType:
         if n >= 1_000:         return f"{n/1_000:.1f}k"
         return str(n)
 
-    HDR  = "bold " + P.HEADER
     MAIN = "white"
     SUB  = P.LABEL
 
-    tbl = _data_table()
+    tbl = _data_table(mp["h2"])
     tbl.add_column("",      width=12)
     tbl.add_column("Today", width=7,  justify="right")
     tbl.add_column("Week",  width=7,  justify="right")
@@ -98,6 +98,6 @@ def _render_stats(s: AppState) -> RenderableType:
         "* Estimated payouts incl. bonuses. Unsold data is retained if killed.",
         style=P.DIM,
     )
-    return Group(_section_header("STATISTICS"), tbl, disclaimer)
+    return Group(_section_header("STATISTICS", mp["h1"], mp["bg"]), tbl, disclaimer)
 
 

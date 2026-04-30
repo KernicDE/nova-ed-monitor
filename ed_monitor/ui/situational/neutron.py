@@ -27,7 +27,8 @@ from ..panels import (
 )
 
 
-def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_neutron(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
     parts: list[RenderableType] = []
 
     # Status header
@@ -36,7 +37,7 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
     route  = s.neutron_route
 
     hdr = Text()
-    hdr.append("NEUTRON ROUTE PLOTTER  ", style="bold " + P.HEADER)
+    hdr.append("NEUTRON ROUTE PLOTTER  ", style=f"bold {mp['h1']}")
     hdr.append("via Spansh API\n", style=P.LABEL)
     if s.jump_range > 0:
         hdr.append(f"  Unladen max: ", style=P.LABEL)
@@ -82,7 +83,7 @@ def _render_neutron(s: AppState, scroll: int = 0) -> RenderableType:
         scroll = max(0, min(scroll, max(0, len(display_route) - max_rows)))
         visible = display_route[scroll:scroll + max_rows]
 
-        tbl = _data_table()
+        tbl = _data_table(mp["h2"])
         tbl.add_column("#",    width=4, justify="right")
         tbl.add_column("System")
         tbl.add_column("Boost", width=9, justify="right")

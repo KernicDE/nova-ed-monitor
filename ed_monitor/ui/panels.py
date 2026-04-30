@@ -247,38 +247,42 @@ def _body_value_color(b: BodyInfo) -> str:
     return "white"
 
 
-def _data_table() -> Table:
+def _data_table(h2: str = P.HEADER) -> Table:
     """Create a consistently styled Rich Table for panel data.
 
-    Uses ``box=None``, alternating row backgrounds, and gold headers.
+    Uses ``box=None``, alternating row backgrounds, and mode-tinted headers.
+    Pass ``h2=mp["h2"]`` to tint column headers to the current mode.
     Callers add columns with ``tbl.add_column(...)``.
     """
     return Table(
         show_header=True, show_edge=False, show_lines=False,
         padding=(0, 1), box=None,
         row_styles=["", f"on {P.ROW_ALT}"],
-        header_style=f"bold {P.HEADER}",
+        header_style=f"bold {h2}",
     )
 
 
-def _kv_row(label: str, value: str, value_style: str = P.WHITE, width: int = 0) -> Text:
+def _kv_row(label: str, value: str, value_style: str = P.WHITE, width: int = 0,
+            h3: str = P.LABEL) -> Text:
     """Return a label:value Text row with consistent label styling.
 
     *width* sets a fixed left-padding for the label (e.g. 8 for single-column
     layouts).  When 0 the label is followed by a single space.
+    Pass ``h3=mp["h3"]`` to tint the label to the current mode.
     """
     t = Text()
     if width:
-        t.append(f"{label:<{width}}", style=P.LABEL)
+        t.append(f"{label:<{width}}", style=h3)
     else:
-        t.append(f"{label} ", style=P.LABEL)
+        t.append(f"{label} ", style=h3)
     t.append(value, style=value_style)
     return t
 
 
-def _kv_line(t: Text, label: str, value: str, value_style: str = P.WHITE, width: int = 8) -> None:
+def _kv_line(t: Text, label: str, value: str, value_style: str = P.WHITE, width: int = 8,
+             h3: str = P.LABEL) -> None:
     """Append a label:value line (with trailing newline) to an existing Text."""
-    t.append_text(_kv_row(label, value, value_style, width))
+    t.append_text(_kv_row(label, value, value_style, width, h3))
     t.append("\n")
 
 
@@ -295,10 +299,13 @@ def _two_column_table(left_cells: list[Text], right_cells: list[Text]) -> Table:
     return tbl
 
 
-def _section_header(title: str) -> Text:
-    """Return a gold-on-dark section header bar."""
+def _section_header(title: str, h1: str = P.HEADER, bg: str = P.HEADER_BG) -> Text:
+    """Return a mode-tinted section header bar.
+
+    Pass ``h1=mp["h1"], bg=mp["bg"]`` to tint to the current mode.
+    """
     t = Text()
-    t.append(f" {title} ", style=f"bold {P.HEADER} on {P.HEADER_BG}")
+    t.append(f" {title} ", style=f"bold {h1} on {bg}")
     t.append("\n")
     return t
 
@@ -368,6 +375,7 @@ class SystemPanel(_Panel):
         if s is None:
             return Text("")
 
+        _mp = P.mp(s.ui_mode)
         parts: list[RenderableType] = []
 
         # System name header
@@ -400,43 +408,43 @@ class SystemPanel(_Panel):
             body_parts = [f"{stars}★"]
             if planets: body_parts.append(f"{planets}P")
             if moons:   body_parts.append(f"{moons}M")
-            left_cells.append(_kv_row("Bodies", " ".join(body_parts)))
+            left_cells.append(_kv_row("Bodies", " ".join(body_parts), h3=_mp["h3"]))
 
         if fss_total > 0:
             fss_col = P.HUD_GREEN if fss_done >= fss_total else P.AMBER
-            left_cells.append(_kv_row("FSS", f"{fss_done}/{fss_total}", fss_col))
+            left_cells.append(_kv_row("FSS", f"{fss_done}/{fss_total}", fss_col, h3=_mp["h3"]))
 
         if s.system_power:
             pp     = s.system_power
             pp_col = _power_state_color(s.system_power_state)
             if s.system_power_state:
                 pp += f" [{s.system_power_state}]"
-            left_cells.append(_kv_row("Power", pp, pp_col))
+            left_cells.append(_kv_row("Power", pp, pp_col, h3=_mp["h3"]))
 
 
         # Right column — human/BGS data
         if s.population > 0:
-            right_cells.append(_kv_row("Pop", _fmt_pop(s.population)))
+            right_cells.append(_kv_row("Pop", _fmt_pop(s.population), h3=_mp["h3"]))
         if s.economy:
-            right_cells.append(_kv_row("Economy", s.economy))
+            right_cells.append(_kv_row("Economy", s.economy, h3=_mp["h3"]))
         if s.security:
             sec_col = (P.HUD_GREEN if "High" in s.security
                        else P.HUD_WARN if "Medium" in s.security
                        else P.HUD_CRIT)
-            right_cells.append(_kv_row("Security", s.security, f"bold {sec_col}"))
+            right_cells.append(_kv_row("Security", s.security, f"bold {sec_col}", h3=_mp["h3"]))
         if s.government:
-            right_cells.append(_kv_row("Gov", s.government))
+            right_cells.append(_kv_row("Gov", s.government, h3=_mp["h3"]))
         if s.allegiance:
-            right_cells.append(_kv_row("Alleg", s.allegiance))
+            right_cells.append(_kv_row("Alleg", s.allegiance, h3=_mp["h3"]))
         if s.controlling_faction:
             faction_str = (
                 f"{s.controlling_faction} [{s.controlling_state}]"
                 if s.controlling_state and s.controlling_state != "None"
                 else s.controlling_faction
             )
-            right_cells.append(_kv_row("Faction", faction_str))
+            right_cells.append(_kv_row("Faction", faction_str, h3=_mp["h3"]))
         if s.station_count > 0:
-            right_cells.append(_kv_row("Stations", str(s.station_count)))
+            right_cells.append(_kv_row("Stations", str(s.station_count), h3=_mp["h3"]))
 
         # Build two-column table
         if left_cells or right_cells:
@@ -461,7 +469,7 @@ class SystemPanel(_Panel):
             btype = _abbrev_type(body_info.planet_class, body_info.star_type)
             if btype:
                 tcol = _body_color(body_info.planet_class, body_info.star_type)
-                bleft.append(_kv_row("Type", btype, tcol))
+                bleft.append(_kv_row("Type", btype, tcol, h3=_mp["h3"]))
 
             # Gravity (planets only)
             if body_info.surface_gravity > 0 and body_info.planet_class:
@@ -469,38 +477,38 @@ class SystemPanel(_Panel):
                 gcol  = (P.HUD_CRIT if g >= 3.0
                          else P.HUD_WARN if g >= 1.5
                          else P.WHITE)
-                bleft.append(_kv_row("Gravity", f"{g:.2f} G", gcol))
+                bleft.append(_kv_row("Gravity", f"{g:.2f} G", gcol, h3=_mp["h3"]))
 
             # Radius
             if body_info.radius > 0:
                 km = body_info.radius / 1000
-                bleft.append(_kv_row("Radius", f"{km:,.0f} km"))
+                bleft.append(_kv_row("Radius", f"{km:,.0f} km", h3=_mp["h3"]))
 
             # Surface temperature
             if body_info.surface_temp > 0:
-                bleft.append(_kv_row("Temp", f"{body_info.surface_temp:.0f} K"))
+                bleft.append(_kv_row("Temp", f"{body_info.surface_temp:.0f} K", h3=_mp["h3"]))
 
             # Atmosphere (skip "No atmosphere")
             atm = body_info.atmosphere or ""
             if atm and "no atmosphere" not in atm.lower():
                 atm_short = re.sub(r"\s+atmosphere$", "", atm, flags=re.IGNORECASE)
-                bright.append(_kv_row("Atm", atm_short))
+                bright.append(_kv_row("Atm", atm_short, h3=_mp["h3"]))
 
             # Bio and Geo signals
             if body_info.bio_signals > 0:
-                bright.append(_kv_row("Bio", str(body_info.bio_signals), P.HUD_GREEN))
+                bright.append(_kv_row("Bio", str(body_info.bio_signals), P.HUD_GREEN, h3=_mp["h3"]))
             if body_info.geo_signals > 0:
-                bright.append(_kv_row("Geo", str(body_info.geo_signals), P.AMBER))
+                bright.append(_kv_row("Geo", str(body_info.geo_signals), P.AMBER, h3=_mp["h3"]))
 
             # Volcanism (strip trailing " volcanism", title-case)
             if body_info.volcanism:
                 vol = re.sub(r"\s+volcanism$", "", body_info.volcanism,
                              flags=re.IGNORECASE).title()
-                bright.append(_kv_row("Volc", vol))
+                bright.append(_kv_row("Volc", vol, h3=_mp["h3"]))
 
             # Terraformable
             if body_info.terraform:
-                bright.append(_kv_row("TF", "Candidate", P.HUD_GREEN))
+                bright.append(_kv_row("TF", "Candidate", P.HUD_GREEN, h3=_mp["h3"]))
 
             if bleft or bright:
                 parts.append(_two_column_table(bleft, bright))
@@ -509,11 +517,11 @@ class SystemPanel(_Panel):
         pos_parts: list[Text] = []
         if s.nearest_body and body_info is None:
             # Only show "At" when we have no detailed body section above
-            pos_parts.append(_kv_row("At", _short_name(s.nearest_body, s.system)))
+            pos_parts.append(_kv_row("At", _short_name(s.nearest_body, s.system), h3=_mp["h3"]))
         if s.lat is not None and s.lon is not None:
-            pos_parts.append(_kv_row("Pos", f"{s.lat:.2f}, {s.lon:.2f}"))
+            pos_parts.append(_kv_row("Pos", f"{s.lat:.2f}, {s.lon:.2f}", h3=_mp["h3"]))
             if s.altitude is not None:
-                pos_parts.append(_kv_row("Alt", f"{s.altitude:,.0f} m"))
+                pos_parts.append(_kv_row("Alt", f"{s.altitude:,.0f} m", h3=_mp["h3"]))
         if pos_parts:
             pos_line = Text()
             pos_line.append("\n ")   # blank line + 1-space left margin matching table padding
@@ -663,10 +671,11 @@ class ShipPanel(_Panel):
         parts.append(Text(""))  # spacer
 
         if s.in_main_ship:
+            _mp_ship = P.mp(s.ui_mode)
             if s.analysis_mode:
-                mode_label, mode_col = "Analysis", "rgb(200,255,200)"
+                mode_label, mode_col = "Analysis", _mp_ship["h1"]
             else:
-                mode_label, mode_col = "Combat", P.HUD_CRIT
+                mode_label, mode_col = "Combat", _mp_ship["h1"]
 
             btn_row: list[tuple[str, bool, str]] = []
             if s.docked:
@@ -780,10 +789,8 @@ class ShipPanel(_Panel):
         parts.append(Text(""))
 
         # Mode + toggles
-        if s.analysis_mode:
-            mode_label, mode_col = "Analysis", "rgb(200,255,200)"
-        else:
-            mode_label, mode_col = "Combat", P.HUD_CRIT
+        _mp_srv = P.mp(s.ui_mode)
+        mode_label, mode_col = "SRV", _mp_srv["h1"]
 
         # Drive assist = SRV equivalent of flight assist (active = normal, off = manual)
         btn_row: list[tuple[str, bool, str]] = [
@@ -932,9 +939,10 @@ class RoutePanel(_Panel):
 
     def _render_station(self, s: AppState) -> RenderableType:
         t = Text()
+        _mp = P.mp(s.ui_mode)
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            _kv_line(t, label, value, vstyle)
+            _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
         t.append("DOCKED\n", style=f"bold {P.HUD_GREEN}")
         row("Station", s.station, "bold white")
@@ -967,9 +975,10 @@ class RoutePanel(_Panel):
     def _render_ship_target(self, s: AppState) -> RenderableType:
         """Show info for currently targeted ship (ShipTargeted event)."""
         t = Text()
+        _mp = P.mp(s.ui_mode)
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            _kv_line(t, label, value, vstyle)
+            _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
         # Legal status colour
         _legal_col = {
@@ -1025,12 +1034,13 @@ class RoutePanel(_Panel):
         When the target is a system (next route hop), shows route info instead."""
         body_name = s.target_body
         body = next((b for b in s.bodies if b.name == body_name), None)
+        _mp = P.mp(s.ui_mode)
         if body is None:
             # System target (e.g. next route hop) — not a scanned body in this system
             t = Text()
 
             def _row(label: str, value: str, vstyle: str = "white") -> None:
-                _kv_line(t, label, value, vstyle)
+                _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
             t.append(f"{body_name}\n", style="bold white")
             if body_name == s.route_next:
@@ -1050,7 +1060,7 @@ class RoutePanel(_Panel):
         t = Text()
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            _kv_line(t, label, value, vstyle)
+            _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
         short = _short_name(body_name, s.system)
         btype = _abbrev_type(body.planet_class, body.star_type)
@@ -1104,9 +1114,10 @@ class RoutePanel(_Panel):
     def _render_nearby(self, s: AppState) -> RenderableType:
         """Show nearest body (approach_body or nearest_body) or nearest station when nothing is targeted."""
         t = Text()
+        _mp = P.mp(s.ui_mode)
 
         def row(label: str, value: str, vstyle: str = "white") -> None:
-            _kv_line(t, label, value, vstyle)
+            _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
         # Prefer the body the player is actively approaching, then the nearest tracked body
         near_name = s.approach_body or s.nearest_body
@@ -1242,7 +1253,8 @@ class BodiesPanel(_Panel):
             t.append("No bodies scanned yet.", style=P.LABEL)
             return t
 
-        tbl = _data_table()
+        _mp = P.mp(s.ui_mode)
+        tbl = _data_table(_mp["h2"])
         tbl.add_column("Body", style="white", width=11, no_wrap=True)
         tbl.add_column("Type", width=8)
         tbl.add_column("Est Val", width=11, justify="right")

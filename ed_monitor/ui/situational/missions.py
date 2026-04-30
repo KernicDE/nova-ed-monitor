@@ -27,7 +27,8 @@ from ..panels import (
 )
 
 
-def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
+def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
     if not s.missions:
         t = Text()
         t.append("No active missions.", style=P.LABEL)
@@ -46,7 +47,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
             fac_kills[fac]["needed"] += mk["needed"]
             fac_kills[fac]["done"]   += mk["done"]
 
-        parts.append(_section_header("MASSACRE PROGRESS"))
+        parts.append(_section_header("MASSACRE PROGRESS", mp["h1"], mp["bg"]))
 
         for fac, kd in fac_kills.items():
             done   = kd["done"]
@@ -63,7 +64,7 @@ def _render_missions(s: AppState, scroll: int = 0) -> RenderableType:
     effective_scroll = min(scroll, max(0, len(missions) - 1))
     visible_missions = missions[effective_scroll:]
 
-    tbl = _data_table()
+    tbl = _data_table(mp["h2"])
     tbl.add_column("Mission")
     tbl.add_column("Destination", width=20)
     tbl.add_column("Time left",   width=9, justify="right")

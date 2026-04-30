@@ -454,6 +454,11 @@ class AppState:
     auto_panel_trigger:         str = ""   # panel abbrev to switch to (e.g. "route", "overview")
     auto_panel_trigger_version: int = 0    # bumped on each new trigger
 
+    # Current UI mode — set by app.py each tick from status flags.
+    # Values: "ship" | "combat" | "on_foot" | "srv" | "offline"
+    # Used by panels to pick the correct mode palette (P.mp(snap.ui_mode)).
+    ui_mode: str = "ship"
+
     def push_event(self, ev: LogEvent) -> None:
         self.events.appendleft(ev)
         self.events_version += 1

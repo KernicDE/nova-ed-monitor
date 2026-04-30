@@ -129,7 +129,7 @@ _GALAXY_LANDMARKS = [
 
 
 
-def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType | None:
+def _render_system_map(s: AppState, standalone: bool = False, mp: dict | None = None) -> RenderableType | None:
     """System bodies diagram: *---O-o-o---O-o---O---*---O---
     Returns None if no bodies are available yet.
     standalone=True adds a system name header for the MAP sub-screen."""
@@ -166,12 +166,13 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
             return t
         return None
 
+    mp = mp or P.mp("ship")
     diag = Text()
     if standalone:
-        diag.append(f"{_sys}\n", style=f"bold {P.HEADER}")
-        diag.append("\nSYSTEM DIAGRAM\n", style="bold " + P.HEADER)
+        diag.append(f"{_sys}\n", style=f"bold {mp['h1']}")
+        diag.append("\nSYSTEM DIAGRAM\n", style=f"bold {mp['h1']}")
     else:
-        diag.append("\nSYSTEM\n", style="bold " + P.HEADER)
+        diag.append("\nSYSTEM\n", style=f"bold {mp['h1']}")
 
     # Map star short-name key → BodyInfo (reuse _sn cache)
     star_index: dict[str, BodyInfo] = {
@@ -375,8 +376,9 @@ def _render_system_map(s: AppState, standalone: bool = False) -> RenderableType 
 
 
 def _render_galaxy(s: AppState, regional: bool = False,
-                   panel_w: int = 60, panel_h: int = 30) -> RenderableType:
+                   panel_w: int = 60, panel_h: int = 30, mp: dict | None = None) -> RenderableType:
     """Top-down galactic map rendered in Braille Unicode with per-cell coloring."""
+    mp = mp or P.mp("ship")
     import math
     from rich.panel import Panel
 
@@ -451,7 +453,7 @@ def _render_galaxy(s: AppState, regional: bool = False,
     title_str = f"GALAXY  {scale_str} ({mode_str})"
 
     title_line = Text()
-    title_line.append(f"  {title_str}\n", style=f"bold {P.HEADER}")
+    title_line.append(f"  {title_str}\n", style=f"bold {mp['h1']}")
     framed = Group(title_line, canvas_text)
 
     # ── Legend and route info ─────────────────────────────────────────────────
