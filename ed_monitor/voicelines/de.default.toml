@@ -113,7 +113,7 @@ lines = ["Erster Fuß auf dieser Welt!"]
 lines = ["Warnung! Wir werden angegriffen!"]
 
 [UnderAttack_target]
-lines = ["Warnung! Angriff! Angreifer: {target}."]
+lines = ["Warnung! Angriff! Angreifer: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
 
 [ShieldDown]
 lines = ["Warnung! Schilde ausgefallen!"]

@@ -349,6 +349,11 @@ class AppState:
     # they fire on a body the player has already left.
     high_g_timers: list = field(default_factory=list, repr=False)
 
+    # Under-attack warning cooldown & flash
+    under_attack_flash_until: float = 0.0
+    last_under_attack_at:     float = 0.0
+    last_under_attack_name:   str   = ""
+
     # Wallet / cross-galaxy inventory
     credits:      int  = 0
     stored_ships: list = field(default_factory=list)   # list[dict] from StoredShips event

@@ -105,7 +105,7 @@ lines = ["¡Primeros pasos en este mundo!"]
 lines = ["¡Advertencia! ¡Bajo ataque!"]
 
 [UnderAttack_target]
-lines = ["¡Advertencia! ¡Bajo ataque! Objetivo: {target}."]
+lines = ["¡Advertencia! ¡Bajo ataque! Atacante: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
 
 [ShieldDown]
 lines = ["¡Advertencia! ¡Escudos fuera de línea!"]

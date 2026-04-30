@@ -219,8 +219,8 @@ lines = ["First footfall on this world!"]
 lines = ["Warning! Under attack!"]
 
 [UnderAttack_target]
-# {target} = attacker name
-lines = ["Warning! Under attack! Target: {target}."]
+# {attacker} = attacker name, {ship_type} = attacker ship type
+lines = ["Warning! Under attack! Attacker: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
 
 [ShieldDown]
 # Ship vars + System vars available.

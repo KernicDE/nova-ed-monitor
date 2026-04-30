@@ -45,7 +45,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
     stype = s.docked_station_type or s.station_type or ""
 
     _KNOWN_PAD_DIAGRAMS = frozenset({
-        "Coriolis Starport", "Orbis Starport", "Ocellus Starport",
+        "Coriolis", "Orbis", "Ocellus",
     })
 
     parts: list[RenderableType] = []

@@ -339,7 +339,8 @@ No variables.
 #### `UnderAttack_target` — Under attack (attacker known)
 | Variable | Example | Notes |
 |---|---|---|
-| `{target}` | `Ardan Voss` | Attacker name |
+| `{attacker}` | `Ardan Voss` | Attacker pilot name |
+| `{ship_type}` | `Vulture` | Attacker ship type (empty if unknown) |
 
 ---
 

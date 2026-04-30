@@ -188,7 +188,7 @@ class TestRenderDocking:
         s = AppState()
         s.docked_pad = 5
         s.docked_station_name = "Test Station"
-        s.docked_station_type = "Coriolis Starport"
+        s.docked_station_type = "Coriolis"
         result = _render_docking(s)
         text = _render_text(result)
         assert "Pad" in text

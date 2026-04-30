@@ -457,7 +457,11 @@ class NOVAApp(App):
         _sc("on-foot-mode",   on_foot)
 
         # Flash classes toggle every second when active — still guard to avoid 2× updates per second
-        has_hazard = snap_light.overheating or (0 < snap_light.hull < 0.25)
+        has_hazard = (
+            snap_light.overheating
+            or (0 < snap_light.hull < 0.25)
+            or (snap_light.under_attack_flash_until > time.time())
+        )
         flash_on   = has_hazard and (int(time.time()) % 2 == 0)
         _sc("alert-flash", flash_on)
 

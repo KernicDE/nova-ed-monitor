@@ -105,7 +105,7 @@ lines = ["Первый шаг на этом мире!"]
 lines = ["Внимание! Под атакой!"]
 
 [UnderAttack_target]
-lines = ["Внимание! Под атакой! Цель: {target}."]
+lines = ["Внимание! Под атакой! Атакующий: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
 
 [ShieldDown]
 lines = ["Внимание! Щиты отключены!"]

@@ -1997,12 +1997,27 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
         # ── Combat ───────────────────────────────────────────────────────────
 
         case "UnderAttack":
-            target = _s(ev, "Target")
-            msg    = f"Warning! Under attack! Target: {target}." if target else "Warning! Under attack!"
-            if target:
-                _say(tts_q, "UnderAttack_target", True, fallback=msg, target=target)
+            now = time.time()
+            # Global 30-second cooldown — never spam warnings.
+            if now - state.last_under_attack_at < 30.0:
+                return None
+            attacker = state.target_ship_pilot or _s(ev, "Target") or ""
+            ship     = state.target_ship or ""
+            # Ignore the useless "Target: You" fallback — only announce when we
+            # have a real attacker name or ship type.
+            if attacker and attacker != "You":
+                if ship:
+                    msg = f"Warning! Under attack! Attacker: {attacker} ({ship})."
+                else:
+                    msg = f"Warning! Under attack! Attacker: {attacker}."
+                _say(tts_q, "UnderAttack_target", True, fallback=msg,
+                     attacker=attacker, ship_type=ship)
             else:
+                msg = "Warning! Under attack!"
                 _say(tts_q, "UnderAttack", True, fallback=msg)
+            state.last_under_attack_at     = now
+            state.last_under_attack_name   = attacker
+            state.under_attack_flash_until = now + 5.0
             return LogEvent.new(EventCategory.Warn, msg)
 
         case "ShieldState":

@@ -105,7 +105,7 @@ lines = ["Primo passo su questo mondo!"]
 lines = ["Attenzione! Sotto attacco!"]
 
 [UnderAttack_target]
-lines = ["Attenzione! Sotto attacco! Bersaglio: {target}."]
+lines = ["Attenzione! Sotto attacco! Attaccante: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
 
 [ShieldDown]
 lines = ["Attenzione! Scudi offline!"]

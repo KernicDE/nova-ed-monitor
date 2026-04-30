@@ -105,7 +105,7 @@ lines = ["Premier pas sur ce monde !"]
 lines = ["Attention ! Sous le feu !"]
 
 [UnderAttack_target]
-lines = ["Attention ! Sous le feu de {target} !"]
+lines = ["Attention ! Sous le feu de {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\"; !"]
 
 [ShieldDown]
 lines = ["Attention ! Boucliers hors ligne !"]

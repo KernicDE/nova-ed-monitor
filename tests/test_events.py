@@ -403,3 +403,64 @@ def test_build_eng_list_unknown_engineers_shown():
     result = _build_eng_list(state)
     names_in_result = {e[1] for e in result}
     assert names_in_result == set(_ENGINEER_STATIC.keys())
+
+
+# ── UnderAttack cooldown & formatting (issue #114) ────────────────────────────
+
+import time
+
+
+def _under_attack_ev(target: str = "You") -> dict:
+    return {"event": "UnderAttack", "Target": target}
+
+
+def test_under_attack_cooldown_blocks_spam():
+    """Only the first UnderAttack in a 30 s window should fire."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+
+    result1 = handle(_under_attack_ev(), state, q)
+    assert result1 is not None
+    assert "Under attack" in result1.message
+
+    # Immediate repeat must be suppressed
+    result2 = handle(_under_attack_ev(), state, q)
+    assert result2 is None
+
+
+def test_under_attack_uses_attacker_name_and_ship():
+    """When ShipTargeted info is present, message should name the attacker + ship."""
+    state = AppState()
+    state.target_ship_pilot = "Ardan Voss"
+    state.target_ship = "Vulture"
+    q: queue.Queue = queue.Queue()
+
+    result = handle(_under_attack_ev(), state, q)
+    assert result is not None
+    assert "Attacker: Ardan Voss (Vulture)" in result.message
+
+
+def test_under_attack_ignores_useless_target_you():
+    """When the only target info is 'You', fall back to the generic warning."""
+    state = AppState()
+    state.target_ship_pilot = ""
+    state.target_ship = ""
+    q: queue.Queue = queue.Queue()
+
+    result = handle(_under_attack_ev("You"), state, q)
+    assert result is not None
+    assert result.message == "Warning! Under attack!"
+    assert "Target: You" not in result.message
+
+
+def test_under_attack_sets_flash_timer():
+    """A successful UnderAttack should set under_attack_flash_until ~5 s ahead."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    before = time.time()
+
+    handle(_under_attack_ev(), state, q)
+
+    after = time.time()
+    assert state.under_attack_flash_until >= before + 5.0
+    assert state.under_attack_flash_until <= after + 5.0
