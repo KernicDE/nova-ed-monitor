@@ -681,11 +681,11 @@ class ShipPanel(_Panel):
             if s.docked:
                 btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN)]
             elif s.landed:
-                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
             elif s.supercruise:
-                btn_row = [(mode_label, True, mode_col), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Lights", s.lights_on, P.AMBER), ("Silent", s.silent_running, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
             else:
-                btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.AMBER), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Scoop", s.cargo_scoop, P.AMBER), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.AMBER), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Scoop", s.cargo_scoop, P.AMBER), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
 
             parts.append(_button_bar(btn_row))
 
@@ -840,6 +840,7 @@ def _button_bar(items: list[tuple[str, bool, str]]) -> Table:
         "Lights":   (1, 0),
         "Night":    (1, 1),
         "Silent":   (1, 2), "Turret":   (1, 2),
+        "WEP":      (1, 3),
     }
     for label, active, col in items:
         r, c = _pos.get(label, (0, 0))
