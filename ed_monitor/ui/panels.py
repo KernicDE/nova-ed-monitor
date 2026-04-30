@@ -671,13 +671,13 @@ class ShipPanel(_Panel):
 
             btn_row: list[tuple[str, bool, str]] = []
             if s.docked:
-                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN)]
+                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.HUD_GREEN), ("Night", s.night_vision, P.HUD_GREEN)]
             elif s.landed:
-                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Lights", s.lights_on, P.HUD_GREEN), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_GREEN), ("WEP", s.hardpoints, P.HUD_GREEN)]
             elif s.supercruise:
-                btn_row = [(mode_label, True, mode_col), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Manual", s.flight_assist_off, P.HUD_GREEN), ("Lights", s.lights_on, P.HUD_GREEN), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_GREEN), ("WEP", s.hardpoints, P.HUD_GREEN)]
             else:
-                btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.AMBER), ("Manual", s.flight_assist_off, P.HUD_CRIT), ("Scoop", s.cargo_scoop, P.AMBER), ("Lights", s.lights_on, P.AMBER), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_CRIT), ("WEP", s.hardpoints, P.HUD_CRIT)]
+                btn_row = [(mode_label, True, mode_col), ("Gear", s.landing_gear, P.HUD_GREEN), ("Manual", s.flight_assist_off, P.HUD_GREEN), ("Scoop", s.cargo_scoop, P.HUD_GREEN), ("Lights", s.lights_on, P.HUD_GREEN), ("Night", s.night_vision, P.HUD_GREEN), ("Silent", s.silent_running, P.HUD_GREEN), ("WEP", s.hardpoints, P.HUD_GREEN)]
 
             parts.append(_button_bar(btn_row))
 
@@ -786,12 +786,12 @@ class ShipPanel(_Panel):
         btn_row: list[tuple[str, bool, str]] = [
             (mode_label,  True,                   mode_col),
             ("Assist",    s.srv_drive_assist,      P.HUD_GREEN),
-            ("Lights",    s.lights_on,             P.AMBER),
+            ("Lights",    s.lights_on,             P.HUD_GREEN),
             ("Night",     s.night_vision,          P.HUD_GREEN),
         ]
         # Turret only relevant when turret view is active or retracted state differs
         if s.srv_turret_view or not s.srv_turret_retracted:
-            btn_row.append(("Turret", s.srv_turret_view, P.HUD_CYAN))
+            btn_row.append(("Turret", s.srv_turret_view, P.HUD_GREEN))
 
         parts.append(_button_bar(btn_row))
 
