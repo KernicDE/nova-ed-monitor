@@ -651,14 +651,6 @@ class ShipPanel(_Panel):
             gauges = Columns([hull_panel, sh_panel, fuel_panel], expand=True, equal=True)
             parts.append(gauges)
 
-            if s.cargo_capacity > 0:
-                cargo_w     = max(4, self.size.width - 16)
-                cargo_ratio = min(s.cargo / s.cargo_capacity, 1.0)
-                cargo_txt   = Text(justify="center")
-                cargo_txt.append(f"CARGO {s.cargo}/{s.cargo_capacity}  ", style="bold white")
-                cargo_txt.append_text(_gauge_bar(cargo_ratio, cargo_w, "rgb(150,60,180)"))
-                parts.append(Align.center(cargo_txt))
-
             pip_txt = Text(justify="center")
             pip_txt.append("SYS ", style="bold rgb(60,100,200)")
             pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
