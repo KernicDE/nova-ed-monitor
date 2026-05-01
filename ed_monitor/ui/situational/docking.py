@@ -50,19 +50,14 @@ _CARRIER_SIZE_NAMES: dict[str, str] = {
     "M": "medium pad",
     "S": "small pad — outer wing",
 }
-# Colour for unassigned pads by size (assigned pad is always bold white)
-_CARRIER_SIZE_STYLE: dict[str, str] = {
-    "L": P.LABEL_LIGHT,
-    "M": P.AMBER,
-    "S": P.LABEL_DIM,
-}
+_CARRIER_PAD_DIM = P.LABEL_DIM   # all unassigned pads — readable but recessive
 
 
 def _draw_carrier_bay(pad: int, panel_w: int) -> tuple[RenderableType, str]:
     """Rectangular bay diagram for Drake-class fleet carriers.
 
     FRONT header (green ▲) at the top, COCKPIT footer (amber ═) at the bottom.
-    Assigned pad shown as [NN] in bold white; others dimmed and colour-coded by size.
+    Assigned pad shown as [NN] in bright green; others uniformly dimmed.
     """
     CELL = 4          # chars per cell: "[16]" or " 16 "
     COLS = 6
@@ -92,9 +87,9 @@ def _draw_carrier_bay(pad: int, panel_w: int) -> tuple[RenderableType, str]:
                 p_num, size = cell
                 lbl = f"{p_num:2}"
                 if p_num == pad:
-                    t.append(f"[{lbl}]", style="bold white")
+                    t.append(f"[{lbl}]", style="bold rgb(0,255,150)")
                 else:
-                    t.append(f" {lbl} ", style=_CARRIER_SIZE_STYLE[size])
+                    t.append(f" {lbl} ", style=_CARRIER_PAD_DIM)
         t.append("\n")
         lines.append(t)
 
