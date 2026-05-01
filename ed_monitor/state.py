@@ -167,10 +167,17 @@ class EngineerInfo:
 
 @dataclass
 class MissionInfo:
-    mission_id:  int
-    name:        str
-    destination: str   # "System / Station" or just system
-    expiry:      str   # ISO timestamp string, "" if none
+    mission_id:    int
+    name:          str
+    destination:   str    # "System / Station" or just system
+    expiry:        str    # ISO timestamp string, "" if none
+    mission_type:  str  = ""     # "Massacre", "Delivery", "Courier", etc.
+    faction:       str  = ""     # issuing faction
+    reward:        int  = 0
+    wing:          bool = False
+    cargo_type:    str  = ""     # Commodity_Localised
+    cargo_count:   int  = 0
+    influence:     str  = ""     # "+", "++", "+++"
 
 
 # ── App state ──────────────────────────────────────────────────────────────────

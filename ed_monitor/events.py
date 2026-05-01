@@ -1286,6 +1286,30 @@ def _notable_bodies_vars(state) -> dict:
     )
 
 
+# ── Mission helpers ───────────────────────────────────────────────────────────
+_MISSION_TYPE_MAP: dict[str, str] = {
+    "Massacre":      "Massacre",
+    "MassacreWing":  "Massacre",
+    "Courier":       "Courier",
+    "Delivery":      "Delivery",
+    "Mining":        "Mining",
+    "Assassinate":   "Assassination",
+    "Salvage":       "Salvage",
+    "Collect":       "Collect",
+    "PassengerBulk": "Passengers",
+    "PassengerVIP":  "Passengers",
+    "Scan":          "Scan",
+    "Altruism":      "Altruism",
+    "OnFoot":        "On-foot",
+    "Hack":          "Hack",
+}
+
+def _mission_type_from_raw(raw_name: str) -> str:
+    """Extract mission type from raw journal Name field (e.g. 'Mission_Delivery_name')."""
+    parts = raw_name.split("_")
+    return _MISSION_TYPE_MAP.get(parts[1], "") if len(parts) >= 2 else ""
+
+
 # ── BGS activity helpers ──────────────────────────────────────────────────────
 def _bgs_tick(state: AppState) -> None:
     """Reset BGS log if the UTC date has rolled over (approximate tick boundary)."""
@@ -2618,16 +2642,26 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
         case "MissionAccepted":
             mid      = _u(ev, "MissionID")
-            name     = _loc(ev, "LocalisedName") or _s(ev, "Name")
+            raw_name = _s(ev, "Name")
+            name     = _loc(ev, "LocalisedName") or raw_name
             dest_sys = _s(ev, "DestinationSystem")
             dest_stn = _s(ev, "DestinationStation")
             dest     = f"{dest_sys} / {dest_stn}" if dest_stn else dest_sys
             expiry   = _s(ev, "Expiry")
             state.missions.append(MissionInfo(
-                mission_id=mid, name=name, destination=dest, expiry=expiry,
+                mission_id=mid,
+                name=name,
+                destination=dest,
+                expiry=expiry,
+                mission_type=_mission_type_from_raw(raw_name),
+                faction=_s(ev, "Faction"),
+                reward=_u(ev, "Reward"),
+                wing=_b(ev, "Wing"),
+                cargo_type=_loc(ev, "Commodity"),
+                cargo_count=_u(ev, "Count"),
+                influence=_s(ev, "Influence"),
             ))
             # Track massacre missions for kill progress display
-            raw_name = _s(ev, "Name")
             if "Massacre" in raw_name and mid:
                 kill_count     = _u(ev, "KillCount")
                 target_faction = _s(ev, "TargetFaction")

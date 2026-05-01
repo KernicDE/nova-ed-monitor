@@ -165,6 +165,95 @@ class TestRenderMissions:
         text = _render_text(result)
         assert "Expired" in text
 
+    def test_destination_grouping(self):
+        """Multiple missions to the same destination appear under one header."""
+        s = AppState()
+        dest = "Sol / Li Yong-Rui Service"
+        for i in range(3):
+            s.missions.append(MissionInfo(
+                mission_id=i, name=f"Delivery {i}", destination=dest,
+                expiry="", mission_type="Delivery",
+                reward=100_000, cargo_type="Biowaste", cargo_count=60,
+            ))
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert dest in text
+        assert "×3" in text
+        assert "180 t Biowaste" in text
+        assert "300K Cr" in text
+
+    def test_mission_type_and_wing_shown(self):
+        """Type badge and [W] wing flag appear in the row."""
+        s = AppState()
+        s.missions.append(MissionInfo(
+            mission_id=1, name="Wing Massacre", destination="Deciat",
+            expiry="", mission_type="Massacre", wing=True, reward=500_000,
+        ))
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert "Massacre" in text
+        assert "[W]" in text
+
+    def test_influence_badge_shown(self):
+        """High-influence missions show the '++' badge."""
+        s = AppState()
+        s.missions.append(MissionInfo(
+            mission_id=1, name="High Influence", destination="Sol",
+            expiry="", mission_type="Courier", influence="++",
+        ))
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert "++" in text
+
+    def test_reward_column(self):
+        """Reward appears in compact format."""
+        s = AppState()
+        s.missions.append(MissionInfo(
+            mission_id=1, name="Test", destination="Sol",
+            expiry="", reward=1_500_000,
+        ))
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert "1.5M" in text
+
+    def test_massacre_stacking_display(self):
+        """Stacked massacre: bar uses max_needed, ×N multiplier, milestones shown."""
+        s = AppState()
+        s.missions.append(MissionInfo(mission_id=1, name="M1", destination="X", expiry="",
+                                       mission_type="Massacre"))
+        s.missions.append(MissionInfo(mission_id=2, name="M2", destination="X", expiry="",
+                                       mission_type="Massacre"))
+        s.massacre_kills[1] = {"faction": "Pirates", "needed": 10, "done": 8}
+        s.massacre_kills[2] = {"faction": "Pirates", "needed": 12, "done": 8}
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert "8/12" in text
+        assert "×2" in text
+        assert "→12" in text or "12" in text
+
+    def test_massacre_single_no_milestones(self):
+        """Single massacre mission: no ×N or milestone markers."""
+        s = AppState()
+        s.missions.append(MissionInfo(mission_id=1, name="M", destination="X", expiry="",
+                                       mission_type="Massacre"))
+        s.massacre_kills[1] = {"faction": "Outlaws", "needed": 15, "done": 5}
+        result = _render_missions(s)
+        text = _render_text(result)
+        assert "5/15" in text
+        assert "×" not in text
+
+    def test_scroll_slices_by_expiry(self):
+        """scroll=1 skips the soonest-expiring mission."""
+        s = AppState()
+        soon   = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        later  = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        s.missions.append(MissionInfo(mission_id=1, name="SoonMission",  destination="A", expiry=soon))
+        s.missions.append(MissionInfo(mission_id=2, name="LaterMission", destination="B", expiry=later))
+        result = _render_missions(s, scroll=1)
+        text = _render_text(result)
+        assert "LaterMission" in text
+        assert "SoonMission" not in text
+
 
 class TestRenderStats:
     def test_empty(self):

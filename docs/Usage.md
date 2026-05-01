@@ -90,7 +90,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Overview | `Overview` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits). Also shows station pad diagram when docking is granted |
 | Bio | `Bio` | ✓ | Active bio scans — distances, bearings, sample counts |
 | Maps | `Maps` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
-| Mission | `Mission` | ✓ | Active missions and massacre kill progress bars |
+| Mission | `Mission` | ✓ | Active missions grouped by destination with type badges, reward column, cargo totals, wing/influence indicators, and massacre kill-stack progress bars |
 | Engineer | `Engineer` | — | Rank bars, rank-progress %, specialty and system per engineer |
 | BGS | `BGS` | — | Per-faction BGS activity counts for the current system (today's tick) |
 | Colony | `Colony` | ✓ | Construction site commodity progress |
@@ -100,6 +100,64 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 | Stats | `Stats` | ✓ (offline) | Persistent stats: today / week / month / year / total |
 
 **Auto-switch priority (highest first):** offline → Stats · hyperspace with route → Route · docking granted → Overview (shows pad diagram) · incomplete bio scans or DSS'd bio body → Bio · colonisation active in system → Colony · mission (not in supercruise) → Mission · route set → Route · default → Overview.
+
+---
+
+## Mission Panel
+
+Shows all active missions grouped by **destination station** so you can see at a glance which missions complete in the same stop.
+
+### Destination header
+
+Each destination renders a summary line:
+
+```
+Sol / Li Yong-Rui Service  ×3  180 t Biowaste  300K Cr
+```
+
+| Element | Meaning |
+|---------|---------|
+| Destination | `System / Station` or just `System` |
+| `×N` (amber) | N missions share this destination |
+| `N t Commodity` (amber) | Combined cargo for delivery stacks |
+| `NNK/NM Cr` | Total reward across all missions at this stop |
+
+### Mission rows
+
+Each row under the header shows:
+
+| Column | Content |
+|--------|---------|
+| Type | Mission category, colour-coded (see below) |
+| Mission | Localised mission name · `[W]` for wing missions · `++`/`+++` for high BGS influence |
+| Time | Time remaining (amber < 1 h · red = expired) |
+| Reward | Compact credit value |
+
+**Mission type colours:**
+
+| Type | Colour |
+|------|--------|
+| Massacre / Assassination | Red |
+| Delivery / Mining | Amber |
+| Courier | White |
+| Passengers | Purple |
+| Salvage / Collect / Scan / Altruism | Grey |
+
+### Massacre kill-stack progress
+
+When you hold multiple massacre missions targeting the same faction, each kill counts for **all** missions simultaneously. The progress bar reflects this:
+
+```
+  [████████░░] 8/12 ×3  Black Vipers  8✓ →10 →12
+```
+
+| Element | Meaning |
+|---------|---------|
+| `8/12` | Kills done / max needed (not a misleading sum) |
+| `×3` | Number of stacked missions |
+| `8✓ →10 →12` | Completion milestones — checkmark once reached |
+
+A single massacre mission shows a plain bar with no multiplier or milestones.
 
 ---
 

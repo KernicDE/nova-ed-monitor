@@ -1,94 +1,36 @@
 from __future__ import annotations
 
-import math
-import queue
-import threading
-import time
-from collections import defaultdict
 from datetime import datetime, timezone
-from typing import NamedTuple, Optional
 
-from rich.console import Group
-from rich.panel import Panel
-from rich.table import Table
+from rich.console import Group, RenderableType
 from rich.text import Text
 
-from ...state import AppState, BodyInfo, EngineerInfo, EventCategory, LogEvent
+from ...state import AppState, MissionInfo
 from .. import palette as P
-from ... import events
-from ...events import _BIO_GENUS_VALUE_RANGE, _BIO_SPECIES_VALUES, bio_variant
-from ...config import Config
 from ..panels import (
-    _data_table, _section_header, _kv_row, _kv_line, _two_column_table,
-    _short_name, _natural_key,
-    _body_color, _abbrev_type, _body_value, _body_value_color,
-    _fmt_cr_compact, _fmt_value, _fmt_ls_compact, _fmt_metres,
-    _fmt_notable_val, _de,
+    _data_table, _section_header, _fmt_cr_compact,
 )
 
 
-def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
-    mp = mp or P.mp("ship")
-    if not s.missions:
-        t = Text()
-        t.append("No active missions.", style=P.LABEL)
-        return t
+# ── Type colour mapping ───────────────────────────────────────────────────────
 
-    parts: list[RenderableType] = []
-
-    # Massacre kill progress (grouped by faction)
-    if s.massacre_kills:
-        # Group by faction
-        fac_kills: dict = {}
-        for mid, mk in s.massacre_kills.items():
-            fac = mk["faction"]
-            if fac not in fac_kills:
-                fac_kills[fac] = {"needed": 0, "done": 0}
-            fac_kills[fac]["needed"] += mk["needed"]
-            fac_kills[fac]["done"]   += mk["done"]
-
-        parts.append(_section_header("MASSACRE PROGRESS", mp["h1"], mp["bg"]))
-
-        for fac, kd in fac_kills.items():
-            done   = kd["done"]
-            needed = kd["needed"]
-            filled = int(10 * done / needed) if needed > 0 else 0
-            bar    = "█" * filled + "░" * (10 - filled)
-            pct_t  = Text()
-            pct_t.append(f"  [{bar}] ", style=P.HUD_CRIT)
-            pct_t.append(f"{done}/{needed}", style="white")
-            pct_t.append(f"  {fac}\n", style=P.LABEL)
-            parts.append(pct_t)
-
-    missions = s.missions
-    effective_scroll = min(scroll, max(0, len(missions) - 1))
-    visible_missions = missions[effective_scroll:]
-
-    tbl = _data_table(mp["h2"])
-    tbl.add_column("Mission")
-    tbl.add_column("Destination", width=20)
-    tbl.add_column("Time left",   width=9, justify="right")
-
-    for m in visible_missions:
-        remaining = _mission_time_remaining(m.expiry)
-        if remaining == "Expired":
-            time_col = P.HUD_CRIT
-        elif remaining and remaining[0].isdigit() and remaining.endswith("m"):
-            time_col = P.HUD_WARN
-        else:
-            time_col = P.LABEL
-
-        tbl.add_row(
-            Text(m.name, style="white"),
-            Text(m.destination, style=P.LABEL),
-            Text(remaining, style=f"bold {time_col}"),
-        )
-    parts.append(tbl)
-
-    return Group(*parts)
+_TYPE_STYLE: dict[str, str] = {
+    "Massacre":      P.HUD_CRIT,
+    "Assassination": P.HUD_CRIT,
+    "Delivery":      P.AMBER,
+    "Mining":        P.AMBER,
+    "Courier":       "white",
+    "Passengers":    P.PURPLE,
+    "Salvage":       P.LABEL,
+    "Collect":       P.LABEL,
+    "Scan":          P.LABEL,
+    "Altruism":      P.LABEL,
+    "On-foot":       P.LABEL,
+    "Hack":          P.LABEL,
+}
 
 
-# Odyssey (on-foot) engineers — they don't use the 1–5 grade system.
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _mission_time_remaining(expiry: str) -> str:
     if not expiry:
@@ -113,5 +55,137 @@ def _mission_time_remaining(expiry: str) -> str:
         return ""
 
 
-# ── Shared rendering helpers ──────────────────────────────────────────────────
+def _expiry_secs(expiry: str) -> float:
+    """Seconds until expiry; inf if no expiry or unparseable."""
+    if not expiry:
+        return float("inf")
+    try:
+        ts = expiry.rstrip("Z")
+        dt = datetime.fromisoformat(ts).replace(tzinfo=timezone.utc)
+        return (dt - datetime.now(timezone.utc)).total_seconds()
+    except Exception:
+        return float("inf")
 
+
+def _time_style(remaining: str) -> str:
+    if remaining == "Expired":
+        return P.HUD_CRIT
+    if remaining and "d" not in remaining and "h" not in remaining:
+        return P.HUD_WARN   # minutes only → < 1 h
+    return P.LABEL
+
+
+# ── Massacre section ──────────────────────────────────────────────────────────
+
+def _render_massacre_section(s: AppState, parts: list, mp: dict) -> None:
+    # Group by faction — keep per-mission data for milestone display
+    fac_kills: dict = {}
+    for mk in s.massacre_kills.values():
+        fac = mk["faction"]
+        if fac not in fac_kills:
+            fac_kills[fac] = []
+        fac_kills[fac].append({"needed": mk["needed"], "done": mk["done"]})
+
+    parts.append(_section_header("MASSACRE PROGRESS", mp["h1"], mp["bg"]))
+
+    for fac, mlist in fac_kills.items():
+        # Each kill counts for ALL stacked missions simultaneously.
+        # The highest-needed mission caps last, so its done = actual kill count.
+        kills_done = max(m["done"] for m in mlist)
+        max_needed = max(m["needed"] for m in mlist)
+        stacked    = len(mlist)
+        filled     = int(10 * kills_done / max_needed) if max_needed > 0 else 0
+        bar        = "█" * filled + "░" * (10 - filled)
+
+        row = Text()
+        row.append(f"  [{bar}] ", style=P.HUD_CRIT)
+        row.append(f"{kills_done}/{max_needed}", style="white")
+        if stacked > 1:
+            row.append(f" ×{stacked}", style=P.HUD_WARN)
+        row.append(f"  {fac}", style=P.LABEL)
+
+        if stacked > 1:
+            # Show sorted thresholds so player sees exactly when each mission completes
+            thresholds = sorted(set(m["needed"] for m in mlist))
+            row.append("  ")
+            for t in thresholds:
+                if kills_done >= t:
+                    row.append(f"{t}✓ ", style="dim green")
+                else:
+                    row.append(f"→{t} ", style=P.LABEL)
+
+        row.append("\n")
+        parts.append(row)
+
+
+# ── Main renderer ─────────────────────────────────────────────────────────────
+
+def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
+    mp = mp or P.mp("ship")
+    if not s.missions:
+        t = Text()
+        t.append("No active missions.", style=P.LABEL)
+        return t
+
+    parts: list[RenderableType] = []
+
+    if s.massacre_kills:
+        _render_massacre_section(s, parts, mp)
+
+    # Sort all missions by expiry (soonest first), then apply scroll
+    sorted_all = sorted(s.missions, key=lambda m: _expiry_secs(m.expiry))
+    effective_scroll = min(scroll, max(0, len(sorted_all) - 1))
+    visible = sorted_all[effective_scroll:]
+
+    # Group visible missions by destination
+    groups: dict[str, list[MissionInfo]] = {}
+    for m in visible:
+        dest = m.destination or "—"
+        groups.setdefault(dest, []).append(m)
+
+    # Render each destination group
+    for dest, missions in groups.items():
+        cargo_total = sum(m.cargo_count for m in missions if m.cargo_count)
+        cargo_label = next((m.cargo_type for m in missions if m.cargo_type), "")
+        reward_total = sum(m.reward for m in missions)
+        count = len(missions)
+
+        # Destination header
+        hdr = Text()
+        hdr.append(f"  {dest}", style="white")
+        if count > 1:
+            hdr.append(f"  ×{count}", style=P.HUD_WARN)
+        if cargo_total and cargo_label:
+            hdr.append(f"  {cargo_total} t {cargo_label}", style=P.AMBER)
+        if reward_total:
+            hdr.append(f"  {_fmt_cr_compact(reward_total)} Cr", style=P.LABEL)
+        parts.append(hdr)
+
+        # Mission rows
+        tbl = _data_table(mp["h2"])
+        tbl.add_column("Type",    width=12, no_wrap=True)
+        tbl.add_column("Mission", no_wrap=True)
+        tbl.add_column("Time",    width=9, justify="right")
+        tbl.add_column("Reward",  width=7, justify="right")
+
+        for m in missions:
+            mtype      = m.mission_type or "—"
+            type_style = _TYPE_STYLE.get(mtype, P.LABEL)
+            remaining  = _mission_time_remaining(m.expiry)
+
+            name_t = Text(m.name or "—", style="white", no_wrap=True)
+            if m.wing:
+                name_t.append(" [W]", style=P.GOLD)
+            if m.influence in ("++", "+++"):
+                name_t.append(f" {m.influence}", style=P.GOLD)
+
+            tbl.add_row(
+                Text(mtype, style=type_style),
+                name_t,
+                Text(remaining, style=f"bold {_time_style(remaining)}"),
+                Text(_fmt_cr_compact(m.reward) if m.reward else "—", style=P.LABEL),
+            )
+
+        parts.append(tbl)
+
+    return Group(*parts)
