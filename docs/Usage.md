@@ -161,6 +161,34 @@ A single massacre mission shows a plain bar with no multiplier or milestones.
 
 ---
 
+## Docking Panel
+
+Triggered automatically when docking is granted. Shows a pad diagram for the assigned station type.
+
+| Station type | Diagram |
+|---|---|
+| Coriolis / Orbis / Ocellus | Circular ring diagram — mailslot at centre, 4 concentric rings, 40 pads |
+| Fleet Carrier (Drake-class) | Rectangular bay grid — **▲ FRONT** at top, **COCKPIT** at bottom, 16 pads |
+| Asteroid Base | 2-ring circular diagram — cave centre `╳`, no mailslot, 8 pads |
+| All other types | "Pad diagram not available" fallback |
+
+The assigned pad is always shown as `[N]` in bright white. All other pads are dimmed.
+
+### Fleet Carrier layout
+
+```
+      ▲  FRONT  ▲        ← bay entrance (green)
+        [ 7]  8
+ 13  16   5   6  14  15
+     10   3   4  12
+      9   1   2  11
+═══════ COCKPIT ════════  ← command deck (amber)
+```
+
+Pad colour when unassigned: **white** = large · **amber** = medium · **grey** = small. The hint line below the diagram names the row (Front bay / Mid bay / Rear bay / Cockpit row) and the pad size.
+
+---
+
 ## Position Panel (top left)
 
 Shows current system info in a two-column layout: natural/exploration data on the left, human/BGS data on the right.

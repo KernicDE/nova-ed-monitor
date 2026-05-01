@@ -282,6 +282,66 @@ class TestRenderDocking:
         text = _render_text(result)
         assert "Pad" in text
 
+    def test_carrier_front_and_cockpit_labels(self):
+        """Fleet carrier diagram shows FRONT header and COCKPIT footer."""
+        s = AppState()
+        s.docked_pad = 7
+        s.docked_station_name = "P.T.N. Nomad"
+        s.docked_station_type = "FleetCarrier"
+        result = _render_docking(s)
+        text = _render_text(result)
+        assert "FRONT" in text
+        assert "COCKPIT" in text
+
+    def test_carrier_assigned_pad_highlighted(self):
+        """Assigned carrier pad is shown with brackets."""
+        for pad in (1, 7, 13, 16):
+            s = AppState()
+            s.docked_pad = pad
+            s.docked_station_type = "FleetCarrier"
+            text = _render_text(_render_docking(s))
+            assert f"[{pad:2}]" in text or f"[{pad}]" in text
+
+    def test_carrier_hint_text(self):
+        """Carrier hint reflects row and size for each pad."""
+        cases = [
+            (7,  "Front bay"),
+            (5,  "Mid bay"),
+            (13, "small pad"),
+            (10, "medium pad"),
+            (1,  "Cockpit row"),
+            (3,  "large pad"),
+        ]
+        for pad, expected in cases:
+            s = AppState()
+            s.docked_pad = pad
+            s.docked_station_type = "FleetCarrier"
+            text = _render_text(_render_docking(s))
+            assert expected.lower() in text.lower(), f"pad {pad}: expected '{expected}' in output"
+
+    def test_asteroid_base_rings(self):
+        """Asteroid base shows ring diagram and cave centre mark."""
+        s = AppState()
+        s.docked_pad = 3
+        s.docked_station_name = "Jokers Wild"
+        s.docked_station_type = "AsteroidBase"
+        result = _render_docking(s)
+        text = _render_text(result)
+        assert "[3]" in text
+        assert "╳" in text
+
+    def test_asteroid_inner_outer_hint(self):
+        """Asteroid base hint distinguishes inner (large) from outer (small)."""
+        s_inner = AppState()
+        s_inner.docked_pad = 2
+        s_inner.docked_station_type = "AsteroidBase"
+        assert "Inner" in _render_text(_render_docking(s_inner))
+
+        s_outer = AppState()
+        s_outer.docked_pad = 6
+        s_outer.docked_station_type = "AsteroidBase"
+        assert "Outer" in _render_text(_render_docking(s_outer))
+
 
 class TestRenderBGS:
     def test_system_grouping(self):
