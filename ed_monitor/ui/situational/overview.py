@@ -175,7 +175,8 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40, mp: dict
         tbl.add_column("Val", width=7, justify="right", no_wrap=True)
         tbl.add_column("G", width=5, justify="right", no_wrap=True)
         tbl.add_column("Bio", width=6, justify="right", no_wrap=True)
-        tbl.add_column("Why", width=8, no_wrap=True)
+        why_w = max(8, panel_w - 47)
+        tbl.add_column("Why", width=why_w, no_wrap=True)
 
         for b in notable[:max_body_rows]:
             short = _short_name(b.name, s.system)

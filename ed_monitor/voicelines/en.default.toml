@@ -131,6 +131,10 @@ lines = ["Route set. Destination: {dest}. {hops} {hops_word}."]
 # No variables.
 lines = ["Route cleared."]
 
+[NavRouteArrived]
+# System vars available. Fired when FSD arrives at route destination.
+lines = ["Target reached."]
+
 [SupercruiseEntry]
 # System vars + Ship vars available.
 lines = ["Supercruise engaged."]

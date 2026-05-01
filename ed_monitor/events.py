@@ -1614,6 +1614,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         state.route_next_dist      = 0.0
 
             if state.route_hops == 0:
+                state.route_arrived        = True
                 state.route_destination    = ""
                 state.route_next           = ""
                 state.route_next_star      = ""
@@ -1699,6 +1700,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.route_dist      = tdist
             state.route_next_dist = _pdist(route[0].get("StarPos"), route[1].get("StarPos"))
             state.route_list      = route
+            state.route_arrived   = False
 
             hops_word = "jump" if hops == 1 else "jumps"
             msg  = f"Route set. Destination: {dest}. {hops} {hops_word} ({tdist:.1f} ly)."
@@ -1711,6 +1713,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             return LogEvent.new(EventCategory.Nav, msg)
 
         case "NavRouteClear":
+            arrived = state.route_arrived
             state.route_destination    = ""
             state.route_hops           = 0
             state.route_next           = ""
@@ -1719,6 +1722,11 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.route_list           = []
             state.route_list_edsm      = {}
             state.route_bodies_edsm    = {}
+            state.route_arrived        = False
+            if arrived:
+                _say(tts_q, "NavRouteArrived", False, fallback="Target reached.",
+                     **_system_vars(state))
+                return LogEvent.new(EventCategory.Nav, "Target reached.")
             _say(tts_q, "NavRouteClear", False, fallback="Route cleared.")
             return LogEvent.new(EventCategory.Nav, "Route cleared.")
 

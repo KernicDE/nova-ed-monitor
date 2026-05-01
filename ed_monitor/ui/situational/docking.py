@@ -113,17 +113,44 @@ def _draw_carrier_bay(pad: int, panel_w: int) -> tuple[RenderableType, str]:
     return Group(*lines), hint
 
 
+# ── Coriolis / Orbis / Ocellus pad layout ────────────────────────────────────
+#
+# 45 pads, 12 radial segments × 5 concentric offsets.
+# Segment 1 = 6 o'clock (bottom), counterclockwise.
+# Offset 0 = innermost, 4 = outermost.
+# Source: https://github.com/rdnt/ed-landing-pads (pad,segment,offset,size)
+
+_CORIOLIS_PADS: dict[int, tuple[int, int, str]] = {
+     1: (1,0,"S"),  2: (1,1,"S"),  3: (1,2,"M"),  4: (1,4,"S"),
+     5: (2,0,"S"),  6: (2,1,"S"),  7: (2,2,"M"),  8: (2,4,"S"),
+     9: (3,0,"M"), 10: (3,2,"L"), 11: (4,0,"S"), 12: (4,1,"S"),
+    13: (4,2,"S"), 14: (4,3,"S"), 15: (4,4,"S"), 16: (5,0,"S"),
+    17: (5,1,"S"), 18: (5,2,"M"), 19: (5,4,"S"), 20: (6,0,"S"),
+    21: (6,1,"S"), 22: (6,2,"M"), 23: (6,4,"S"), 24: (7,0,"M"),
+    25: (7,2,"L"), 26: (8,0,"S"), 27: (8,1,"S"), 28: (8,2,"S"),
+    29: (8,3,"S"), 30: (8,4,"S"), 31: (9,0,"S"), 32: (9,1,"S"),
+    33: (9,2,"M"), 34: (9,4,"S"), 35:(10,0,"S"), 36:(10,1,"S"),
+    37:(10,2,"M"), 38:(10,4,"S"), 39:(11,0,"M"), 40:(11,2,"L"),
+    41:(12,0,"S"), 42:(12,1,"S"), 43:(12,2,"S"), 44:(12,3,"S"),
+    45:(12,4,"S"),
+}
+# Base (rx, ry) per offset index 0–4, scaled by diagram scale factor
+_CORIOLIS_RING_R: list[tuple[int, int]] = [(3,1),(5,2),(7,3),(9,4),(11,5)]
+_CORIOLIS_CLOCK: dict[int, str] = {
+    1:"6",2:"7",3:"8",4:"9",5:"10",6:"11",7:"12",8:"1",9:"2",10:"3",11:"4",12:"5",
+}
+_CORIOLIS_OFFSET_NAME: list[str] = ["inner","near-inner","middle","near-outer","outer"]
+_CORIOLIS_SIZE_NAME:   dict[str, str] = {"S":"small","M":"medium","L":"large"}
+
+
 # ── Main renderer ─────────────────────────────────────────────────────────────
 
 def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> RenderableType:
     """Docking pad diagram — front view of the station.
 
     Coriolis / Orbis / Ocellus:
-        Circular ring diagram (mailslot centre, 4 concentric rings, 40 pads).
-        Inner  (1–12):  large pads, nearest mailslot.
-        Mid-1  (13–24): large pads.
-        Mid-2  (25–36): medium pads.
-        Outer  (37–40): small pads, back wall.
+        Circular ring diagram (mailslot centre, 5 concentric rings, 45 pads).
+        12 radial segments × 5 offsets; segment 1 = 6 o'clock, counterclockwise.
 
     AsteroidBase:
         2-ring circular diagram (cave interior, no mailslot).
@@ -174,7 +201,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
     avail_h = max(13, panel_h - header_lines - 2)
     avail_w = max(38, panel_w)
     scale   = min(avail_w / 38, avail_h / 13)
-    scale   = max(scale, 2.0)
+    scale   = max(scale, 1.0)
     scale   = min(scale, 2.5)
 
     base_w, base_h = 38, 13
@@ -194,57 +221,72 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
             if 0 <= gy < H and 0 <= x < W:
                 grid[gy][x] = (ch, style)
 
-    # Ring geometry differs by type
+    # ── Ring geometry and pad placement ──────────────────────────────────────
     if stype == "AsteroidBase":
         # 2 rings: 4 large (inner) + 4 small (outer)
         base_rings = [(4, 2, 1, 4), (7, 3, 5, 4)]
-    else:
-        # Coriolis / Orbis / Ocellus: 4 rings, 40 pads total
-        base_rings = [(4, 2, 1, 12), (6, 3, 13, 12), (8, 4, 25, 12), (10, 5, 37, 4)]
+        ring_defs  = [
+            (max(3, int(rx * scale)), max(2, int(ry * scale)), start, count)
+            for rx, ry, start, count in base_rings
+        ]
+        active_idx = -1
+        for idx, (_, _, start, count) in enumerate(ring_defs):
+            if start <= pad < start + count:
+                active_idx = idx
+                break
+        hint_text = {0: "Inner ring — large pad", 1: "Outer ring — small pad"}.get(active_idx, "")
 
-    ring_defs = [
-        (max(3, int(rx * scale)), max(2, int(ry * scale)), start, count)
-        for rx, ry, start, count in base_rings
-    ]
+        for idx, (rx, ry, _, _) in enumerate(ring_defs):
+            steps     = max(rx, ry) * 6
+            dot_style = "rgb(150,150,150)" if idx == active_idx else P.DIM
+            for i in range(steps):
+                angle = _math.pi + i * 2 * _math.pi / steps
+                gx    = int(round(cx + rx * _math.sin(angle)))
+                gy    = int(round(cy - ry * _math.cos(angle)))
+                if 0 <= gy < H and 0 <= gx < W and grid[gy][gx] == BLANK:
+                    grid[gy][gx] = ("·", dot_style)
 
-    # Find which ring the assigned pad lives on
-    active_idx = -1
-    for idx, (_, _, start, count) in enumerate(ring_defs):
-        if start <= pad < start + count:
-            active_idx = idx
-            break
-
-    # Hint text
-    if stype == "AsteroidBase":
-        hint_map = {0: "Inner ring — large pad", 1: "Outer ring — small pad"}
-    else:
-        hint_map = {
-            0: "Front ring (large pad) — nearest mailslot",
-            1: "Mid-front ring (large pad)",
-            2: "Mid-rear ring (medium pad)",
-            3: "Rear ring (small pad) — back wall",
-        }
-    hint_text = hint_map.get(active_idx, "")
-
-    # Draw concentric ring outlines — active ring brighter, others dim
-    for idx, (rx, ry, _, _) in enumerate(ring_defs):
-        steps     = max(rx, ry) * 6
-        dot_style = "rgb(150,150,150)" if idx == active_idx else P.DIM
-        for i in range(steps):
-            angle = _math.pi + i * 2 * _math.pi / steps
+        if active_idx >= 0:
+            rx, ry, start, count = ring_defs[active_idx]
+            i     = pad - start
+            angle = _math.pi + i * 2 * _math.pi / count
             gx    = int(round(cx + rx * _math.sin(angle)))
             gy    = int(round(cy - ry * _math.cos(angle)))
-            if 0 <= gy < H and 0 <= gx < W and grid[gy][gx] == BLANK:
-                grid[gy][gx] = ("·", dot_style)
+            place(gx, gy, f"[{pad}]", "bold white")
 
-    # Place only the assigned pad on its ring
-    if active_idx >= 0:
-        rx, ry, start, count = ring_defs[active_idx]
-        i     = pad - start
-        angle = _math.pi + i * 2 * _math.pi / count
-        gx    = int(round(cx + rx * _math.sin(angle)))
-        gy    = int(round(cy - ry * _math.cos(angle)))
-        place(gx, gy, f"[{pad}]", "bold white")
+    else:
+        # Coriolis / Orbis / Ocellus — 45 pads, 12 segments × 5 offsets
+        pad_info = _CORIOLIS_PADS.get(pad)          # (segment, offset, size) or None
+        seg, off = (pad_info[0], pad_info[1]) if pad_info else (-1, -1)
+
+        for idx, (rx_b, ry_b) in enumerate(_CORIOLIS_RING_R):
+            rx        = max(3, int(rx_b * scale))
+            ry        = max(2, int(ry_b * scale))
+            steps     = max(rx, ry) * 6
+            dot_style = "rgb(150,150,150)" if idx == off else P.DIM
+            for i in range(steps):
+                angle = _math.pi + i * 2 * _math.pi / steps
+                gx    = int(round(cx + rx * _math.sin(angle)))
+                gy    = int(round(cy - ry * _math.cos(angle)))
+                if 0 <= gy < H and 0 <= gx < W and grid[gy][gx] == BLANK:
+                    grid[gy][gx] = ("·", dot_style)
+
+        if seg > 0 and off >= 0:
+            rx_b, ry_b = _CORIOLIS_RING_R[off]
+            rx    = max(3, int(rx_b * scale))
+            ry    = max(2, int(ry_b * scale))
+            angle = _math.pi + (seg - 1) * 2 * _math.pi / 12
+            gx    = int(round(cx + rx * _math.sin(angle)))
+            gy    = int(round(cy - ry * _math.cos(angle)))
+            place(gx, gy, f"[{pad}]", "bold white")
+
+        hint_text = ""
+        if pad_info:
+            hint_text = (
+                f"{_CORIOLIS_OFFSET_NAME[off]} ring"
+                f" — {_CORIOLIS_SIZE_NAME[pad_info[2]]} pad"
+                f" — {_CORIOLIS_CLOCK[seg]} o'clock"
+            )
 
     # Centre marker — mailslot (Coriolis-type) or cave centre (AsteroidBase)
     if stype == "AsteroidBase":

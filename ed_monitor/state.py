@@ -270,6 +270,7 @@ class AppState:
     # Route
     route_destination:    str  = ""
     route_hops:           int  = 0
+    route_arrived:        bool = False
     route_next:           str  = ""
     route_next_star:      str  = ""
     route_next_scoopable: bool = False

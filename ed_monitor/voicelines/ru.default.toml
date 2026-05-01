@@ -59,6 +59,9 @@ lines = ["Маршрут проложен. Назначение: {dest}. {hops} 
 [NavRouteClear]
 lines = ["Маршрут очищен."]
 
+[NavRouteArrived]
+lines = ["Цель достигнута."]
+
 [SupercruiseEntry]
 lines = ["Сверхкруиз активирован."]
 

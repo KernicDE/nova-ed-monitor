@@ -65,6 +65,9 @@ lines = ["Route gesetzt. Ziel: {dest}. {hops} {hops_word}."]
 [NavRouteClear]
 lines = ["Route gelöscht."]
 
+[NavRouteArrived]
+lines = ["Ziel erreicht."]
+
 [SupercruiseEntry]
 lines = ["Überlicht aktiviert."]
 

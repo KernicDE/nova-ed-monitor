@@ -59,6 +59,9 @@ lines = ["Rotta impostata. Destinazione: {dest}. {hops} {hops_word}."]
 [NavRouteClear]
 lines = ["Rotta cancellata."]
 
+[NavRouteArrived]
+lines = ["Destinazione raggiunta."]
+
 [SupercruiseEntry]
 lines = ["Supercruise attivato."]
 
