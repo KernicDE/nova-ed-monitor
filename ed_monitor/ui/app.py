@@ -6,7 +6,7 @@ import threading
 import time
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Input, Label, Static
 from textual import events
@@ -31,10 +31,16 @@ class HelpScreen(Screen):
     HelpScreen {
         background: rgb(18,18,18);  /* P.BG_DARK */
         align: center middle;
-        padding: 2 4;
+    }
+    #help-scroll {
+        width: 80;
+        height: 90%;
+        background: rgb(18,18,18);
     }
     #help-static {
         width: 76;
+        height: auto;
+        padding: 1 2;
     }
     """
 
@@ -137,7 +143,13 @@ class HelpScreen(Screen):
             border_style=P.HEADER,
             padding=(1, 2),
         )
-        yield Static(content, id="help-static")
+        yield VerticalScroll(
+            Static(content, id="help-static"),
+            id="help-scroll",
+        )
+
+    def on_mount(self) -> None:
+        self.query_one("#help-scroll").focus()
 
     def on_key(self, event: events.Key) -> None:
         if event.key in ("escape", "question_mark"):
