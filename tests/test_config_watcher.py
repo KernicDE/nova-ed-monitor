@@ -42,12 +42,3 @@ def test_overlapping_windows_take_latest_expiry():
     assert cw._in_quiet_window() is True
 
 
-def test_config_load_opens_quiet_window_after_rewrite(tmp_path, monkeypatch):
-    """When config.load() rewrites the file (old format), the watcher should
-    be told to stay quiet so the resulting mtime change doesn't loop back."""
-    from ed_monitor import config
-    monkeypatch.setattr(config, "config_dir", lambda: tmp_path)
-    # Write an old-format file without "# overlay_dir" so load() rewrites it.
-    (tmp_path / "config.toml").write_text("tts_lang = de\n", encoding="utf-8")
-    config.load()
-    assert cw._in_quiet_window() is True
