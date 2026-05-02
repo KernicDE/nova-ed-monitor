@@ -17,10 +17,7 @@ _DEFAULT_VOICES: dict[str, str] = {
 
 
 def _default_overlay_dir() -> str:
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        return str(Path(xdg) / "nova" / "overlay")
-    return str(Path.home() / ".config" / "nova" / "overlay")
+    return str(config_dir() / "overlay")
 
 
 @dataclass
@@ -80,7 +77,7 @@ DEFAULT_CONFIG = """\
 
 # Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):
 # tts_lang = en
-# Voiceline files: ~/.config/nova/voicelines/{lang}.toml
+# Voiceline files: config/voicelines/{lang}.toml (relative to install dir)
 # Copy from ed_monitor/voicelines/{lang}.toml to customise individual event lines.
 
 # Fallback language for chat TTS (in-game, Twitch, YouTube).
@@ -105,7 +102,7 @@ DEFAULT_CONFIG = """\
 #        fuel_max, fuel_reservoir, cargo, heat, shields, status, supercruise,
 #        docked, landed, power, power_state, allegiance, economy, security,
 #        government, population, nearest_inhabited, heading, altitude, coordinates
-# overlay_dir = ~/.config/nova/overlay
+# overlay_dir = config/overlay
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
 # Default TTS/audio volume at startup (0–100):
@@ -122,7 +119,7 @@ DEFAULT_CONFIG = """\
 # carrier_lookup = false
 
 # ── Debug Logging ─────────────────────────────────────────────────────────────
-# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).
+# Write a full debug log to logs/nova-debug.log (overwritten each run).
 # Enable when you need to diagnose a problem and send the log to the developer.
 # debug_log = false
 
@@ -141,89 +138,21 @@ DEFAULT_CONFIG = """\
 """
 
 
-def config_dir() -> Path:
-    """Return the NOVA config directory.
-
-    Portable mode (NOVA_PORTABLE_ROOT set): <root>/config/
-    Standard mode:  $XDG_CONFIG_HOME/nova  or  ~/.config/nova
-    """
+def _portable_root() -> Path:
     root = os.environ.get("NOVA_PORTABLE_ROOT")
-    if root:
-        return Path(root) / "config"
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        return Path(xdg) / "nova"
-    return Path.home() / ".config" / "nova"
+    return Path(root) if root else Path(__file__).parent.parent
+
+
+def config_dir() -> Path:
+    return _portable_root() / "config"
 
 
 def data_dir() -> Path:
-    """Return the NOVA data directory (SQLite db).
-
-    Portable mode: <root>/data/
-    Standard mode: $XDG_DATA_HOME/nova  or  ~/.local/share/nova
-    """
-    root = os.environ.get("NOVA_PORTABLE_ROOT")
-    if root:
-        return Path(root) / "data"
-    xdg = os.environ.get("XDG_DATA_HOME")
-    if xdg:
-        return Path(xdg) / "nova"
-    return Path.home() / ".local" / "share" / "nova"
+    return _portable_root() / "data"
 
 
 def logs_dir() -> Path:
-    """Return the directory for nova-debug.log.
-
-    Portable mode: <root>/logs/
-    Standard mode: same as config_dir() (backwards-compatible)
-    """
-    root = os.environ.get("NOVA_PORTABLE_ROOT")
-    if root:
-        return Path(root) / "logs"
-    return config_dir()
-
-
-def _old_system_config_dir() -> Path:
-    """The standard (non-portable) config dir — used as migration source."""
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        return Path(xdg) / "nova"
-    return Path.home() / ".config" / "nova"
-
-
-def _old_system_data_dir() -> Path:
-    """The standard (non-portable) data dir — used as migration source."""
-    xdg = os.environ.get("XDG_DATA_HOME")
-    if xdg:
-        return Path(xdg) / "nova"
-    return Path.home() / ".local" / "share" / "nova"
-
-
-def migrate_from_system_paths(
-    old_config_dir: Path | None = None,
-    old_data_dir: Path | None = None,
-) -> None:
-    """Copy existing system-wide config/data into the portable layout on first run.
-
-    Only runs when NOVA_PORTABLE_ROOT is set. Never overwrites existing files.
-    Silently skips if old paths don't exist or portable dir already has data.
-    """
-    import shutil
-
-    if not os.environ.get("NOVA_PORTABLE_ROOT"):
-        return
-
-    src_cfg = old_config_dir if old_config_dir is not None else _old_system_config_dir()
-    dst_cfg = config_dir()
-    if src_cfg.exists() and not dst_cfg.exists():
-        shutil.copytree(src_cfg, dst_cfg)
-
-    src_data = old_data_dir if old_data_dir is not None else _old_system_data_dir()
-    dst_db = data_dir() / "events.db"
-    src_db = src_data / "events.db"
-    if src_db.exists() and not dst_db.exists():
-        dst_db.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_db, dst_db)
+    return _portable_root() / "logs"
 
 
 def _update_example_file(cfg_dir: Path) -> None:
@@ -246,15 +175,9 @@ def load() -> Config:
     # Always update the example file so users have the latest reference
     _update_example_file(cfg_dir)
 
-    # Migrate from old ed-monitor config dir if new one doesn't exist
     if not config_path.exists():
-        old_path = _old_config_path()
-        if old_path and old_path.exists():
-            cfg_dir.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(old_path.read_text(encoding="utf-8"), encoding="utf-8")
-        else:
-            cfg_dir.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(DEFAULT_CONFIG, encoding="utf-8")
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(DEFAULT_CONFIG, encoding="utf-8")
 
     journal_dir       = None
     twitch_channel    = ""
@@ -275,17 +198,6 @@ def load() -> Config:
     tts_twitch               = True
     tts_youtube              = True
     prune_events_days        = 0
-    active_keys: set[str] = set()
-
-    _KNOWN_KEYS = {
-        "journal_dir", "twitch_channel", "youtube_channel",
-        "tts_rate", "tts_lang", "overlay_dir",
-        "default_volume", "notable_value_threshold", "carrier_lookup",
-        "debug_log", "screenshot_dir", "screenshot_dest", "chat_lang",
-        "situational_panels", "tts_chat", "tts_twitch", "tts_youtube",
-        "prune_events_days",
-    }
-
     try:
         text = config_path.read_text(encoding="utf-8")
         for line in text.splitlines():
@@ -296,7 +208,6 @@ def load() -> Config:
                 k, _, v = line.partition("=")
                 k = k.strip()
                 v = v.strip()
-                active_keys.add(k)
                 match k:
                     case "journal_dir":
                         p = Path(v)
@@ -373,52 +284,6 @@ def load() -> Config:
                         lang = k[len("tts_voice_"):]
                         if lang and v:
                             tts_voices[lang] = v
-                    # Silently accept old overlay_* keys so existing configs don't error
-        # Rewrite the file if it is missing the new overlay section (outdated format).
-        if "# overlay_dir" not in text:
-            active_lines = [
-                line.strip()
-                for line in text.splitlines()
-                if line.strip() and not line.strip().startswith("#") and "=" in line
-                # Drop unknown/stale keys; keep known keys and tts_voice_* prefix
-                and (line.strip().split("=")[0].strip() in _KNOWN_KEYS
-                     or line.strip().split("=")[0].strip().startswith("tts_voice_"))
-                # Drop old overlay_line_N / overlay_separator / overlay_path / overlay_uppercase
-                and not line.strip().startswith("overlay_line_")
-                and not line.strip().startswith("overlay_separator")
-                and not line.strip().startswith("overlay_path")
-                and not line.strip().startswith("overlay_uppercase")
-            ]
-            if active_lines:
-                prefix = "# Active settings (preserved from previous config):\n"
-                prefix += "\n".join(active_lines) + "\n\n"
-            else:
-                prefix = ""
-            config_path.write_text(prefix + DEFAULT_CONFIG, encoding="utf-8")
-            _notify_self_write()
-        else:
-            # Append new sections if missing from an existing config file
-            _NEW_SECTIONS = [
-                ("# notable_value_threshold", "\n# ── Notable Bodies ───────────────────────────────────────────────────────────\n# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.\n# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates\n# are always included regardless of this threshold.\n# notable_value_threshold = 500000\n"),
-                ("# tts_lang", "\n# ── Language ─────────────────────────────────────────────────────────────────\n# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):\n# tts_lang = en\n# Voiceline files: ~/.config/nova/voicelines/{lang}.toml (copy from defaults to customise)\n"),
-                ("# default_volume", "\n# ── Audio ────────────────────────────────────────────────────────────────────\n# Default TTS/audio volume at startup (0–100):\n# default_volume = 50\n"),
-                ("# carrier_lookup", "\n# ── Fleet Carriers ─────────────────────────────────────────────────────────────\n# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):\n# carrier_lookup = false\n"),
-                ("# debug_log", "\n# ── Debug Logging ─────────────────────────────────────────────────────────────\n# Write a full debug log to ~/.config/nova/nova-debug.log (overwritten each run).\n# Enable when you need to diagnose a problem and send the log to the developer.\n# debug_log = false\n"),
-                ("# chat_lang", "\n# Fallback language for chat TTS (in-game, Twitch, YouTube).\n# Auto-detection is used first; this applies when detection returns English.\n# Set to your squad's language if messages are often short or ambiguous (e.g. de).\n# chat_lang = de\n"),
-                ("# tts_chat", "\n# ── Chat TTS ─────────────────────────────────────────────────────────────────\n# Disable TTS for chat messages at startup (messages are still shown in the UI).\n# Can be toggled at runtime: g = all chat, t = Twitch only, y = YouTube only, p = all.\n# tts_chat    = true\n# tts_twitch  = true\n# tts_youtube = true\n"),
-            ]
-            appended = False
-            for marker, section in _NEW_SECTIONS:
-                key = marker.lstrip("#").strip().split()[0]
-                if key not in text:
-                    text += section
-                    appended = True
-            if appended:
-                try:
-                    config_path.write_text(text, encoding="utf-8")
-                    _notify_self_write()
-                except OSError:
-                    pass
     except OSError:
         pass
 
@@ -446,16 +311,6 @@ def load() -> Config:
         tts_youtube=tts_youtube,
         prune_events_days=prune_events_days,
     )
-
-
-def _old_config_path() -> Path | None:
-    """Return path to old ed-monitor config file, if it exists."""
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        p = Path(xdg) / "ed-monitor" / "config.toml"
-    else:
-        p = Path.home() / ".config" / "ed-monitor" / "config.toml"
-    return p if p.exists() else None
 
 
 def _heroic_journal() -> "Path | None":
@@ -537,7 +392,7 @@ def discover_journal() -> Path | None:
 
 
 def save(cfg: "Config", path: "Path | None" = None) -> None:
-    """Write *cfg* back to *path* (default: ``~/.config/nova/config.toml``).
+    """Write *cfg* back to *path* (default: ``config/config.toml`` in the install dir).
 
     Produces a minimal k=v file containing only the settings supported by the
     Settings overlay. Preserves no user comments; existing content is replaced.

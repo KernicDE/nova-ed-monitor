@@ -2,7 +2,7 @@
 
 Call setup() once at startup (before threads are spawned) when debug_log = true
 is set in config.toml.  All nova.* loggers propagate to the 'nova' parent and
-are written to ~/.config/nova/nova-debug.log.
+are written to logs/nova-debug.log (relative to the install directory).
 """
 from __future__ import annotations
 

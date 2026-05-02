@@ -65,7 +65,6 @@ def _detect_initial_commander(journal_dir: Path) -> str:
 
 def main() -> None:
     cfg = config.load()
-    config.migrate_from_system_paths()
     debug_log.setup(cfg.debug_log, config.logs_dir())
 
     # Apply voice and language config to events / voicelines modules

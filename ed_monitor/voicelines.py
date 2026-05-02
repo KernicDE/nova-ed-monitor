@@ -3,7 +3,7 @@ NOVA Voicelines — random variant picker with per-language TOML support.
 
 Load order:
   1. <package>/voicelines/{lang}.default.toml  — built-in default (replaced on each update)
-  2. ~/.config/nova/voicelines/{lang}.toml      — user customisation (optional)
+  2. config/voicelines/{lang}.toml              — user customisation (optional)
 
 User file format (different from the default file):
   [EventKey]
@@ -58,72 +58,6 @@ def _read_toml(path: Path) -> dict:
         return {}
 
 
-_TEMPLATE_MIGRATION_SENTINEL = ".migrated_template_v1"
-
-
-def _migrate_user_voiceline_file(path: Path) -> None:
-    """Patch out removed template variables from user override files in-place.
-
-    Handles:
-    - BioReady: removes the "{dist}" distance clause (removed in v1.15.5)
-    - Touchdown: removes the entire [Touchdown] section if it still has {lat}/{lon}
-      so the built-in default (no coordinates) takes over
-
-    Guarded by a sentinel file in the voicelines directory so the regex pass
-    only runs once per install. Previously the patch regex ran on every
-    _load() — a re-read of the file on each language switch — even though
-    the affected variables were removed in v1.15.5. A single sentinel keeps
-    user-written ``{dist}`` tokens (if someone intentionally adds one back)
-    from being silently erased on the next NOVA launch.
-    """
-    sentinel = path.parent / _TEMPLATE_MIGRATION_SENTINEL
-    if sentinel.exists():
-        return
-
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return
-
-    if "{dist}" not in text and "{lat}" not in text and "{lon}" not in text:
-        # Nothing to migrate — still mark the sentinel so we skip the regex
-        # scan on every subsequent load.
-        try:
-            sentinel.touch()
-        except OSError:
-            pass
-        return
-
-    new_text = text
-
-    # BioReady: strip the sentence-fragment containing {dist}.
-    # e.g. ". Distance {dist} metres." → "." in any language.
-    # Pattern: non-period chars surrounding {dist} up to the next period.
-    new_text = re.sub(r'[^.]*\{dist\}[^.]*\.', '.', new_text)
-    # Clean up double-period artefacts like ".." → "."
-    new_text = re.sub(r'\.(\s*)\.', r'.\1', new_text)
-
-    # Touchdown: the coordinate portion is tightly coupled to the rest of the
-    # sentence (prepositions vary per language), so we remove the whole section
-    # and let the built-in default ("Touchdown." / "Gelandet." etc.) take over.
-    # Use lookahead for next section header (line starting with [) or end of string.
-    if re.search(r'\[Touchdown\].*?\{(?:lat|lon)\}', new_text, re.DOTALL):
-        new_text = re.sub(
-            r'\[Touchdown\].*?(?=\n\[|\Z)', '', new_text, flags=re.DOTALL,
-        )
-
-    if new_text != text:
-        try:
-            path.write_text(new_text, encoding="utf-8")
-        except OSError:
-            pass
-
-    try:
-        sentinel.touch()
-    except OSError:
-        pass
-
-
 def _load(lang: str) -> dict[str, list[str]]:
     """Load and cache voicelines for a language. Returns mapping key→[lines].
 
@@ -147,7 +81,6 @@ def _load(lang: str) -> dict[str, list[str]]:
     # 2. Apply user file ({lang}.toml) with add/replace semantics
     user_path = _config_dir() / "voicelines" / f"{lang}.toml"
     if user_path.exists():
-        _migrate_user_voiceline_file(user_path)
         for key, val in _read_toml(user_path).items():
             if not isinstance(val, dict):
                 continue
@@ -162,11 +95,6 @@ def _load(lang: str) -> dict[str, list[str]]:
                 if isinstance(raw, list):
                     extra = [str(s) for s in raw if s]
                     lines[key] = lines.get(key, []) + extra
-            elif "lines" in val:
-                # Legacy format: treat as replace for backwards compat
-                raw = val["lines"]
-                if isinstance(raw, list):
-                    lines[key] = [str(s) for s in raw if s]
 
     _CACHE[lang] = lines
     return lines
@@ -398,44 +326,8 @@ def _expand_includes(template: str, lines_map: dict, kwargs: dict, depth: int = 
     return _INCLUDE_RE.sub(_replace, template)
 
 
-def _migrate_old_user_voicelines() -> None:
-    """One-time migration: back up old-style user voiceline files.
-
-    Before v1.22.4 the user override files used ``lines = [...]`` syntax and had
-    the same name as the built-in files (e.g. ``en.toml``).  The built-in files
-    are now named ``en.default.toml``; user files keep the ``en.toml`` name but
-    use ``add``/``replace`` syntax.
-
-    If old-format ``*.toml`` files are found and no migration sentinel exists,
-    they are moved to a ``backup/`` subdirectory so the user doesn't lose them.
-    A sentinel file ``.migrated_v2`` is written afterwards to prevent re-running.
-    """
-    dest_dir = _config_dir() / "voicelines"
-    sentinel = dest_dir / ".migrated_v2"
-    if sentinel.exists() or not dest_dir.is_dir():
-        return
-
-    old_files = [
-        p for p in dest_dir.glob("*.toml")
-        if not p.name.endswith(".default.toml")
-    ]
-    if old_files:
-        backup_dir = dest_dir / "backup"
-        try:
-            backup_dir.mkdir(exist_ok=True)
-            for f in old_files:
-                f.rename(backup_dir / f.name)
-        except OSError:
-            pass
-
-    try:
-        sentinel.touch()
-    except OSError:
-        pass
-
-
 def _copy_defaults_to_config() -> None:
-    """Copy built-in default TOML files to ~/.config/nova/voicelines/default/.
+    """Copy built-in default TOML files to config/voicelines/default/.
 
     Always overwrites so users always have a current reference copy.
     """
@@ -454,15 +346,10 @@ def _copy_defaults_to_config() -> None:
 
 
 def ensure_user_files() -> None:
-    """Create the user voicelines directory and a README explaining the override system.
-
-    Also performs a one-time migration of old-style user voiceline files and
-    copies the built-in default files to a reference directory.
-    """
+    """Create the user voicelines directory, README, and reference copy of built-in files."""
     dest_dir = _config_dir() / "voicelines"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    _migrate_old_user_voicelines()
     _copy_defaults_to_config()
 
     readme = dest_dir / "README.md"

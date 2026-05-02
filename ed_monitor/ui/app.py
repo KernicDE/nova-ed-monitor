@@ -117,11 +117,9 @@ class HelpScreen(Screen):
             sm.add_row(Text(mode, style=GOLD), Text(desc, style=WHITE))
 
         # ── Config path ────────────────────────────────────────────────────
+        from ..config import config_dir as _config_dir
         cfg = Text()
-        cfg.append("Linux   ", style=GOLD)
-        cfg.append("~/.config/nova/config.toml\n", style=WHITE)
-        cfg.append("Windows ", style=GOLD)
-        cfg.append("%USERPROFILE%\\.config\\nova\\config.toml", style=WHITE)
+        cfg.append(str(_config_dir() / "config.toml"), style=WHITE)
 
         edsm_note = Text()
         edsm_note.append("Power Play state and nearest inhabited system shown in Position panel.\n", style=DIM)
