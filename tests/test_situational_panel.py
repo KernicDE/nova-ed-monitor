@@ -413,7 +413,7 @@ class TestRenderAssets:
         from ed_monitor.materials_catalog import RAW_CATEGORIES
         # All zeros
         s.materials_raw = {m.name: 0 for _, mats in RAW_CATEGORIES for m in mats}
-        result = _render_assets(s)
+        result = _render_assets(s, panel_w=120)
         text = _render_text(result)
         assert "RAW" in text
         assert "Carbon" in text
@@ -426,7 +426,7 @@ class TestRenderAssets:
         s.materials_raw = {m.name: 0 for _, mats in RAW_CATEGORIES for m in mats}
         s.materials_raw["Carbon"] = 150
         s.materials_raw["Vanadium"] = 250
-        result = _render_assets(s)
+        result = _render_assets(s, panel_w=120)
         text = _render_text(result)
         assert "150/300" in text
         assert "250/250" in text
@@ -444,12 +444,12 @@ class TestRenderAssets:
         s.materials_enc = {m.name: 0 for _, mats in ENCODED_CATEGORIES for m in mats}
         s.materials_mfg["Chemical Storage Units"] = 50
         s.materials_enc["Exceptional Scrambled Emission Data"] = 10
-        result = _render_assets(s)
+        result = _render_assets(s, panel_w=120)
         text = _render_text(result)
         assert "MANUFACTURED" in text
         assert "ENCODED" in text
         assert "Chemical" in text
-        assert "Emission Data" in text
+        assert "Emission" in text
         assert "50/300" in text
         assert "10/300" in text
 

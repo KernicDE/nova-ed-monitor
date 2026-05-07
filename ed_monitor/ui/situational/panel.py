@@ -27,6 +27,9 @@ from ..panels import (
     _fmt_notable_val, _de,
 )
 from .assets import _render_assets
+from ...materials_catalog import (
+    RAW_CATEGORIES, MANUFACTURED_CATEGORIES, ENCODED_CATEGORIES,
+)
 from .bgs import _render_bgs
 from .bio import _render_bio
 from .colonisation import _render_colonisation
@@ -409,10 +412,6 @@ class SituationalPanel(_Panel):
             # Suit loadout (header + suit name + weapons)
             if s.suit_loadout:
                 _asset_rows += 2 + len(s.suit_loadout.get("weapons", []))
-            # Materials
-            for _md in (s.materials_raw, s.materials_mfg, s.materials_enc):
-                if _md:
-                    _asset_rows += 1 + len(_md)
             # Odyssey
             _has_bp = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
             _has_lk = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
@@ -423,6 +422,14 @@ class SituationalPanel(_Panel):
                     if _bi: _asset_rows += 1 + len(_bi)
                     _li = s.ship_locker.get(_ok) or []
                     if _li: _asset_rows += 1 + len(_li)
+            # Materials (horizontal tables — 1 header + 1 item per category)
+            for _md, _cats in (
+                (s.materials_raw, RAW_CATEGORIES),
+                (s.materials_mfg, MANUFACTURED_CATEGORIES),
+                (s.materials_enc, ENCODED_CATEGORIES),
+            ):
+                if _md:
+                    _asset_rows += 1 + len(_cats)
             total    = _asset_rows
             vis_rows = max(1, panel_h - 2)
             scroll   = max(0, min(self._general_scroll, max(0, total - vis_rows)))
@@ -477,7 +484,7 @@ class SituationalPanel(_Panel):
         if mode == "engineers":
             return _render_engineers(s, scroll=scroll, cursor=self._eng_cursor, detail=self._eng_detail, mp=_mp)
         if mode == "assets":
-            return _render_assets(s, scroll=scroll, mp=_mp)
+            return _render_assets(s, scroll=scroll, panel_w=panel_w, mp=_mp)
         if mode == "neutron":
             return _render_neutron(s, scroll=scroll, mp=_mp)
         if mode == "stats":

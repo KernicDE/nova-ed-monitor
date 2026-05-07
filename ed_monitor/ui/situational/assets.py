@@ -31,10 +31,107 @@ from ..panels import (
 )
 
 
-def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> RenderableType:
+def _build_mat_table(
+    mdict: dict[str, int],
+    cat_name: str,
+    mats: list,
+    col_widths: dict,
+) -> Table:
+    """Build a 2-row mini-table for one material category (grades as columns)."""
+    cat_w = col_widths["cat"]
+    grade_w = col_widths["grade"]
+
+    tbl = Table(
+        show_header=False,
+        show_edge=False,
+        box=None,
+        padding=(0, 0),
+        row_styles=["", f"on {P.ROW_ALT}"],
+    )
+    tbl.add_column("cat", width=cat_w, no_wrap=True, style=f"bold {P.LABEL}")
+    for g in range(1, 6):
+        tbl.add_column(f"G{g}", width=grade_w, justify="center")
+
+    # Row 1: material name (+ count if space permits)
+    _cat_display = cat_name if len(cat_name) <= cat_w else cat_name[: cat_w - 1] + "…"
+    row1: list[Text] = [Text(_cat_display, style=f"bold {P.LABEL}")]
+    # Row 2: count/cap + progress bar + percentage
+    row2: list[Text] = [Text("")]
+
+    for grade in range(1, 6):
+        info = next((m for m in mats if m.grade == grade), None)
+        if info is None:
+            row1.append(Text(""))
+            row2.append(Text(""))
+            continue
+
+        cnt = mdict.get(info.name, 0)
+        pct = min(100, int(cnt * 100 / info.cap)) if info.cap else 0
+        filled = int(pct / 10)
+        bar_text = "█" * filled + "░" * (10 - filled)
+
+        count_str = f"({cnt}/{info.cap})"
+        name_style = "white" if cnt > 0 else P.LABEL_DIM
+        bar_col = (
+            P.HUD_GREEN
+            if pct >= 80
+            else (
+                P.HUD_WARN
+                if pct >= 50
+                else ("white" if pct > 0 else P.DIM)
+            )
+        )
+
+        # Choose format based on available column width
+        if grade_w >= len(count_str) + 4:
+            # Wide: name + count on row 1, bar on row 2
+            max_name = grade_w - len(count_str) - 1
+            if len(info.name) > max_name:
+                display_name = info.name[: max_name - 1] + "…"
+            else:
+                display_name = info.name
+            row1.append(Text(f"{display_name} {count_str}", style=name_style))
+            if grade_w >= 16:
+                row2.append(Text(f"[{bar_text}] {pct}%", style=bar_col))
+            elif grade_w >= 12:
+                row2.append(Text(f"[{bar_text}]{pct}%", style=bar_col))
+            else:
+                row2.append(Text(f"{pct}%", style=bar_col))
+        elif grade_w >= 8:
+            # Medium: name on row 1, count + bar on row 2
+            max_name = grade_w
+            if len(info.name) > max_name:
+                display_name = info.name[: max_name - 1] + "…"
+            else:
+                display_name = info.name
+            row1.append(Text(display_name, style=name_style))
+            row2.append(Text(f"{cnt}/{info.cap} [{bar_text}] {pct}%", style=bar_col))
+        else:
+            # Narrow: abbrev name on row 1, count on row 2
+            abbr = info.name[: max(1, grade_w - 1)] + "…" if len(info.name) > grade_w else info.name
+            row1.append(Text(abbr, style=name_style))
+            row2.append(Text(f"{cnt}/{info.cap}", style=bar_col))
+
+    tbl.add_row(*row1)
+    tbl.add_row(*row2)
+    return tbl
+
+
+def _render_assets(
+    s: AppState,
+    scroll: int = 0,
+    panel_w: int = 80,
+    mp: dict | None = None,
+) -> RenderableType:
     """Unified assets panel: balance, fleet, cargo, suit, materials, Odyssey items."""
     mp = mp or P.mp("ship")
     _ody_sort = lambda x: (x.get("Name_Localised") or x.get("Name", "")).lower()
+
+    # ── Shared column widths for material tables ─────────────────────────────
+    _cat_col_w = 10
+    _padding_total = 12  # table internal padding + column gaps
+    _grade_col_w = max(6, (panel_w - _cat_col_w - _padding_total) // 5)
+    _col_widths = {"cat": _cat_col_w, "grade": _grade_col_w}
 
     # Build a flat list of renderable entries for unified scrolling
     all_rows: list[tuple] = []
@@ -79,22 +176,6 @@ def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rend
             if wname:
                 all_rows.append(("text", f"  ▸ {wname}", P.LABEL))
 
-    # ── Materials Tracker ────────────────────────────────────────────────────
-    _CATEGORY_MAP = {
-        "RAW": (s.materials_raw, RAW_CATEGORIES),
-        "MANUFACTURED": (s.materials_mfg, MANUFACTURED_CATEGORIES),
-        "ENCODED": (s.materials_enc, ENCODED_CATEGORIES),
-    }
-    for label, (mdict, categories) in _CATEGORY_MAP.items():
-        if not mdict:
-            continue
-        all_rows.append(("section_header", label))
-        for cat_name, mats in categories:
-            all_rows.append(("mat_cat_header", cat_name))
-            for info in mats:
-                cnt = mdict.get(info.name, 0)
-                all_rows.append(("mat_tracker", info.name, cnt, info.grade, info.cap))
-
     # ── Odyssey materials ────────────────────────────────────────────────────
     has_backpack = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
     has_locker   = any(s.ship_locker.get(k) for k in ("items", "components", "consumables", "data"))
@@ -114,6 +195,19 @@ def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rend
                 all_rows.append(("ody_header", sublabel))
                 for item in src_items:
                     all_rows.append(("ody_item", item))
+
+    # ── Materials Tracker ────────────────────────────────────────────────────
+    _CATEGORY_MAP = {
+        "RAW": (s.materials_raw, RAW_CATEGORIES),
+        "MANUFACTURED": (s.materials_mfg, MANUFACTURED_CATEGORIES),
+        "ENCODED": (s.materials_enc, ENCODED_CATEGORIES),
+    }
+    for label, (mdict, categories) in _CATEGORY_MAP.items():
+        if not mdict:
+            continue
+        all_rows.append(("section_header", label))
+        for cat_name, mats in categories:
+            all_rows.append(("mat_table", mdict, cat_name, mats, _col_widths))
 
     if not all_rows:
         t = Text()
@@ -168,40 +262,10 @@ def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rend
                 Text(item["name"], style=style),
                 Text(str(item["count"]), style=f"bold {P.AMBER}"),
             )
-        elif kind == "mat_cat_header":
+        elif kind == "mat_table":
             _flush_tbl()
-            t = Text()
-            t.append(f"  {row[1]}", style=f"bold {P.LABEL}")
-            parts.append(t)
-            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
-                                row_styles=["", f"on {P.ROW_ALT}"])
-            current_tbl.add_column("grade",  style=P.LABEL, width=3, justify="right")
-            current_tbl.add_column("name",   style="white")
-            current_tbl.add_column("cnt",    justify="right", width=8)
-            current_tbl.add_column("bar",    width=12)
-            current_tbl.add_column("pct",    justify="right", width=5)
-        elif kind == "mat_tracker":
-            _, name, cnt, grade, cap = row
-            if current_tbl is None:
-                current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
-                                    row_styles=["", f"on {P.ROW_ALT}"])
-                current_tbl.add_column("grade",  style=P.LABEL, width=3, justify="right")
-                current_tbl.add_column("name",   style="white")
-                current_tbl.add_column("cnt",    justify="right", width=8)
-                current_tbl.add_column("bar",    width=12)
-                current_tbl.add_column("pct",    justify="right", width=5)
-            pct = min(100, int(cnt * 100 / cap)) if cap else 0
-            filled = int(pct / 10)
-            bar_text = "█" * filled + "░" * (10 - filled)
-            bar_col = P.HUD_GREEN if pct >= 80 else (P.HUD_WARN if pct >= 50 else ("white" if pct > 0 else P.DIM))
-            cnt_col = P.HUD_WARN if cnt >= cap else ("white" if cnt >= cap // 3 else P.LABEL)
-            current_tbl.add_row(
-                Text(f"G{grade}", style=P.LABEL),
-                Text(name, style="white" if cnt > 0 else P.LABEL_DIM),
-                Text(f"{cnt}/{cap}", style=f"bold {cnt_col}"),
-                Text(f"[{bar_text}]", style=bar_col),
-                Text(f"{pct}%", style=P.LABEL),
-            )
+            _, mdict, cat_name, mats, col_widths = row
+            parts.append(_build_mat_table(mdict, cat_name, mats, col_widths))
         elif kind == "ody_divider":
             _flush_tbl()
             if parts:
