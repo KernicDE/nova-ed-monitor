@@ -306,7 +306,7 @@ The **Assets** panel shows your financial and inventory overview across all loca
 - **Balance** — current credit total, tracked from login, market transactions, missions, and exploration sales
 - **Fleet** — current ship plus all stored ships with their station and system
 - **Cargo** — items currently in your ship's cargo hold
-- **Materials** — full grade-based material tracker for Raw (G1‑G4), Manufactured (G1‑G5), and Encoded (G1‑G5). Every material is shown even at zero count, with a progress bar, percentage, and count/cap (e.g. `150/300 [█████░░░░░] 50%`). Colours indicate stock level: dim grey for empty, white for partial, amber for near-cap, and green for well-stocked.
+- **Materials** — full grade-based material tracker for Raw (G1‑G4), Manufactured (G1‑G5), and Encoded (G1‑G5). Grades are columns (G1–G5), categories are rows. Every material is shown even at zero count, with count/cap on the first row and an ASCII progress bar with percentage on the second row. Colours indicate stock level: dim grey for empty, white for partial, amber for near-cap, and green for well-stocked. Long names truncate automatically to fit the terminal width.
 - **Suit Loadout** — equipped suit and weapons (when on foot)
 - **Backpack** — item counts while on foot
 - **Odyssey materials** — detailed per-item listing of backpack contents (Items / Components / Consumables / Data) and ship locker contents, shown in blue; populated from the `ShipLocker` and `Backpack` journal events
