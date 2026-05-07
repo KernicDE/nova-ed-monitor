@@ -1,13 +1,23 @@
 # Changelog
 
+## v2.14.5 — 2026-05-07
+
+### Bug Fixes
+
+- **#122 Material Tracker — category overflow & edge margins**
+  - Category names (e.g. "Emission Data", "Data Archives") are now properly truncated with `…` when they exceed the allocated column width, preventing line breaks in narrow terminals
+  - Added 1-space left and right margin to every material row so text no longer touches the panel walls
+
+---
+
 ## v2.14.4 — 2026-05-07
 
 ### Enhancements
 
 - **#126 Make missions better readable**
   - Empty line between each destination system block for clearer visual separation
-  - Mission rows are indented by 2 spaces relative to the column header, making individual missions easier to distinguish within a system block
-  - Blank line also added between the massacre progress section and the first destination block
+  - Mission rows indented by 2 spaces relative to the column header
+  - Blank line added between the massacre progress section and the first destination block
 
 ---
 

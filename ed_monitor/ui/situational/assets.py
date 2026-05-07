@@ -39,7 +39,8 @@ def _calc_mat_col_widths(panel_w: int) -> dict[str, int]:
     MANUFACTURED and ENCODED so every column lines up vertically.
     """
     gaps = 5                     # 1 space between each pair of 6 columns
-    available = max(30, panel_w - gaps)
+    margins = 2                  # 1 space left + right edge padding
+    available = max(30, panel_w - gaps - margins)
 
     cat_min, cat_max = 5, 13
     grade_w = 2
@@ -89,7 +90,13 @@ def _build_mat_row(
     filled = int(pct * bar_w / 100)
     bar = "█" * filled + "░" * (bar_w - filled)
 
-    # Truncate name to fit
+    # Truncate category and name to fit
+    cat_w = cw["cat"]
+    if len(cat) > cat_w:
+        display_cat = cat[: cat_w - 1] + "…"
+    else:
+        display_cat = cat
+
     name_w = cw["name"]
     if len(name) > name_w:
         display_name = name[: name_w - 1] + "…"
@@ -114,12 +121,14 @@ def _build_mat_row(
     )
 
     t = Text()
-    t.append(f"{cat:{cw['cat']}} ", style=f"bold {P.LABEL}")
+    t.append(" ", style=P.LABEL)                          # left margin
+    t.append(f"{display_cat:{cat_w}} ", style=f"bold {P.LABEL}")
     t.append(f"G{grade:<{cw['grade'] - 1}} ", style=P.LABEL)
     t.append(f"{display_name:{name_w}} ", style=name_style)
     t.append(f"{cnt:>3}/{cap:<3} ", style=cnt_style)
     t.append(f"{bar} ", style=bar_style)
     t.append(f"{pct:>3}%", style=P.LABEL)
+    t.append(" ", style=P.LABEL)                          # right margin
     return t
 
 
