@@ -78,6 +78,8 @@ Press **`s`** from anywhere in NOVA to open the Settings overlay.
 
 Voice selection is hierarchical: language → locale → voice name (powered by the edge-tts voice catalog). All changes take effect immediately without restarting NOVA.
 
+You can also **show, hide, and reorder** the situational panels directly in Settings: scroll to the panel list, enter a number for each panel you want visible (lowest = leftmost), and leave the field empty to hide a panel.
+
 ---
 
 ## Situational Panel (centre)
@@ -86,7 +88,7 @@ Press `Tab` / `Shift+Tab` to cycle through modes. Press `a` to lock/unlock auto-
 
 | Mode | Abbrev | Auto? | Description |
 |------|--------|-------|-------------|
-| **Auto** | `***` | — | Switches by context; `a` to toggle lock |
+| **Auto** | `***` | — | Switches by context; `a` to toggle lock. Only visible panels participate in auto-switching. |
 | Overview | `Overview` | ✓ | Dashboard: session stats · credits/cargo/missions · route + galactic position · notable bodies (capped to fit) · BGS / PowerPlay / nearest inhabited / fleet carrier / neutron route (when space permits). Also shows station pad diagram when docking is granted |
 | Bio | `Bio` | ✓ | Active bio scans — distances, bearings, sample counts |
 | Maps | `Maps` | — | System diagram → regional map → galaxy map (`↑`/`↓` to cycle) |
@@ -304,7 +306,7 @@ The **Assets** panel shows your financial and inventory overview across all loca
 - **Balance** — current credit total, tracked from login, market transactions, missions, and exploration sales
 - **Fleet** — current ship plus all stored ships with their station and system
 - **Cargo** — items currently in your ship's cargo hold
-- **Materials** — count of raw / manufactured / encoded materials
+- **Materials** — full grade-based material tracker for Raw (G1‑G4), Manufactured (G1‑G5), and Encoded (G1‑G5). Every material is shown even at zero count, with a progress bar, percentage, and count/cap (e.g. `150/300 [█████░░░░░] 50%`). Colours indicate stock level: dim grey for empty, white for partial, amber for near-cap, and green for well-stocked.
 - **Suit Loadout** — equipped suit and weapons (when on foot)
 - **Backpack** — item counts while on foot
 - **Odyssey materials** — detailed per-item listing of backpack contents (Items / Components / Consumables / Data) and ship locker contents, shown in blue; populated from the `ShipLocker` and `Backpack` journal events

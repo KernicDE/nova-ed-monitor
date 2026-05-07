@@ -213,6 +213,25 @@ class SettingsScreen(Screen):
         # chat_lang "" → "auto" for display; mapped back on save
         chat_lang_val = cfg.chat_lang if cfg.chat_lang in _SUPPORTED_LANGS else "auto"
 
+        # Build panel-order rows from current config
+        _PANEL_MODES = [
+            ("overview", "Overview"), ("bio", "Bio"), ("galaxy", "Maps"),
+            ("missions", "Missions"), ("engineers", "Engineers"), ("bgs", "BGS"),
+            ("colonisation", "Colonisation"), ("route", "Route"), ("neutron", "Neutron"),
+            ("assets", "Assets"), ("stats", "Stats"),
+        ]
+        # current order: mode -> position string (1-based)
+        if cfg.situational_panels:
+            _current_order = {mode: str(i + 1) for i, mode in enumerate(cfg.situational_panels) if mode}
+        else:
+            # Default order: all panels visible, numbered 1-N
+            _current_order = {mode: str(i + 1) for i, (mode, _) in enumerate(_PANEL_MODES)}
+
+        self._panel_rows = [
+            TextRow(f"panel_{mode}", label, _current_order.get(mode, ""))
+            for mode, label in _PANEL_MODES
+        ]
+
         self._rows: list = [
             # ── TTS ──────────────────────────────────────────────────────────
             SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,                    _SUPPORTED_LANGS),
@@ -231,7 +250,11 @@ class SettingsScreen(Screen):
             ToggleRow("tts_youtube", "YouTube TTS",              cfg.tts_youtube),
             # ── Bodies & display ─────────────────────────────────────────────
             TextRow("notable",       "Notable Value (Cr)",       str(cfg.notable_value_threshold)),
+            TextRow("fuel_warn",     "Fuel Warning % (0=off)",   str(cfg.fuel_warning_percent)),
+            TextRow("home_system",   "Home System",              cfg.home_system),
             ToggleRow("carrier",     "Fleet Carrier Lookup",     cfg.carrier_lookup),
+            # ── Situational Panels ────────────────────────────────────────────
+            *self._panel_rows,
         ]
 
     # ── Textual lifecycle ────────────────────────────────────────────────────
@@ -341,6 +364,9 @@ class SettingsScreen(Screen):
     # ── Rendering ────────────────────────────────────────────────────────────
 
     def _row_text(self, row) -> str:
+        if isinstance(row, TextRow) and row.key.startswith("panel_"):
+            val = row.display_value().strip() or " "
+            return f"[{val:<2}] {row.label}"
         label = f"{row.label}:"
         val   = row.display_value() or "(none)"
         return f"{label:<30} [ {val} ]"
@@ -454,6 +480,13 @@ class SettingsScreen(Screen):
                             cfg.notable_value_threshold = int(row.value)
                         except ValueError:
                             pass
+                    case "fuel_warn":
+                        try:
+                            cfg.fuel_warning_percent = max(0, min(100, int(row.value)))
+                        except ValueError:
+                            pass
+                    case "home_system":
+                        cfg.home_system = row.value
                     case "twitch":
                         cfg.twitch_channel = row.value
                     case "youtube":
@@ -468,6 +501,23 @@ class SettingsScreen(Screen):
                         cfg.tts_twitch = row.value
                     case "tts_youtube":
                         cfg.tts_youtube = row.value
+
+        # Compile situational panel order from panel rows
+        _mode_from_key = {f"panel_{mode}": mode for mode, _ in [
+            ("overview", "Overview"), ("bio", "Bio"), ("galaxy", "Maps"),
+            ("missions", "Missions"), ("engineers", "Engineers"), ("bgs", "BGS"),
+            ("colonisation", "Colonisation"), ("route", "Route"), ("neutron", "Neutron"),
+            ("assets", "Assets"), ("stats", "Stats"),
+        ]}
+        panel_orders: list[tuple[int, str]] = []
+        for row in self._panel_rows:
+            if row.value.strip():
+                try:
+                    panel_orders.append((int(row.value.strip()), _mode_from_key[row.key]))
+                except (ValueError, KeyError):
+                    pass
+        panel_orders.sort(key=lambda x: x[0])
+        cfg.situational_panels = [mode for _, mode in panel_orders]
 
         # Voice: reconstruct full voice string from lang/locale/name selections
         v_lang   = self._voice_lang_row.value

@@ -212,6 +212,47 @@ The last **5 backups** are kept; older ones are deleted automatically. When a ba
 
 ---
 
+## Situational Panel Visibility
+
+You can control which panels appear in the centre **Situation** column and their tab order. By default all panels are shown.
+
+### In-App Settings
+
+Open the Settings overlay with **`s`**, scroll down to the panel list, and enter a number for each panel you want visible:
+
+```
+[1 ] Overview
+[2 ] Bio
+[3 ] Maps
+[   ] Missions        ← hidden (no number)
+[4 ] Engineers
+...
+```
+
+- **Lowest number = leftmost tab**, highest = rightmost.
+- **Gaps are OK** — numbering like `1, 3, 4, 6` works fine.
+- **Empty field = hidden** — the panel will not appear and auto-switching will skip it.
+- Press **SAVE** to apply immediately (no restart needed).
+
+### Config File
+
+You can also edit `config.toml` directly:
+
+```toml
+# Show only Overview, Bio, and Missions in that order
+situational_panels = OVR BIO MIS
+
+# Full list of abbreviations:
+#   OVR = Overview      BIO = Bio        MAP = Maps (Galaxy)
+#   MIS = Missions      ENG = Engineers  BGS = BGS
+#   COL = Colonisation  ROU = Route      NTR = Neutron Plot
+#   AST = Assets        STS = Stats
+```
+
+Legacy abbreviations (`WLT`, `INV`, `DKG`) are automatically remapped to `AST` and `OVR`.
+
+---
+
 ## Stream Overlay (OBS/Streamlabs)
 
 NOVA writes a text file for use as a "Read from file" **Text** source in OBS or Streamlabs.

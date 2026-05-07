@@ -18,6 +18,10 @@ from .. import palette as P
 from ... import events
 from ...events import _BIO_GENUS_VALUE_RANGE, _BIO_SPECIES_VALUES, bio_variant
 from ...config import Config
+from ...materials_catalog import (
+    RAW_CATEGORIES, MANUFACTURED_CATEGORIES, ENCODED_CATEGORIES,
+    lookup,
+)
 from ..panels import (
     _data_table, _section_header, _kv_row, _kv_line, _two_column_table,
     _short_name, _natural_key,
@@ -75,16 +79,21 @@ def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rend
             if wname:
                 all_rows.append(("text", f"  ▸ {wname}", P.LABEL))
 
-    # ── Materials ────────────────────────────────────────────────────────────
-    for label, mdict in (
-        ("RAW",          s.materials_raw),
-        ("MANUFACTURED", s.materials_mfg),
-        ("ENCODED",      s.materials_enc),
-    ):
-        if mdict:
-            all_rows.append(("section_header", label))
-            for name in sorted(mdict):
-                all_rows.append(("mat", name, mdict[name], label))
+    # ── Materials Tracker ────────────────────────────────────────────────────
+    _CATEGORY_MAP = {
+        "RAW": (s.materials_raw, RAW_CATEGORIES),
+        "MANUFACTURED": (s.materials_mfg, MANUFACTURED_CATEGORIES),
+        "ENCODED": (s.materials_enc, ENCODED_CATEGORIES),
+    }
+    for label, (mdict, categories) in _CATEGORY_MAP.items():
+        if not mdict:
+            continue
+        all_rows.append(("section_header", label))
+        for cat_name, mats in categories:
+            all_rows.append(("mat_cat_header", cat_name))
+            for info in mats:
+                cnt = mdict.get(info.name, 0)
+                all_rows.append(("mat_tracker", info.name, cnt, info.grade, info.cap))
 
     # ── Odyssey materials ────────────────────────────────────────────────────
     has_backpack = any(s.backpack.get(k) for k in ("items", "components", "consumables", "data"))
@@ -159,16 +168,40 @@ def _render_assets(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rend
                 Text(item["name"], style=style),
                 Text(str(item["count"]), style=f"bold {P.AMBER}"),
             )
-        elif kind == "mat":
-            _, name, cnt, mat_label = row
+        elif kind == "mat_cat_header":
+            _flush_tbl()
+            t = Text()
+            t.append(f"  {row[1]}", style=f"bold {P.LABEL}")
+            parts.append(t)
+            current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
+                                row_styles=["", f"on {P.ROW_ALT}"])
+            current_tbl.add_column("grade",  style=P.LABEL, width=3, justify="right")
+            current_tbl.add_column("name",   style="white")
+            current_tbl.add_column("cnt",    justify="right", width=8)
+            current_tbl.add_column("bar",    width=12)
+            current_tbl.add_column("pct",    justify="right", width=5)
+        elif kind == "mat_tracker":
+            _, name, cnt, grade, cap = row
             if current_tbl is None:
                 current_tbl = Table(show_header=False, show_edge=False, box=None, padding=(0, 1),
                                     row_styles=["", f"on {P.ROW_ALT}"])
-                current_tbl.add_column("name",  style="white")
-                current_tbl.add_column("count", justify="right")
-            _mat_cap = 100 if mat_label != "RAW" else 150
-            cnt_col = P.HUD_WARN if cnt >= _mat_cap else ("white" if cnt >= _mat_cap // 3 else P.LABEL)
-            current_tbl.add_row(name, Text(str(cnt), style=f"bold {cnt_col}"))
+                current_tbl.add_column("grade",  style=P.LABEL, width=3, justify="right")
+                current_tbl.add_column("name",   style="white")
+                current_tbl.add_column("cnt",    justify="right", width=8)
+                current_tbl.add_column("bar",    width=12)
+                current_tbl.add_column("pct",    justify="right", width=5)
+            pct = min(100, int(cnt * 100 / cap)) if cap else 0
+            filled = int(pct / 10)
+            bar_text = "█" * filled + "░" * (10 - filled)
+            bar_col = P.HUD_GREEN if pct >= 80 else (P.HUD_WARN if pct >= 50 else ("white" if pct > 0 else P.DIM))
+            cnt_col = P.HUD_WARN if cnt >= cap else ("white" if cnt >= cap // 3 else P.LABEL)
+            current_tbl.add_row(
+                Text(f"G{grade}", style=P.LABEL),
+                Text(name, style="white" if cnt > 0 else P.LABEL_DIM),
+                Text(f"{cnt}/{cap}", style=f"bold {cnt_col}"),
+                Text(f"[{bar_text}]", style=bar_col),
+                Text(f"{pct}%", style=P.LABEL),
+            )
         elif kind == "ody_divider":
             _flush_tbl()
             if parts:

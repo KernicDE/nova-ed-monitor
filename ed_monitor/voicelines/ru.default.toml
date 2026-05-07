@@ -52,6 +52,9 @@ lines = ["Командир {commander} в сети."]
 
 [FSDJump]
 lines = ["Прибыли в {system}. Прыжок {dist_ly}.{suffix}"]
+[FSDJump_Home]
+lines = ["Welcome home, Commander."]
+
 
 [NavRoute]
 lines = ["Маршрут проложен. Назначение: {dest}. {hops} {hops_word}."]
@@ -229,6 +232,9 @@ lines = ["Инженер {engineer}: ранг {rank}."]
 
 [FuelScoop_Full]
 lines = ["Бак полон."]
+[LowFuel]
+lines = ["Внимание: мало топлива."]
+
 
 [EjectCargo]
 lines = ["Груз выброшен: {cargo}."]

@@ -90,6 +90,9 @@
 #   Deprecated aliases ({terra}, {scoopable}, {star_scoopable}) still work for one release.
 #   Other flag variables ({landable}, {first_disc} etc.) are "" when absent,
 #   non-empty when present — so "WHEN {landable} IS TRUE" works naturally.
+[FSDJump_Home]
+lines = ["Welcome home, Commander."]
+
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
@@ -117,6 +120,9 @@ lines = ["Commander {commander} online."]
 # {suffix}         = optional extra info appended (star class, hops remaining, population)
 # System vars + Ship vars also available.
 lines = ["Arrived in {system}. Jump {dist_ly}.{suffix}"]
+[FSDJump_Home]
+lines = ["Welcome home, Commander."]
+
 
 [NavRoute]
 # {dest}         = destination system name
@@ -442,6 +448,10 @@ lines = ["Engineer {engineer}: rank {rank}."]
 [FuelScoop_Full]
 # Ship vars available: {fuel} {fuel_raw} {fuel_max_raw} {ship} ...
 lines = ["Fuel tank full."]
+
+[LowFuel]
+# Ship vars available: {fuel} {fuel_raw} {fuel_max_raw} {ship} ...
+lines = ["Warning: low fuel."]
 
 [EjectCargo]
 # {cargo} = cargo type name

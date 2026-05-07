@@ -1625,6 +1625,9 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 state.route_next_dist      = 0.0
                 state.route_list           = []
 
+            # Build optional suffix parts for voiceline templates
+            dist_ly_str = _tts_ly(dist)
+
             if just_arrived:
                 _say(tts_q, "NavRouteArrived", False,
                      fallback="Target reached.",
@@ -1633,6 +1636,17 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                      **_ship_vars(state), **_target_vars(state))
                 _trigger(state, "overview")
                 return LogEvent.new(EventCategory.Nav, "Target reached.")
+
+            # Home-system arrival
+            if state.home_system and system.lower() == state.home_system.lower():
+                _say(tts_q, "FSDJump_Home", False,
+                     fallback="Welcome home, Commander.",
+                     cacheable=False,
+                     system=system, dist_ly=dist_ly_str, dist_ly_raw=f"{dist:.1f}",
+                     **{k: v for k, v in _system_vars(state).items() if k != "system"},
+                     **_ship_vars(state), **_target_vars(state))
+                _trigger(state, "overview")
+                return LogEvent.new(EventCategory.Nav, f"Welcome home in {system}.")
 
             hops = state.route_hops
             msg  = f"Arrived in {system}. Jump {dist:.1f} light years."
@@ -1644,8 +1658,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 msg += f" {hops} {word} remaining."
             if pop > 0:
                 msg += f" Pop: {_fmt_pop(pop)}."
-            # Build optional suffix parts for voiceline templates
-            dist_ly_str = _tts_ly(dist)
             tts_suffix = ""
             if star_class:
                 scoop_txt = "scoopable" if scoopable else "not scoopable"

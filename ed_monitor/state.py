@@ -207,11 +207,14 @@ class AppState:
     # Ship status
     hull:           float = 1.0
     shields_up:     bool  = True
-    fuel:           float = 0.0
-    fuel_max:       float = 0.0
-    heat:           float = 0.0
-    fuel_announced: bool  = False
-    fuel_reservoir: float = 0.0
+    fuel:               float = 0.0
+    fuel_max:           float = 0.0
+    heat:               float = 0.0
+    fuel_announced:     bool  = False
+    fuel_low_announced: bool  = False
+    fuel_reservoir:     float = 0.0
+    fuel_warning_percent: int = 25
+    home_system:          str = ""
     cargo:          int   = 0
     cargo_capacity: int   = 0
 

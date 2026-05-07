@@ -52,6 +52,9 @@ lines = ["Comandante {commander} online."]
 
 [FSDJump]
 lines = ["Arrivati in {system}. Salto di {dist_ly}.{suffix}"]
+[FSDJump_Home]
+lines = ["Welcome home, Commander."]
+
 
 [NavRoute]
 lines = ["Rotta impostata. Destinazione: {dest}. {hops} {hops_word}."]
@@ -229,6 +232,9 @@ lines = ["Ingegnere {engineer}: grado {rank}."]
 
 [FuelScoop_Full]
 lines = ["Serbatoio pieno."]
+[LowFuel]
+lines = ["Attenzione: carburante basso."]
+
 
 [EjectCargo]
 lines = ["Carico espulso: {cargo}."]

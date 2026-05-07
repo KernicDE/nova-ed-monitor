@@ -41,6 +41,8 @@ class Config:
     tts_twitch:               bool = True   # False = disable TTS for Twitch chat at startup
     tts_youtube:              bool = True   # False = disable TTS for YouTube chat at startup
     prune_events_days:        int  = 0      # 0 = disabled; >0 = delete events older than N days at startup
+    fuel_warning_percent:     int  = 25     # 0 = disabled; fuel warning TTS when main tank drops below this %
+    home_system:              str  = ""      # empty = disabled; triggers special voiceline on arrival
 
 
 def _notify_self_write() -> None:
@@ -198,6 +200,8 @@ def load() -> Config:
     tts_twitch               = True
     tts_youtube              = True
     prune_events_days        = 0
+    fuel_warning_percent     = 25
+    home_system              = ""
     try:
         text = config_path.read_text(encoding="utf-8")
         for line in text.splitlines():
@@ -280,6 +284,13 @@ def load() -> Config:
                             prune_events_days = max(0, int(v))
                         except ValueError:
                             pass
+                    case "fuel_warning_percent":
+                        try:
+                            fuel_warning_percent = max(0, min(100, int(v)))
+                        except ValueError:
+                            pass
+                    case "home_system":
+                        home_system = v
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -310,6 +321,8 @@ def load() -> Config:
         tts_twitch=tts_twitch,
         tts_youtube=tts_youtube,
         prune_events_days=prune_events_days,
+        fuel_warning_percent=fuel_warning_percent,
+        home_system=home_system,
     )
 
 
@@ -449,6 +462,10 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
 
     if cfg.prune_events_days > 0:
         lines.append(f"prune_events_days = {cfg.prune_events_days}\n")
+    if cfg.fuel_warning_percent != 25:
+        lines.append(f"fuel_warning_percent = {cfg.fuel_warning_percent}\n")
+    if cfg.home_system:
+        lines.append(f"home_system = {cfg.home_system}\n")
 
     try:
         path.write_text("".join(lines), encoding="utf-8")

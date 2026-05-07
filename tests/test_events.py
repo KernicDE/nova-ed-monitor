@@ -550,3 +550,107 @@ def test_nav_route_clear_manual_says_route_cleared():
     assert result is not None
     assert result.message == "Route cleared."
     assert state.route_hops == 0
+
+
+# ── Home system ──
+
+def test_fsd_jump_home_system_triggers_special_voiceline():
+    """Arriving in the configured home system must speak FSDJump_Home."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.home_system = "Sol"
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "Sol",
+        "SystemAddress": 1,
+        "StarPos": [0.0, 0.0, 0.0],
+        "JumpDist": 5.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert "Welcome home" in result.message
+    assert not q.empty()
+
+
+def test_fsd_jump_other_system_uses_normal_voiceline():
+    """Arriving in a non-home system must use the normal FSDJump voiceline."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.home_system = "Sol"
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "Alpha Centauri",
+        "SystemAddress": 1,
+        "StarPos": [0.0, 0.0, 0.0],
+        "JumpDist": 5.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert "Welcome home" not in result.message
+    assert "Arrived in Alpha Centauri" in result.message
+
+
+def test_fsd_jump_home_system_case_insensitive():
+    """Home system match must be case-insensitive."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.home_system = "sol"
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "SOL",
+        "SystemAddress": 1,
+        "StarPos": [0.0, 0.0, 0.0],
+        "JumpDist": 5.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert "Welcome home" in result.message
+
+
+def test_fsd_jump_no_home_system_skips_check():
+    """When home_system is empty, normal FSDJump voiceline is used."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.home_system = ""
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "Sol",
+        "SystemAddress": 1,
+        "StarPos": [0.0, 0.0, 0.0],
+        "JumpDist": 5.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert "Welcome home" not in result.message

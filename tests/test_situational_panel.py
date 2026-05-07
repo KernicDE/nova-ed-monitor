@@ -391,6 +391,52 @@ class TestRenderAssets:
         # Should not crash and should slice content
         assert result is not None
 
+    def test_materials_tracker_shows_zero_count(self):
+        """Zero-count materials from the catalogue must be visible."""
+        s = AppState()
+        from ed_monitor.materials_catalog import RAW_CATEGORIES
+        # All zeros
+        s.materials_raw = {m.name: 0 for _, mats in RAW_CATEGORIES for m in mats}
+        result = _render_assets(s)
+        text = _render_text(result)
+        assert "RAW" in text
+        assert "Carbon" in text
+        assert "0/300" in text
+
+    def test_materials_tracker_progress_bar(self):
+        """Progress bar and percentage should reflect owned count."""
+        s = AppState()
+        from ed_monitor.materials_catalog import RAW_CATEGORIES
+        s.materials_raw = {m.name: 0 for _, mats in RAW_CATEGORIES for m in mats}
+        s.materials_raw["Carbon"] = 150
+        s.materials_raw["Vanadium"] = 250
+        result = _render_assets(s)
+        text = _render_text(result)
+        assert "150/300" in text
+        assert "250/250" in text
+        assert "50%" in text
+        assert "100%" in text
+
+    def test_materials_tracker_all_types(self):
+        """Manufactured and Encoded materials should also render."""
+        s = AppState()
+        from ed_monitor.materials_catalog import (
+            RAW_CATEGORIES, MANUFACTURED_CATEGORIES, ENCODED_CATEGORIES,
+        )
+        s.materials_raw = {m.name: 0 for _, mats in RAW_CATEGORIES for m in mats}
+        s.materials_mfg = {m.name: 0 for _, mats in MANUFACTURED_CATEGORIES for m in mats}
+        s.materials_enc = {m.name: 0 for _, mats in ENCODED_CATEGORIES for m in mats}
+        s.materials_mfg["Chemical Storage Units"] = 50
+        s.materials_enc["Exceptional Scrambled Emission Data"] = 10
+        result = _render_assets(s)
+        text = _render_text(result)
+        assert "MANUFACTURED" in text
+        assert "ENCODED" in text
+        assert "Chemical" in text
+        assert "Emission Data" in text
+        assert "50/300" in text
+        assert "10/300" in text
+
 
 # ── Engineer helper tests ─────────────────────────────────────────────────────
 

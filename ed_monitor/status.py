@@ -9,8 +9,11 @@ import threading
 import time
 from pathlib import Path
 
-from .state import AppState, _DEFAULT_BODY_RADIUS_M
+from .state import AppState, EventCategory, LogEvent, _DEFAULT_BODY_RADIUS_M
 from .tts import TtsMsg, _audio_logger
+from .materials_catalog import (
+    RAW_MATERIALS, MANUFACTURED_MATERIALS, ENCODED_MATERIALS, cap_for,
+)
 
 _log = logging.getLogger("nova.status")
 from . import voicelines as _vl
@@ -393,6 +396,22 @@ def _apply_status(
         if state.fuel_max > 0 and state.fuel < state.fuel_max * 0.9:
             state.fuel_announced = False
 
+        # Low-fuel warning (configurable % threshold)
+        if state.fuel_warning_percent > 0 and state.fuel_max > 0:
+            threshold_tons = state.fuel_max * (state.fuel_warning_percent / 100.0)
+            if state.fuel < threshold_tons:
+                if not state.fuel_low_announced:
+                    state.fuel_low_announced = True
+                    _ev._say(tts_q, "LowFuel", False,
+                             fallback="Warning: low fuel.",
+                             cacheable=False)
+                    state.push_event(LogEvent.new(
+                        EventCategory.Warn,
+                        f"Low fuel: {state.fuel:.1f} t / {state.fuel_max:.1f} t"
+                    ))
+            else:
+                state.fuel_low_announced = False
+
         # Always overwrite positional fields from Status.json — clear them when absent
         # so leaving a body/surface doesn't leave stale values frozen in the UI.
         v = data.get("Altitude")
@@ -629,20 +648,22 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
     except (OSError, json.JSONDecodeError):
         return
 
-    def _parse(section) -> dict:
-        result = {}
+    def _parse(section, catalog) -> dict:
+        # Start with full catalogue at zero count
+        result = {m.name: 0 for m in catalog}
         for m in (section or []):
-            if not isinstance(m, dict): continue
+            if not isinstance(m, dict):
+                continue
             loc = m.get("Name_Localised") or m.get("Name", "")
             cnt = int(m.get("Count", 0))
-            if loc and cnt > 0:
+            if loc:
                 result[loc] = cnt
         return result
 
     with lock:
-        state.materials_raw = _parse(data.get("Raw"))
-        state.materials_mfg = _parse(data.get("Manufactured"))
-        state.materials_enc = _parse(data.get("Encoded"))
+        state.materials_raw = _parse(data.get("Raw"), RAW_MATERIALS)
+        state.materials_mfg = _parse(data.get("Manufactured"), MANUFACTURED_MATERIALS)
+        state.materials_enc = _parse(data.get("Encoded"), ENCODED_MATERIALS)
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float, radius: float) -> float:

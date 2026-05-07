@@ -76,3 +76,68 @@ class TestConfigSave:
         path = tmp_path / "on.toml"
         save(cfg_on, path)
         assert "prune_events_days = 180" in path.read_text()
+
+
+    def test_save_emits_fuel_warning_percent_only_when_not_default(self, tmp_path):
+        cfg_default = _dummy_cfg()
+        path = tmp_path / "default.toml"
+        save(cfg_default, path)
+        assert "fuel_warning_percent" not in path.read_text()
+
+        cfg_custom = _dummy_cfg(fuel_warning_percent=10)
+        path = tmp_path / "custom.toml"
+        save(cfg_custom, path)
+        assert "fuel_warning_percent = 10" in path.read_text()
+
+    def test_load_roundtrips_fuel_warning_percent(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("fuel_warning_percent = 15\n")
+        cfg = load()
+        assert cfg.fuel_warning_percent == 15
+
+    def test_load_clamps_fuel_warning_percent(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("fuel_warning_percent = 150\n")
+        cfg = load()
+        assert cfg.fuel_warning_percent == 100
+
+        path.write_text("fuel_warning_percent = -5\n")
+        cfg = load()
+        assert cfg.fuel_warning_percent == 0
+
+    def test_save_roundtrips_situational_panels(self, tmp_path):
+        cfg = _dummy_cfg(situational_panels=["bio", "overview", "missions"])
+        path = tmp_path / "config.toml"
+        save(cfg, path)
+        text = path.read_text()
+        assert "situational_panels = BIO OVR MIS" in text
+
+    def test_load_roundtrips_situational_panels(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("situational_panels = OVR BIO MAP\n")
+        cfg = load()
+        assert cfg.situational_panels == ["overview", "bio", "galaxy"]
+
+    def test_load_ignores_invalid_panel_abbrev(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("situational_panels = OVR BIO XYZ MAP\n")
+        cfg = load()
+        assert cfg.situational_panels == ["overview", "bio", "galaxy"]
+
+    def test_load_migrates_legacy_abbrevs(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("situational_panels = WLT DKG BIO\n")
+        cfg = load()
+        # WLT -> assets, DKG -> overview (deduplicated), BIO -> bio
+        assert cfg.situational_panels == ["assets", "overview", "bio"]
+
+    def test_save_omits_situational_panels_when_empty(self, tmp_path):
+        cfg = _dummy_cfg(situational_panels=[])
+        path = tmp_path / "config.toml"
+        save(cfg, path)
+        assert "situational_panels" not in path.read_text()

@@ -82,3 +82,65 @@ class TestTextRow:
         row = TextRow("tts_rate", "TTS Rate", "+10%")
         row.value = "-5%"
         assert row.value == "-5%"
+
+
+class TestPanelRowCompilation:
+    """Simulate the panel-order compilation logic from SettingsScreen._do_save()."""
+
+    def _compile(self, rows: list[TextRow]) -> list[str]:
+        _mode_from_key = {f"panel_{mode}": mode for mode, _ in [
+            ("overview", "Overview"), ("bio", "Bio"), ("galaxy", "Maps"),
+            ("missions", "Missions"), ("engineers", "Engineers"), ("bgs", "BGS"),
+            ("colonisation", "Colonisation"), ("route", "Route"), ("neutron", "Neutron"),
+            ("assets", "Assets"), ("stats", "Stats"),
+        ]}
+        panel_orders: list[tuple[int, str]] = []
+        for row in rows:
+            if row.value.strip():
+                try:
+                    panel_orders.append((int(row.value.strip()), _mode_from_key[row.key]))
+                except (ValueError, KeyError):
+                    pass
+        panel_orders.sort(key=lambda x: x[0])
+        return [mode for _, mode in panel_orders]
+
+    def test_default_order(self):
+        rows = [
+            TextRow("panel_overview", "Overview", "1"),
+            TextRow("panel_bio", "Bio", "2"),
+            TextRow("panel_galaxy", "Maps", "3"),
+        ]
+        assert self._compile(rows) == ["overview", "bio", "galaxy"]
+
+    def test_hidden_panel(self):
+        """Empty value means panel is hidden."""
+        rows = [
+            TextRow("panel_overview", "Overview", "1"),
+            TextRow("panel_bio", "Bio", ""),
+            TextRow("panel_galaxy", "Maps", "2"),
+        ]
+        assert self._compile(rows) == ["overview", "galaxy"]
+
+    def test_gaps_in_numbering(self):
+        """Gaps like 1, 3, 4 are allowed — sorting still works."""
+        rows = [
+            TextRow("panel_overview", "Overview", "1"),
+            TextRow("panel_bio", "Bio", "3"),
+            TextRow("panel_galaxy", "Maps", "4"),
+        ]
+        assert self._compile(rows) == ["overview", "bio", "galaxy"]
+
+    def test_reorder(self):
+        rows = [
+            TextRow("panel_overview", "Overview", "3"),
+            TextRow("panel_bio", "Bio", "1"),
+            TextRow("panel_galaxy", "Maps", "2"),
+        ]
+        assert self._compile(rows) == ["bio", "galaxy", "overview"]
+
+    def test_all_hidden(self):
+        rows = [
+            TextRow("panel_overview", "Overview", ""),
+            TextRow("panel_bio", "Bio", ""),
+        ]
+        assert self._compile(rows) == []

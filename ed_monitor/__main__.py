@@ -81,6 +81,8 @@ def main() -> None:
 
     database = db.Database(_db_path())
     state    = AppState()
+    state.fuel_warning_percent = cfg.fuel_warning_percent
+    state.home_system = cfg.home_system
     lock     = threading.RLock()
 
     # Optional event-log pruning. Off by default (prune_events_days = 0 in
