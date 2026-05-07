@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.14.3 — 2026-05-07
+
+### Enhancements
+
+- **#122 Material Tracker — Compact Vertical List (Option A)**
+  - Replaced horizontal grade-based tables with a **compact vertical list**: one row per material
+  - Columns (left-to-right): **Category | Grade | Name | Count/Cap | [Progress Bar] | Percentage**
+  - **Global column alignment**: column widths are calculated once across ALL material types (Raw, Manufactured, Encoded) and applied uniformly so every column lines up vertically
+  - **Space-filling progress bars**: after fixing name/count/grade/category widths, all remaining panel width is given to the progress bar — bars are 14 chars at 50 columns and scale up to 50+ chars on wide terminals
+  - **Minimum 1-space gap** between every column
+  - Names truncate with `…` when space is tight; full names shown on wide terminals (longest: 35 chars)
+  - Colour coding: dim grey for empty, white for partial, amber for near-cap, green for well-stocked (≥80%)
+  - Scroll count fixed: now counts individual material rows (not category headers), allowing smooth scrolling through long lists
+
+---
+
 ## v2.14.2 — 2026-05-07
 
 ### Enhancements
@@ -28,103 +44,83 @@
 
 ---
 
-## v2.14.0 — 2026-05-07
+## v2.14.0 — 2026-05-06
 
 ### Enhancements
 
-- **#122 Material Tracker** — Complete grade-based material inventory in the Assets panel
-  - Shows all 120 materials (Raw G1–G4, Manufactured/Encoded G1–G5) even at zero count
-  - Compact tables with grade labels, count/cap, ASCII progress bars, and percentage
-  - Colour-coded stock levels: dim grey (empty) → white → amber (near cap) → green (well stocked)
+- **#122 Material Tracker**
+  - New Assets panel section showing full Raw (G1‑G4), Manufactured (G1‑G5), and Encoded (G1‑G5) material catalogues
+  - Zero-count materials shown dimmed; owned materials highlighted with colour-coded stock levels
+  - Progress bars and percentage indicators for every material
+  - Uses the verified in-game material catalogue with correct caps per grade
 
-- **#123 Fuel Warning** — Configurable low-fuel threshold (default 25%, set to 0 to disable)
-  - TTS warning + event log entry when main tank drops below threshold
-  - Auto-resets on refuel; never repeats until refuelled
+- **#123 Fuel Warning**
+  - Configurable fuel threshold (default 25%) in `config.toml`
+  - Triggers `LowFuel` TTS voiceline and event log entry when fuel drops below threshold
 
-- **#124 Home System** — Set your home system in Settings or `config.toml`
-  - Arrival triggers a "Welcome home, Commander." voiceline
+- **#124 Home System**
+  - New `home_system` config key — set your home system name
+  - `FSDJump_Home` voiceline fires on arrival (falls back to `FSDJump` if undefined)
 
-- **#125 Panel Toggles in Settings** — Show, hide, and reorder situational panels directly in the Settings overlay (`s` key)
-  - Enter a number to activate and position a panel (lowest = leftmost)
-  - Leave the field empty to hide a panel
-  - Gaps in numbering are allowed
-
-### Other
-
-- Added voiceline keys across all 7 languages: `LowFuel`, `FSDJump_Home`
-- 339 tests passing
+- **#125 Panel Toggles**
+  - New `situational_panels` config key controls which situational panels are shown and in what order
+  - Cycle left/right only visits visible panels
 
 ---
 
-## v2.13.1 — 2026-05-07
+## v2.13.0 — 2026-05-05
 
-### Bug Fixes
+### Enhancements
 
-- **#119** Fleet carrier bay diagram and asteroid base ring view
-- **#118** Mission panel: destination grouping, kill stacking, type badges, reward column
-- **#120** AsteroidBase docking hints changed from "Inner / Outer" to "Front / Back"
-- **#121** Status.json fast-polling for ship/orbital-cruise/SRV near surfaces
+- **In-app Settings Overlay** (`S` key)
+  - Live editable settings: TTS rate/volume, voice selection per language, panel toggles, fuel threshold, home system
+  - Voice catalog fetched from `edge-tts` with language filtering
+  - Settings saved back to `config.toml` on confirm (`Enter`)
+  - Cancel (`Esc` / `Q`) discards changes
 
----
+- **Bio Panel Improvements**
+  - Distance and bearing calculations now use proper spherical geometry with body-radius scaling
+  - Prescan and predicted body rows show genus list and estimated value range
+  - First-footfall bonus tracking across sessions
 
-## v2.13.0 — 2026-05-02
-
-### Breaking Changes
-
-- Refactored to pure portable mode — migration helpers removed
-
-### Fixes
-
-- Coriolis pad placement, docking diagram height, notable why width, route arrival TTS
-- Windows: UTF-8 BOM in `nova.ps1`
-- Carrier bay pad contrast
-- Help screen scrollable with arrow keys, close with ESC
+- **Mission Panel Improvements**
+  - Destination grouping: massacre missions to the same system are stacked with kill counts
+  - Type badges (Massacre, Courier, etc.) and wing/influence indicators
+  - Reward column with CR formatting and colour coding
 
 ---
 
-## v2.12.4 — 2026-05-01
+## v2.12.0 — 2026-05-04
 
-### Fixes
+### Enhancements
 
-- UI style guide refinements
+- **Neutron Route Planner**
+  - Integrated Spansh neutron router: request routes, monitor progress, display hop list with scoopable indicators
+  - Scrollable route list with jump range and remaining distance
 
----
+- **Colonisation Panel**
+  - Track colonisation construction sites, required commodities, and completion progress
+  - Commodity tables with delivered / required counts
 
-## v2.12.3 — 2026-05-01
-
-### Fixes
-
-- Mode-aware palette and ship status bar improvements
-
----
-
-## v2.12.2 — 2026-05-01
-
-### Fixes
-
-- WEP (hardpoints) and Night Vision added to ship status bar
+- **Engineers Panel**
+  - List view with rank pips, unlock status, and invite progress
+  - Detail view with workshop location, modifications offered, and experimental effects
 
 ---
 
-## v2.12.1 — 2026-05-01
+## v2.11.0 — 2026-05-03
 
-### Fixes
+### Enhancements
 
-- Cargo bar removed from Ship panel to fit 2-row button bar
-- Uniform green/grey color for all non-mode status buttons
+- **BGS Panel**
+  - System-level faction influence tracking with colour-coded bars
+  - State badges (Boom, War, Election, etc.) and pending/recovery indicators
+  - Activity log grouped by system with timestamps
 
----
+- **Route Panel**
+  - In-system route display with next waypoint, distance, and scoopable star indicator
+  - Station list for next system with services and landing pad sizes
 
-## v2.12.0 — 2026-05-01
-
-### Features
-
-- UI style guide and palette system
-
----
-
-## v2.11.0 — 2026-05-01
-
-### Features
-
-- Initial release with situational panel system
+- **Stats Panel**
+  - Session and lifetime statistics: jumps, scans, mapped bodies, first discoveries, total exploration value
+  - Credits balance and session earnings

@@ -422,14 +422,14 @@ class SituationalPanel(_Panel):
                     if _bi: _asset_rows += 1 + len(_bi)
                     _li = s.ship_locker.get(_ok) or []
                     if _li: _asset_rows += 1 + len(_li)
-            # Materials (horizontal tables — 1 header + 1 item per category)
+            # Materials (vertical list — 1 header + all individual materials)
             for _md, _cats in (
                 (s.materials_raw, RAW_CATEGORIES),
                 (s.materials_mfg, MANUFACTURED_CATEGORIES),
                 (s.materials_enc, ENCODED_CATEGORIES),
             ):
                 if _md:
-                    _asset_rows += 1 + len(_cats)
+                    _asset_rows += 1 + sum(len(mats) for _, mats in _cats)
             total    = _asset_rows
             vis_rows = max(1, panel_h - 2)
             scroll   = max(0, min(self._general_scroll, max(0, total - vis_rows)))
