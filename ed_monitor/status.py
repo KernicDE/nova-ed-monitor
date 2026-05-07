@@ -166,20 +166,22 @@ def monitor(
                 not sc.complete and sc.samples > 0
                 for sc in state.bio_scans
             )
-            # Fast-poll whenever the player is in the game world (ship, SRV,
-            # on-foot, supercruise, orbital cruise) so positional data stays
-            # current for the UI and future surface-navigation features.
-            _fast_poll_cache = (
-                state.client_online and
-                (state.landed or state.in_srv or state.in_main_ship or
-                 (not state.in_main_ship and not state.in_srv))
+            # Fast-poll when the player is near a surface (landed, SRV, on-foot)
+            # or has positional data (lat/lon/alt) so surface-navigation and
+            # bio distance checks stay current. Slow-poll in deep space to keep
+            # CPU load minimal — exact positions aren't needed there.
+            _near_surface = (
+                state.landed or state.in_srv or
+                state.latitude is not None or state.altitude is not None or
+                (not state.in_main_ship and not state.in_srv)
             )
+            _fast_poll_cache = state.client_online and _near_surface
 
         if _status_watchdog_active:
             _status_dir_changed.wait(timeout=0.2 if _fast_poll_cache else 5.0)
             _status_dir_changed.clear()
         else:
-            time.sleep(0.2)
+            time.sleep(0.2 if _fast_poll_cache else 5.0)
 
 
 def _apply_status(

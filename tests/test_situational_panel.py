@@ -282,6 +282,22 @@ class TestRenderDocking:
         text = _render_text(result)
         assert "Pad" in text
 
+    def test_coriolis_front_back_hint(self):
+        """Coriolis/Orbis/Ocellus use Front/Back terminology instead of inner/outer."""
+        s_front = AppState()
+        s_front.docked_pad = 1   # offset 0 = innermost = Front
+        s_front.docked_station_type = "Coriolis"
+        text = _render_text(_render_docking(s_front))
+        assert "Front" in text
+        assert "inner" not in text.lower()
+
+        s_back = AppState()
+        s_back.docked_pad = 45   # offset 4 = outermost = Back
+        s_back.docked_station_type = "Orbis"
+        text = _render_text(_render_docking(s_back))
+        assert "Back" in text
+        assert "outer" not in text.lower()
+
     def test_carrier_front_and_cockpit_labels(self):
         """Fleet carrier diagram shows FRONT header and COCKPIT footer."""
         s = AppState()

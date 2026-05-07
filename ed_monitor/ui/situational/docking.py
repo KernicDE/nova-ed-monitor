@@ -139,7 +139,7 @@ _CORIOLIS_RING_R: list[tuple[int, int]] = [(3,1),(5,2),(7,3),(9,4),(11,5)]
 _CORIOLIS_CLOCK: dict[int, str] = {
     1:"6",2:"7",3:"8",4:"9",5:"10",6:"11",7:"12",8:"1",9:"2",10:"3",11:"4",12:"5",
 }
-_CORIOLIS_OFFSET_NAME: list[str] = ["inner","near-inner","middle","near-outer","outer"]
+_CORIOLIS_OFFSET_NAME: list[str] = ["Front","Front-Mid","Mid","Back-Mid","Back"]
 _CORIOLIS_SIZE_NAME:   dict[str, str] = {"S":"small","M":"medium","L":"large"}
 
 
