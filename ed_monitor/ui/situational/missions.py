@@ -131,6 +131,8 @@ def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> Re
 
     if s.massacre_kills:
         _render_massacre_section(s, parts, mp)
+        if s.missions:
+            parts.append(Text(""))
 
     # Sort all missions by expiry (soonest first), then apply scroll
     sorted_all = sorted(s.missions, key=lambda m: _expiry_secs(m.expiry))
@@ -144,7 +146,8 @@ def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> Re
         groups.setdefault(dest, []).append(m)
 
     # Render each destination group
-    for dest, missions in groups.items():
+    group_items = list(groups.items())
+    for i, (dest, missions) in enumerate(group_items):
         cargo_total = sum(m.cargo_count for m in missions if m.cargo_count)
         cargo_label = next((m.cargo_type for m in missions if m.cargo_type), "")
         reward_total = sum(m.reward for m in missions)
@@ -180,12 +183,14 @@ def _render_missions(s: AppState, scroll: int = 0, mp: dict | None = None) -> Re
                 name_t.append(f" {m.influence}", style=P.GOLD)
 
             tbl.add_row(
-                Text(mtype, style=type_style),
+                Text(f"  {mtype}", style=type_style),
                 name_t,
                 Text(remaining, style=f"bold {_time_style(remaining)}"),
                 Text(_fmt_cr_compact(m.reward) if m.reward else "—", style=P.LABEL),
             )
 
         parts.append(tbl)
+        if i < len(group_items) - 1:
+            parts.append(Text(""))
 
     return Group(*parts)

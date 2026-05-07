@@ -1,18 +1,29 @@
 # Changelog
 
+## v2.14.4 — 2026-05-07
+
+### Enhancements
+
+- **#126 Make missions better readable**
+  - Empty line between each destination system block for clearer visual separation
+  - Mission rows are indented by 2 spaces relative to the column header, making individual missions easier to distinguish within a system block
+  - Blank line also added between the massacre progress section and the first destination block
+
+---
+
 ## v2.14.3 — 2026-05-07
 
 ### Enhancements
 
 - **#122 Material Tracker — Compact Vertical List (Option A)**
-  - Replaced horizontal grade-based tables with a **compact vertical list**: one row per material
-  - Columns (left-to-right): **Category | Grade | Name | Count/Cap | [Progress Bar] | Percentage**
-  - **Global column alignment**: column widths are calculated once across ALL material types (Raw, Manufactured, Encoded) and applied uniformly so every column lines up vertically
-  - **Space-filling progress bars**: after fixing name/count/grade/category widths, all remaining panel width is given to the progress bar — bars are 14 chars at 50 columns and scale up to 50+ chars on wide terminals
-  - **Minimum 1-space gap** between every column
-  - Names truncate with `…` when space is tight; full names shown on wide terminals (longest: 35 chars)
-  - Colour coding: dim grey for empty, white for partial, amber for near-cap, green for well-stocked (≥80%)
-  - Scroll count fixed: now counts individual material rows (not category headers), allowing smooth scrolling through long lists
+  - Replaced horizontal grade-based tables with a compact vertical list: one row per material
+  - Columns: Category | Grade | Name | Count/Cap | [Progress Bar] | Percentage
+  - Global column alignment: widths computed once across all material types and applied uniformly
+  - Space-filling progress bars: all remaining panel width goes to the bar after fixing other columns
+  - Minimum 1-space gap between every column
+  - Names truncate with … when tight; full names shown on wide terminals
+  - Colour coding: dim grey (empty), white (partial), amber (near-cap), green (≥80%)
+  - Scroll count fixed: counts individual material rows for smooth scrolling
 
 ---
 
