@@ -204,6 +204,8 @@ def main() -> None:
             new_cfg = config.load()
             events.set_tts_lang(new_cfg.tts_lang)
             events.set_voices(new_cfg.tts_voices)
+            with vol_lock:
+                volume[0] = new_cfg.default_volume
             with lock:
                 state.volume                  = new_cfg.default_volume
                 state.notable_value_threshold = new_cfg.notable_value_threshold

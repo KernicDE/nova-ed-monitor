@@ -166,6 +166,7 @@ def _update_example_file(cfg_dir: Path) -> None:
         if src.exists():
             cfg_dir.mkdir(parents=True, exist_ok=True)
             dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            _notify_self_write()  # prevent the watcher from re-triggering on this write
     except OSError:
         pass
 

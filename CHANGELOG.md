@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.14.6 — 2026-05-07
+
+### Bug Fixes
+
+- **Volume control — +/- keys reset to config default**
+  - `_update_example_file()` wrote `config.toml.example` on every `config.load()` call, including inside the hot-reload callback. The file-system watcher picked up that write and re-triggered the callback in a ~0.3 s loop, resetting `state.volume` to `default_volume` from config.toml after every keypress.
+  - Fixed by calling `_notify_self_write()` after writing the example file so the watcher ignores self-generated events.
+  - Also fixed `_on_config_changed` not updating `volume[0]` (the TTS worker list), keeping display and playback volume in sync on genuine config reloads.
+
+---
+
 ## v2.14.5 — 2026-05-07
 
 ### Bug Fixes
