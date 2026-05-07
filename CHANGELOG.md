@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.14.2 — 2026-05-07
+
+### Enhancements
+
+- **#122 Material Tracker — Layout Overhaul**
+  - Horizontal grade-based tables: G1–G5 as columns, categories as rows
+  - Aligned columns within each material type (Raw / Manufactured / Encoded)
+  - Two rows per category: name+count/cap, then progress bar+percentage
+  - Responsive truncation for narrow terminals
+  - Fixed scroll bug: scroll count now correctly includes category headers
+
+---
+
 ## v2.14.1 — 2026-05-07
 
 ### Bug Fixes
