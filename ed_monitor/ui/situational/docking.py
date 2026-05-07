@@ -222,9 +222,10 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
                 grid[gy][x] = (ch, style)
 
     # ── Ring geometry and pad placement ──────────────────────────────────────
+    active_idx = -1  # used by AsteroidBase centre-marker fallback
     if stype == "AsteroidBase":
-        # 2 rings: 4 large (inner) + 4 small (outer)
-        base_rings = [(4, 2, 1, 4), (7, 3, 5, 4)]
+        # 3 rings: 6 large (inner) + 8 medium (mid) + 4 small (outer) = 18 pads
+        base_rings = [(4, 2, 1, 6), (6, 3, 7, 8), (8, 4, 15, 4)]
         ring_defs  = [
             (max(3, int(rx * scale)), max(2, int(ry * scale)), start, count)
             for rx, ry, start, count in base_rings
@@ -234,7 +235,11 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
             if start <= pad < start + count:
                 active_idx = idx
                 break
-        hint_text = {0: "Inner ring — large pad", 1: "Outer ring — small pad"}.get(active_idx, "")
+        hint_text = {
+            0: "Front — large pad",
+            1: "Mid — medium pad",
+            2: "Back — small pad",
+        }.get(active_idx, "")
 
         for idx, (rx, ry, _, _) in enumerate(ring_defs):
             steps     = max(rx, ry) * 6
@@ -253,6 +258,10 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
             gx    = int(round(cx + rx * _math.sin(angle)))
             gy    = int(round(cy - ry * _math.cos(angle)))
             place(gx, gy, f"[{pad}]", "bold white")
+        else:
+            # Pad number unknown for this layout — show it in the centre
+            place(cx, cy, f"[{pad}]", "bold white")
+            hint_text = f"Pad {pad}"
 
     else:
         # Coriolis / Orbis / Ocellus — 45 pads, 12 segments × 5 offsets
@@ -290,7 +299,9 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
 
     # Centre marker — mailslot (Coriolis-type) or cave centre (AsteroidBase)
     if stype == "AsteroidBase":
-        place(cx, cy, "╳", P.LABEL_DIM)
+        # Skip centre mark when an out-of-range pad is shown in the centre
+        if active_idx >= 0:
+            place(cx, cy, "╳", P.LABEL_DIM)
     else:
         place(cx - 2, cy, "●", "bold rgb(255,60,60)")   # red  — port nav light
         place(cx,     cy, "▼", "bold white")             # mailslot

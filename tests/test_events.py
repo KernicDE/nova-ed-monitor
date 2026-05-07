@@ -464,3 +464,89 @@ def test_under_attack_sets_flash_timer():
     after = time.time()
     assert state.under_attack_flash_until >= before + 5.0
     assert state.under_attack_flash_until <= after + 5.0
+
+
+# ── Route arrival / clearing ──
+
+def test_fsd_jump_final_hop_announces_arrival():
+    """Jumping into the destination system must announce 'Target reached.'"""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.route_hops = 1
+    state.route_destination = "Dest"
+    state.route_list = [
+        {"StarSystem": "Prev", "StarPos": [0, 0, 0]},
+        {"StarSystem": "Dest", "StarPos": [1, 0, 0]},
+    ]
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "Dest",
+        "SystemAddress": 1,
+        "StarPos": [1.0, 0.0, 0.0],
+        "JumpDist": 1.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert result.message == "Target reached."
+    assert state.route_arrived is True
+    assert state.route_hops == 0
+
+
+def test_fsd_jump_without_route_does_not_announce_arrival():
+    """A normal FSDJump with no active route must not trigger arrival text."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.route_hops = 0
+
+    ev = {
+        "event": "FSDJump",
+        "StarSystem": "Sol",
+        "SystemAddress": 1,
+        "StarPos": [0.0, 0.0, 0.0],
+        "JumpDist": 5.0,
+        "Population": 0,
+        "Economy": "$economy_None;",
+        "Government": "$government_None;",
+        "Allegiance": "Independent",
+        "Security": "$SYSTEM_SECURITY_low;",
+        "Factions": [],
+    }
+    result = handle(ev, state, q)
+
+    assert result is not None
+    assert "Arrived in Sol" in result.message
+    assert "Target reached" not in result.message
+
+
+def test_nav_route_clear_after_arrival_is_silent():
+    """NavRouteClear after arrival must be silent (already announced in FSDJump)."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.route_arrived = True
+
+    result = handle({"event": "NavRouteClear"}, state, q)
+
+    assert result is None
+    assert state.route_arrived is False
+
+
+def test_nav_route_clear_manual_says_route_cleared():
+    """Manually clearing an active route must say 'Route cleared.'"""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    state.route_arrived = False
+    state.route_hops = 3
+
+    result = handle({"event": "NavRouteClear"}, state, q)
+
+    assert result is not None
+    assert result.message == "Route cleared."
+    assert state.route_hops == 0

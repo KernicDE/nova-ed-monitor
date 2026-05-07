@@ -1588,6 +1588,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.station_count  = 0
             state.fss_body_count = 0
             _parse_factions(ev, state)
+            just_arrived = False
             if state.route_hops > 0:
                 state.route_hops -= 1
                 if isinstance(state.route_list, list) and len(state.route_list) > 1:
@@ -1612,6 +1613,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                         state.route_next_star      = ""
                         state.route_next_scoopable = False
                         state.route_next_dist      = 0.0
+                if state.route_hops == 0:
+                    just_arrived = True
 
             if state.route_hops == 0:
                 state.route_arrived        = True
@@ -1621,6 +1624,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 state.route_next_scoopable = False
                 state.route_next_dist      = 0.0
                 state.route_list           = []
+
+            if just_arrived:
+                _say(tts_q, "NavRouteArrived", False,
+                     fallback="Target reached.",
+                     cacheable=False,
+                     **{k: v for k, v in _system_vars(state).items() if k != "system"},
+                     **_ship_vars(state), **_target_vars(state))
+                _trigger(state, "overview")
+                return LogEvent.new(EventCategory.Nav, "Target reached.")
 
             hops = state.route_hops
             msg  = f"Arrived in {system}. Jump {dist:.1f} light years."
@@ -1724,9 +1736,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.route_bodies_edsm    = {}
             state.route_arrived        = False
             if arrived:
-                _say(tts_q, "NavRouteArrived", False, fallback="Target reached.",
-                     **_system_vars(state))
-                return LogEvent.new(EventCategory.Nav, "Target reached.")
+                # Arrival was already announced in FSDJump; stay silent here
+                return None
             _say(tts_q, "NavRouteClear", False, fallback="Route cleared.")
             return LogEvent.new(EventCategory.Nav, "Route cleared.")
 

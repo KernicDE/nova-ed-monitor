@@ -330,17 +330,33 @@ class TestRenderDocking:
         assert "[3]" in text
         assert "╳" in text
 
-    def test_asteroid_inner_outer_hint(self):
-        """Asteroid base hint distinguishes inner (large) from outer (small)."""
-        s_inner = AppState()
-        s_inner.docked_pad = 2
-        s_inner.docked_station_type = "AsteroidBase"
-        assert "Inner" in _render_text(_render_docking(s_inner))
+    def test_asteroid_front_back_hint(self):
+        """Asteroid base hint distinguishes front (large) from back (small)."""
+        s_front = AppState()
+        s_front.docked_pad = 2
+        s_front.docked_station_type = "AsteroidBase"
+        assert "Front" in _render_text(_render_docking(s_front))
 
-        s_outer = AppState()
-        s_outer.docked_pad = 6
-        s_outer.docked_station_type = "AsteroidBase"
-        assert "Outer" in _render_text(_render_docking(s_outer))
+        s_back = AppState()
+        s_back.docked_pad = 18
+        s_back.docked_station_type = "AsteroidBase"
+        assert "Back" in _render_text(_render_docking(s_back))
+
+    def test_asteroid_mid_hint(self):
+        """Asteroid base hint shows medium-pad ring."""
+        s = AppState()
+        s.docked_pad = 10
+        s.docked_station_type = "AsteroidBase"
+        assert "Mid" in _render_text(_render_docking(s))
+
+    def test_asteroid_unknown_pad_fallback(self):
+        """Pads outside the known 18-pad layout are still shown in the centre."""
+        s = AppState()
+        s.docked_pad = 42
+        s.docked_station_type = "AsteroidBase"
+        text = _render_text(_render_docking(s))
+        assert "[42]" in text
+        assert "Pad 42" in text
 
 
 class TestRenderBGS:
