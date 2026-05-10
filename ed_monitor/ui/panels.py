@@ -31,6 +31,27 @@ from . import palette as P
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
+def _find_targeted_station(s: AppState) -> dict | None:
+    """Look up target_body in available station lists (current system, route next,
+    nearest populated). Returns the station dict or None if not found."""
+    name = s.target_body
+    if not name:
+        return None
+    # Check current system first
+    for stn in getattr(s, "current_system_stations", []):
+        if stn.get("name") == name:
+            return stn
+    # Check route next
+    for stn in getattr(s, "route_next_stations", []):
+        if stn.get("name") == name:
+            return stn
+    # Check nearest populated
+    for stn in getattr(s, "nearest_populated_stations", []):
+        if stn.get("name") == name:
+            return stn
+    return None
+
+
 def _short_name(body: str, system: str) -> str:
     if body.lower().startswith(system.lower()):
         short = body[len(system):].strip()
@@ -904,8 +925,12 @@ class RoutePanel(_Panel):
         elif snap.target_ship:
             self.border_title = f"◈ Target: {snap.target_ship}"
         elif snap.target_body:
-            short = _short_name(snap.target_body, snap.system)
-            self.border_title = f"◈ Target: {short}"
+            stn = _find_targeted_station(snap)
+            if stn:
+                self.border_title = f"◈ Target: {stn.get('name', snap.target_body)}"
+            else:
+                short = _short_name(snap.target_body, snap.system)
+                self.border_title = f"◈ Target: {short}"
         elif snap.approach_body:
             short = _short_name(snap.approach_body, snap.system)
             self.border_title = f"◈ Approaching: {short}"
@@ -919,7 +944,8 @@ class RoutePanel(_Panel):
         key = (
             snap.docked, snap.station, snap.station_type, snap.station_economy,
             snap.station_services, snap.station_dist_ls,
-            snap.target_ship, snap.target_body, snap.approach_body, snap.nearest_body,
+            snap.target_ship, snap.target_body, snap.target_body_system,
+            snap.approach_body, snap.nearest_body,
             snap.route_destination, snap.route_hops, snap.route_next, snap.route_next_star,
             snap.route_next_scoopable, snap.route_dist, snap.route_next_dist,
             snap.bodies_version,
@@ -927,6 +953,7 @@ class RoutePanel(_Panel):
             len(snap.carriers_current_system),
             snap.nearest_populated_name, snap.nearest_populated_dist,
             len(snap.nearest_populated_stations),
+            len(snap.current_system_stations),
             snap.client_online,
         )
         if self._key_changed(key):
@@ -1039,10 +1066,59 @@ class RoutePanel(_Panel):
 
         return t
 
+    def _render_target_station(self, s: AppState, stn: dict) -> RenderableType:
+        """Show EDSM station details for a currently targeted station."""
+        t = Text()
+        _mp = P.mp(s.ui_mode)
+
+        def row(label: str, value: str, vstyle: str = "white") -> None:
+            _kv_line(t, label, value, vstyle, h3=_mp["h3"])
+
+        stn_name = stn.get("name", "?")
+        if len(stn_name) > 22:
+            stn_name = stn_name[:21] + "…"
+        t.append(f"{stn_name}\n", style="bold white")
+
+        # Show system only if it's not the current one
+        target_sys = s.target_body_system or s.system
+        if target_sys and target_sys != s.system:
+            row("System", target_sys)
+
+        stn_type = stn.get("type", "")
+        if stn_type:
+            row("Type", stn_type)
+
+        dist_ls = stn.get("dist_ls", 0)
+        if dist_ls > 0:
+            row("Dist", _fmt_ls(dist_ls), P.LABEL)
+
+        # Try to get economy/allegiance from current station info if docked there,
+        # otherwise we don't have it in EDSM station dict. EDSM dump doesn't store
+        # economy/allegiance per station, only the basic fields.
+        icons = ""
+        if stn.get("market"):     icons += "M"
+        if stn.get("shipyard"):   icons += "S"
+        if stn.get("outfitting"): icons += "O"
+        svcs = stn.get("services") or []
+        if "Repair" in svcs:      icons += "R"
+        if "Refuel" in svcs:      icons += "F"
+        if "Restock" in svcs:     icons += "N"
+        if icons:
+            row("Svcs", f"[{icons}]", P.AMBER)
+
+        return t
+
     def _render_target(self, s: AppState) -> Optional[RenderableType]:
         """Show body details for currently targeted body.
+        When the target is a station, shows station info from EDSM.
         When the target is a system (next route hop), shows route info instead."""
         body_name = s.target_body
+
+        # Station target?
+        stn = _find_targeted_station(s)
+        if stn:
+            return self._render_target_station(s, stn)
+
         body = next((b for b in s.bodies if b.name == body_name), None)
         _mp = P.mp(s.ui_mode)
         if body is None:

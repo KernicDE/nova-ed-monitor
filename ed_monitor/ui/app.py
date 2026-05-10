@@ -449,6 +449,7 @@ class NOVAApp(App):
             snap.route_bodies_edsm = dict(self._state.route_bodies_edsm)
             snap.carriers_current_system = list(self._state.carriers_current_system)
             snap.nearest_populated_stations = list(self._state.nearest_populated_stations)
+            snap.current_system_stations = list(self._state.current_system_stations)
             snap.route_next_stations = list(self._state.route_next_stations)
         return snap
 

@@ -431,8 +431,10 @@ def _apply_status(
         dest = data.get("Destination")
         if isinstance(dest, dict) and "Name" in dest:
             state.target_body = dest["Name"]
+            state.target_body_system = dest.get("System", "")
         else:
             state.target_body = ""
+            state.target_body_system = ""
 
         _check_bio_distance(state, tts_q)
 

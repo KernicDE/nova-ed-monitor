@@ -285,7 +285,8 @@ class AppState:
     approach_body: str = ""
 
     # Current destination target
-    target_body: str = ""
+    target_body:        str = ""
+    target_body_system: str = ""  # if target is in another system (from Status.json)
 
     # Ship target (ShipTargeted journal event)
     target_ship:         str   = ""    # ship type
@@ -415,6 +416,7 @@ class AppState:
     nearest_populated_dist:       float = 0.0
     nearest_populated_allegiance: str   = ""
     nearest_populated_stations:   list  = field(default_factory=list)  # list[dict] from EDSM
+    current_system_stations:      list  = field(default_factory=list)  # list[dict] from EDSM
     route_next_stations:          list  = field(default_factory=list)  # list[dict]
 
     # Spansh carrier lookup (populated by spansh.py after each system change)

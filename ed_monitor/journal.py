@@ -100,6 +100,12 @@ def _update_dump_lookups(state: AppState, lock, db: Database) -> None:
             state.system_power       = power
             state.system_power_state = power_state
 
+    # Stations in current system (for Target panel station lookups)
+    if sys_name:
+        current_stations = db.get_system_stations(sys_name, limit=50)
+        with lock:
+            state.current_system_stations = current_stations
+
     # Nearest populated: only useful when current system is uninhabited
     if pos and sys_name and pop == 0:
         nearest = db.get_nearest_populated(pos[0], pos[1], pos[2], exclude=sys_name)
