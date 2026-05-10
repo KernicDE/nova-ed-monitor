@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.14.10 — 2026-05-10
+
+### Bug Fixes
+
+- **Clean up localisation tokens in target names**
+  - Elite Dangerous sometimes emits raw internal keys like `$MULTIPLAYER_SCENARIO79_TITLE;` in `Status.json Destination.Name` when a localised string is missing (e.g. for new Frontline zones, Megaships, etc.). This produced unreadable text in the Target panel.
+  - Added `_clean_localised()` in `events.py` which strips the `$...;` wrapper and turns underscores into readable Title Case text.
+  - Applied to `target_body`, `target_body_system`, `target_body_body`, and `nearest_body` in `status.py` so every destination read from `Status.json` is sanitised at the source.
+
+---
+
 ## v2.14.9 — 2026-05-10
 
 ### Features

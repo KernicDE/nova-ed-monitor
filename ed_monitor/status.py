@@ -426,15 +426,17 @@ def _apply_status(
         state.heading = float(v) if isinstance(v, (int, float)) else None
 
         v = data.get("BodyName")
-        state.nearest_body = v if isinstance(v, str) and v else ""
-            
+        state.nearest_body = _ev._clean_localised(v) if isinstance(v, str) and v else ""
+
         dest = data.get("Destination")
         if isinstance(dest, dict) and "Name" in dest:
-            state.target_body = dest["Name"]
-            state.target_body_system = dest.get("System", "")
+            state.target_body        = _ev._clean_localised(dest["Name"])
+            state.target_body_system = _ev._clean_localised(dest.get("System", ""))
+            state.target_body_body   = _ev._clean_localised(dest.get("Body", ""))
         else:
             state.target_body = ""
             state.target_body_system = ""
+            state.target_body_body = ""
 
         _check_bio_distance(state, tts_q)
 

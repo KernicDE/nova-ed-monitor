@@ -287,6 +287,7 @@ class AppState:
     # Current destination target
     target_body:        str = ""
     target_body_system: str = ""  # if target is in another system (from Status.json)
+    target_body_body:   str = ""  # surface settlement's parent body (from Status.json)
 
     # Ship target (ShipTargeted journal event)
     target_ship:         str   = ""    # ship type

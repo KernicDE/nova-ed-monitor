@@ -62,6 +62,23 @@ def _strip_economy(s: str) -> str:
     return s.lstrip("$").rstrip(";").strip()
 
 
+def _clean_localised(s: str) -> str:
+    """Strip Elite Dangerous localisation tokens ($Key;) into readable text.
+
+    The game sometimes emits raw internal keys (e.g. '$MULTIPLAYER_SCENARIO79_TITLE;')
+    when a localised string is missing. This turns them into something presentable
+    by dropping the wrapper and replacing underscores with spaces.
+    """
+    if not isinstance(s, str):
+        return s
+    s = s.strip()
+    if s.startswith("$") and s.endswith(";"):
+        inner = s[1:-1].replace("_", " ")
+        # Title-case, but keep acronyms like 'NPC' uppercase
+        return " ".join(w if w.isupper() and len(w) <= 4 else w.title() for w in inner.split())
+    return s
+
+
 def _fmt_credits(n: int) -> str:
     return f"{n:,} Cr"
 

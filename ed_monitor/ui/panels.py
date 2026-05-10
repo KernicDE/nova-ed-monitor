@@ -944,7 +944,7 @@ class RoutePanel(_Panel):
         key = (
             snap.docked, snap.station, snap.station_type, snap.station_economy,
             snap.station_services, snap.station_dist_ls,
-            snap.target_ship, snap.target_body, snap.target_body_system,
+            snap.target_ship, snap.target_body, snap.target_body_system, snap.target_body_body,
             snap.approach_body, snap.nearest_body,
             snap.route_destination, snap.route_hops, snap.route_next, snap.route_next_star,
             snap.route_next_scoopable, snap.route_dist, snap.route_next_dist,
@@ -1106,6 +1106,10 @@ class RoutePanel(_Panel):
         if icons:
             row("Svcs", f"[{icons}]", P.AMBER)
 
+        # Surface settlement / planetary port
+        if s.target_body_body:
+            row("Body", s.target_body_body)
+
         return t
 
     def _render_target(self, s: AppState) -> Optional[RenderableType]:
@@ -1122,13 +1126,24 @@ class RoutePanel(_Panel):
         body = next((b for b in s.bodies if b.name == body_name), None)
         _mp = P.mp(s.ui_mode)
         if body is None:
-            # System target (e.g. next route hop) — not a scanned body in this system
+            # Not a scanned body in this system — could be a system target, a body/
+            # station in another system, or a surface settlement not in EDSM.
             t = Text()
 
             def _row(label: str, value: str, vstyle: str = "white") -> None:
                 _kv_line(t, label, value, vstyle, h3=_mp["h3"])
 
             t.append(f"{body_name}\n", style="bold white")
+
+            # Cross-system target
+            if s.target_body_system:
+                _row("System", s.target_body_system)
+
+            # Surface settlement / planetary port body
+            if s.target_body_body:
+                _row("Body", s.target_body_body)
+
+            # Route next info
             if body_name == s.route_next:
                 if s.route_next_dist > 0:
                     _row("Jump", f"{s.route_next_dist:.1f} ly")
@@ -1141,6 +1156,18 @@ class RoutePanel(_Panel):
                 _row("Hops", f"{s.route_hops} {word} remaining")
                 if s.route_destination and s.route_destination != body_name:
                     _row("Dest", s.route_destination)
+                return t
+
+            # If this target system is in the route EDSM cache, show what we know
+            route_edsm = getattr(s, "route_list_edsm", {})
+            edsm = route_edsm.get(body_name) or route_edsm.get(s.target_body_system, {})
+            if edsm:
+                pop = edsm.get("population", 0)
+                if pop > 0:
+                    _row("Pop", f"{_de(pop)}", P.LABEL)
+                alleg = edsm.get("allegiance", "")
+                if alleg:
+                    _row("Alleg", alleg)
             return t
 
         t = Text()
