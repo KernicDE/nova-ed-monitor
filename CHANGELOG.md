@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.14.9 — 2026-05-10
+
+### Features
+
+- **Improved target information for all target types**
+  - Surface settlements / planetary ports now show their parent **body** (planet/moon) when targeted.
+  - Cross-system targets (bodies, stations, or settlements in another system) now display the **target system** name.
+  - Unknown targets (systems or bodies not in the local database) now show any available **EDSM route data** (population, allegiance) if the target happens to be a route waypoint.
+  - `_render_target()` fallback no longer displays a bare name — it always provides context (system, body, or EDSM metadata).
+
+---
+
 ## v2.14.8 — 2026-05-10
 
 ### Features
