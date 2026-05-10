@@ -80,10 +80,23 @@ def _monitor(
         from watchdog.events import FileSystemEventHandler  # type: ignore[import]
 
         class _Handler(FileSystemEventHandler):
+            def _is_relevant(self, event) -> bool:      # type: ignore[no-untyped-def]
+                if event.is_directory:
+                    return False
+                p = Path(event.src_path)
+                if p.name == "config.toml" and p.parent == cfg_dir:
+                    return True
+                if p.parent == voiceline_dir and p.suffix == ".toml":
+                    return True
+                return False
+
             def on_modified(self, event) -> None:       # type: ignore[override]
-                changed.set()
+                if self._is_relevant(event):
+                    changed.set()
+
             def on_created(self, event) -> None:        # type: ignore[override]
-                changed.set()
+                if self._is_relevant(event):
+                    changed.set()
 
         obs = Observer()
         obs.schedule(_Handler(), str(cfg_dir), recursive=True)

@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.14.7 — 2026-05-10
+
+### Bug Fixes
+
+- **Volume control — +/- keys still reset to config default**
+  - v2.14.6 fixed the reload loop caused by `config.toml.example` writes, but the watchdog path still fired on *every* file change inside `~/.config/nova/`. This meant overlay `.txt` writes (1 Hz) and bindings backups triggered spurious config reloads, which unconditionally reset `state.volume` to `default_volume`.
+  - Fixed by filtering the `watchdog` event handler so it only reacts to `config.toml` and `*.toml` files directly inside `voicelines/`. All other files in the config directory (overlay, bindings_backup, cache, etc.) are now ignored.
+
+---
+
 ## v2.14.6 — 2026-05-07
 
 ### Bug Fixes
