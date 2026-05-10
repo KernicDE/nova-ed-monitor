@@ -296,7 +296,7 @@ def _kv_row(label: str, value: str, value_style: str = P.WHITE, width: int = 0,
         t.append(f"{label:<{width}}", style=h3)
     else:
         t.append(f"{label} ", style=h3)
-    t.append(value, style=value_style)
+    t.append(str(value) if value is not None else "", style=value_style)
     return t
 
 

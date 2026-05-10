@@ -69,8 +69,10 @@ def _clean_localised(s: str) -> str:
     when a localised string is missing. This turns them into something presentable
     by dropping the wrapper and replacing underscores with spaces.
     """
+    if s is None:
+        return ""
     if not isinstance(s, str):
-        return s
+        return str(s)
     s = s.strip()
     if s.startswith("$") and s.endswith(";"):
         inner = s[1:-1].replace("_", " ")
