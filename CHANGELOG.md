@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.14.8 — 2026-05-10
+
+### Features
+
+- **Station targeting in Target panel**
+  - When a station is targeted (via left-panel nav or galaxy map), the Target panel now displays EDSM station data instead of falling through to "No target".
+  - Shows: station name, type (Coriolis, Outpost, etc.), distance from star, and services icons (M=Market, S=Shipyard, O=Outfitting, R=Repair, F=Refuel, N=Restock).
+  - If the station is in a different system, the system name is shown too.
+  - Implementation: `status.py` reads `Destination.System` from `Status.json`; `journal.py` fetches current-system stations from the local EDSM dump; `panels.py` looks up the target in current/route/nearest station lists and renders the info.
+
+---
+
 ## v2.14.7 — 2026-05-10
 
 ### Bug Fixes
