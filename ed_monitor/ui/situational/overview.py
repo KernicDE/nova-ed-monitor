@@ -215,7 +215,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40, mp: dict
                         bio_s = f"{len(b.bio_genuses)}×✓"
                         bio_c = P.AMBER
                     elif b.bio_genuses_predicted:
-                        from ..events import _BIO_GENUS_VALUE_RANGE as _BGVR
+                        from ...events import _BIO_GENUS_VALUE_RANGE as _BGVR
                         _pred_lo: list[int] = []
                         _pred_hi: list[int] = []
                         for _pg in b.bio_genuses_predicted:
