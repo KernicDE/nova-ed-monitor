@@ -23,7 +23,10 @@ def _parse_voice_catalog(
     """
     catalog: dict[str, dict[str, list[str]]] = {}
     for v in voices:
-        parts = v.get("ShortName", "").split("-")
+        short_name = v.get("ShortName", "")
+        if "Multilingual" in short_name:
+            continue
+        parts = short_name.split("-")
         if len(parts) < 3:
             continue
         lang   = parts[0]

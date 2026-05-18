@@ -109,6 +109,21 @@ def _reset_cache_if_voice_changed(voice: str, rate: str) -> None:
         pass
 
 
+def clear_cache() -> None:
+    """Delete all cached mp3s and the voice signature file."""
+    cd = _cache_dir()
+    for p in cd.glob("*.mp3"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    sig_file = cd.parent / "voice.sig"
+    try:
+        sig_file.unlink()
+    except OSError:
+        pass
+
+
 def spawn_worker(
     voice:     str,
     rate:      str,
@@ -118,6 +133,13 @@ def spawn_worker(
 ) -> queue.Queue:
     _cleanup_stale_tmp()
     _reset_cache_if_voice_changed(voice, rate)
+    if "multilingual" in voice.lower():
+        logging.getLogger("nova.tts").warning(
+            "Voice %s is a multilingual voice. Multilingual voices are not "
+            "supported because they can mix languages unexpectedly. Please "
+            "select a monolingual voice in Settings.",
+            voice,
+        )
     q: queue.Queue[TtsMsg] = queue.Queue()
     t = threading.Thread(
         target=_worker,

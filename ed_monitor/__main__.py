@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import queue
+import sys
 import threading
 import time
 import traceback
@@ -199,9 +201,16 @@ def main() -> None:
     # Screenshot processing thread
     _spawn_guarded(screenshots.monitor, (state, lock, cfg), "nova-screenshots")
 
+    restart_evt = threading.Event()
+
     def _on_config_changed():
         try:
             new_cfg = config.load()
+            old_lang = events.get_tts_lang()
+            if new_cfg.tts_lang != old_lang:
+                tts.clear_cache()
+                voicelines.reload_all()
+                restart_evt.set()
             events.set_tts_lang(new_cfg.tts_lang)
             events.set_voices(new_cfg.tts_voices)
             with vol_lock:
@@ -224,7 +233,14 @@ def main() -> None:
         _on_voicelines_changed,
     )
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg).run()
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run()
+
+    if restart_evt.is_set():
+        logging.getLogger("nova").info("Restarting NOVA after language change")
+        if sys.argv[0].endswith("__main__.py"):
+            os.execv(sys.executable, [sys.executable, "-m", "ed_monitor"])
+        else:
+            os.execv(sys.executable, sys.argv)
 
 
 if __name__ == "__main__":

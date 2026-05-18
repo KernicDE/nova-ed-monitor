@@ -144,3 +144,18 @@ class TestPanelRowCompilation:
             TextRow("panel_bio", "Bio", ""),
         ]
         assert self._compile(rows) == []
+
+
+    def test_multilingual_voice_filtered(self):
+        voices = [
+            {"ShortName": "de-DE-KatjaNeural"},
+            {"ShortName": "de-DE-SeraphinaMultilingualNeural"},
+            {"ShortName": "en-GB-SoniaNeural"},
+        ]
+        catalog = _parse_voice_catalog(voices)
+        assert "de" in catalog
+        assert "DE" in catalog["de"]
+        assert "KatjaNeural" in catalog["de"]["DE"]
+        assert "SeraphinaMultilingualNeural" not in catalog["de"]["DE"]
+        assert "en" in catalog
+        assert "SoniaNeural" in catalog["en"]["GB"]

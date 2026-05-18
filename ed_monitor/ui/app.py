@@ -385,16 +385,18 @@ class NOVAApp(App):
         stop_evt: threading.Event | None = None,
         neutron_q: queue.Queue | None = None,
         cfg: "object | None" = None,
+        restart_evt: threading.Event | None = None,
     ) -> None:
         super().__init__()
-        self._state     = state
-        self._lock      = lock
-        self._volume    = volume
-        self._vol_lock  = vol_lock
-        self._tts_q     = tts_q
-        self._stop_evt  = stop_evt
-        self._neutron_q = neutron_q
-        self._cfg       = cfg
+        self._state      = state
+        self._lock       = lock
+        self._volume     = volume
+        self._vol_lock   = vol_lock
+        self._tts_q      = tts_q
+        self._stop_evt   = stop_evt
+        self._neutron_q  = neutron_q
+        self._cfg        = cfg
+        self._restart_evt = restart_evt
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
         self._prev_fingerprint: tuple = ()    # global state fingerprint — skip panel updates when unchanged
@@ -463,6 +465,11 @@ class NOVAApp(App):
             self._driver.flush()
         except Exception:
             pass
+
+        # ── Restart check (config hot-reload may have set the flag) ────────
+        if self._restart_evt is not None and self._restart_evt.is_set():
+            self.exit()
+            return
 
         # ── Cheap tick path ────────────────────────────────────────────────
         # Every tick (2 Hz) we need FooterBar, CSS class flips, and the
@@ -574,6 +581,7 @@ class NOVAApp(App):
     def on_settings_screen_saved(self, event: "SettingsScreen.Saved") -> None:
         """Apply live-reloadable settings from the overlay."""
         cfg = event.cfg
+        old_lang = self._cfg.tts_lang if self._cfg else "en"
         self._cfg = cfg
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
@@ -585,6 +593,12 @@ class NOVAApp(App):
             self._state.notable_value_threshold = cfg.notable_value_threshold
         from .. import voicelines as _vl
         _vl.reload_all()
+        if cfg.tts_lang != old_lang:
+            from .. import tts as _tts_mod
+            _tts_mod.clear_cache()
+            if self._restart_evt is not None:
+                self._restart_evt.set()
+            self.exit()
 
     # Panel focus order: 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
     _FOCUS_PANELS = [SystemPanel, ShipPanel, RoutePanel, BodiesPanel, EventLogPanel, ChatLogPanel]

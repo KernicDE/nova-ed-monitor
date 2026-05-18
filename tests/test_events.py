@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import queue
 import pytest
-from ed_monitor.events import _fmt_credits, _body_vars, handle, is_scoopable, _is_terraformable
+from ed_monitor.events import _fmt_credits, _body_vars, handle, is_scoopable, _is_terraformable, _phonetic_sub
 from ed_monitor.state import AppState, BodyInfo, EventCategory
 from ed_monitor.state import estimate_value_mapped as _ev_mapped
 
@@ -654,3 +654,35 @@ def test_fsd_jump_no_home_system_skips_check():
 
     assert result is not None
     assert "Welcome home" not in result.message
+
+
+class TestPhoneticSub:
+    def test_kernic_replacement(self):
+        assert "Kernik" in _phonetic_sub("kernicde", "en")
+        assert "Kernik" in _phonetic_sub("KernicDE", "en")
+
+    def test_ly_replacement(self):
+        assert _phonetic_sub("10 ly", "en") == "10 light years"
+
+    def test_cr_replacement(self):
+        assert _phonetic_sub("100 cr", "en") == "100 credits"
+
+    def test_hyphen_replacement_german(self):
+        assert _phonetic_sub("System c12-a", "de") == "System c12 Strich a"
+        assert _phonetic_sub("G65434-2", "de") == "G65434 Strich 2"
+
+    def test_hyphen_replacement_english(self):
+        assert _phonetic_sub("System c12-a", "en") == "System c12 dash a"
+
+    def test_hyphen_replacement_french(self):
+        assert _phonetic_sub("System c12-a", "fr") == "System c12 tiret a"
+
+    def test_hyphen_replacement_russian(self):
+        assert _phonetic_sub("System c12-a", "ru") == "System c12 тире a"
+
+    def test_no_hyphen_replacement_when_lang_missing(self):
+        # Unknown language falls back to no replacement
+        assert _phonetic_sub("System c12-a", "xx") == "System c12-a"
+
+    def test_regular_text_unchanged(self):
+        assert _phonetic_sub("Hello world", "de") == "Hello world"

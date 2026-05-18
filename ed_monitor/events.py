@@ -788,6 +788,17 @@ _LANG_VOICES: dict[str, str] = {
     "ru": "ru-RU-SvetlanaNeural",
 }
 
+# Spoken replacement for hyphens in names (system names, IDs, etc.)
+_HYPHEN_WORD: dict[str, str] = {
+    "de": "Strich",
+    "en": "dash",
+    "fr": "tiret",
+    "it": "trattino",
+    "es": "guión",
+    "pt": "traço",
+    "ru": "тире",
+}
+
 _LANG_VERBS: dict[str, str] = {
     "en": "says",
     "de": "sagt",
@@ -859,17 +870,27 @@ def set_tts_lang(lang: str) -> None:
     _TTS_LANG = lang
 
 
+def get_tts_lang() -> str:
+    """Return the current NOVA voiceover language."""
+    return _TTS_LANG
+
+
 def set_chat_lang(lang: str) -> None:
     """Set fallback language for chat TTS when auto-detection returns English."""
     global _CHAT_LANG
     _CHAT_LANG = lang
 
 
-def _phonetic_sub(text: str) -> str:
+def _phonetic_sub(text: str, lang: str | None = None) -> str:
     """Apply phonetic substitutions for TTS pronunciation."""
+    if lang is None:
+        lang = _TTS_LANG
     text = re.sub(r"\bkernic(?:de)?\b", "Kernik", text, flags=re.IGNORECASE)
     text = re.sub(r"\bly\b", "light years", text, flags=re.IGNORECASE)
     text = re.sub(r"\bcr\b", "credits", text, flags=re.IGNORECASE)
+    word = _HYPHEN_WORD.get(lang)
+    if word:
+        text = re.sub(r'(?<=[A-Za-z0-9])-(?=[A-Za-z0-9])', f' {word} ', text)
     return text
 
 
@@ -949,7 +970,7 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
     # Chat is unique per message — never cache
     try:
         tts_q.put_nowait(TtsMsg(
-            text=_phonetic_sub(text), priority=False, voice=voice, cacheable=False,
+            text=_phonetic_sub(text, lang=lang), priority=False, voice=voice, cacheable=False,
         ))
     except queue.Full:
         _log.debug("TTS queue full — dropped chat line from %s", user[:40])
