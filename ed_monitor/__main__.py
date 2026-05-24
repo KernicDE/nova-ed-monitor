@@ -10,137 +10,27 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 
-# Workaround: Kitty terminal's extended keyboard protocol (CSI u) causes
-# garbled characters and broken key handling in Textual 8.0.2.
-# Textual's Linux driver unconditionally sends \x1b[>1u to enable the protocol.
-# In addition, Kitty itself or the user's shell (fish) may re-enable the
-# protocol after NOVA has started.
-# We therefore disable it explicitly before startup AND aggressively patch
-# the driver's write() so ANY kitty-keyboard enable sequence is replaced
-# with a disable.  A small keep-alive thread re-disables every 500 ms as
-# a belt-and-suspenders measure.
-if os.environ.get("TERM") == "xterm-kitty" or "KITTY_WINDOW_ID" in os.environ:
-    sys.stdout.write("\x1b[>0u")
-    sys.stdout.write("\x1b[?1003l")
-    sys.stdout.flush()
-    os.environ["TERM"] = "xterm-256color"
-    os.environ.pop("TERMINFO", None)
-    os.environ.pop("TERM_PROGRAM", None)
+
+def _patch_kitty_keyboard_protocol() -> None:
+    # Fish shell enables Kitty keyboard protocol with event-type reporting
+    # (flags=31). This produces sequences like \x1b[97;1:1u that Textual's
+    # _re_extended_key cannot match (missing `:N` event-type suffix), causing
+    # the parser to fall back to reissue_sequence_as_keys which converts ESC
+    # to `^` and produces visible garbage like `^[[A` on screen.
+    # Fix: extend the regex to allow the optional :N suffix.
+    try:
+        import re as _re
+        import textual._xterm_parser as _xterm_parser
+        _xterm_parser._re_extended_key = _re.compile(
+            r"\x1b\[(?:(\d+)(?:;(\d+)(?::\d+)?)?)?([u~ABCDEFHPQRS])"
+        )
+    except Exception:
+        pass
+
+
+_patch_kitty_keyboard_protocol()
 
 _wlog = logging.getLogger("nova.watchdog")
-
-
-def _patch_textual_linux_driver() -> None:
-    """Aggressively prevent Kitty keyboard protocol from staying enabled.
-
-    1. Replace any \x1b[>Nu (N>=1) written by the driver with \x1b[>0u.
-    2. Start a tiny keep-alive thread that sends \x1b[>0u every 500 ms.
-    3. On shutdown pop every push we performed so the terminal stack is
-       restored cleanly.
-    """
-    try:
-        from textual.drivers.linux_driver import LinuxDriver
-    except Exception:
-        return
-
-    import re
-    _KITTY_ENABLE_RE = re.compile(r"\x1b\[>([1-9]\d*)u")
-
-    _orig_write = LinuxDriver.write
-    _orig_start = LinuxDriver.start_application_mode
-    _orig_stop = LinuxDriver.stop_application_mode
-
-    def _patched_write(self, data: str) -> None:
-        def _replacer(m: re.Match) -> str:
-            self._nova_kitty_pushes = getattr(self, "_nova_kitty_pushes", 0) + 1
-            return "\x1b[>0u"
-        data = _KITTY_ENABLE_RE.sub(_replacer, data)
-        return _orig_write(self, data)
-
-    def _patched_start(self):
-        self._nova_kitty_pushes = 0
-        _orig_start(self)
-
-    def _patched_stop(self):
-        pushes = getattr(self, "_nova_kitty_pushes", 0) + 1
-        for _ in range(pushes):
-            _orig_write(self, "\x1b[<u")
-        self.flush()
-        _orig_stop(self)
-
-    LinuxDriver.write = _patched_write  # type: ignore[method-assign]
-    LinuxDriver.start_application_mode = _patched_start  # type: ignore[method-assign]
-    LinuxDriver.stop_application_mode = _patched_stop  # type: ignore[method-assign]
-
-    # Extra safety: if the input thread crashes (e.g. because Kitty sends
-    # an unexpected sequence), restart it instead of leaving NOVA without
-    # keyboard input.  Also re-apply termios on restart in case something
-    # (fish, another process) changed the terminal settings.
-    _orig_run_input = LinuxDriver._run_input_thread
-
-    def _patched_run_input(self):
-        while True:
-            try:
-                # Re-apply raw termios settings before each restart
-                if self.attrs_before is not None:
-                    try:
-                        import termios as _termios, tty as _tty
-                        newattr = _termios.tcgetattr(self.fileno)
-                        newattr[_tty.LFLAG] = LinuxDriver._patch_lflag(newattr[_tty.LFLAG])
-                        newattr[_tty.IFLAG] = LinuxDriver._patch_iflag(newattr[_tty.IFLAG])
-                        newattr[_tty.CC][_termios.VMIN] = 1
-                        _termios.tcsetattr(self.fileno, _termios.TCSANOW, newattr)
-                    except Exception:
-                        pass
-                _orig_run_input(self)
-            except BaseException as exc:
-                logging.getLogger("nova.input").error(
-                    "Textual input thread crashed: %s", exc, exc_info=True
-                )
-                time.sleep(1)
-                continue
-            break
-
-    LinuxDriver._run_input_thread = _patched_run_input  # type: ignore[method-assign]
-
-
-def _patch_textual_xterm_parser() -> None:
-    """Teach Textual 8.0.2 to parse Kitty keyboard protocol sequences.
-
-    Even though we try to keep the protocol disabled, Kitty or fish may
-    turn it on.  If that happens we want the keys to work rather than
-    producing garbled text.
-    """
-    try:
-        import textual._xterm_parser as _xterm_parser
-        import textual._keyboard_protocol as _kb
-        import re as _re
-    except Exception:
-        return
-
-    # Allow optional :flags after the modifier field
-    _xterm_parser._re_extended_key = _re.compile(
-        r"\x1b\[(?:(\d+)(?:;(\d+)(?::\d+)?)?)?([u~ABCDEFHPQRS])"
-    )
-
-    # Kitty-specific functional key codes that Textual doesn't know about
-    _kb.FUNCTIONAL_KEYS = {
-        **_kb.FUNCTIONAL_KEYS,
-        "57450u": "left",
-        "57451u": "right",
-        "57452u": "up",
-        "57453u": "down",
-        "57454u": "home",
-        "57455u": "end",
-        "57456u": "insert",
-        "57457u": "delete",
-        "57458u": "pageup",
-        "57459u": "pagedown",
-    }
-
-
-_patch_textual_linux_driver()
-_patch_textual_xterm_parser()
 
 
 def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.17.0 — 2026-05-24
+
+### Bug Fixes
+
+- **Kitty + fish: garbled `^[[A^[[O` text on startup — root cause fixed**
+  - Previous attempts tried to suppress/disable the Kitty keyboard protocol
+    entirely. This was the wrong approach: Textual 8.x sends `\x1b[>1u` to
+    enable the protocol and fish re-enables it with flags=31, so suppression
+    always lost the race.
+  - The actual bug: fish's protocol variant includes an event-type suffix
+    (e.g. `\x1b[97;1:1u` for key-press), which Textual's `_re_extended_key`
+    regex could not match. The parser then fell back to
+    `reissue_sequence_as_keys`, converting ESC bytes to `^` and producing
+    visible garbage like `^[[A^[[O` instead of key events.
+  - Fix: extend `_re_extended_key` to allow the optional `:N` event-type
+    suffix. All prior Kitty-suppression code (TERM env override, protocol
+    push/pop patching, input-thread restart wrapper) has been removed.
+
+---
+
 ## v2.16.1 — 2026-05-24
 
 ### Bug Fixes
