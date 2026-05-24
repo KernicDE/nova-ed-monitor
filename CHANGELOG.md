@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.16.0 — 2026-05-24
+
+### Bug Fixes
+
+- **Remove keep-alive thread + auto-restart input thread**
+  - The 500 ms keep-alive thread in v2.15.8/v2.15.9 could interfere with
+    Textual's writer queue and may have destabilised the input path.
+    Removed entirely.
+  - Added a defensive patch on `LinuxDriver._run_input_thread()`:
+    if the input thread crashes for any reason it is now automatically
+    restarted after a 1 s back-off instead of leaving NOVA without
+    keyboard input.
+
+---
+
 ## v2.15.9 — 2026-05-24
 
 ### Bug Fixes

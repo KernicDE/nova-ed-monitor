@@ -58,30 +58,10 @@ def _patch_textual_linux_driver() -> None:
         return _orig_write(self, data)
 
     def _patched_start(self):
-        # start with zero pushes tracked by the driver itself
         self._nova_kitty_pushes = 0
         _orig_start(self)
-        # keep-alive: if something (kitty, fish, another lib) turns the
-        # protocol back on, we turn it off again within 500 ms.
-        self._nova_kitty_alive = True
-
-        def _keepalive() -> None:
-            while getattr(self, "_nova_kitty_alive", False):
-                _orig_write(self, "\x1b[>0u")
-                self._nova_kitty_pushes += 1
-                self.flush()
-                time.sleep(0.5)
-
-        t = threading.Thread(target=_keepalive, daemon=True)
-        t.start()
-        self._nova_kitty_thread = t
 
     def _patched_stop(self):
-        # stop the keep-alive thread
-        self._nova_kitty_alive = False
-        if hasattr(self, "_nova_kitty_thread"):
-            self._nova_kitty_thread.join(timeout=1.0)
-        # pop every push we created (+1 for the pre-startup sys.stdout write)
         pushes = getattr(self, "_nova_kitty_pushes", 0) + 1
         for _ in range(pushes):
             _orig_write(self, "\x1b[<u")
@@ -91,6 +71,27 @@ def _patch_textual_linux_driver() -> None:
     LinuxDriver.write = _patched_write  # type: ignore[method-assign]
     LinuxDriver.start_application_mode = _patched_start  # type: ignore[method-assign]
     LinuxDriver.stop_application_mode = _patched_stop  # type: ignore[method-assign]
+
+    # Extra safety: if the input thread crashes (e.g. because Kitty sends
+    # an unexpected sequence), restart it instead of leaving NOVA without
+    # keyboard input.
+    _orig_run_input = LinuxDriver._run_input_thread
+
+    def _patched_run_input(self):
+        while True:
+            try:
+                _orig_run_input(self)
+            except BaseException as exc:
+                # Log the crash and restart after a short back-off
+                logging.getLogger("nova.input").error(
+                    "Textual input thread crashed: %s", exc, exc_info=True
+                )
+                time.sleep(1)
+                continue
+            # Normal exit (exit_event set) — stop restarting
+            break
+
+    LinuxDriver._run_input_thread = _patched_run_input  # type: ignore[method-assign]
 
 
 _patch_textual_linux_driver()
