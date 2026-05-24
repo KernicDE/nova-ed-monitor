@@ -12,10 +12,16 @@ from datetime import datetime
 
 # Workaround: Kitty terminal sends extended keyboard protocol escape sequences
 # that Textual sometimes fails to parse, causing garbled characters at the top
-# of the screen and unresponsive keyboard input. Forcing xterm-256color keeps
-# all visual features intact while disabling the problematic protocol.
-if "kitty" in (os.environ.get("TERM", "") + os.environ.get("TERM_PROGRAM", "")).lower():
+# of the screen and unresponsive keyboard input.
+# We explicitly disable the protocol via the Kitty escape sequence and clear
+# all kitty-related env vars so Textual cannot re-enable it.
+if os.environ.get("TERM") == "xterm-kitty" or "KITTY_WINDOW_ID" in os.environ:
+    sys.stdout.write("\x1b[>0u")   # disable kitty keyboard protocol
+    sys.stdout.write("\x1b[?1003l") # disable mouse tracking
+    sys.stdout.flush()
     os.environ["TERM"] = "xterm-256color"
+    os.environ.pop("TERMINFO", None)
+    os.environ.pop("TERM_PROGRAM", None)
 
 _wlog = logging.getLogger("nova.watchdog")
 

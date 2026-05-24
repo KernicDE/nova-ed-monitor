@@ -212,6 +212,9 @@ class NeutronInputScreen(Screen):
 
 
 class NOVAApp(App):
+    # Disable mouse support to prevent TTS lag caused by rapid MouseMove events.
+    mouse = False
+
     CSS = """
     Screen {
         background: rgb(18,18,18);  /* P.BG_DARK */
