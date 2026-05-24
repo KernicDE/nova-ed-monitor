@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.15.9 — 2026-05-24
+
+### Bug Fixes
+
+- **Crash on startup in v2.15.8**
+  - `_orig_start` was referenced in `_patched_start` but never captured, causing a `NameError` the instant the driver entered application mode.
+  - Fixed by adding the missing `_orig_start = LinuxDriver.start_application_mode` assignment.
+
+---
+
 ## v2.15.8 — 2026-05-24
 
 ### Bug Fixes

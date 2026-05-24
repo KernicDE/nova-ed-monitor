@@ -47,6 +47,7 @@ def _patch_textual_linux_driver() -> None:
     _KITTY_ENABLE_RE = re.compile(r"\x1b\[>([1-9]\d*)u")
 
     _orig_write = LinuxDriver.write
+    _orig_start = LinuxDriver.start_application_mode
     _orig_stop = LinuxDriver.stop_application_mode
 
     def _patched_write(self, data: str) -> None:
