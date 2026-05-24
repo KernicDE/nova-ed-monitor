@@ -303,12 +303,15 @@ def _play_audio(path: str, volume: int) -> None:
         try:
             import pygame
             pygame.mixer.init()
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(volume / 100.0)
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.05)
-            pygame.mixer.music.unload()  # release file handle (required on Windows)
+            try:
+                pygame.mixer.music.load(path)
+                pygame.mixer.music.set_volume(volume / 100.0)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    time.sleep(0.05)
+                pygame.mixer.music.unload()  # release file handle (required on Windows)
+            finally:
+                pygame.mixer.quit()
             return
         except Exception as e:
             _audio_logger.warning(f"pygame playback failed: {e}")
@@ -420,10 +423,13 @@ def _play_audio(path: str, volume: int) -> None:
             script = (
                 "import pygame, sys, time\n"
                 "pygame.mixer.init()\n"
-                "pygame.mixer.music.load(sys.argv[1])\n"
-                f"pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
-                "pygame.mixer.music.play()\n"
-                "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+                "try:\n"
+                "    pygame.mixer.music.load(sys.argv[1])\n"
+                f"    pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
+                "    pygame.mixer.music.play()\n"
+                "    while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+                "finally:\n"
+                "    pygame.mixer.quit()\n"
             )
             r = subprocess.run(
                 ["python3", "-c", script, path],
@@ -434,9 +440,12 @@ def _play_audio(path: str, volume: int) -> None:
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False
 
+    # Prefer plain mpg123 (lets the system pick ALSA/PipeWire/Pulse)
+    # over explicit -o pulse, because on PipeWire systems the ALSA
+    # route is often more reliable when multiple apps compete.
     _backends = [
-        ("mpg123_pulse", _try_mpg123_pulse),
         ("mpg123",       _try_mpg123),
+        ("mpg123_pulse", _try_mpg123_pulse),
         ("ffplay",       _try_ffplay),
         ("afplay",       _try_afplay),
         ("pygame_sys",   _try_pygame_sys),
