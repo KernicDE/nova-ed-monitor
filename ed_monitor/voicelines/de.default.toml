@@ -164,7 +164,7 @@ lines = ["Interdiktion erfolgreich: {victim}."]
 lines = ["Interdiktion fehlgeschlagen."]
 
 [Scanned]
-lines = ["Warnung: {scan_type}-Scan erkannt!"]
+lines = ["Warnung: {scan_type} Scan erkannt!"]
 
 [HeatWarning]
 lines = ["Warnung: Hitze kritisch!"]

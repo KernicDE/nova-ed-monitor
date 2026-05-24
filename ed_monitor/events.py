@@ -3155,7 +3155,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             return None
 
         case "Scanned":
-            scan_type = _s(ev, "ScanType")
+            scan_type = _s(ev, "ScanType").replace("-", " ")
             msg = f"Warning: {scan_type} scan detected!"
             _say(tts_q, "Scanned", True, fallback=msg, scan_type=scan_type)
             return LogEvent.new(EventCategory.Warn, msg)
