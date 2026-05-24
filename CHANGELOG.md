@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.15.3 — 2026-05-24
+
+### Bug Fixes
+
+- **German TTS spoke "STRICH" for scan type hyphen**
+  - The German voiceline used `{scan_type}-Scan` which the TTS voice read as "Cargo STRICH Scan".
+  - Changed to `{scan_type} Scan` in `de.default.toml`.
+  - Added hyphen sanitisation in `events.py` so journal `ScanType` values containing dashes are replaced with spaces before speech.
+
+---
+
 ## v2.15.2 — 2026-05-24
 
 ### Bug Fixes
