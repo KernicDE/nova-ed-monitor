@@ -976,16 +976,34 @@ def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> No
         _log.debug("TTS queue full — dropped chat line from %s", user[:40])
 
 
+def _tts_num(value: float, fmt: str = ".1f") -> str:
+    """Format a number for TTS speech.
+
+    English keeps the dot as decimal separator.
+    All other languages (de, fr, es, it, pt, ru) use comma,
+    which TTS voices read as the native decimal word (e.g. 'Komma').
+
+    Trailing '.0' / ',0' is stripped so whole numbers sound natural
+    (e.g. '5' instead of '5,0').
+    """
+    text = f"{value:{fmt}}"
+    if text.endswith(".0") or text.endswith(",0"):
+        text = text[:-2]
+    if _TTS_LANG != "en":
+        text = text.replace(".", ",")
+    return text
+
+
 def _tts_cr(state, n: int) -> str:
     """Format credits for speech (spoken naturally)."""
     lang = _TTS_LANG
     unit = _vl.unit_for(lang, "credits")
     if n >= 1_000_000_000:
-        return f"{n/1_000_000_000:.1f} {_vl.unit_for(lang, 'billion')} {unit}"
+        return f"{_tts_num(n/1_000_000_000)} {_vl.unit_for(lang, 'billion')} {unit}"
     if n >= 1_000_000:
-        return f"{n/1_000_000:.1f} {_vl.unit_for(lang, 'million')} {unit}"
+        return f"{_tts_num(n/1_000_000)} {_vl.unit_for(lang, 'million')} {unit}"
     if n >= 1_000:
-        return f"{n/1_000:.0f} {_vl.unit_for(lang, 'thousand')} {unit}"
+        return f"{_tts_num(n/1_000, '.0f')} {_vl.unit_for(lang, 'thousand')} {unit}"
     return f"{n} {unit}"
 
 
@@ -994,7 +1012,7 @@ def _tts_ly(state, ly: float) -> str:
     lang = _TTS_LANG
     if abs(ly - 1.0) < 0.05:
         return f"1 {_vl.unit_for(lang, 'light_year', count=1)}"
-    return f"{ly:.1f} {_vl.unit_for(lang, 'light_years', count=int(ly))}"
+    return f"{_tts_num(ly)} {_vl.unit_for(lang, 'light_years', count=int(ly))}"
 
 
 def _tts_ls(state, ls: float) -> str:
@@ -1003,19 +1021,19 @@ def _tts_ls(state, ls: float) -> str:
     if ls < 1.5:
         return f"1 {_vl.unit_for(lang, 'light_second', count=1)}"
     if ls >= 1000:
-        return f"{ls/1000:.0f} {_vl.unit_for(lang, 'thousand_light_seconds')}"
-    return f"{ls:.0f} {_vl.unit_for(lang, 'light_seconds', count=int(ls))}"
+        return f"{_tts_num(ls/1000, '.0f')} {_vl.unit_for(lang, 'thousand_light_seconds')}"
+    return f"{_tts_num(ls, '.0f')} {_vl.unit_for(lang, 'light_seconds', count=int(ls))}"
 
 
 def _tts_pop(state, n: int) -> str:
     """Format population for speech."""
     lang = _TTS_LANG
     if n >= 1_000_000_000:
-        return f"{n/1_000_000_000:.1f} {_vl.unit_for(lang, 'billion')}"
+        return f"{_tts_num(n/1_000_000_000)} {_vl.unit_for(lang, 'billion')}"
     if n >= 1_000_000:
-        return f"{n/1_000_000:.0f} {_vl.unit_for(lang, 'million')}"
+        return f"{_tts_num(n/1_000_000)} {_vl.unit_for(lang, 'million')}"
     if n >= 1_000:
-        return f"{n/1_000:.0f} {_vl.unit_for(lang, 'thousand')}"
+        return f"{_tts_num(n/1_000, '.0f')} {_vl.unit_for(lang, 'thousand')}"
     if n <= 0:
         return _vl.unit_for(lang, "uninhabited")
     return str(n)
@@ -1027,10 +1045,10 @@ def _fmt_orbital_period(state, seconds: float) -> str:
     if seconds <= 0:
         return ""
     if seconds < 3600:
-        return f"{seconds / 60:.1f} {_vl.unit_for(lang, 'minutes')}"
+        return f"{_tts_num(seconds / 60)} {_vl.unit_for(lang, 'minutes')}"
     if seconds < 86400:
-        return f"{seconds / 3600:.1f} {_vl.unit_for(lang, 'hours')}"
-    return f"{seconds / 86400:.1f} {_vl.unit_for(lang, 'days')}"
+        return f"{_tts_num(seconds / 3600)} {_vl.unit_for(lang, 'hours')}"
+    return f"{_tts_num(seconds / 86400)} {_vl.unit_for(lang, 'days')}"
 
 
 def _orbital_period_parts(seconds: float) -> tuple[str, str, str, str]:
@@ -1719,7 +1737,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 hops_word = _vl.unit_for(lang, "jump") if hops == 1 else _vl.unit_for(lang, "jumps")
                 tts_suffix += f" {hops} {hops_word} {_vl.unit_for(lang, 'remaining')}."
             if pop > 0:
-                tts_suffix += f" {_vl.unit_for(lang, 'Pop')}: {_fmt_pop(pop)}."
+                tts_suffix += f" {_vl.unit_for(lang, 'Pop')}: {_tts_pop(state, pop)}."
             if live:
                 state.last_jump_at = time.time()
             _say(tts_q, "FSDJump", False,
