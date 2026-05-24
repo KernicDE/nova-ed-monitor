@@ -13,23 +13,22 @@ from datetime import datetime
 
 def _patch_kitty_keyboard_protocol() -> None:
     # Fish shell enables Kitty keyboard protocol with flags=31 (all features).
-    # Textual's _re_extended_key cannot parse some of the resulting sequences:
+    # Textual's parser cannot handle some of the resulting sequences:
     #
     #   \x1b[97;1:1u   — letter 'a', modifier 1, event-type 1 (press)
     #                    `:N` event-type suffix after the modifier is ignored
     #
     #   \x1b[1:129B    — cursor down; first parameter uses `:` sub-parameters
-    #                    instead of a semicolon-separated second field.
+    #                    (Num Lock bit 128 + base 1 = 129) instead of plain `1`
     #
-    # Timing: Textual's \x1b[>1u push is sent late in start_application_mode(),
-    # so for ~1 second fish's flags=31 is still active and cursor keys arrive
-    # as `1:129B` instead of plain `B`.  After the push takes effect everything
-    # reverts to flags=1 — but the garbled window already happened.
+    # Textual ≥ 8.2.7 introduced _parse_extended_key() (2-group regex).
+    # Textual ≤ 8.2.6 used _re_extended_key directly (3-group regex).
+    # Detect which version is present by inspecting the regex group count.
     #
-    # Fix 1 — extend _re_extended_key to tolerate :subparam in BOTH positions:
-    #   CSI num[:subparam…] [; modifier[:subparam…]] final
+    # Fix (both versions): strip `:N` sub-parameters before the parser sees
+    # them so that `\x1b[97;1:1u` → `\x1b[97;1u` and `\x1b[1:129B` → `\x1b[1B`.
     #
-    # Fix 2 — silence unrecognised terminal-control sequences (e.g. \x1b[p that
+    # Also silence unrecognised terminal-control sequences (e.g. \x1b[p that
     # Kitty sends in response to mode queries) so they don't produce spurious
     # circumflex-bracket key events.
     try:
@@ -37,13 +36,24 @@ def _patch_kitty_keyboard_protocol() -> None:
         import textual._xterm_parser as _xterm_parser
         from textual._ansi_sequences import ANSI_SEQUENCES_KEYS, IGNORE_SEQUENCE
 
-        _xterm_parser._re_extended_key = _re.compile(
-            r"\x1b\[(?:(\d+)(?::\d+)*(?:;(\d+)(?::\d+)*)?)?([u~ABCDEFHPQRS])"
-        )
+        _test = _xterm_parser._re_extended_key.match("\x1b[1;2A")
+        _n_groups = len(_test.groups()) if _test else 0
 
-        # Silence terminal-control sequences that are not key events.
-        # \x1b[p arrives from Kitty in some initialisation contexts and has no
-        # defined key meaning; reissuing it produces ^[p garbage on screen.
+        if _n_groups == 2:
+            # Textual 8.2.7+: 2-group regex, parsed via _parse_extended_key().
+            # Monkey-patch that method to strip :N sub-params before delegating.
+            _orig_parse = _xterm_parser.XTermParser._parse_extended_key
+            _strip = _re.compile(r":\d+")
+            def _patched_parse(self, sequence, _orig=_orig_parse, _strip=_strip):
+                return _orig(self, _strip.sub("", sequence))
+            _xterm_parser.XTermParser._parse_extended_key = _patched_parse
+        else:
+            # Textual 8.2.6: 3-group regex used directly in _sequence_to_key_events.
+            # Extend it to tolerate :subparam in both parameter positions.
+            _xterm_parser._re_extended_key = _re.compile(
+                r"\x1b\[(?:(\d+)(?::\d+)*(?:;(\d+)(?::\d+)*)?)?([u~ABCDEFHPQRS])"
+            )
+
         for _seq in ("\x1b[p", "\x1b[>0p", "\x1b[>p"):
             ANSI_SEQUENCES_KEYS.setdefault(_seq, IGNORE_SEQUENCE)
 

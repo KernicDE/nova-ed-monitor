@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.17.2 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: keys broken on Textual 8.2.7+ (regression in v2.17.1)**
+  - v2.17.1 replaced `_re_extended_key` with a 3-group regex. Textual 8.2.7
+    introduced a new `_parse_extended_key()` method that expects exactly 2
+    groups from that regex; the 3-group replacement caused `ValueError: too
+    many values to unpack`, crashing the input thread silently.
+  - Fix: detect the Textual version by inspecting the existing regex group
+    count. On 8.2.7+ (2 groups), monkey-patch `_parse_extended_key()` to
+    strip `:N` sub-parameters before delegating to the original. On 8.2.6
+    (3 groups), patch `_re_extended_key` as before.
+  - All Kitty+fish sequences now parse correctly on both versions:
+    `\x1b[97;1:1u` → `a`, `\x1b[1:129B` → `down`, `\x1b[1;129A` → `up`.
+
+---
+
 ## v2.17.1 — 2026-05-25
 
 ### Bug Fixes
