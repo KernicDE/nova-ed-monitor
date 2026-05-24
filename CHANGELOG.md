@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.15.0 — 2026-05-24
+
+### Features
+
+- **Complete TTS unit localization for all supported languages**
+  - NOVA now speaks units, measurements, and status phrases in the user's configured `tts_lang` instead of mixing English into non-English sentences.
+  - Localized: light years/seconds, credits, population (million/billion), temperature (Kelvin), distance (kilometres), mass (Earth masses), gravity (G), orbital period (minutes/hours/days), and many more.
+  - Added `[units]` tables to all 7 built-in voiceline TOMLs (`en`, `de`, `fr`, `es`, `it`, `pt`, `ru`) so every unit word is translated.
+
+- **Slavic plural support for Russian TTS**
+  - Russian uses 3 plural forms (1 / 2–4 / 5+). NOVA now correctly selects "световой год" (1), "световых года" (2–4), or "световых лет" (5+) based on the number.
+  - Added `_slavic_plural()` helper and `unit_for()` with plural dispatch to `voicelines.py`.
+
+- **Localized FSDJump suffixes**
+  - Star class, scoopable status, remaining jumps, and population are now spoken in the target language.
+  - Example (German): "Ankunft in Zeessze. Sprung über 11,2 Lichtjahre. Stern Typ K, tankbar. 3 Sprünge verbleiben. Bevölkerung: 37 Millionen."
+
+### Bug Fixes
+
+- **Fixed duplicate `[FSDJump_Home]` key in `en.default.toml`**
+  - The duplicate table caused `tomllib` to reject the entire English voiceline file, silently breaking all English TTS fallback paths.
+
+- **Translated `FSDJump_Home` in all non-English languages**
+  - Previously this line was always spoken in English regardless of language setting.
+
+- **Eliminated `{bio_word}` / `{verb}` dependency in bio scan voicelines**
+  - These variables only worked for English grammar ("is" / "are", "bio" / "bios"). Each language now uses its own natural sentence structure.
+
+- **Moved `First footfall bonus applied` into WHEN...THEN blocks**
+  - Previously hardcoded English string; now localized per language via conditional voiceline templates.
+
+---
+
 ## v2.14.10 — 2026-05-10
 
 ### Bug Fixes

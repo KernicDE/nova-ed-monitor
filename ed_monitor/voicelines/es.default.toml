@@ -53,7 +53,7 @@ lines = ["Comandante {commander} en línea."]
 [FSDJump]
 lines = ["Llegada a {system}. Salto de {dist_ly}.{suffix}"]
 [FSDJump_Home]
-lines = ["Welcome home, Commander."]
+lines = ["Bienvenido a casa, Comandante."]
 
 
 [NavRoute]
@@ -198,10 +198,10 @@ lines = ["Biológico: {species}. ¡Nueva especie!"]
 lines = ["Muestra bio {count} de 3: {species}."]
 
 [ScanOrganic_Analyse]
-lines = ["Bio completo: {species}. Valor: {val_str}.{ff_suffix}"]
+lines = ['Bio completo: {species}. Valor: {val_str}.WHEN {first_footfall_flag} IS TRUE THEN " Bono de primer paso aplicado.";']
 
 [ScanOrganic_Analyse_BodyLeft]
-lines = ["Quedan {body_left} {bio_word} más en este cuerpo."]
+lines = ["Quedan {body_left} señales biológicas más en este cuerpo."]
 
 [ScanOrganic_Analyse_SystemMore]
 lines = ["Más señales bio: {parts_str}."]
@@ -323,3 +323,56 @@ lines = ["Demasiado cerca de la muestra {species}. Aléjate antes de escanear."]
 [System_EDSM_Unknown]
 # No variables.
 lines = ["Sistema desconocido en EDSM."]
+
+[units]
+light_year = "año luz"
+light_years = "años luz"
+light_second = "segundo luz"
+light_seconds = "segundos luz"
+thousand_light_seconds = "mil segundos luz"
+billion = "mil millones"
+million = "millones"
+thousand = "mil"
+uninhabited = "deshabitado"
+credits = "créditos"
+percent = "por ciento"
+tonnes = "toneladas"
+minutes = "minutos"
+hours = "horas"
+days = "días"
+Kelvin = "Kelvin"
+kilometres = "kilómetros"
+earth_masses = "masas terrestres"
+G = "G"
+astronomical_units = "unidades astronómicas"
+degrees = "grados"
+metres = "metros"
+scoopable = "escalable"
+not_scoopable = "no escalable"
+jump = "salto"
+jumps = "saltos"
+remaining = "restantes"
+Pop = "Población"
+bio = "señal bio"
+bios = "señales bio"
+is = "es"
+are = "son"
+landable = "Aterrizable"
+undiscovered = "No descubierto"
+first_footfall = "Primer paso"
+ringed = "Con anillos"
+tidal_lock = "Rotación sincrónica"
+complete = "completo"
+star = "Estrella"
+first_footfall_bonus = "Bono de primer paso aplicado."
+earthlike = "similar a la Tierra"
+water_world = "mundo de agua"
+ammonia_world = "mundo de amoníaco"
+terraformable = "terraformable"
+bio_body = "cuerpo bio"
+bio_bodies = "cuerpos bio"
+neutron_star = "estrella de neutrones"
+neutron_stars = "estrellas de neutrones"
+black_hole = "agujero negro"
+black_holes = "agujeros negros"
+nothing_notable = "nada notable"
