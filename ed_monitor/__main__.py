@@ -10,20 +10,51 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 
-# Workaround: Kitty terminal sends extended keyboard protocol escape sequences
-# that Textual sometimes fails to parse, causing garbled characters at the top
-# of the screen and unresponsive keyboard input.
-# We explicitly disable the protocol via the Kitty escape sequence and clear
-# all kitty-related env vars so Textual cannot re-enable it.
+# Workaround: Kitty terminal's extended keyboard protocol (CSI u) causes
+# garbled characters and broken key handling in Textual 8.0.2.
+# Textual's Linux driver unconditionally sends \x1b[>1u to enable the protocol.
+# We patch the driver to skip that sequence, and force TERM so Kitty doesn't
+# advertise protocol support to other libraries.
 if os.environ.get("TERM") == "xterm-kitty" or "KITTY_WINDOW_ID" in os.environ:
-    sys.stdout.write("\x1b[>0u")   # disable kitty keyboard protocol
-    sys.stdout.write("\x1b[?1003l") # disable mouse tracking
-    sys.stdout.flush()
     os.environ["TERM"] = "xterm-256color"
     os.environ.pop("TERMINFO", None)
     os.environ.pop("TERM_PROGRAM", None)
 
 _wlog = logging.getLogger("nova.watchdog")
+
+
+def _patch_textual_linux_driver() -> None:
+    """Prevent Textual from enabling the Kitty keyboard protocol.
+
+    Textual's LinuxDriver unconditionally sends \x1b[>1u in
+    start_application_mode(). This causes Kitty to emit CSI u escape
+    sequences that Textual 8.0.2 fails to parse correctly, resulting in
+    garbled screen output and non-functional keys.
+    We monkey-patch the driver to filter out that single sequence.
+    """
+    try:
+        from textual.drivers.linux_driver import LinuxDriver
+    except Exception:
+        return
+
+    _orig_start = LinuxDriver.start_application_mode
+
+    def _patched_start(self):
+        _orig_write = self.write
+        def _filtered_write(data: str) -> None:
+            if data == "\x1b[>1u":
+                return
+            return _orig_write(data)
+        self.write = _filtered_write  # type: ignore[method-assign]
+        try:
+            _orig_start(self)
+        finally:
+            self.write = _orig_write  # type: ignore[method-assign]
+
+    LinuxDriver.start_application_mode = _patched_start  # type: ignore[method-assign]
+
+
+_patch_textual_linux_driver()
 
 
 def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
@@ -246,7 +277,7 @@ def main() -> None:
         _on_voicelines_changed,
     )
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run()
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 
     if restart_evt.is_set():
         logging.getLogger("nova").info("Restarting NOVA after language change")

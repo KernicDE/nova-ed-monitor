@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.15.6 — 2026-05-24
+
+### Bug Fixes
+
+- **Kitty terminal keyboard completely non-functional**
+  - Textual 8.0.2's Linux driver unconditionally sends `\x1b[>1u` to enable the Kitty keyboard protocol. This causes Kitty to emit CSI-u escape sequences that Textual fails to parse, resulting in garbled screen characters and completely broken key input (arrow keys, Ctrl+C, etc. did not work).
+  - Added a monkey-patch on `LinuxDriver.start_application_mode()` that filters out the `\x1b[>1u` sequence before it reaches the terminal. The terminal stays in normal ANSI mode and all keys work as expected.
+
+- **Mouse tracking still active despite `mouse = False`**
+  - Setting `mouse = False` as a class attribute on `NOVAApp` has no effect in Textual 8.0.2. Mouse support is controlled exclusively by the `mouse=` parameter of `app.run()`.
+  - Changed `NOVAApp(...).run()` to `NOVAApp(...).run(mouse=False)`. This disables mouse tracking at the driver level: no `MouseMove` events are generated (eliminating TTS lag from mouse movement), panels can no longer be hovered/selected with the mouse, and the mouse cursor no longer interacts with the TUI.
+
+---
+
+## v2.15.5 — 2026-05-24
+
+### Bug Fixes
+
+- **Mouse movement causes TTS lag**
+  - Rapid `MouseMove` events were flooding the UI thread, causing audio stutter.
+  - Added `NOVAApp.mouse = False` and `CSI ?1003l` escape sequence on mount to disable mouse tracking.
+  - *Note: this fix was incomplete; v2.15.6 replaces it with the proper driver-level disable.*
+
+---
+
+## v2.15.4 — 2026-05-24
+
+### Bug Fixes
+
+- **Kitty terminal shows garbled keyboard escape sequences**
+  - Kitty's CSI-u keyboard protocol sent sequences like `^[[5744;137u^` that Textual did not recognise.
+  - Added `TERM=xterm-256color` override when `KITTY_WINDOW_ID` is detected.
+  - *Note: this fix was incomplete because Textual's Linux driver re-enabled the protocol later; v2.15.6 replaces it with a driver-level patch.*
+
+---
+
 ## v2.15.3 — 2026-05-24
 
 ### Bug Fixes
