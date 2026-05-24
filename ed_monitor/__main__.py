@@ -10,6 +10,13 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 
+# Workaround: Kitty terminal sends extended keyboard protocol escape sequences
+# that Textual sometimes fails to parse, causing garbled characters at the top
+# of the screen and unresponsive keyboard input. Forcing xterm-256color keeps
+# all visual features intact while disabling the problematic protocol.
+if "kitty" in (os.environ.get("TERM", "") + os.environ.get("TERM_PROGRAM", "")).lower():
+    os.environ["TERM"] = "xterm-256color"
+
 _wlog = logging.getLogger("nova.watchdog")
 
 
