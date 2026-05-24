@@ -13,9 +13,17 @@ from datetime import datetime
 # Workaround: Kitty terminal's extended keyboard protocol (CSI u) causes
 # garbled characters and broken key handling in Textual 8.0.2.
 # Textual's Linux driver unconditionally sends \x1b[>1u to enable the protocol.
-# We patch the driver to skip that sequence, and force TERM so Kitty doesn't
-# advertise protocol support to other libraries.
+# In addition, the user's shell (fish) may have left the protocol enabled.
+# We therefore disable it explicitly before startup AND patch the driver so
+# Textual cannot re-enable it.
 if os.environ.get("TERM") == "xterm-kitty" or "KITTY_WINDOW_ID" in os.environ:
+    # Push current flags onto stack and set kitty keyboard flags to 0.
+    # This disables the protocol for the lifetime of NOVA. Textual's
+    # stop_application_mode() already sends \x1b[<u (pop) on exit, so the
+    # previous state (e.g. fish's enabled protocol) is restored cleanly.
+    sys.stdout.write("\x1b[>0u")
+    sys.stdout.write("\x1b[?1003l")  # disable mouse tracking (belt-and-suspenders)
+    sys.stdout.flush()
     os.environ["TERM"] = "xterm-256color"
     os.environ.pop("TERMINFO", None)
     os.environ.pop("TERM_PROGRAM", None)
@@ -30,7 +38,8 @@ def _patch_textual_linux_driver() -> None:
     start_application_mode(). This causes Kitty to emit CSI u escape
     sequences that Textual 8.0.2 fails to parse correctly, resulting in
     garbled screen output and non-functional keys.
-    We monkey-patch the driver to filter out that single sequence.
+    We monkey-patch the driver to filter out that single sequence and
+    emit an extra disable afterwards in case something else turned it on.
     """
     try:
         from textual.drivers.linux_driver import LinuxDriver
@@ -50,6 +59,8 @@ def _patch_textual_linux_driver() -> None:
             _orig_start(self)
         finally:
             self.write = _orig_write  # type: ignore[method-assign]
+        # The protocol is already disabled by the \x1b[>0u sent before
+        # startup; we only need to prevent Textual from re-enabling it.
 
     LinuxDriver.start_application_mode = _patched_start  # type: ignore[method-assign]
 

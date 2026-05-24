@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.15.7 — 2026-05-24
+
+### Bug Fixes
+
+- **Kitty keyboard still broken after v2.15.6**
+  - The v2.15.6 patch only prevented Textual from *enabling* the protocol, but did nothing if the user's shell (fish) had already enabled it before NOVA started.
+  - Now sending `\x1b[>0u` before startup. This pushes the current state onto the stack and sets Kitty keyboard flags to 0, reliably disabling the protocol for NOVA's lifetime.
+  - Textual's `stop_application_mode()` already sends `\x1b[<u` (pop) on exit, so the previous state (e.g. fish's enabled protocol) is restored cleanly.
+
+---
+
 ## v2.15.6 — 2026-05-24
 
 ### Bug Fixes
