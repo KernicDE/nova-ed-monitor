@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.15.2 — 2026-05-24
+
+### Bug Fixes
+
+- **TTS audio engine stops after extended use**
+  - `pygame.mixer.quit()` was never called after playback. The mixer was initialised on every TTS message but never shut down, leaking audio resources until the process exited. When another application (e.g. a Python overlay using edge-tts/pygame) competed for the same audio device, the mixer would eventually stop responding.
+  - Added `pygame.mixer.quit()` in `finally` blocks on Windows and in the Linux subprocess fallback.
+
+- **PipeWire audio routing improved**
+  - Reordered Linux audio backends: plain `mpg123` is now tried before `mpg123 -o pulse`. On PipeWire systems the ALSA route is often more reliable when multiple apps compete for the audio device.
+
+---
+
 ## v2.15.0 — 2026-05-24
 
 ### Features
