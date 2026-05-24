@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.16.1 — 2026-05-24
+
+### Bug Fixes
+
+- **Input thread dies after ~0.5 s in Kitty — fourth attempt**
+  - Added `termios` re-apply when the input thread auto-restarts, in case
+    fish or another process changed the terminal settings while NOVA runs.
+  - Monkey-patched Textual's `XTermParser._re_extended_key` regex so it
+    understands Kitty protocol sequences with `:flags` (e.g. `CSI 97;1:3 u`).
+  - Added missing Kitty functional-key codes (arrow keys, home, end, etc.)
+    to `_keyboard_protocol.FUNCTIONAL_KEYS` so Textual can map them even
+    if the protocol is active.
+
+---
+
 ## v2.16.0 — 2026-05-24
 
 ### Bug Fixes

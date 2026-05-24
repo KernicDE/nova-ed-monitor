@@ -74,27 +74,73 @@ def _patch_textual_linux_driver() -> None:
 
     # Extra safety: if the input thread crashes (e.g. because Kitty sends
     # an unexpected sequence), restart it instead of leaving NOVA without
-    # keyboard input.
+    # keyboard input.  Also re-apply termios on restart in case something
+    # (fish, another process) changed the terminal settings.
     _orig_run_input = LinuxDriver._run_input_thread
 
     def _patched_run_input(self):
         while True:
             try:
+                # Re-apply raw termios settings before each restart
+                if self.attrs_before is not None:
+                    try:
+                        import termios as _termios, tty as _tty
+                        newattr = _termios.tcgetattr(self.fileno)
+                        newattr[_tty.LFLAG] = LinuxDriver._patch_lflag(newattr[_tty.LFLAG])
+                        newattr[_tty.IFLAG] = LinuxDriver._patch_iflag(newattr[_tty.IFLAG])
+                        newattr[_tty.CC][_termios.VMIN] = 1
+                        _termios.tcsetattr(self.fileno, _termios.TCSANOW, newattr)
+                    except Exception:
+                        pass
                 _orig_run_input(self)
             except BaseException as exc:
-                # Log the crash and restart after a short back-off
                 logging.getLogger("nova.input").error(
                     "Textual input thread crashed: %s", exc, exc_info=True
                 )
                 time.sleep(1)
                 continue
-            # Normal exit (exit_event set) — stop restarting
             break
 
     LinuxDriver._run_input_thread = _patched_run_input  # type: ignore[method-assign]
 
 
+def _patch_textual_xterm_parser() -> None:
+    """Teach Textual 8.0.2 to parse Kitty keyboard protocol sequences.
+
+    Even though we try to keep the protocol disabled, Kitty or fish may
+    turn it on.  If that happens we want the keys to work rather than
+    producing garbled text.
+    """
+    try:
+        import textual._xterm_parser as _xterm_parser
+        import textual._keyboard_protocol as _kb
+        import re as _re
+    except Exception:
+        return
+
+    # Allow optional :flags after the modifier field
+    _xterm_parser._re_extended_key = _re.compile(
+        r"\x1b\[(?:(\d+)(?:;(\d+)(?::\d+)?)?)?([u~ABCDEFHPQRS])"
+    )
+
+    # Kitty-specific functional key codes that Textual doesn't know about
+    _kb.FUNCTIONAL_KEYS = {
+        **_kb.FUNCTIONAL_KEYS,
+        "57450u": "left",
+        "57451u": "right",
+        "57452u": "up",
+        "57453u": "down",
+        "57454u": "home",
+        "57455u": "end",
+        "57456u": "insert",
+        "57457u": "delete",
+        "57458u": "pageup",
+        "57459u": "pagedown",
+    }
+
+
 _patch_textual_linux_driver()
+_patch_textual_xterm_parser()
 
 
 def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
