@@ -12,18 +12,41 @@ from datetime import datetime
 
 
 def _patch_kitty_keyboard_protocol() -> None:
-    # Fish shell enables Kitty keyboard protocol with event-type reporting
-    # (flags=31). This produces sequences like \x1b[97;1:1u that Textual's
-    # _re_extended_key cannot match (missing `:N` event-type suffix), causing
-    # the parser to fall back to reissue_sequence_as_keys which converts ESC
-    # to `^` and produces visible garbage like `^[[A` on screen.
-    # Fix: extend the regex to allow the optional :N suffix.
+    # Fish shell enables Kitty keyboard protocol with flags=31 (all features).
+    # Textual's _re_extended_key cannot parse some of the resulting sequences:
+    #
+    #   \x1b[97;1:1u   — letter 'a', modifier 1, event-type 1 (press)
+    #                    `:N` event-type suffix after the modifier is ignored
+    #
+    #   \x1b[1:129B    — cursor down; first parameter uses `:` sub-parameters
+    #                    instead of a semicolon-separated second field.
+    #
+    # Timing: Textual's \x1b[>1u push is sent late in start_application_mode(),
+    # so for ~1 second fish's flags=31 is still active and cursor keys arrive
+    # as `1:129B` instead of plain `B`.  After the push takes effect everything
+    # reverts to flags=1 — but the garbled window already happened.
+    #
+    # Fix 1 — extend _re_extended_key to tolerate :subparam in BOTH positions:
+    #   CSI num[:subparam…] [; modifier[:subparam…]] final
+    #
+    # Fix 2 — silence unrecognised terminal-control sequences (e.g. \x1b[p that
+    # Kitty sends in response to mode queries) so they don't produce spurious
+    # circumflex-bracket key events.
     try:
         import re as _re
         import textual._xterm_parser as _xterm_parser
+        from textual._ansi_sequences import ANSI_SEQUENCES_KEYS, IGNORE_SEQUENCE
+
         _xterm_parser._re_extended_key = _re.compile(
-            r"\x1b\[(?:(\d+)(?:;(\d+)(?::\d+)?)?)?([u~ABCDEFHPQRS])"
+            r"\x1b\[(?:(\d+)(?::\d+)*(?:;(\d+)(?::\d+)*)?)?([u~ABCDEFHPQRS])"
         )
+
+        # Silence terminal-control sequences that are not key events.
+        # \x1b[p arrives from Kitty in some initialisation contexts and has no
+        # defined key meaning; reissuing it produces ^[p garbage on screen.
+        for _seq in ("\x1b[p", "\x1b[>0p", "\x1b[>p"):
+            ANSI_SEQUENCES_KEYS.setdefault(_seq, IGNORE_SEQUENCE)
+
     except Exception:
         pass
 

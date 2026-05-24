@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.17.1 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: cursor keys still garbled after v2.17.0**
+  - Root: `\x1b[1:129B` (cursor-down from fish flags=31) puts the sub-parameter
+    in the *first* CSI field (before any semicolon), which v2.17.0's regex still
+    could not match. Timing: Textual's `\x1b[>1u` push is sent *late* in
+    `start_application_mode()`, so for ~1 second fish's flags=31 remains active
+    and arrow keys arrive in this `num:subparam final` format.
+  - Fix: extend `_re_extended_key` to allow any number of `:N` sub-parameters
+    after *either* the first or second CSI number field, covering all Kitty
+    protocol sequence variants.
+  - Also silence `\x1b[p` and related terminal-control sequences that Kitty
+    emits during initialisation; without this they produce spurious `^[p` key
+    events.
+
+---
+
 ## v2.17.0 — 2026-05-24
 
 ### Bug Fixes
