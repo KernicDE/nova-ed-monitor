@@ -1368,7 +1368,7 @@ class BodiesPanel(_Panel):
 
         _mp = P.mp(s.ui_mode)
         tbl = _data_table(_mp["h2"])
-        tbl.add_column("Body", style="white", width=11, no_wrap=True)
+        tbl.add_column("Body", style="white", width=14, no_wrap=True)
         tbl.add_column("Type", width=8)
         tbl.add_column("Est Val", width=11, justify="right")
         tbl.add_column("Dist", width=11, justify="right")

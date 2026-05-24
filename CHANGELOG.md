@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.15.8 — 2026-05-24
+
+### Bug Fixes
+
+- **Kitty keyboard stops working after ~0.5 s (third attempt)**
+  - v2.15.7 only disabled the protocol once at startup. Something (Kitty itself or the fish shell) re-enabled it shortly after the UI appeared, causing keys to die again.
+  - Replaced the one-shot disable with an **aggressive three-layer defence**:
+    1. `LinuxDriver.write()` is monkey-patched so *any* `\x1b[>Nu` (N≥1) is rewritten to `\x1b[>0u` on the fly.
+    2. A tiny keep-alive thread sends `\x1b[>0u` every 500 ms for the entire lifetime of NOVA.
+    3. On shutdown we pop every push we created (plus the initial pre-startup push) so the terminal stack is restored cleanly.
+  - This guarantees the protocol stays off regardless of what else tries to turn it on.
+
+- **BodiesPanel truncated long body names**
+  - Increased the "Body" column width from 11 to 14 characters so names like "Lowing's…" and "Darkes Ho…" render correctly.
+
+---
+
 ## v2.15.7 — 2026-05-24
 
 ### Bug Fixes

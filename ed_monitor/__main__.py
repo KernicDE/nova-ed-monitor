@@ -13,16 +13,15 @@ from datetime import datetime
 # Workaround: Kitty terminal's extended keyboard protocol (CSI u) causes
 # garbled characters and broken key handling in Textual 8.0.2.
 # Textual's Linux driver unconditionally sends \x1b[>1u to enable the protocol.
-# In addition, the user's shell (fish) may have left the protocol enabled.
-# We therefore disable it explicitly before startup AND patch the driver so
-# Textual cannot re-enable it.
+# In addition, Kitty itself or the user's shell (fish) may re-enable the
+# protocol after NOVA has started.
+# We therefore disable it explicitly before startup AND aggressively patch
+# the driver's write() so ANY kitty-keyboard enable sequence is replaced
+# with a disable.  A small keep-alive thread re-disables every 500 ms as
+# a belt-and-suspenders measure.
 if os.environ.get("TERM") == "xterm-kitty" or "KITTY_WINDOW_ID" in os.environ:
-    # Push current flags onto stack and set kitty keyboard flags to 0.
-    # This disables the protocol for the lifetime of NOVA. Textual's
-    # stop_application_mode() already sends \x1b[<u (pop) on exit, so the
-    # previous state (e.g. fish's enabled protocol) is restored cleanly.
     sys.stdout.write("\x1b[>0u")
-    sys.stdout.write("\x1b[?1003l")  # disable mouse tracking (belt-and-suspenders)
+    sys.stdout.write("\x1b[?1003l")
     sys.stdout.flush()
     os.environ["TERM"] = "xterm-256color"
     os.environ.pop("TERMINFO", None)
@@ -32,37 +31,65 @@ _wlog = logging.getLogger("nova.watchdog")
 
 
 def _patch_textual_linux_driver() -> None:
-    """Prevent Textual from enabling the Kitty keyboard protocol.
+    """Aggressively prevent Kitty keyboard protocol from staying enabled.
 
-    Textual's LinuxDriver unconditionally sends \x1b[>1u in
-    start_application_mode(). This causes Kitty to emit CSI u escape
-    sequences that Textual 8.0.2 fails to parse correctly, resulting in
-    garbled screen output and non-functional keys.
-    We monkey-patch the driver to filter out that single sequence and
-    emit an extra disable afterwards in case something else turned it on.
+    1. Replace any \x1b[>Nu (N>=1) written by the driver with \x1b[>0u.
+    2. Start a tiny keep-alive thread that sends \x1b[>0u every 500 ms.
+    3. On shutdown pop every push we performed so the terminal stack is
+       restored cleanly.
     """
     try:
         from textual.drivers.linux_driver import LinuxDriver
     except Exception:
         return
 
-    _orig_start = LinuxDriver.start_application_mode
+    import re
+    _KITTY_ENABLE_RE = re.compile(r"\x1b\[>([1-9]\d*)u")
+
+    _orig_write = LinuxDriver.write
+    _orig_stop = LinuxDriver.stop_application_mode
+
+    def _patched_write(self, data: str) -> None:
+        def _replacer(m: re.Match) -> str:
+            self._nova_kitty_pushes = getattr(self, "_nova_kitty_pushes", 0) + 1
+            return "\x1b[>0u"
+        data = _KITTY_ENABLE_RE.sub(_replacer, data)
+        return _orig_write(self, data)
 
     def _patched_start(self):
-        _orig_write = self.write
-        def _filtered_write(data: str) -> None:
-            if data == "\x1b[>1u":
-                return
-            return _orig_write(data)
-        self.write = _filtered_write  # type: ignore[method-assign]
-        try:
-            _orig_start(self)
-        finally:
-            self.write = _orig_write  # type: ignore[method-assign]
-        # The protocol is already disabled by the \x1b[>0u sent before
-        # startup; we only need to prevent Textual from re-enabling it.
+        # start with zero pushes tracked by the driver itself
+        self._nova_kitty_pushes = 0
+        _orig_start(self)
+        # keep-alive: if something (kitty, fish, another lib) turns the
+        # protocol back on, we turn it off again within 500 ms.
+        self._nova_kitty_alive = True
 
+        def _keepalive() -> None:
+            while getattr(self, "_nova_kitty_alive", False):
+                _orig_write(self, "\x1b[>0u")
+                self._nova_kitty_pushes += 1
+                self.flush()
+                time.sleep(0.5)
+
+        t = threading.Thread(target=_keepalive, daemon=True)
+        t.start()
+        self._nova_kitty_thread = t
+
+    def _patched_stop(self):
+        # stop the keep-alive thread
+        self._nova_kitty_alive = False
+        if hasattr(self, "_nova_kitty_thread"):
+            self._nova_kitty_thread.join(timeout=1.0)
+        # pop every push we created (+1 for the pre-startup sys.stdout write)
+        pushes = getattr(self, "_nova_kitty_pushes", 0) + 1
+        for _ in range(pushes):
+            _orig_write(self, "\x1b[<u")
+        self.flush()
+        _orig_stop(self)
+
+    LinuxDriver.write = _patched_write  # type: ignore[method-assign]
     LinuxDriver.start_application_mode = _patched_start  # type: ignore[method-assign]
+    LinuxDriver.stop_application_mode = _patched_stop  # type: ignore[method-assign]
 
 
 _patch_textual_linux_driver()
