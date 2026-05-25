@@ -12,47 +12,49 @@ from datetime import datetime
 
 
 def _patch_kitty_keyboard_protocol() -> None:
-    # Fish shell enables Kitty keyboard protocol with flags=31 (all features).
-    # Textual's parser cannot handle some of the resulting sequences:
+    # Fish 4.x enables KKP flags=31 (all features). Textual cannot parse the
+    # resulting sequences because:
     #
-    #   \x1b[97;1:1u   — letter 'a', modifier 1, event-type 1 (press)
-    #                    `:N` event-type suffix after the modifier is ignored
+    # 1. REPORT_EVENT_TYPES (bit 2) appends `:N` sub-params to the modifier:
+    #       \x1b[97;1:1u   — 'a', modifier 1, event-type 1 (press)
+    #       \x1b[1:129B    — cursor-down; Num Lock (128) as sub-param of 1st field
     #
-    #   \x1b[1:129B    — cursor down; first parameter uses `:` sub-parameters
-    #                    (Num Lock bit 128 + base 1 = 129) instead of plain `1`
+    # 2. REPORT_ALTERNATE_KEYS (bit 4) inserts extra semicolon-separated fields:
+    #       \x1b[97;65;97;1:1u  — 'a' with shifted='A', base='a', modifier, event-type
+    #    Textual's regex expects at most 2-3 semicolon-separated fields;
+    #    sequences with 4+ fields never match and the key is silently dropped.
     #
-    # Textual ≥ 8.2.7 introduced _parse_extended_key() (2-group regex).
-    # Textual ≤ 8.2.6 used _re_extended_key directly (3-group regex).
-    # Detect which version is present by inspecting the regex group count.
+    # Fix: normalize sequences in _sequence_to_key_events before Textual sees them.
+    #   Step 1 — strip `:N` event-type sub-params everywhere.
+    #   Step 2 — collapse alternate-key sequences to codepoint;modifier form:
+    #             \x1b[cp;sk;bk;mod u  →  \x1b[cp;mod u
     #
-    # Fix (both versions): strip `:N` sub-parameters before the parser sees
-    # them so that `\x1b[97;1:1u` → `\x1b[97;1u` and `\x1b[1:129B` → `\x1b[1B`.
-    #
-    # Also silence unrecognised terminal-control sequences (e.g. \x1b[p that
-    # Kitty sends in response to mode queries) so they don't produce spurious
-    # circumflex-bracket key events.
+    # This works on both Textual 8.2.3 (3-group regex) and 8.2.7+ (2-group +
+    # _parse_extended_key), so no version detection is needed.
     try:
         import re as _re
         import textual._xterm_parser as _xterm_parser
         from textual._ansi_sequences import ANSI_SEQUENCES_KEYS, IGNORE_SEQUENCE
 
-        _test = _xterm_parser._re_extended_key.match("\x1b[1;2A")
-        _n_groups = len(_test.groups()) if _test else 0
+        _strip_subparam = _re.compile(r":\d+")
+        # Matches u-terminated KKP sequences with ≥3 semicolon-separated numbers.
+        # Captures: (1) prefix \x1b[, (2) first codepoint, (3) last field (modifier), (4) u
+        _collapse_u = _re.compile(r"(\x1b\[)(\d+)(?:;\d+)+;(\d+)(u)")
 
-        if _n_groups == 2:
-            # Textual 8.2.7+: 2-group regex, parsed via _parse_extended_key().
-            # Monkey-patch that method to strip :N sub-params before delegating.
-            _orig_parse = _xterm_parser.XTermParser._parse_extended_key
-            _strip = _re.compile(r":\d+")
-            def _patched_parse(self, sequence, _orig=_orig_parse, _strip=_strip):
-                return _orig(self, _strip.sub("", sequence))
-            _xterm_parser.XTermParser._parse_extended_key = _patched_parse
-        else:
-            # Textual 8.2.6: 3-group regex used directly in _sequence_to_key_events.
-            # Extend it to tolerate :subparam in both parameter positions.
-            _xterm_parser._re_extended_key = _re.compile(
-                r"\x1b\[(?:(\d+)(?::\d+)*(?:;(\d+)(?::\d+)*)?)?([u~ABCDEFHPQRS])"
-            )
+        def _normalize(seq: str) -> str:
+            seq = _strip_subparam.sub("", seq)   # drop :N event-type sub-params
+            m = _collapse_u.fullmatch(seq)
+            if m:
+                seq = f"{m.group(1)}{m.group(2)};{m.group(3)}{m.group(4)}"
+            return seq
+
+        _orig_stke = _xterm_parser.XTermParser._sequence_to_key_events
+
+        def _patched_stke(self, sequence: str, alt: bool = False,
+                          _orig=_orig_stke, _norm=_normalize):
+            return _orig(self, _norm(sequence), alt)
+
+        _xterm_parser.XTermParser._sequence_to_key_events = _patched_stke
 
         for _seq in ("\x1b[p", "\x1b[>0p", "\x1b[>p"):
             ANSI_SEQUENCES_KEYS.setdefault(_seq, IGNORE_SEQUENCE)
@@ -291,13 +293,6 @@ def main() -> None:
         _on_config_changed,
         _on_voicelines_changed,
     )
-
-    # Fish 4.x enables KKP (flags=31) on startup and may re-push after Textual's
-    # own push. Clear the entire Kitty KKP stack before Textual takes over so
-    # its push lands cleanly on an empty stack. Kitty silently ignores excess pops.
-    if os.environ.get("KITTY_WINDOW_ID") or os.environ.get("TERM") == "xterm-kitty":
-        sys.stdout.write("\x1b[<u" * 8)
-        sys.stdout.flush()
 
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.18.2 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: root cause found — REPORT_ALTERNATE_KEYS drops all character keys**
+  - Fish 4.x enables KKP `flags=31` which includes `REPORT_ALTERNATE_KEYS` (bit 4).
+    This inserts two extra semicolon-separated fields into every character key
+    sequence: e.g. `\x1b[97;65;97;1:1u` (codepoint + shifted + base + modifier +
+    event-type). Textual's regex expects at most 3 fields; 4-field sequences never
+    matched and every character key was silently dropped.
+  - Previous attempts (v2.17.0–v2.18.1) only stripped `:N` event-type sub-params
+    and tried clearing the KKP stack — neither addressed the 4-field format.
+  - Fix: normalize sequences in `_sequence_to_key_events` before Textual parses them:
+    1. Strip `:N` event-type sub-params (`\x1b[97;1:1u` → `\x1b[97;1u`)
+    2. Collapse alternate-key extra fields to `codepoint;modifier` form
+       (`\x1b[97;65;97;1u` → `\x1b[97;1u`)
+  - Works on Textual 8.2.3 and 8.2.7+ without version detection. Handles cursor
+    keys, character keys, and Num Lock modifier (129) correctly.
+
+---
+
 ## v2.18.1 — 2026-05-25
 
 ### Bug Fixes
