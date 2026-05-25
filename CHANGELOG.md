@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.18.3 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: fix keyboard breaking after < 1 second**
+  - v2.18.2's `_collapse_u` regex incorrectly collapsed 3-field sequences produced
+    by Textual's own KKP push (`flags=25` includes `REPORT_ASSOCIATED_TEXT`). For
+    a plain `'a'` keypress, Kitty sends `\x1b[97;1;97u]` (codepoint; modifier;
+    associated_text). The regex captured `97` (associated text) as the modifier,
+    producing `\x1b[97;97u]` with modifier_bits=96 — wrong key events every time.
+  - Fix: remove the field-collapsing logic entirely. KKP uses `:` sub-params for
+    alternate keys, not extra `;`-separated fields. Stripping `:\d+` patterns is
+    sufficient. Textual 8.2.7+ handles the 3-field REPORT_ASSOCIATED_TEXT format
+    natively without any pre-processing.
+
+---
+
 ## v2.18.2 — 2026-05-25
 
 ### Bug Fixes

@@ -24,29 +24,20 @@ def _patch_kitty_keyboard_protocol() -> None:
     #    Textual's regex expects at most 2-3 semicolon-separated fields;
     #    sequences with 4+ fields never match and the key is silently dropped.
     #
-    # Fix: normalize sequences in _sequence_to_key_events before Textual sees them.
-    #   Step 1 — strip `:N` event-type sub-params everywhere.
-    #   Step 2 — collapse alternate-key sequences to codepoint;modifier form:
-    #             \x1b[cp;sk;bk;mod u  →  \x1b[cp;mod u
-    #
-    # This works on both Textual 8.2.3 (3-group regex) and 8.2.7+ (2-group +
-    # _parse_extended_key), so no version detection is needed.
+    # Fix: strip `:N` event-type sub-params in _sequence_to_key_events before
+    # Textual sees them.  KKP uses `:` sub-params for alternate/associated keys,
+    # not extra `;`-separated fields, so stripping `:\d+` is sufficient.
+    # Textual 8.2.7+ handles the 3-field REPORT_ASSOCIATED_TEXT format natively;
+    # no field-collapsing is needed (and collapsing would mangle the modifier byte).
     try:
         import re as _re
         import textual._xterm_parser as _xterm_parser
         from textual._ansi_sequences import ANSI_SEQUENCES_KEYS, IGNORE_SEQUENCE
 
         _strip_subparam = _re.compile(r":\d+")
-        # Matches u-terminated KKP sequences with ≥3 semicolon-separated numbers.
-        # Captures: (1) prefix \x1b[, (2) first codepoint, (3) last field (modifier), (4) u
-        _collapse_u = _re.compile(r"(\x1b\[)(\d+)(?:;\d+)+;(\d+)(u)")
 
         def _normalize(seq: str) -> str:
-            seq = _strip_subparam.sub("", seq)   # drop :N event-type sub-params
-            m = _collapse_u.fullmatch(seq)
-            if m:
-                seq = f"{m.group(1)}{m.group(2)};{m.group(3)}{m.group(4)}"
-            return seq
+            return _strip_subparam.sub("", seq)   # drop :N event-type sub-params
 
         _orig_stke = _xterm_parser.XTermParser._sequence_to_key_events
 
