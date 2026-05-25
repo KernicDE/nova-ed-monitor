@@ -4,7 +4,9 @@
 
 Press **`s`** from anywhere in NOVA to open the Settings overlay. Navigate with ↑/↓, change toggles and selectors with ←/→, edit text fields with Enter. Press **SAVE** to write the config and apply all changes immediately — no restart needed. Press **ESC** to close without saving.
 
-The overlay covers all settings: TTS language, voice, rate, volume, notable-body threshold, Twitch/YouTube channels, chat TTS, overlay/screenshot dirs, debug log, and fleet carrier lookup.
+The overlay covers all settings: theme, TTS language, voice, rate, volume, notable-body threshold, Twitch/YouTube channels, chat TTS, overlay/screenshot dirs, debug log, and fleet carrier lookup.
+
+> **Note:** Changing the **theme** requires a restart. NOVA will restart automatically when you save a different theme.
 
 ## Config File
 
@@ -20,6 +22,25 @@ Changes made via the Settings overlay are written to `config.toml`. You can also
 All settings are optional — commented lines use defaults.
 
 ---
+
+---
+
+## Theme
+
+```toml
+# theme = default
+```
+
+NOVA supports custom colour themes via TOML files in the `config/themes/` directory.  Two built-in themes are included:
+
+| Theme | Description |
+|-------|-------------|
+| `default` | Classic Elite Dangerous orange-cyan HUD. |
+| `sakura` | Soft pink and violet tones on a deep night background. |
+
+To create your own theme, duplicate `config/themes/default.toml`, rename it, and edit the colour values.  Set `theme = my_theme` in `config.toml` (or select it in the Settings overlay) and **restart NOVA**.
+
+See `config/themes/README.md` for the full theme file reference.
 
 ---
 

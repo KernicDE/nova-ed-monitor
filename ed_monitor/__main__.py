@@ -84,6 +84,9 @@ def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
 from . import bindings, config, config_watcher, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
+from .ui import palette as _palette
+_palette.ensure_theme_files()
+_palette.apply_theme(config.load().theme)
 from .ui.app import NOVAApp
 
 def _db_path() -> Path:
@@ -263,6 +266,9 @@ def main() -> None:
             if new_cfg.tts_lang != old_lang:
                 tts.clear_cache()
                 voicelines.reload_all()
+                restart_evt.set()
+            # Theme changes require a restart (CSS is evaluated at class load time)
+            if getattr(cfg, "theme", "default") != new_cfg.theme:
                 restart_evt.set()
             events.set_tts_lang(new_cfg.tts_lang)
             events.set_voices(new_cfg.tts_voices)

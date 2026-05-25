@@ -62,6 +62,7 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 ### Terminal UI
 - 14-mode **Situational** panel, auto-switching by context (`a` to lock). Mission panel groups by destination with cargo totals, type badges, reward column, wing/influence markers, and massacre kill-stack bars with per-threshold milestones.
 - In-app **Settings overlay** (`s` key) — every key, live-applied.
+- **Custom themes** — TOML-based colour theming with two built-in palettes (Default, Sakura Night) and full user customisation.
 - Hot-reload for `config.toml` and voiceline files within ~2 s.
 - Power-distribution pips, two-column system info, color-coded event + chat logs.
 

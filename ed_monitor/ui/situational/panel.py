@@ -84,14 +84,14 @@ class SituationalPanel(_Panel):
         "stats": "STATISTICS",
     }
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     SituationalPanel {
-        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
-        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
+        border: solid [[PANEL_BORDER]];
+        border-title-color: [[PANEL_BORDER]];
         border-title-style: bold;
         height: 1fr;
     }
-    """
+    """)
 
     def _active_modes(self) -> list:
         """Return the ordered list of visible modes (from config or default), excluding 'auto'."""

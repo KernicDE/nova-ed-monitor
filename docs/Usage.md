@@ -76,7 +76,9 @@ Press **`s`** from anywhere in NOVA to open the Settings overlay.
 - Press **SAVE** to write all changes and apply them immediately
 - Press **ESC** to close without saving
 
-Voice selection is hierarchical: language → locale → voice name (powered by the edge-tts voice catalog). All changes take effect immediately without restarting NOVA.
+Voice selection is hierarchical: language → locale → voice name (powered by the edge-tts voice catalog). Most changes take effect immediately without restarting NOVA.
+
+**Theme** can also be selected in Settings (first row).  Changing the theme requires a restart — NOVA will restart automatically when you save.
 
 You can also **show, hide, and reorder** the situational panels directly in Settings: scroll to the panel list, enter a number for each panel you want visible (lowest = leftmost), and leave the field empty to hide a panel.
 

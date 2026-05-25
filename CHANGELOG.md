@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.18.0 — 2026-05-25
+
+### New Features
+
+- **Theming System**
+  - NOVA now supports custom colour themes via TOML files in `config/themes/`.
+  - Two built-in themes: **Default** (classic ED orange-cyan HUD) and **Sakura Night** (soft pink-violet).
+  - Themes are selectable in `config.toml` (`theme = sakura`) or via the in-app Settings overlay (first row).
+  - Changing the theme requires a restart — NOVA restarts automatically when you save a different theme in Settings.
+  - All UI chrome colours (panel borders, mode palettes, overlays, pip colours, chat source colours, etc.) are exposed in the theme file. Gameplay-specific mappings (star classes, planet types) remain hardcoded.
+  - See `config/themes/README.md` for the full theme authoring guide.
+
+---
+
 ## v2.17.3 — 2026-05-25
 
 ### Bug Fixes

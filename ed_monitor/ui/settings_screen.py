@@ -98,6 +98,7 @@ from textual.containers import Vertical
 from .. import config as _config
 from ..config import Config
 from . import palette as P
+from ..ui.palette import _theme_dir
 
 _SUPPORTED_LANGS = ["en", "de", "fr", "it", "es", "pt", "ru"]
 # "auto" = empty string in config (language auto-detected from message content)
@@ -114,6 +115,22 @@ _RATE_OPTIONS = [
 
 _HINT_NAV  = "↑↓ navigate   ← → change   Enter edit text   Esc cancel"
 _HINT_EDIT = "Enter = confirm   Esc = cancel edit"
+
+
+def _available_themes() -> list[str]:
+    """Return sorted list of theme names found in config/themes/*.toml."""
+    themes_dir = _theme_dir()
+    names: list[str] = []
+    try:
+        for p in themes_dir.glob("*.toml"):
+            if p.is_file():
+                names.append(p.stem)
+    except OSError:
+        pass
+    if "default" not in names:
+        names.insert(0, "default")
+    names.sort()
+    return names
 
 
 def _snap_volume(vol: int) -> str:
@@ -143,21 +160,21 @@ class SettingsScreen(Screen):
         Binding("enter",  "do_enter",  "", show=False),
     ]
 
-    CSS = """
+    CSS = P.css("""
     SettingsScreen {
-        background: rgba(10,10,10,0.93);
+        background: [[OVERLAY_BG]];
         align: center middle;
     }
     #settings-box {
         width: 74;
         height: 90%;
-        background: rgb(28,28,28);
-        border: solid rgb(195,160,55);  /* P.HEADER */
+        background: [[OVERLAY_BOX_BG]];
+        border: solid [[OVERLAY_BOX_BORDER]];
         padding: 1 2;
         overflow-y: auto;
     }
     #settings-title {
-        color: rgb(195,160,55);  /* P.HEADER */
+        color: [[OVERLAY_BOX_BORDER]];
         text-style: bold;
         margin-bottom: 1;
     }
@@ -166,28 +183,28 @@ class SettingsScreen(Screen):
         padding: 0 0;
     }
     .setting-row.focused-row {
-        background: rgb(45,45,45);  /* P.HEADER_BG adjacent */
+        background: [[SETTINGS_ROW_FOCUS_BG]];
     }
     #save-row {
         height: 1;
         margin-top: 1;
-        background: rgb(28,28,28);
-        color: rgb(195,160,55);  /* P.HEADER */
+        background: [[OVERLAY_BOX_BG]];
+        color: [[OVERLAY_BOX_BORDER]];
         text-style: bold;
     }
     #save-row.focused-row {
-        background: rgb(195,160,55);  /* P.HEADER */
-        color: rgb(10,10,10);
+        background: [[OVERLAY_BOX_BORDER]];
+        color: [[BG_DARK]];
         text-style: bold;
     }
     #text-edit-input {
         margin-top: 1;
     }
     #settings-hint {
-        color: rgb(100,100,100);  /* P.LABEL_DIM */
+        color: [[LABEL_DIM]];
         margin-top: 1;
     }
-    """
+    """)
 
     class Saved(Message):
         def __init__(self, cfg: "Config") -> None:
@@ -235,7 +252,11 @@ class SettingsScreen(Screen):
             for mode, label in _PANEL_MODES
         ]
 
+        self._theme_options = _available_themes()
+
         self._rows: list = [
+            # ── Appearance ────────────────────────────────────────────────────
+            SelectRow("theme",       "Theme",                    cfg.theme,                       self._theme_options),
             # ── TTS ──────────────────────────────────────────────────────────
             SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,                    _SUPPORTED_LANGS),
             SelectRow("tts_rate",    "TTS Rate",                 _snap_rate(cfg.tts_rate),        _RATE_OPTIONS),
@@ -476,6 +497,8 @@ class SettingsScreen(Screen):
                             pass
                     case "chat_lang":
                         cfg.chat_lang = "" if row.value == "auto" else row.value
+                    case "theme":
+                        cfg.theme = row.value
             elif isinstance(row, TextRow):
                 match row.key:
                     case "notable":

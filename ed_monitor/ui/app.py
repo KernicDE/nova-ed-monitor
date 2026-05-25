@@ -27,22 +27,22 @@ from .panels import (
 
 
 class HelpScreen(Screen):
-    CSS = """
+    CSS = P.css("""
     HelpScreen {
-        background: rgb(18,18,18);  /* P.BG_DARK */
+        background: [[BG_DARK]];
         align: center middle;
     }
     #help-scroll {
         width: 80;
         height: 90%;
-        background: rgb(18,18,18);
+        background: [[BG_DARK]];
     }
     #help-static {
         width: 76;
         height: auto;
         padding: 1 2;
     }
-    """
+    """)
 
     def compose(self) -> ComposeResult:
         try:
@@ -158,20 +158,20 @@ class HelpScreen(Screen):
 class NeutronInputScreen(Screen):
     """Overlay for entering a neutron route destination."""
 
-    CSS = """
+    CSS = P.css("""
     NeutronInputScreen {
-        background: rgba(10,10,10,0.9);
+        background: [[OVERLAY_BG]];
         align: center middle;
     }
     #neutron-box {
         width: 60;
         height: auto;
-        background: rgb(28,28,28);       /* near P.BG_DARK, slightly lighter */
-        border: solid rgb(195,160,55);   /* P.HEADER */
+        background: [[OVERLAY_BOX_BG]];
+        border: solid [[OVERLAY_BOX_BORDER]];
         padding: 1 2;
     }
     #neutron-label {
-        color: rgb(195,160,55);          /* P.HEADER */
+        color: [[OVERLAY_BOX_BORDER]];
         text-style: bold;
         margin-bottom: 1;
     }
@@ -179,10 +179,10 @@ class NeutronInputScreen(Screen):
         margin-top: 1;
     }
     #neutron-hint {
-        color: rgb(100,100,100);         /* P.LABEL_DIM */
+        color: [[LABEL_DIM]];
         margin-top: 1;
     }
-    """
+    """)
 
     def __init__(self, neutron_q, current_system: str = "") -> None:
         super().__init__()
@@ -212,9 +212,9 @@ class NeutronInputScreen(Screen):
 
 
 class NOVAApp(App):
-    CSS = """
+    CSS = P.css("""
     Screen {
-        background: rgb(18,18,18);  /* P.BG_DARK */
+        background: [[BG_DARK]];
     }
 
     #top-row {
@@ -278,7 +278,7 @@ class NOVAApp(App):
     FooterBar {
         height: 1;
     }
-    
+
     /* Ship / analysis mode — ED orange (default when in-ship, docked, supercruise, or analysis) */
     Screen.ship-mode SystemPanel,
     Screen.ship-mode ShipPanel,
@@ -287,8 +287,8 @@ class NOVAApp(App):
     Screen.ship-mode SituationalPanel,
     Screen.ship-mode EventLogPanel,
     Screen.ship-mode ChatLogPanel {
-        border: solid rgb(255,128,0) !important;
-        border-title-color: rgb(255,128,0) !important;
+        border: solid [[_MODES.ship.border]] !important;
+        border-title-color: [[_MODES.ship.border]] !important;
     }
 
     /* Combat mode overrides */
@@ -299,8 +299,8 @@ class NOVAApp(App):
     Screen.combat-mode SituationalPanel,
     Screen.combat-mode EventLogPanel,
     Screen.combat-mode ChatLogPanel {
-        border: solid rgb(200,55,35) !important;
-        border-title-color: rgb(200,55,35) !important;
+        border: solid [[_MODES.combat.border]] !important;
+        border-title-color: [[_MODES.combat.border]] !important;
     }
 
     /* On-foot (EVA) mode overrides */
@@ -311,8 +311,8 @@ class NOVAApp(App):
     Screen.on-foot-mode SituationalPanel,
     Screen.on-foot-mode EventLogPanel,
     Screen.on-foot-mode ChatLogPanel {
-        border: solid rgb(80,160,235) !important;
-        border-title-color: rgb(80,160,235) !important;
+        border: solid [[_MODES.on_foot.border]] !important;
+        border-title-color: [[_MODES.on_foot.border]] !important;
     }
 
     /* SRV mode overrides */
@@ -323,8 +323,8 @@ class NOVAApp(App):
     Screen.srv-mode SituationalPanel,
     Screen.srv-mode EventLogPanel,
     Screen.srv-mode ChatLogPanel {
-        border: solid rgb(45,115,185) !important;
-        border-title-color: rgb(45,115,185) !important;
+        border: solid [[_MODES.srv.border]] !important;
+        border-title-color: [[_MODES.srv.border]] !important;
     }
 
     /* Analysis mode overrides — same orange as ship mode */
@@ -335,8 +335,8 @@ class NOVAApp(App):
     Screen.analysis-mode SituationalPanel,
     Screen.analysis-mode EventLogPanel,
     Screen.analysis-mode ChatLogPanel {
-        border: solid rgb(255,128,0) !important;
-        border-title-color: rgb(255,128,0) !important;
+        border: solid [[_MODES.analysis.border]] !important;
+        border-title-color: [[_MODES.analysis.border]] !important;
     }
 
     /* Offline mode overrides */
@@ -347,12 +347,12 @@ class NOVAApp(App):
     Screen.offline-mode SituationalPanel,
     Screen.offline-mode EventLogPanel,
     Screen.offline-mode ChatLogPanel {
-        border: solid rgb(70,70,70) !important;
-        border-title-color: rgb(90,90,90) !important;
+        border: solid [[_MODES.offline.border]] !important;
+        border-title-color: [[_MODES.offline.h1]] !important;
     }
 
     Screen.alert-flash {
-        background: rgb(80, 0, 0);  /* deep combat red */
+        background: [[ALERT_FLASH_BG]];
     }
 
     /* High-G extreme warning flash */
@@ -363,14 +363,14 @@ class NOVAApp(App):
     Screen.high-g-flash SituationalPanel,
     Screen.high-g-flash EventLogPanel,
     Screen.high-g-flash ChatLogPanel {
-        border: solid rgb(220,100,0) !important;            /* P.HIGH_G_FLASH */
-        border-title-color: rgb(220,100,0) !important;
+        border: solid [[HIGH_G_FLASH]] !important;
+        border-title-color: [[HIGH_G_FLASH]] !important;
     }
 
     Screen.high-g-flash {
-        background: rgb(50, 20, 0);  /* deep amber warning */
+        background: [[HIGH_G_FLASH_BG]];
     }
-    """
+    """)
 
     TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"
     CURSOR_BLINK = False
@@ -582,6 +582,7 @@ class NOVAApp(App):
         """Apply live-reloadable settings from the overlay."""
         cfg = event.cfg
         old_lang = self._cfg.tts_lang if self._cfg else "en"
+        old_theme = getattr(self._cfg, "theme", "default") if self._cfg else "default"
         self._cfg = cfg
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
@@ -593,9 +594,14 @@ class NOVAApp(App):
             self._state.notable_value_threshold = cfg.notable_value_threshold
         from .. import voicelines as _vl
         _vl.reload_all()
+        old_theme = getattr(self._cfg, "theme", "default")
         if cfg.tts_lang != old_lang:
             from .. import tts as _tts_mod
             _tts_mod.clear_cache()
+            if self._restart_evt is not None:
+                self._restart_evt.set()
+            self.exit()
+        if cfg.theme != old_theme:
             if self._restart_evt is not None:
                 self._restart_evt.set()
             self.exit()

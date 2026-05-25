@@ -155,10 +155,10 @@ def _render_route(s: AppState, scroll: int = 0, panel_height: int = 40, mp: dict
         sc_col    = _star_col(star_class or "")
         star_cell = Text()
         star_cell.append(sc_short, style=sc_col)
-        star_cell.append("⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else "dim rgb(70,70,70)")
+        star_cell.append("⛽" if scoopable else " ·", style=P.HUD_GREEN if scoopable else f"dim {P.DIM}")
 
         population = (edsm_entry or {}).get("population", 0) or 0
-        name_style = "rgb(255,235,180)" if population > 0 else "white"
+        name_style = P.POPULATED_NAME if population > 0 else P.WHITE
 
         if body_entry is None:
             bd_text = Text("…", style=P.LABEL)
