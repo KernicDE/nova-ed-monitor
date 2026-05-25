@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.18.1 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish keyboard fix and theme files now in release**
+  - Re-release of v2.18.0 to ensure auto-updater picks up the KKP stack-clearing
+    fix (v2.17.3) and the bundled theme files (`themes/*.toml`, `themes/README.md`).
+
+---
+
 ## v2.18.0 — 2026-05-25
 
 ### New Features
