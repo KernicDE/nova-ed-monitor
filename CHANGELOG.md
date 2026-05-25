@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.18.5 — 2026-05-25
+
+### Bug Fixes
+
+- **TTS subprocesses break keyboard input** — every `subprocess.run()` call for
+  audio synthesis (`edge_tts`) and playback (`mpg123`, `ffplay`, `afplay`,
+  `pygame_sys`, Windows fallbacks) was inheriting the parent's stdin (the
+  terminal in Textty raw mode). `mpg123` detects a tty on stdin and calls
+  `tcsetattr` to set up its interactive keyboard controls (space=pause, q=quit),
+  which re-enables terminal echo and disables raw mode while NOVA is running.
+  Key presses were then echoed as literal escape sequences at the terminal cursor
+  position (top-left of the Textual frame). Fix: add `stdin=subprocess.DEVNULL`
+  to all `subprocess.run()` calls in `tts.py`.
+
+---
+
 ## v2.18.4 — 2026-05-25
 
 ### Bug Fixes
