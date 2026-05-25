@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.18.4 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: two-layer fix for persistent keyboard failure**
+  - Root cause: Textual pushes KKP `flags=25` (DISAMBIGUATE | REPORT_ALL_KEYS |
+    REPORT_ASSOCIATED_TEXT) which causes Kitty to send sequences that interact
+    badly with fish's `flags=31` stack — specifically `\x1b[I` (the FOCUSIN
+    marker) was being generated mid-sequence, causing the parser to misread cursor
+    keys like `\x1b[1;129C` as a Focus event followed by stray characters.
+  - **Fix 1**: Downgrade Textual's KKP push to `flags=1` (DISAMBIGUATE only) by
+    zeroing `KITTY_REPORT_ALL_KEYS` and `KITTY_REPORT_ASSOCIATED_TEXT` in
+    `linux_driver` before `start_application_mode()` runs. With `flags=1` all keys
+    arrive in classic xterm format (`\x1b[C`, `\x1b[1;2C`, etc.) that Textual's
+    ANSI dict handles perfectly. No Num Lock modifier, no 3-field sequences.
+  - **Fix 2**: Send `\x1b[<u` × 8 to `__stderr__` (same fd as Textual) just before
+    `NOVAApp.run()` to pop any leftover fish KKP stack entries. Previous attempts
+    (v2.17.3) used `sys.stdout` instead of `sys.__stderr__`, so Kitty processed
+    them on the wrong fd ordering.
+  - `:N` sub-param stripping from v2.18.3 is kept as a safety net.
+
+---
+
 ## v2.18.3 — 2026-05-25
 
 ### Bug Fixes

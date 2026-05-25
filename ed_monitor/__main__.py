@@ -12,23 +12,27 @@ from datetime import datetime
 
 
 def _patch_kitty_keyboard_protocol() -> None:
-    # Fish 4.x enables KKP flags=31 (all features). Textual cannot parse the
-    # resulting sequences because:
+    # Fish 4.x pushes KKP flags=31 (DISAMBIGUATE | REPORT_EVENT_TYPES |
+    # REPORT_ALTERNATE_KEYS | REPORT_ALL_KEYS | REPORT_ASSOCIATED_TEXT).
+    # Textual then pushes flags=25 (DISAMBIGUATE | REPORT_ALL_KEYS |
+    # REPORT_ASSOCIATED_TEXT) on top, making flags=25 active while NOVA runs.
     #
-    # 1. REPORT_EVENT_TYPES (bit 2) appends `:N` sub-params to the modifier:
-    #       \x1b[97;1:1u   — 'a', modifier 1, event-type 1 (press)
-    #       \x1b[1:129B    — cursor-down; Num Lock (128) as sub-param of 1st field
+    # Two-layer fix:
     #
-    # 2. REPORT_ALTERNATE_KEYS (bit 4) inserts extra semicolon-separated fields:
-    #       \x1b[97;65;97;1:1u  — 'a' with shifted='A', base='a', modifier, event-type
-    #    Textual's regex expects at most 2-3 semicolon-separated fields;
-    #    sequences with 4+ fields never match and the key is silently dropped.
+    # 1. Normalise incoming sequences in _sequence_to_key_events: strip `:\d+`
+    #    sub-params left by REPORT_EVENT_TYPES (e.g. `\x1b[1;129:1C` →
+    #    `\x1b[1;129C`).  This handles any residual flags=31 sequences during
+    #    the brief window before Textual's own push takes effect.
     #
-    # Fix: strip `:N` event-type sub-params in _sequence_to_key_events before
-    # Textual sees them.  KKP uses `:` sub-params for alternate/associated keys,
-    # not extra `;`-separated fields, so stripping `:\d+` is sufficient.
-    # Textual 8.2.7+ handles the 3-field REPORT_ASSOCIATED_TEXT format natively;
-    # no field-collapsing is needed (and collapsing would mangle the modifier byte).
+    # 2. Downgrade Textual's own KKP push to flags=1 (DISAMBIGUATE only) by
+    #    zeroing KITTY_REPORT_ALL_KEYS and KITTY_REPORT_ASSOCIATED_TEXT in
+    #    linux_driver before start_application_mode() computes KITTY_PROTOCOL_FLAG.
+    #    With flags=1: cursor keys arrive as `\x1b[C` / `\x1b[1;NC` (classic
+    #    xterm format), no Num Lock modifier complications, no 3-field character
+    #    sequences — the simplest format that Textual handles perfectly.
+    #
+    # The stack-clear in main() (just before NOVAApp.run()) also pops any
+    # leftover fish push via __stderr__ so the terminal starts clean.
     try:
         import re as _re
         import textual._xterm_parser as _xterm_parser
@@ -50,6 +54,19 @@ def _patch_kitty_keyboard_protocol() -> None:
         for _seq in ("\x1b[p", "\x1b[>0p", "\x1b[>p"):
             ANSI_SEQUENCES_KEYS.setdefault(_seq, IGNORE_SEQUENCE)
 
+    except Exception:
+        pass
+
+    # Downgrade Textual's KKP push from flags=25 to flags=1 (DISAMBIGUATE only).
+    # REPORT_ALL_KEYS (bit 3) adds Num Lock into cursor-key modifier bytes;
+    # REPORT_ASSOCIATED_TEXT (bit 4) produces 3-field character sequences.
+    # Both interact poorly with fish's flags=31 stack and produce sequences that
+    # cause \x1b[I (FOCUSIN) misparses in certain Kitty+fish combinations.
+    # With flags=1, all keys arrive in the classic xterm format Textual knows.
+    try:
+        import textual.drivers.linux_driver as _ld
+        _ld.KITTY_REPORT_ALL_KEYS = 0
+        _ld.KITTY_REPORT_ASSOCIATED_TEXT = 0
     except Exception:
         pass
 
@@ -284,6 +301,13 @@ def main() -> None:
         _on_config_changed,
         _on_voicelines_changed,
     )
+
+    # Pop any KKP stack entries fish may have left active (fish pushes flags=31
+    # when reading interactive input and may not pop before exec).  Sent to
+    # __stderr__ — the same fd Textual uses — so Kitty processes the pops
+    # before start_application_mode() pushes its own flags.
+    sys.__stderr__.write("\x1b[<u" * 8)
+    sys.__stderr__.flush()
 
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 
