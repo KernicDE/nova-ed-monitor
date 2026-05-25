@@ -51,4 +51,4 @@ where = ["."]
 include = ["ed_monitor*"]
 
 [tool.setuptools.package-data]
-"ed_monitor" = ["voicelines/*.toml", "config.toml.example"]
+"ed_monitor" = ["voicelines/*.toml", "config.toml.example", "themes/*.toml", "themes/README.md"]

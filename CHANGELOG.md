@@ -12,6 +12,14 @@
   - All UI chrome colours (panel borders, mode palettes, overlays, pip colours, chat source colours, etc.) are exposed in the theme file. Gameplay-specific mappings (star classes, planet types) remain hardcoded.
   - See `config/themes/README.md` for the full theme authoring guide.
 
+### Bug Fixes
+
+- **Theme files missing from pip installation**
+  - `ed_monitor/themes/` was not listed in `package-data`, so `default.toml`,
+    `sakura.toml`, and `README.md` were absent after `pip install`. Theme files
+    are now bundled and copied to `config/themes/` on first startup via
+    `ensure_theme_files()`.
+
 ---
 
 ## v2.17.3 — 2026-05-25
