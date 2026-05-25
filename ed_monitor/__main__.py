@@ -286,6 +286,13 @@ def main() -> None:
         _on_voicelines_changed,
     )
 
+    # Fish 4.x enables KKP (flags=31) on startup and may re-push after Textual's
+    # own push. Clear the entire Kitty KKP stack before Textual takes over so
+    # its push lands cleanly on an empty stack. Kitty silently ignores excess pops.
+    if os.environ.get("KITTY_WINDOW_ID") or os.environ.get("TERM") == "xterm-kitty":
+        sys.stdout.write("\x1b[<u" * 8)
+        sys.stdout.flush()
+
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 
     if restart_evt.is_set():

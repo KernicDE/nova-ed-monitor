@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.17.3 — 2026-05-25
+
+### Bug Fixes
+
+- **Kitty+fish: keys still echoed as raw bytes despite v2.17.2 sub-param patch**
+  - Fish 4.x re-pushes its KKP flags (31) onto Kitty's stack after Textual's own
+    push (`\x1b[>1u` / `\x1b[>25u`), making fish's flags=31 the active layer.
+    Even with `:N` sub-params stripped correctly, if terminal echo is active the
+    raw sequences appear on screen instead of being interpreted as keypresses.
+  - Fix: send `\x1b[<u` × 8 just before `NOVAApp.run()`. This drains any leftover
+    KKP push frames (Kitty ignores excess pops), so Textual's subsequent push
+    lands on a clean stack and its chosen flags are authoritative. Only sent when
+    `KITTY_WINDOW_ID` or `TERM=xterm-kitty` is detected.
+
+---
+
 ## v2.17.2 — 2026-05-25
 
 ### Bug Fixes
