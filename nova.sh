@@ -233,5 +233,12 @@ fi
 info "Starting NOVA..."
 echo ""
 
+# Pop any KKP stack entries the parent shell (fish 4.x) may have left active.
+# Fish pushes flags=31 while reading input; if it doesn't pop before exec'ing
+# this script, Kitty keeps sending KKP-formatted sequences until Textual's own
+# push takes effect.  Eight pops clear all realistic stack depths; extras are
+# no-ops on an empty stack.
+printf '\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u'
+
 export NOVA_PORTABLE_ROOT="$PORTABLE_ROOT"
 exec "$VENV_NOVA"
