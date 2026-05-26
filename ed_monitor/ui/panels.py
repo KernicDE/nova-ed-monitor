@@ -1405,7 +1405,8 @@ class BodiesPanel(_Panel):
                 # a multi-char alpha prefix (like "AB") AND its root parent is NOT a star.
                 # e.g. "AB 4" → root_parent="AB 4" (not a star) → bucket 1
                 #      "AB 1 a" where AB 1 is a star → root_parent="AB 1" (IS a star) → bucket 0
-                if not b.star_type and parts[0].isalpha() and len(parts[0]) > 1:
+                if (not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+                        and parts[0].isupper()):
                     root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
                     bucket = 0 if root_parent in _star_short_names else 1
                 else:
@@ -1469,7 +1470,8 @@ class BodiesPanel(_Panel):
             # Barycentre planets:             level 0  (AB 4 — orbits the binary, not A)
             # Barycentre planet moons:        level 1  (AB 4 a)
             # Children of barycentre STARS:   like normal children (AB 1 a → level 2)
-            is_barycentric_prefix = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+            is_barycentric_prefix = (not b.star_type and parts[0].isalpha()
+                                     and len(parts[0]) > 1 and parts[0].isupper())
             if is_barycentric_prefix:
                 root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
                 is_barycentre_body = root_parent not in _star_short_names

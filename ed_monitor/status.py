@@ -172,7 +172,7 @@ def monitor(
             # CPU load minimal — exact positions aren't needed there.
             _near_surface = (
                 state.landed or state.in_srv or
-                state.latitude is not None or state.altitude is not None or
+                state.lat is not None or state.altitude is not None or
                 (not state.in_main_ship and not state.in_srv)
             )
             _fast_poll_cache = state.client_online and _near_surface
@@ -431,7 +431,15 @@ def _apply_status(
         dest = data.get("Destination")
         if isinstance(dest, dict) and "Name" in dest:
             state.target_body        = _ev._clean_localised(dest["Name"])
-            state.target_body_system = _ev._clean_localised(dest.get("System", ""))
+            raw_sys = dest.get("System", "")
+            # Fleet-carrier destinations sometimes send a numeric MarketID instead
+            # of a system name.  A carrier can only be targeted while in the same
+            # system, so fall back to the current system in that case.
+            if not raw_sys or isinstance(raw_sys, (int, float)) or (
+                isinstance(raw_sys, str) and raw_sys.isdigit()
+            ):
+                raw_sys = state.system
+            state.target_body_system = _ev._clean_localised(raw_sys)
             state.target_body_body   = _ev._clean_localised(dest.get("Body", ""))
         else:
             state.target_body = ""
