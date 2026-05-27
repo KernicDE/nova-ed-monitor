@@ -166,7 +166,9 @@ def _render_assets(
             name   = ship.get("name") or ship.get("type") or "Unknown"
             ident  = ship.get("ident") or ""
             system = ship.get("system") or ""
-            here   = ship.get("here", False)
+            # [HERE] must be computed dynamically against current system;
+            # the static flag from StoredShips event is stale after jumps.
+            here   = bool(system and s.system and system.lower() == s.system.lower())
             all_rows.append(("ship", name, ident, system, here))
     else:
         all_rows.append(("text", "  Open ship transfer screen to load fleet", P.LABEL))

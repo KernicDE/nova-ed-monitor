@@ -1,6 +1,7 @@
 """Complete Elite Dangerous material catalogue for the material tracker."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -211,6 +212,50 @@ _MATERIAL_BY_NAME: dict[str, MaterialInfo] = {
 def lookup(name: str) -> MaterialInfo | None:
     """Return MaterialInfo for a given material name, or None if unknown."""
     return _MATERIAL_BY_NAME.get(name.lower())
+
+
+# Elite's internal material names are CamelCase (e.g. ChemicalStorageUnits)
+# or wrapped in $..._name; (e.g. $chemicalstorageunits_name;).
+# The catalogue stores Title Case with spaces ("Chemical Storage Units").
+_CAMEL_RE = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _normalize_material_name(name: str) -> str:
+    """Convert internal Elite symbolic names to catalogue-style Title Case."""
+    if not name:
+        return name
+    # Strip $..._name; wrapper
+    if name.startswith("$") and "_name;" in name:
+        name = name[1:].replace("_name;", "")
+    # CamelCase → spaces (e.g. ChemicalStorageUnits → Chemical Storage Units)
+    name = _CAMEL_RE.sub(" ", name)
+    return name
+
+
+def lookup_fuzzy(name: str) -> MaterialInfo | None:
+    """Lookup with normalization for internal Elite symbolic names.
+
+    Tries, in order:
+    1. Exact match (case-insensitive)
+    2. After stripping $..._name; and expanding CamelCase
+    3. Title-cased variant of the normalized name
+    """
+    if not name:
+        return None
+    # 1. Exact / direct lookup
+    info = lookup(name)
+    if info:
+        return info
+    # 2. Normalized (strip wrapper + CamelCase → spaces)
+    normalized = _normalize_material_name(name)
+    info = lookup(normalized)
+    if info:
+        return info
+    # 3. Title-cased normalized (e.g. "chemical storage units" → "Chemical Storage Units")
+    info = lookup(normalized.title())
+    if info:
+        return info
+    return None
 
 
 def cap_for(name: str) -> int:

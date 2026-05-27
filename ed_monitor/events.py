@@ -16,7 +16,7 @@ from .state import (
 )
 from .tts import TtsMsg
 from . import voicelines as _vl
-from .materials_catalog import lookup as _mat_lookup
+from .materials_catalog import lookup_fuzzy as _mat_lookup
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
