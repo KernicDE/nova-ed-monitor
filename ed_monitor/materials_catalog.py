@@ -214,6 +214,123 @@ _MATERIAL_BY_COMPACT_NAME: dict[str, MaterialInfo] = {
     m.name.lower().replace(" ", "").replace("_", ""): m for m in _ALL_MATERIALS
 }
 
+# Elite's internal journal names often differ from the English catalogue names.
+# This mapping was built from actual journal events and official documentation.
+# It is language-independent: every client writes the same internal "Name" field.
+_JOURNAL_NAME_TO_CATALOG: dict[str, str] = {
+    # ── Raw ──────────────────────────────────────────────────────────────
+    "carbon": "Carbon",
+    "phosphorus": "Phosphorus",
+    "sulphur": "Sulphur",
+    "iron": "Iron",
+    "nickel": "Nickel",
+    "rhenium": "Rhenium",
+    "arsenic": "Arsenic",
+    "lead": "Lead",
+    "zirconium": "Zirconium",
+    "boron": "Boron",
+    "antimony": "Antimony",
+    "vanadium": "Vanadium",
+    "niobium": "Niobium",
+    "yttrium": "Yttrium",
+    "chromium": "Chromium",
+    "molybdenum": "Molybdenum",
+    "technetium": "Technetium",
+    "manganese": "Manganese",
+    "cadmium": "Cadmium",
+    "ruthenium": "Ruthenium",
+    "zinc": "Zinc",
+    "tin": "Tin",
+    "selenium": "Selenium",
+    "germanium": "Germanium",
+    "tungsten": "Tungsten",
+    "tellurium": "Tellurium",
+    "mercury": "Mercury",
+    "polonium": "Polonium",
+    # ── Manufactured ─────────────────────────────────────────────────────
+    "chemicalstorageunits": "Chemical Storage Units",
+    "chemicalprocessors": "Chemical Processors",
+    "chemicaldistillery": "Chemical Distillery",
+    "chemicalmanipulators": "Chemical Manipulators",
+    "pharmaceuticalisolators": "Pharmaceutical Isolators",
+    "temperedalloys": "Tempered Alloys",
+    "heatresistantceramics": "Heat Resistant Ceramics",
+    "precipitatedalloys": "Precipitated Alloys",
+    "thermicalloys": "Thermic Alloys",
+    "militarygradealloys": "Military Grade Alloys",
+    "heatconductionwiring": "Heat Conduction Wiring",
+    "heatdispersionplate": "Heat Dispersion Plate",
+    "heatexchangers": "Heat Exchangers",
+    "heatvanes": "Heat Vanes",
+    "protoheatradiators": "Proto Heat Radiators",
+    "basicconductors": "Basic Conductors",
+    "conductivecomponents": "Conductive Components",
+    "conductiveceramics": "Conductive Ceramics",
+    "conductivepolymers": "Conductive Polymers",
+    "biotechconductors": "Biotech Conductors",
+    "mechanicalscrap": "Mechanical Scrap",
+    "mechanicalequipment": "Mechanical Equipment",
+    "mechanicalcomponents": "Mechanical Components",
+    "configurablecomponents": "Configurable Components",
+    "improvisedcomponents": "Improvised Components",
+    "gridresistors": "Grid Resistors",
+    "hybridcapacitors": "Hybrid Capacitors",
+    "electrochemicalarrays": "Electrochemical Arrays",
+    "polymercapacitors": "Polymer Capacitors",
+    "militarysupercapacitors": "Military Supercapacitors",
+    "wornshieldemitters": "Worn Shield Emitters",
+    "shieldemitters": "Shield Emitters",
+    "shieldingsensors": "Shielding Sensors",
+    "compoundshielding": "Compound Shielding",
+    "imperialshielding": "Imperial Shielding",
+    "compactcomposites": "Compact Composites",
+    "filamentcomposites": "Filament Composites",
+    "highdensitycomposites": "High Density Composites",
+    "proprietarycomposites": "Proprietary Composites",
+    "coredynamicscomposites": "Core Dynamics Composites",
+    "crystalshards": "Crystal Shards",
+    "uncutfocuscrystals": "Flawed Focus Crystals",
+    "focuscrystals": "Focus Crystals",
+    "refinedfocuscrystals": "Refined Focus Crystals",
+    "exquisitefocuscrystals": "Exquisite Focus Crystals",
+    "salvagedalloys": "Salvaged Alloys",
+    "galvanisingalloys": "Galvanising Alloys",
+    "phasealloys": "Phase Alloys",
+    "protolightalloys": "Proto Light Alloys",
+    "proradiolicalloys": "Proto Radiolic Alloys",
+    # ── Encoded ──────────────────────────────────────────────────────────
+    "scrambledemissiondata": "Exceptional Scrambled Emission Data",
+    "archivedemissiondata": "Irregular Emission Data",
+    "emissiondata": "Unexpected Emission Data",
+    "decodedemissiondata": "Decoded Emission Data",
+    "abnormalcompactemissionsdata": "Abnormal Compact Emissions Data",
+    "disruptedwakeechoes": "Atypical Disrupted Wake Echoes",
+    "fsdtelemetry": "Anomalous FSD Telemetry",
+    "wakesolutions": "Strange Wake Solutions",
+    "hyperspacetrajectories": "Eccentric Hyperspace Trajectories",
+    "dataminedwake": "Datamined Wake Exceptions",
+    "shieldcyclerecordings": "Distorted Shield Cycle Recordings",
+    "shieldsoakanalysis": "Inconsistent Shield Soak Analysis",
+    "shielddensityreports": "Untypical Shield Scans",
+    "shieldpatternanalysis": "Aberrant Shield Pattern Analysis",
+    "peculiarshieldfrequencydata": "Peculiar Shield Frequency Data",
+    "unusualencryptedfiles": "Unusual Encrypted Files",
+    "taggedencryptioncodes": "Tagged Encryption Codes",
+    "opensymmetrickeys": "Open Symmetric Keys",
+    "atypicalencryptionarchives": "Atypical Encryption Archives",
+    "adaptiveencryptorscapture": "Adaptive Encryptors Capture",
+    "bulkscandata": "Anomalous Bulk Scan Data",
+    "scanarchives": "Unidentified Scan Archives",
+    "scandatabanks": "Classified Scan Databanks",
+    "encodedscandata": "Divergent Scan Data",
+    "classifiedscanfragment": "Classified Scan Fragment",
+    "legacyfirmware": "Specialised Legacy Firmware",
+    "consumerfirmware": "Modified Consumer Firmware",
+    "industrialfirmware": "Cracked Industrial Firmware",
+    "securityfirmwarepatch": "Security Firmware Patch",
+    "modifiedembeddedfirmware": "Modified Embedded Firmware",
+}
+
 
 def lookup(name: str) -> MaterialInfo | None:
     """Return MaterialInfo for a given material name, or None if unknown."""
@@ -242,27 +359,37 @@ def lookup_fuzzy(name: str) -> MaterialInfo | None:
     """Lookup with normalization for internal Elite symbolic names.
 
     Tries, in order:
-    1. Exact match (case-insensitive)
-    2. After stripping $..._name; and expanding CamelCase
-    3. Title-cased variant of the normalized name
-    4. Compact name (all spaces/underscores removed)
+    1. Hardcoded journal-name → catalogue name (handles arbitrary internal IDs)
+    2. Exact match (case-insensitive)
+    3. After stripping $..._name; and expanding CamelCase
+    4. Title-cased variant of the normalized name
+    5. Compact name (all spaces/underscores removed)
     """
     if not name:
         return None
-    # 1. Exact / direct lookup
+    # 1. Hardcoded mapping for internal journal names (e.g. "uncutfocuscrystals")
+    raw = name.strip().lower()
+    if raw.startswith("$") and "_name;" in raw:
+        raw = raw[1:].replace("_name;", "")
+    catalog_name = _JOURNAL_NAME_TO_CATALOG.get(raw)
+    if catalog_name:
+        info = _MATERIAL_BY_NAME.get(catalog_name.lower())
+        if info:
+            return info
+    # 2. Exact / direct lookup
     info = lookup(name)
     if info:
         return info
-    # 2. Normalized (strip wrapper + CamelCase → spaces)
+    # 3. Normalized (strip wrapper + CamelCase → spaces)
     normalized = _normalize_material_name(name)
     info = lookup(normalized)
     if info:
         return info
-    # 3. Title-cased normalized (e.g. "chemical storage units" → "Chemical Storage Units")
+    # 4. Title-cased normalized (e.g. "chemical storage units" → "Chemical Storage Units")
     info = lookup(normalized.title())
     if info:
         return info
-    # 4. Compact match (e.g. "chemicalstorageunits" or "$chemicalstorageunits_name;")
+    # 5. Compact match (e.g. "chemicalstorageunits" or "$chemicalstorageunits_name;")
     compact = _normalize_material_name(name).lower().replace(" ", "").replace("_", "")
     info = _MATERIAL_BY_COMPACT_NAME.get(compact)
     if info:

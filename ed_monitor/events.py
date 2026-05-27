@@ -2876,8 +2876,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                     key  = info.name if info else loc
                     if key:
                         result[key] = cnt
-                        if loc and key != loc:
-                            state.material_names[key] = loc
                 return result
             state.materials_raw = _mat_dict(ev.get("Raw"))
             state.materials_mfg = _mat_dict(ev.get("Manufactured"))
@@ -2891,8 +2889,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             cnt  = _u(ev, "Count")
             info = _mat_lookup(name) or _mat_lookup(loc)
             key  = info.name if info else loc
-            if key and loc and key != loc:
-                state.material_names[key] = loc
             if "raw"           in cat: state.materials_raw[key] = state.materials_raw.get(key, 0) + cnt
             elif "manufactured" in cat: state.materials_mfg[key] = state.materials_mfg.get(key, 0) + cnt
             elif "encoded"      in cat: state.materials_enc[key] = state.materials_enc.get(key, 0) + cnt
@@ -2905,8 +2901,6 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             cnt  = _u(ev, "Count")
             info = _mat_lookup(name) or _mat_lookup(loc)
             key  = info.name if info else loc
-            if key and loc and key != loc:
-                state.material_names[key] = loc
             if "raw"           in cat: state.materials_raw[key] = max(0, state.materials_raw.get(key, 0) - cnt)
             elif "manufactured" in cat: state.materials_mfg[key] = max(0, state.materials_mfg.get(key, 0) - cnt)
             elif "encoded"      in cat: state.materials_enc[key] = max(0, state.materials_enc.get(key, 0) - cnt)

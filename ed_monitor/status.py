@@ -675,8 +675,6 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
             key  = info.name if info else loc
             if key:
                 result[key] = cnt
-                if loc and key != loc:
-                    state.material_names[key] = loc
         return result
 
     with lock:

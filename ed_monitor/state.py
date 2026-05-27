@@ -348,8 +348,9 @@ class AppState:
     materials_raw: dict = field(default_factory=dict)
     materials_mfg: dict = field(default_factory=dict)
     materials_enc: dict = field(default_factory=dict)
-    # internal_name → localised display name (filled from journal / Materials.json)
-    material_names: dict[str, str] = field(default_factory=dict)
+    # Material counts are always keyed by English catalogue name
+    # (language-independent because lookup_fuzzy maps internal journal names)
+
 
     # Missions
     missions: list = field(default_factory=list)  # list[MissionInfo]
