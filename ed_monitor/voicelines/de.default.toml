@@ -96,7 +96,7 @@ lines = ["Von {station} abgedockt."]
 lines = ["Abgedockt."]
 
 [DockingGranted]
-lines = ["Andockgenehmigung erteilt. Bitte zu Pad {pad} navigieren."]
+lines = ["Andockgenehmigung erteilt. Bitte zu Dock {pad} navigieren."]
 
 [DockingDenied]
 lines = ["Andockgenehmigung verweigert. Grund: {reason}."]
