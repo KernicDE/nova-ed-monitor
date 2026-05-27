@@ -211,7 +211,47 @@ exit(0 if os.path.exists(h) else 1)
 
 ensure_build_deps
 
+# ── Warn about very new Python versions (no pygame wheels yet) ────────────────
+
+PY_MINOR=$($PYTHON -c "import sys; print(sys.version_info.minor)" 2>/dev/null || echo 0)
+if [ "${PY_MINOR:-0}" -ge 14 ]; then
+    warn "Python 3.$PY_MINOR detected — pygame may not have a pre-built wheel yet."
+    warn "If installation fails, use Python 3.11–3.13 or install SDL2 build deps."
+    echo ""
+fi
+
 # ── Bootstrap: create portable layout + install NOVA on first run ─────────────
+
+_install_nova() {
+    local _url="$1"
+    local _upgrade="${2:-}"
+    local _args=()
+    [ -n "$_upgrade" ] && _args+=(--upgrade)
+    if ! "$VENV_PIP" install "${_args[@]}" "$_url" 2>&1; then
+        error ""
+        error "NOVA installation failed."
+        error ""
+        error "The most common cause is that 'pygame' has no pre-built wheel"
+        error "for this Python version and must be compiled from source."
+        if [ "$_PM" = "rpm-ostree" ]; then
+            error ""
+            error "Fedora Atomic / Bazzite blocks automatic devel packages."
+            error "You have two options:"
+            error ""
+            error "  1) Use Python 3.11–3.13 (pre-built pygame wheels exist)."
+            error "  2) Install build deps manually, then reboot:"
+            error "     sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
+            error "     reboot"
+        else
+            error ""
+            error "Try installing the build dependencies manually:"
+            error "  Fedora/RHEL:  sudo dnf install SDL2-devel freetype-devel python3-devel"
+            error "  Debian/Ubuntu:sudo apt-get install libsdl2-dev libfreetype6-dev python3-dev"
+            error "  Arch:         sudo pacman -S sdl2 freetype2 python"
+        fi
+        return 1
+    fi
+}
 
 if [ ! -d "$VENV_DIR" ]; then
     info "First run — setting up NOVA in $PORTABLE_ROOT ..."
@@ -220,7 +260,7 @@ if [ ! -d "$VENV_DIR" ]; then
     $PYTHON -m venv "$VENV_DIR"
     info "Installing NOVA (this takes a minute)..."
     "$VENV_PIP" install --quiet --upgrade pip
-    "$VENV_PIP" install "$NOVA_URL"
+    _install_nova "$NOVA_URL" || exit 1
     success "NOVA installed successfully!"
     echo ""
 else
@@ -243,7 +283,7 @@ except Exception:
 
     if [ -n "$latest_ver" ] && [ "$installed_ver" != "$latest_ver" ]; then
         info "Update available: $installed_ver → $latest_ver — updating..."
-        "$VENV_PIP" install --quiet --upgrade "$NOVA_URL"
+        _install_nova "$NOVA_URL" "--upgrade" || exit 1
         success "NOVA updated to $latest_ver."
         echo ""
     else
