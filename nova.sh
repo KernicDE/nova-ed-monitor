@@ -34,6 +34,11 @@ error()   { echo -e "${RED}  ${*}${NC}"; }
 # false apt-get matches on RPM-based systems.
 
 detect_pm() {
+    # Fedora Atomic / Bazzite / Silverblue use rpm-ostree, not dnf
+    if [ -f /run/ostree-booted ] && command -v rpm-ostree &>/dev/null; then
+        echo "rpm-ostree"
+        return
+    fi
     if [ -f /etc/os-release ]; then
         local _id _id_like
         _id=$(. /etc/os-release && echo "${ID:-}")
@@ -143,6 +148,11 @@ if ! PYTHON=$(find_python); then
                 sudo apt-get update -qq && sudo apt-get install -y python3 python3-venv ;;
         dnf)    info "Detected Fedora / RHEL — installing Python via dnf..."
                 sudo dnf install -y python3 ;;
+        rpm-ostree)
+                info "Detected Fedora Atomic / Bazzite — installing Python via rpm-ostree..."
+                sudo rpm-ostree install -y python3 python3-devel
+                warn "rpm-ostree changes may require a reboot to take effect."
+                warn "If NOVA fails to start, please reboot and try again." ;;
         brew)   info "Detected macOS / Homebrew — installing Python via brew..."
                 brew install python3 ;;
         *)      error "Cannot auto-install Python on this system."
@@ -177,8 +187,13 @@ exit(0 if os.path.exists(h) else 1)
         pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 python ;;
         apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev python3-dev ;;
         dnf)    sudo dnf install -y SDL2-devel freetype-devel python3-devel ;;
+        rpm-ostree)
+                sudo rpm-ostree install -y SDL2-devel freetype-devel python3-devel
+                warn "rpm-ostree changes may require a reboot to take effect."
+                warn "If NOVA fails to start, please reboot and try again." ;;
         brew)   brew install sdl2 freetype ;;
         *)      warn "Could not auto-install build deps. Install them manually:"
+                warn "  Fedora Atomic:  sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
                 warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel python3-devel"
                 warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev python3-dev"
                 warn "  Arch:           sudo pacman -S sdl2 freetype2 python" ;;
