@@ -1465,11 +1465,11 @@ class BodiesPanel(_Panel):
 
             # Hierarchical indentation:
             # Stars / primary bodies:         level 0 (no indent)
-            # Single-star planets:            level 1  (A 1, B 2, 1...)
-            # Single-star moons:              level 2+ (A 1 a, 1 a...)
-            # Barycentre planets:             level 0  (AB 4 — orbits the binary, not A)
-            # Barycentre planet moons:        level 1  (AB 4 a)
-            # Children of barycentre STARS:   like normal children (AB 1 a → level 2)
+            # Planets:                        level 1
+            # Moons:                          level 2
+            # Barycentre planets:             level 0  (orbits the binary, not a single star)
+            # Barycentre planet moons:        level 1
+            # Children of barycentre STARS:   level 2 (normal moon)
             is_barycentric_prefix = (not b.star_type and parts[0].isalpha()
                                      and len(parts[0]) > 1 and parts[0].isupper())
             if is_barycentric_prefix:
@@ -1479,12 +1479,10 @@ class BodiesPanel(_Panel):
                 is_barycentre_body = False
             if b.star_type:
                 level = 0
-            elif parts[0][0].isdigit():
-                level = len(parts)
             elif is_barycentre_body:
-                level = max(0, len(parts) - 2)
+                level = max(0, b.level - 1)
             else:
-                level = len(parts) - 1
+                level = b.level
 
             indent = " " * max(0, level)
             # High-G coloring: orange ≥1.5G, red-orange ≥3.0G (landable planets only)

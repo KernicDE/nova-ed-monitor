@@ -182,15 +182,24 @@ exit(0 if os.path.exists(h) else 1)
 
     [ $has_sdl2 -eq 1 ] && [ $has_pydevel -eq 1 ] && return 0
 
+    # rpm-ostree systems (Bazzite, Silverblue, Kinoite) often cannot resolve
+    # devel packages automatically due to image-layer conflicts. Pre-built
+    # pygame wheels usually work without them, so we skip the attempt rather
+    # than aborting with an unsolvable depsolve error.
+    if [ "$_PM" = "rpm-ostree" ]; then
+        warn "Build dependencies (SDL2 / Python headers) appear to be missing."
+        warn "Fedora Atomic images frequently block automatic devel installs."
+        warn "NOVA will try to install using pre-built wheels first."
+        warn "If compilation fails, install manually and reboot:"
+        warn "  sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
+        return 0
+    fi
+
     warn "Missing build dependencies — installing..."
     case "$_PM" in
         pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 python ;;
         apt)    sudo apt-get install -y libsdl2-dev libfreetype6-dev python3-dev ;;
         dnf)    sudo dnf install -y SDL2-devel freetype-devel python3-devel ;;
-        rpm-ostree)
-                sudo rpm-ostree install -y SDL2-devel freetype-devel python3-devel
-                warn "rpm-ostree changes may require a reboot to take effect."
-                warn "If NOVA fails to start, please reboot and try again." ;;
         brew)   brew install sdl2 freetype ;;
         *)      warn "Could not auto-install build deps. Install them manually:"
                 warn "  Fedora Atomic:  sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
