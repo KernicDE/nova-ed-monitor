@@ -220,11 +220,18 @@ def _render_assets(
         if not mdict:
             continue
         all_rows.append(("section_header", label))
+        known_names: set[str] = set()
         for cat_name, mats in categories:
             for i, info in enumerate(mats):
                 cnt = mdict.get(info.name, 0)
+                known_names.add(info.name)
                 cat_display = cat_name if i == 0 else ""
                 all_rows.append(("mat_row", cat_display, info.grade, info.name, cnt, info.cap, _col_widths))
+        # Show any materials that couldn't be mapped to the catalogue
+        # (e.g. localised names from non-English clients or new materials)
+        for name, cnt in mdict.items():
+            if cnt > 0 and name not in known_names:
+                all_rows.append(("mat_row", "", 1, name, cnt, 100, _col_widths))
 
     if not all_rows:
         t = Text()

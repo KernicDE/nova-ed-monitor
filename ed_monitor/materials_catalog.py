@@ -208,6 +208,12 @@ _MATERIAL_BY_NAME: dict[str, MaterialInfo] = {
     m.name.lower(): m for m in _ALL_MATERIALS
 }
 
+# Compact lookup: catalogue names with all spaces/underscores removed
+# (e.g. "chemicalstorageunits" → "Chemical Storage Units")
+_MATERIAL_BY_COMPACT_NAME: dict[str, MaterialInfo] = {
+    m.name.lower().replace(" ", "").replace("_", ""): m for m in _ALL_MATERIALS
+}
+
 
 def lookup(name: str) -> MaterialInfo | None:
     """Return MaterialInfo for a given material name, or None if unknown."""
@@ -239,6 +245,7 @@ def lookup_fuzzy(name: str) -> MaterialInfo | None:
     1. Exact match (case-insensitive)
     2. After stripping $..._name; and expanding CamelCase
     3. Title-cased variant of the normalized name
+    4. Compact name (all spaces/underscores removed)
     """
     if not name:
         return None
@@ -253,6 +260,11 @@ def lookup_fuzzy(name: str) -> MaterialInfo | None:
         return info
     # 3. Title-cased normalized (e.g. "chemical storage units" → "Chemical Storage Units")
     info = lookup(normalized.title())
+    if info:
+        return info
+    # 4. Compact match (e.g. "chemicalstorageunits" or "$chemicalstorageunits_name;")
+    compact = _normalize_material_name(name).lower().replace(" ", "").replace("_", "")
+    info = _MATERIAL_BY_COMPACT_NAME.get(compact)
     if info:
         return info
     return None
