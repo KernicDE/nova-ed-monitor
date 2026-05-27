@@ -222,7 +222,8 @@ def _render_assets(
             for i, info in enumerate(mats):
                 cnt = mdict.get(info.name, 0)
                 cat_display = cat_name if i == 0 else ""
-                all_rows.append(("mat_row", cat_display, info.grade, info.name, cnt, info.cap, _col_widths))
+                display_name = s.material_names.get(info.name, info.name)
+                all_rows.append(("mat_row", cat_display, info.grade, display_name, cnt, info.cap, _col_widths))
 
     if not all_rows:
         t = Text()

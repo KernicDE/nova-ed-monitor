@@ -12,7 +12,7 @@ from pathlib import Path
 from .state import AppState, EventCategory, LogEvent, _DEFAULT_BODY_RADIUS_M
 from .tts import TtsMsg, _audio_logger
 from .materials_catalog import (
-    RAW_MATERIALS, MANUFACTURED_MATERIALS, ENCODED_MATERIALS, cap_for,
+    RAW_MATERIALS, MANUFACTURED_MATERIALS, ENCODED_MATERIALS, cap_for, lookup,
 )
 
 _log = logging.getLogger("nova.status")
@@ -668,10 +668,15 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
         for m in (section or []):
             if not isinstance(m, dict):
                 continue
-            loc = m.get("Name_Localised") or m.get("Name", "")
-            cnt = int(m.get("Count", 0))
-            if loc:
-                result[loc] = cnt
+            name = m.get("Name", "")
+            loc  = m.get("Name_Localised") or name
+            cnt  = int(m.get("Count", 0))
+            info = lookup(name) or lookup(loc)
+            key  = info.name if info else loc
+            if key:
+                result[key] = cnt
+                if loc and key != loc:
+                    state.material_names[key] = loc
         return result
 
     with lock:

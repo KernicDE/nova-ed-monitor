@@ -348,6 +348,8 @@ class AppState:
     materials_raw: dict = field(default_factory=dict)
     materials_mfg: dict = field(default_factory=dict)
     materials_enc: dict = field(default_factory=dict)
+    # internal_name → localised display name (filled from journal / Materials.json)
+    material_names: dict[str, str] = field(default_factory=dict)
 
     # Missions
     missions: list = field(default_factory=list)  # list[MissionInfo]

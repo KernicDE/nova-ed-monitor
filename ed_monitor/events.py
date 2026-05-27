@@ -16,6 +16,7 @@ from .state import (
 )
 from .tts import TtsMsg
 from . import voicelines as _vl
+from .materials_catalog import lookup as _mat_lookup
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -2868,9 +2869,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
                 result = {}
                 for m in (items or []):
                     if not isinstance(m, dict): continue
-                    loc  = m.get("Name_Localised") or m.get("Name", "")
+                    name = m.get("Name", "")
+                    loc  = m.get("Name_Localised") or name
                     cnt  = int(m.get("Count", 0))
-                    if loc: result[loc] = cnt
+                    info = _mat_lookup(name) or _mat_lookup(loc)
+                    key  = info.name if info else loc
+                    if key:
+                        result[key] = cnt
+                        if loc and key != loc:
+                            state.material_names[key] = loc
                 return result
             state.materials_raw = _mat_dict(ev.get("Raw"))
             state.materials_mfg = _mat_dict(ev.get("Manufactured"))
@@ -2879,20 +2886,30 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
 
         case "MaterialCollected":
             cat = _s(ev, "Category").lower()
-            loc = _s(ev, "Name_Localised") or _s(ev, "Name")
-            cnt = _u(ev, "Count")
-            if "raw"           in cat: state.materials_raw[loc] = state.materials_raw.get(loc, 0) + cnt
-            elif "manufactured" in cat: state.materials_mfg[loc] = state.materials_mfg.get(loc, 0) + cnt
-            elif "encoded"      in cat: state.materials_enc[loc] = state.materials_enc.get(loc, 0) + cnt
+            name = _s(ev, "Name")
+            loc  = _s(ev, "Name_Localised") or name
+            cnt  = _u(ev, "Count")
+            info = _mat_lookup(name) or _mat_lookup(loc)
+            key  = info.name if info else loc
+            if key and loc and key != loc:
+                state.material_names[key] = loc
+            if "raw"           in cat: state.materials_raw[key] = state.materials_raw.get(key, 0) + cnt
+            elif "manufactured" in cat: state.materials_mfg[key] = state.materials_mfg.get(key, 0) + cnt
+            elif "encoded"      in cat: state.materials_enc[key] = state.materials_enc.get(key, 0) + cnt
             return None
 
         case "MaterialDiscarded":
             cat = _s(ev, "Category").lower()
-            loc = _s(ev, "Name_Localised") or _s(ev, "Name")
-            cnt = _u(ev, "Count")
-            if "raw"           in cat: state.materials_raw[loc] = max(0, state.materials_raw.get(loc, 0) - cnt)
-            elif "manufactured" in cat: state.materials_mfg[loc] = max(0, state.materials_mfg.get(loc, 0) - cnt)
-            elif "encoded"      in cat: state.materials_enc[loc] = max(0, state.materials_enc.get(loc, 0) - cnt)
+            name = _s(ev, "Name")
+            loc  = _s(ev, "Name_Localised") or name
+            cnt  = _u(ev, "Count")
+            info = _mat_lookup(name) or _mat_lookup(loc)
+            key  = info.name if info else loc
+            if key and loc and key != loc:
+                state.material_names[key] = loc
+            if "raw"           in cat: state.materials_raw[key] = max(0, state.materials_raw.get(key, 0) - cnt)
+            elif "manufactured" in cat: state.materials_mfg[key] = max(0, state.materials_mfg.get(key, 0) - cnt)
+            elif "encoded"      in cat: state.materials_enc[key] = max(0, state.materials_enc.get(key, 0) - cnt)
             return None
 
         # ── Engineers ────────────────────────────────────────────────────────
