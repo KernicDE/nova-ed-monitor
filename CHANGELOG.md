@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.19.1 — 2026-06-07
+
+### Bug Fixes
+
+- **Settings save restarts into Python REPL** — `nova.sh` launched via
+  `exec "$VENV_NOVA"` (the pip entry-point script), which set `sys.argv[0]` to
+  `/path/to/venv/bin/nova`. The restart logic in `__main__.py` then called
+  `os.execv(sys.executable, sys.argv)`, passing argv without a script argument —
+  Python started in interactive mode. Fix: `nova.sh` now launches via
+  `python -m ed_monitor` so `sys.argv[0]` ends with `__main__.py` and the
+  correct restart branch fires. Defence-in-depth: the `else` branch in
+  `__main__.py` now uses `os.execv(sys.argv[0], sys.argv)` (exec the entry-point
+  directly via its shebang) instead of the broken `python argv[0]` form.
+
+- **pip "new release available" notice on every NOVA update** — pip was only
+  auto-upgraded on first install, not on subsequent NOVA updates. pip is now
+  silently upgraded whenever NOVA itself is updated.
+
+### Changes
+
+- **Portrait layout: bodies panel as fixed left column** — previous portrait
+  layout stacked all panels full-width vertically. New layout splits below the
+  top-row into a left column (BodiesPanel, fixed width 79) and a right column
+  (SituationalPanel + log row). This matches the landscape feel and makes better
+  use of portrait width.
+
+---
+
 ## v2.19.0 — 2026-06-07
 
 ### New Features
