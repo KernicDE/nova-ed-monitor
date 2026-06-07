@@ -312,11 +312,14 @@ def main() -> None:
     NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 
     if restart_evt.is_set():
-        logging.getLogger("nova").info("Restarting NOVA after language change")
+        logging.getLogger("nova").info("Restarting NOVA after settings change")
         if sys.argv[0].endswith("__main__.py"):
             os.execv(sys.executable, [sys.executable, "-m", "ed_monitor"])
         else:
-            os.execv(sys.executable, sys.argv)
+            # Entry-point launch: exec the script directly so the OS shebang runs it.
+            # os.execv(sys.executable, sys.argv) would pass argv[0] as the process
+            # name with no script argument, landing Python in interactive mode.
+            os.execv(sys.argv[0], sys.argv)
 
 
 if __name__ == "__main__":

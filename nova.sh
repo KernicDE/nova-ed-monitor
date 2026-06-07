@@ -15,6 +15,7 @@ SCRIPT_SELF="$(realpath "$0")"
 PORTABLE_ROOT="$(cd "$(dirname "$SCRIPT_SELF")" && pwd)"
 VENV_DIR="$PORTABLE_ROOT/venv"
 VENV_PIP="$VENV_DIR/bin/pip"
+VENV_PYTHON="$VENV_DIR/bin/python"
 VENV_NOVA="$VENV_DIR/bin/nova"
 
 RED='\033[0;31m'
@@ -283,6 +284,7 @@ except Exception:
 
     if [ -n "$latest_ver" ] && [ "$installed_ver" != "$latest_ver" ]; then
         info "Update available: $installed_ver → $latest_ver — updating..."
+        "$VENV_PIP" install --quiet --upgrade pip 2>/dev/null || true
         _install_nova "$NOVA_URL" "--upgrade" || exit 1
         success "NOVA updated to $latest_ver."
         echo ""
@@ -305,4 +307,7 @@ echo ""
 printf '\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u'
 
 export NOVA_PORTABLE_ROOT="$PORTABLE_ROOT"
-exec "$VENV_NOVA"
+# Launch via 'python -m ed_monitor' so that sys.argv[0] ends with __main__.py.
+# This ensures the in-process restart (after settings changes) correctly
+# re-execs as 'python -m ed_monitor' instead of landing in a Python REPL.
+exec "$VENV_PYTHON" -m ed_monitor
