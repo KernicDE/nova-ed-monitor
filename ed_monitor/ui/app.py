@@ -371,16 +371,13 @@ class NOVAApp(App):
         background: [[HIGH_G_FLASH_BG]];
     }
 
-    /* Portrait layouts — shared structural rules
-       Bodies panel occupies the full left column; Situational + logs on the right. */
+    /* Portrait layouts — Situational panel (with Bodies tab) fills the main area.
+       BodiesPanel widget is not mounted in portrait; bodies are shown as a tab. */
     Screen.portrait SystemPanel { width: 1fr; }
     Screen.portrait ShipPanel   { width: 2fr; }
     Screen.portrait RoutePanel  { width: 1fr; max-height: 40; }
     Screen.portrait #main-row   { width: 100%; height: 1fr; }
-    Screen.portrait #bodies-col { width: 79; height: 1fr; }
-    Screen.portrait #right-col  { width: 1fr; height: 1fr; }
     Screen.portrait #log-row    { width: 100%; }
-    Screen.portrait BodiesPanel      { height: 1fr; width: 100%; }
     Screen.portrait SituationalPanel { height: 1fr; width: 100%; }
     Screen.portrait EventLogPanel    { height: 1fr; width: 2fr; }
     Screen.portrait ChatLogPanel     { height: 1fr; width: 1fr; }
@@ -448,14 +445,11 @@ class NOVAApp(App):
             yield SystemPanel()
             yield ShipPanel()
             yield RoutePanel()
-        with Horizontal(id="main-row"):
-            with Vertical(id="bodies-col"):
-                yield BodiesPanel()
-            with Vertical(id="right-col"):
-                yield SituationalPanel()
-                with Horizontal(id="log-row"):
-                    yield EventLogPanel()
-                    yield ChatLogPanel()
+        with Vertical(id="main-row"):
+            yield SituationalPanel()
+            with Horizontal(id="log-row"):
+                yield EventLogPanel()
+                yield ChatLogPanel()
         yield FooterBar()
 
     def on_mount(self) -> None:
@@ -463,9 +457,11 @@ class NOVAApp(App):
         if self._layout == "portrait-half":
             self.screen.add_class("portrait")
             self.screen.add_class("portrait-half")
+            self.query_one(SituationalPanel)._portrait = True
         elif self._layout == "portrait-full":
             self.screen.add_class("portrait")
             self.screen.add_class("portrait-full")
+            self.query_one(SituationalPanel)._portrait = True
         # Refresh every 0.5s is plenty for ED data and saves massive CPU
         self.set_interval(0.5, self._refresh_all)
         # Force-hide the terminal cursor (Textual hides it in the driver, but
@@ -618,7 +614,10 @@ class NOVAApp(App):
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)
         self.query_one(RoutePanel).update(snap)
-        self.query_one(BodiesPanel).update(snap)
+        try:
+            self.query_one(BodiesPanel).update(snap)
+        except Exception:
+            pass  # not mounted in portrait layouts
         self.query_one(SituationalPanel).update(snap)
         self.query_one(EventLogPanel).update(snap)
         self.query_one(ChatLogPanel).update(snap)

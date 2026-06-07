@@ -32,6 +32,7 @@ from ...materials_catalog import (
 )
 from .bgs import _render_bgs
 from .bio import _render_bio
+from .bodies import _render_bodies
 from .colonisation import _render_colonisation
 from .engineers import _render_engineers, _build_eng_list
 from .maps import _render_galaxy, _render_system_map
@@ -48,7 +49,7 @@ class SituationalPanel(_Panel):
 
     _MODES = (
         "auto", "overview", "bio", "galaxy", "missions", "engineers",
-        "bgs", "colonisation", "route", "neutron", "assets", "stats",
+        "bgs", "colonisation", "route", "neutron", "assets", "stats", "bodies",
     )
     _mode:            str   = "overview"  # current shown panel (user or auto-triggered)
     _active:          str   = "overview" # resolved panel being rendered (always == _mode)
@@ -74,15 +75,21 @@ class SituationalPanel(_Panel):
         "auto": "***", "overview": "Overview", "bio": "Bio", "galaxy": "Maps",
         "missions": "Mission", "engineers": "Engineer", "bgs": "BGS", "colonisation": "Colony",
         "route": "Route", "neutron": "Plot", "assets": "Assets",
-        "stats": "Stats",
+        "stats": "Stats", "bodies": "Bodies",
     }
 
     _MODE_FULLNAMES = {
         "auto": "AUTO", "overview": "OVERVIEW", "bio": "BIOLOGICAL", "galaxy": "MAPS",
         "missions": "MISSION", "engineers": "ENGINEERS", "bgs": "BGS", "colonisation": "COLONISATION",
         "route": "ROUTE", "neutron": "NEUTRON", "assets": "ASSETS",
-        "stats": "STATISTICS",
+        "stats": "STATISTICS", "bodies": "SCANNED BODIES",
     }
+
+    # Set to True when running in portrait layout so the bodies tab is injected
+    _portrait: bool = False
+    # Sort cache and scroll state for the bodies mode (portrait only)
+    _bodies_sort_cache: list = []
+    _bodies_scroll: int = 0
 
     DEFAULT_CSS = P.css("""
     SituationalPanel {
@@ -94,9 +101,13 @@ class SituationalPanel(_Panel):
     """)
 
     def _active_modes(self) -> list:
-        """Return the ordered list of visible modes (from config or default), excluding 'auto'."""
+        """Return the ordered list of visible modes (from config or default), excluding 'auto'.
+        In portrait mode 'bodies' is always prepended regardless of config."""
         base = self._visible_modes if self._visible_modes else list(self._MODES)
-        return [m for m in base if m != "auto"]
+        modes = [m for m in base if m != "auto" and m != "bodies"]
+        if self._portrait:
+            modes = ["bodies"] + modes
+        return modes
 
     def cycle(self) -> None:
         modes = self._active_modes()
@@ -189,7 +200,10 @@ class SituationalPanel(_Panel):
         """Scroll the current situational panel up/down (for all non-specialised modes)."""
         if self._active in self._NON_SCROLLABLE:
             return
-        self._general_scroll = max(0, self._general_scroll + delta)
+        if self._active == "bodies":
+            self._bodies_scroll = max(0, self._bodies_scroll + delta)
+        else:
+            self._general_scroll = max(0, self._general_scroll + delta)
         self.refresh()
 
     def _make_title(self) -> str:
@@ -310,6 +324,8 @@ class SituationalPanel(_Panel):
             )
         elif mode == "stats":
             mode_key = (snap.events_version, snap.bodies_version)
+        elif mode == "bodies":
+            mode_key = (snap.bodies_version, snap.system)
         else:
             mode_key = (snap.events_version, snap.bodies_version)
 
@@ -477,6 +493,22 @@ class SituationalPanel(_Panel):
             self.border_subtitle = ""
 
         # ── Dispatch to render functions ──────────────────────────────────
+        if mode == "bodies":
+            if not hasattr(self, '_bodies_sort_cache') or not isinstance(self._bodies_sort_cache, list):
+                self._bodies_sort_cache = []
+            result, above, below = _render_bodies(
+                s, scroll=self._bodies_scroll, panel_h=panel_h,
+                sort_cache=self._bodies_sort_cache, mp=_mp,
+            )
+            if above > 0 and below > 0:
+                self.border_subtitle = f"▲{above}  ▼{below}"
+            elif above > 0:
+                self.border_subtitle = f"▲{above}"
+            elif below > 0:
+                self.border_subtitle = f"▼{below}"
+            else:
+                self.border_subtitle = ""
+            return result
         if mode == "bio":
             return _render_bio(s, scroll=scroll, mp=_mp)
         if mode == "missions":

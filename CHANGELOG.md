@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.19.2 — 2026-06-07
+
+### Changes
+
+- **Portrait: Bodies as Situational tab** — BodiesPanel is no longer a separate
+  column in portrait layouts. Instead, "Bodies" appears as the first tab in the
+  Situational panel (← / → to switch), giving the full panel width to both the
+  body list and all other situational views. BodiesPanel is not mounted at all
+  in portrait mode; its content is rendered directly by the Situational panel.
+
+---
+
 ## v2.19.1 — 2026-06-07
 
 ### Bug Fixes
