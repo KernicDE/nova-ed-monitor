@@ -257,6 +257,7 @@ class SettingsScreen(Screen):
         self._rows: list = [
             # ── Appearance ────────────────────────────────────────────────────
             SelectRow("theme",       "Theme",                    cfg.theme,                       self._theme_options),
+            SelectRow("layout",      "Layout",                   getattr(cfg, "layout", "landscape"), ["landscape", "portrait-half", "portrait-full"]),
             # ── TTS ──────────────────────────────────────────────────────────
             SelectRow("tts_lang",    "TTS Language",             cfg.tts_lang,                    _SUPPORTED_LANGS),
             SelectRow("tts_rate",    "TTS Rate",                 _snap_rate(cfg.tts_rate),        _RATE_OPTIONS),
@@ -499,6 +500,8 @@ class SettingsScreen(Screen):
                         cfg.chat_lang = "" if row.value == "auto" else row.value
                     case "theme":
                         cfg.theme = row.value
+                    case "layout":
+                        cfg.layout = row.value
             elif isinstance(row, TextRow):
                 match row.key:
                     case "notable":

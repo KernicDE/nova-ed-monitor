@@ -370,6 +370,26 @@ class NOVAApp(App):
     Screen.high-g-flash {
         background: [[HIGH_G_FLASH_BG]];
     }
+
+    /* Portrait layouts — shared structural rules */
+    Screen.portrait SystemPanel { width: 1fr; }
+    Screen.portrait ShipPanel   { width: 2fr; }
+    Screen.portrait RoutePanel  { width: 1fr; max-height: 40; }
+    Screen.portrait BodiesPanel      { height: 1fr; width: 100%; }
+    Screen.portrait SituationalPanel { height: 1fr; width: 100%; }
+    Screen.portrait EventLogPanel    { height: 1fr; width: 2fr; }
+    Screen.portrait ChatLogPanel     { height: 1fr; width: 1fr; }
+    Screen.portrait #bodies-row { width: 100%; }
+    Screen.portrait #center-row { width: 100%; height: 1fr; }
+    Screen.portrait #log-row    { width: 100%; }
+
+    /* Portrait-half: ~68 rows (960 px tall terminal) */
+    Screen.portrait-half #bodies-row { height: 12; }
+    Screen.portrait-half #log-row    { height: 10; }
+
+    /* Portrait-full: ~137 rows (1920 px tall terminal) */
+    Screen.portrait-full #bodies-row { height: 18; }
+    Screen.portrait-full #log-row    { height: 18; }
     """)
 
     TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"
@@ -397,11 +417,18 @@ class NOVAApp(App):
         self._neutron_q  = neutron_q
         self._cfg        = cfg
         self._restart_evt = restart_evt
+        self._layout     = getattr(cfg, "layout", "landscape") if cfg else "landscape"
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
         self._prev_fingerprint: tuple = ()    # global state fingerprint — skip panel updates when unchanged
 
     def compose(self) -> ComposeResult:
+        if self._layout in ("portrait-half", "portrait-full"):
+            yield from self._compose_portrait()
+        else:
+            yield from self._compose_landscape()
+
+    def _compose_landscape(self) -> ComposeResult:
         with Horizontal(id="top-row"):
             yield SystemPanel()
             yield ShipPanel()
@@ -416,7 +443,28 @@ class NOVAApp(App):
                 yield ChatLogPanel()
         yield FooterBar()
 
+    def _compose_portrait(self) -> ComposeResult:
+        with Horizontal(id="top-row"):
+            yield SystemPanel()
+            yield ShipPanel()
+            yield RoutePanel()
+        with Vertical(id="bodies-row"):
+            yield BodiesPanel()
+        with Vertical(id="center-row"):
+            yield SituationalPanel()
+        with Horizontal(id="log-row"):
+            yield EventLogPanel()
+            yield ChatLogPanel()
+        yield FooterBar()
+
     def on_mount(self) -> None:
+        # Apply layout CSS class (landscape = no class; portrait modes add shared + variant class)
+        if self._layout == "portrait-half":
+            self.screen.add_class("portrait")
+            self.screen.add_class("portrait-half")
+        elif self._layout == "portrait-full":
+            self.screen.add_class("portrait")
+            self.screen.add_class("portrait-full")
         # Refresh every 0.5s is plenty for ED data and saves massive CPU
         self.set_interval(0.5, self._refresh_all)
         # Force-hide the terminal cursor (Textual hides it in the driver, but
@@ -581,8 +629,9 @@ class NOVAApp(App):
     def on_settings_screen_saved(self, event: "SettingsScreen.Saved") -> None:
         """Apply live-reloadable settings from the overlay."""
         cfg = event.cfg
-        old_lang = self._cfg.tts_lang if self._cfg else "en"
-        old_theme = getattr(self._cfg, "theme", "default") if self._cfg else "default"
+        old_lang   = self._cfg.tts_lang if self._cfg else "en"
+        old_theme  = getattr(self._cfg, "theme",  "default")   if self._cfg else "default"
+        old_layout = getattr(self._cfg, "layout", "landscape") if self._cfg else "landscape"
         self._cfg = cfg
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
@@ -594,7 +643,6 @@ class NOVAApp(App):
             self._state.notable_value_threshold = cfg.notable_value_threshold
         from .. import voicelines as _vl
         _vl.reload_all()
-        old_theme = getattr(self._cfg, "theme", "default")
         if cfg.tts_lang != old_lang:
             from .. import tts as _tts_mod
             _tts_mod.clear_cache()
@@ -602,6 +650,10 @@ class NOVAApp(App):
                 self._restart_evt.set()
             self.exit()
         if cfg.theme != old_theme:
+            if self._restart_evt is not None:
+                self._restart_evt.set()
+            self.exit()
+        if cfg.layout != old_layout:
             if self._restart_evt is not None:
                 self._restart_evt.set()
             self.exit()

@@ -44,6 +44,7 @@ class Config:
     fuel_warning_percent:     int  = 25     # 0 = disabled; fuel warning TTS when main tank drops below this %
     home_system:              str  = ""      # empty = disabled; triggers special voiceline on arrival
     theme:                    str  = "default" # UI colour theme (config/themes/<name>.toml)
+    layout:                   str  = "landscape" # UI layout: landscape | portrait-half | portrait-full
 
 
 def _notify_self_write() -> None:
@@ -205,6 +206,7 @@ def load() -> Config:
     fuel_warning_percent     = 25
     home_system              = ""
     theme                    = "default"
+    layout                   = "landscape"
     try:
         text = config_path.read_text(encoding="utf-8")
         for line in text.splitlines():
@@ -297,6 +299,9 @@ def load() -> Config:
                     case "theme":
                         if v:
                             theme = v
+                    case "layout":
+                        if v in {"landscape", "portrait-half", "portrait-full"}:
+                            layout = v
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
@@ -330,6 +335,7 @@ def load() -> Config:
         fuel_warning_percent=fuel_warning_percent,
         home_system=home_system,
         theme=theme,
+        layout=layout,
     )
 
 
@@ -475,6 +481,8 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
         lines.append(f"home_system = {cfg.home_system}\n")
     if cfg.theme != "default":
         lines.append(f"theme = {cfg.theme}\n")
+    if cfg.layout != "landscape":
+        lines.append(f"layout = {cfg.layout}\n")
 
     try:
         path.write_text("".join(lines), encoding="utf-8")

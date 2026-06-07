@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.19.0 — 2026-06-07
+
+### New Features
+
+- **Portrait layout modes** — NOVA can now run in portrait orientation for
+  vertically mounted monitors or tall terminal windows (e.g. a 1080×1920 display
+  or a 960-pixel-tall terminal pane). Three layouts are now available, switchable
+  via the Settings overlay (`s` → Layout row → `← / →`):
+  - `landscape` — original side-by-side layout (unchanged, default)
+  - `portrait-half` — portrait for ~68-row terminals (~960 px tall @ 14 px/row):
+    top-row panels stacked horizontally, BodiesPanel full-width (12 rows),
+    SituationalPanel full-width (elastic), log row full-width (10 rows)
+  - `portrait-full` — portrait for ~137-row terminals (~1920 px tall):
+    same structure with taller bodies (18 rows) and log (18 rows) sections
+  Layout changes require a restart (same as theme changes).
+
+### Bug Fixes
+
+- **Theme change restart was silently broken** — `on_settings_screen_saved` was
+  re-reading `old_theme` from `self._cfg` *after* it had already been replaced
+  with the new config object, so the `cfg.theme != old_theme` guard was always
+  `False`. Theme changes now correctly trigger a restart.
+
+---
+
 ## v2.18.5 — 2026-05-25
 
 ### Bug Fixes
