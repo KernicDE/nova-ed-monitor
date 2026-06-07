@@ -371,25 +371,25 @@ class NOVAApp(App):
         background: [[HIGH_G_FLASH_BG]];
     }
 
-    /* Portrait layouts — shared structural rules */
+    /* Portrait layouts — shared structural rules
+       Bodies panel occupies the full left column; Situational + logs on the right. */
     Screen.portrait SystemPanel { width: 1fr; }
     Screen.portrait ShipPanel   { width: 2fr; }
     Screen.portrait RoutePanel  { width: 1fr; max-height: 40; }
+    Screen.portrait #main-row   { width: 100%; height: 1fr; }
+    Screen.portrait #bodies-col { width: 79; height: 1fr; }
+    Screen.portrait #right-col  { width: 1fr; height: 1fr; }
+    Screen.portrait #log-row    { width: 100%; }
     Screen.portrait BodiesPanel      { height: 1fr; width: 100%; }
     Screen.portrait SituationalPanel { height: 1fr; width: 100%; }
     Screen.portrait EventLogPanel    { height: 1fr; width: 2fr; }
     Screen.portrait ChatLogPanel     { height: 1fr; width: 1fr; }
-    Screen.portrait #bodies-row { width: 100%; }
-    Screen.portrait #center-row { width: 100%; height: 1fr; }
-    Screen.portrait #log-row    { width: 100%; }
 
     /* Portrait-half: ~68 rows (960 px tall terminal) */
-    Screen.portrait-half #bodies-row { height: 12; }
-    Screen.portrait-half #log-row    { height: 10; }
+    Screen.portrait-half #log-row { height: 10; }
 
     /* Portrait-full: ~137 rows (1920 px tall terminal) */
-    Screen.portrait-full #bodies-row { height: 18; }
-    Screen.portrait-full #log-row    { height: 18; }
+    Screen.portrait-full #log-row { height: 14; }
     """)
 
     TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"
@@ -448,13 +448,14 @@ class NOVAApp(App):
             yield SystemPanel()
             yield ShipPanel()
             yield RoutePanel()
-        with Vertical(id="bodies-row"):
-            yield BodiesPanel()
-        with Vertical(id="center-row"):
-            yield SituationalPanel()
-        with Horizontal(id="log-row"):
-            yield EventLogPanel()
-            yield ChatLogPanel()
+        with Horizontal(id="main-row"):
+            with Vertical(id="bodies-col"):
+                yield BodiesPanel()
+            with Vertical(id="right-col"):
+                yield SituationalPanel()
+                with Horizontal(id="log-row"):
+                    yield EventLogPanel()
+                    yield ChatLogPanel()
         yield FooterBar()
 
     def on_mount(self) -> None:
