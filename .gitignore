@@ -40,3 +40,6 @@ stream_info.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Synology internal files
+@eaDir/
