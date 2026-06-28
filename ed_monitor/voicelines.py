@@ -35,6 +35,9 @@ _log = logging.getLogger("nova.voicelines")
 # Cache: lang → {event_key → [line, ...]}
 _CACHE: dict[str, dict[str, list[str]]] = {}
 
+# Cache: lang → {unit_key → localized_string}
+_UNITS_CACHE: dict[str, dict[str, str]] = {}
+
 # Default user config dir  (overridable for tests)
 _CONFIG_DIR: Optional[Path] = None
 
@@ -168,11 +171,87 @@ def validate_user_file(lang: str) -> Optional[str]:
 def reload(lang: str) -> None:
     """Invalidate cache for *lang* so files are re-read on next pick()."""
     _CACHE.pop(lang, None)
+    _UNITS_CACHE.pop(lang, None)
 
 
 def reload_all() -> None:
     """Invalidate entire cache."""
     _CACHE.clear()
+    _UNITS_CACHE.clear()
+
+
+def _load_units(lang: str) -> dict[str, str]:
+    """Load and cache unit strings for *lang* from built-in and user TOML.
+
+    User [units] table overrides built-in defaults.
+    """
+    if lang in _UNITS_CACHE:
+        return _UNITS_CACHE[lang]
+
+    units: dict[str, str] = {}
+
+    # 1. Built-in default
+    builtin_path = _builtin_dir() / f"{lang}.default.toml"
+    if builtin_path.exists():
+        data = _read_toml(builtin_path)
+        if isinstance(data.get("units"), dict):
+            units.update(data["units"])
+
+    # 2. User override
+    user_path = _config_dir() / "voicelines" / f"{lang}.toml"
+    if user_path.exists():
+        data = _read_toml(user_path)
+        if isinstance(data.get("units"), dict):
+            units.update(data["units"])
+
+    _UNITS_CACHE[lang] = units
+    return units
+
+
+def _slavic_plural(n: int) -> str:
+    """Return plural form key for Slavic languages (Russian).
+
+    one  → 1, 21, 31... (but not 11-14)
+    few  → 2-4, 22-24, 32-34... (but not 11-14)
+    many → 0, 5-20, 25-30, 100, etc.
+    """
+    n = abs(n) % 100
+    if 11 <= n <= 14:
+        return "many"
+    n %= 10
+    if n == 1:
+        return "one"
+    if 2 <= n <= 4:
+        return "few"
+    return "many"
+
+
+def unit_for(lang: str, key: str, count: int | None = None) -> str:
+    """Return localized unit string for *key* in *lang*.
+
+    For Slavic languages (ru) and count-sensitive keys, pass *count*
+    to get the correct plural form (one/few/many).
+    Falls back to English, then to the key itself.
+    """
+    units = _load_units(lang)
+
+    # Slavic plural dispatch
+    if count is not None and lang == "ru":
+        plural_key = f"{key}_{_slavic_plural(count)}"
+        if plural_key in units:
+            return units[plural_key]
+
+    if key in units:
+        return units[key]
+
+    # Fallback to English
+    en_units = _load_units("en")
+    if count is not None and lang == "ru":
+        plural_key = f"{key}_{_slavic_plural(count)}"
+        if plural_key in en_units:
+            return en_units[plural_key]
+
+    return en_units.get(key, key)
 
 
 _SUPPORTED_LANGS = ("en", "de", "fr", "it", "es", "pt", "ru")

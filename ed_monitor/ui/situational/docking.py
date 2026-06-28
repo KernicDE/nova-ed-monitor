@@ -72,7 +72,7 @@ def _draw_carrier_bay(pad: int, panel_w: int) -> tuple[RenderableType, str]:
     fl_right = W - len(front_label) - fl_left
     t = Text()
     t.append(h_pad + " " * fl_left)
-    t.append(front_label, style="bold rgb(60,210,100)")
+    t.append(front_label, style=f"bold {P.NAV_LIGHT_STARBOARD}")
     t.append(" " * fl_right + "\n")
     lines.append(t)
 
@@ -87,7 +87,7 @@ def _draw_carrier_bay(pad: int, panel_w: int) -> tuple[RenderableType, str]:
                 p_num, size = cell
                 lbl = f"{p_num:2}"
                 if p_num == pad:
-                    t.append(f"[{lbl}]", style="bold rgb(0,255,150)")
+                    t.append(f"[{lbl}]", style=f"bold {P.NAV_LIGHT_STARBOARD}")
                 else:
                     t.append(f" {lbl} ", style=_CARRIER_PAD_DIM)
         t.append("\n")
@@ -178,7 +178,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
         head.append(f"{stype}\n", style=P.LABEL)
     if pad > 0:
         head.append("Pad ", style=P.LABEL)
-        head.append(f"{pad}\n", style="bold rgb(0,255,150)")
+        head.append(f"{pad}\n", style=f"bold {P.NAV_LIGHT_STARBOARD}")
     if head:
         parts.append(head)
 
@@ -243,7 +243,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
 
         for idx, (rx, ry, _, _) in enumerate(ring_defs):
             steps     = max(rx, ry) * 6
-            dot_style = "rgb(150,150,150)" if idx == active_idx else P.DIM
+            dot_style = P.LABEL_LIGHT if idx == active_idx else P.DIM
             for i in range(steps):
                 angle = _math.pi + i * 2 * _math.pi / steps
                 gx    = int(round(cx + rx * _math.sin(angle)))
@@ -272,7 +272,7 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
             rx        = max(3, int(rx_b * scale))
             ry        = max(2, int(ry_b * scale))
             steps     = max(rx, ry) * 6
-            dot_style = "rgb(150,150,150)" if idx == off else P.DIM
+            dot_style = P.LABEL_LIGHT if idx == off else P.DIM
             for i in range(steps):
                 angle = _math.pi + i * 2 * _math.pi / steps
                 gx    = int(round(cx + rx * _math.sin(angle)))
@@ -303,9 +303,9 @@ def _render_docking(s: AppState, panel_w: int = 60, panel_h: int = 24) -> Render
         if active_idx >= 0:
             place(cx, cy, "╳", P.LABEL_DIM)
     else:
-        place(cx - 2, cy, "●", "bold rgb(255,60,60)")   # red  — port nav light
+        place(cx - 2, cy, "●", f"bold {P.NAV_LIGHT_PORT}")   # red  — port nav light
         place(cx,     cy, "▼", "bold white")             # mailslot
-        place(cx + 2, cy, "●", "bold rgb(0,255,100)")   # green — starboard nav light
+        place(cx + 2, cy, "●", f"bold {P.NAV_LIGHT_STARBOARD}")   # green — starboard nav light
 
     # Build diagram text and centre horizontally
     diag  = Text()

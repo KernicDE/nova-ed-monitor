@@ -43,3 +43,7 @@ Thumbs.db
 
 # Synology internal files
 @eaDir/
+
+# Environment variables
+.env
+.env.*

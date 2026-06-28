@@ -12,7 +12,7 @@ from pathlib import Path
 from .state import AppState, EventCategory, LogEvent, _DEFAULT_BODY_RADIUS_M
 from .tts import TtsMsg, _audio_logger
 from .materials_catalog import (
-    RAW_MATERIALS, MANUFACTURED_MATERIALS, ENCODED_MATERIALS, cap_for,
+    RAW_MATERIALS, MANUFACTURED_MATERIALS, ENCODED_MATERIALS, cap_for, lookup_fuzzy,
 )
 
 _log = logging.getLogger("nova.status")
@@ -172,7 +172,7 @@ def monitor(
             # CPU load minimal — exact positions aren't needed there.
             _near_surface = (
                 state.landed or state.in_srv or
-                state.latitude is not None or state.altitude is not None or
+                state.lat is not None or state.altitude is not None or
                 (not state.in_main_ship and not state.in_srv)
             )
             _fast_poll_cache = state.client_online and _near_surface
@@ -431,7 +431,15 @@ def _apply_status(
         dest = data.get("Destination")
         if isinstance(dest, dict) and "Name" in dest:
             state.target_body        = _ev._clean_localised(dest["Name"])
-            state.target_body_system = _ev._clean_localised(dest.get("System", ""))
+            raw_sys = dest.get("System", "")
+            # Fleet-carrier destinations sometimes send a numeric MarketID instead
+            # of a system name.  A carrier can only be targeted while in the same
+            # system, so fall back to the current system in that case.
+            if not raw_sys or isinstance(raw_sys, (int, float)) or (
+                isinstance(raw_sys, str) and raw_sys.isdigit()
+            ):
+                raw_sys = state.system
+            state.target_body_system = _ev._clean_localised(raw_sys)
             state.target_body_body   = _ev._clean_localised(dest.get("Body", ""))
         else:
             state.target_body = ""
@@ -660,10 +668,13 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
         for m in (section or []):
             if not isinstance(m, dict):
                 continue
-            loc = m.get("Name_Localised") or m.get("Name", "")
-            cnt = int(m.get("Count", 0))
-            if loc:
-                result[loc] = cnt
+            name = m.get("Name", "")
+            loc  = m.get("Name_Localised") or name
+            cnt  = int(m.get("Count", 0))
+            info = lookup_fuzzy(name) or lookup_fuzzy(loc)
+            key  = info.name if info else loc
+            if key:
+                result[key] = cnt
         return result
 
     with lock:

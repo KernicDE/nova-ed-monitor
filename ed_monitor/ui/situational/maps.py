@@ -224,7 +224,7 @@ def _render_system_map(s: AppState, standalone: bool = False, mp: dict | None = 
 
     def _sep(n: int) -> None:
         for _ in range(n):
-            _emit("-", "rgb(55,55,55)")
+            _emit("-", P.DIM)
 
     def _planet_col(body: BodyInfo) -> str:
         if body.landable and body.surface_gravity > 0:
@@ -356,7 +356,7 @@ def _render_system_map(s: AppState, standalone: bool = False, mp: dict | None = 
                     elif complete:
                         row4.append(ch, style=f"bold {P.HUD_GREEN}")
                     else:
-                        row4.append(ch, style="rgb(0,200,80)")
+                        row4.append(ch, style=P.GALAXY_MARKER)
                 row4.append("\n")
                 diag.append_text(row4)
 

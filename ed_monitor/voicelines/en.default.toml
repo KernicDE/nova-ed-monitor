@@ -120,8 +120,6 @@ lines = ["Commander {commander} online."]
 # {suffix}         = optional extra info appended (star class, hops remaining, population)
 # System vars + Ship vars also available.
 lines = ["Arrived in {system}. Jump {dist_ly}.{suffix}"]
-[FSDJump_Home]
-lines = ["Welcome home, Commander."]
 
 
 [NavRoute]
@@ -556,3 +554,56 @@ lines = ["Exploration data sold: {value}."]
 [System_EDSM_Unknown]
 # No variables.
 lines = ["System unknown to EDSM."]
+
+[units]
+light_year = "light year"
+light_years = "light years"
+light_second = "light second"
+light_seconds = "light seconds"
+thousand_light_seconds = "thousand light seconds"
+billion = "billion"
+million = "million"
+thousand = "thousand"
+uninhabited = "uninhabited"
+credits = "credits"
+percent = "percent"
+tonnes = "tonnes"
+minutes = "minutes"
+hours = "hours"
+days = "days"
+Kelvin = "Kelvin"
+kilometres = "kilometres"
+earth_masses = "Earth masses"
+G = "G"
+astronomical_units = "astronomical units"
+degrees = "degrees"
+metres = "metres"
+scoopable = "scoopable"
+not_scoopable = "not scoopable"
+jump = "jump"
+jumps = "jumps"
+remaining = "remaining"
+Pop = "Pop"
+bio = "bio"
+bios = "bios"
+is = "is"
+are = "are"
+landable = "Landable"
+undiscovered = "Undiscovered"
+first_footfall = "First footfall"
+ringed = "Ringed"
+tidal_lock = "Tidal lock"
+complete = "complete"
+star = "Star"
+first_footfall_bonus = "First footfall bonus applied."
+earthlike = "earthlike"
+water_world = "water world"
+ammonia_world = "ammonia world"
+terraformable = "terraformable"
+bio_body = "bio body"
+bio_bodies = "bio bodies"
+neutron_star = "neutron star"
+neutron_stars = "neutron stars"
+black_hole = "black hole"
+black_holes = "black holes"
+nothing_notable = "nothing notable"

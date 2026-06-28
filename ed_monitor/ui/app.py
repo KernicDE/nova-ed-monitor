@@ -27,22 +27,22 @@ from .panels import (
 
 
 class HelpScreen(Screen):
-    CSS = """
+    CSS = P.css("""
     HelpScreen {
-        background: rgb(18,18,18);  /* P.BG_DARK */
+        background: [[BG_DARK]];
         align: center middle;
     }
     #help-scroll {
         width: 80;
         height: 90%;
-        background: rgb(18,18,18);
+        background: [[BG_DARK]];
     }
     #help-static {
         width: 76;
         height: auto;
         padding: 1 2;
     }
-    """
+    """)
 
     def compose(self) -> ComposeResult:
         try:
@@ -158,20 +158,20 @@ class HelpScreen(Screen):
 class NeutronInputScreen(Screen):
     """Overlay for entering a neutron route destination."""
 
-    CSS = """
+    CSS = P.css("""
     NeutronInputScreen {
-        background: rgba(10,10,10,0.9);
+        background: [[OVERLAY_BG]];
         align: center middle;
     }
     #neutron-box {
         width: 60;
         height: auto;
-        background: rgb(28,28,28);       /* near P.BG_DARK, slightly lighter */
-        border: solid rgb(195,160,55);   /* P.HEADER */
+        background: [[OVERLAY_BOX_BG]];
+        border: solid [[OVERLAY_BOX_BORDER]];
         padding: 1 2;
     }
     #neutron-label {
-        color: rgb(195,160,55);          /* P.HEADER */
+        color: [[OVERLAY_BOX_BORDER]];
         text-style: bold;
         margin-bottom: 1;
     }
@@ -179,10 +179,10 @@ class NeutronInputScreen(Screen):
         margin-top: 1;
     }
     #neutron-hint {
-        color: rgb(100,100,100);         /* P.LABEL_DIM */
+        color: [[LABEL_DIM]];
         margin-top: 1;
     }
-    """
+    """)
 
     def __init__(self, neutron_q, current_system: str = "") -> None:
         super().__init__()
@@ -212,9 +212,9 @@ class NeutronInputScreen(Screen):
 
 
 class NOVAApp(App):
-    CSS = """
+    CSS = P.css("""
     Screen {
-        background: rgb(18,18,18);  /* P.BG_DARK */
+        background: [[BG_DARK]];
     }
 
     #top-row {
@@ -278,7 +278,7 @@ class NOVAApp(App):
     FooterBar {
         height: 1;
     }
-    
+
     /* Ship / analysis mode — ED orange (default when in-ship, docked, supercruise, or analysis) */
     Screen.ship-mode SystemPanel,
     Screen.ship-mode ShipPanel,
@@ -287,8 +287,8 @@ class NOVAApp(App):
     Screen.ship-mode SituationalPanel,
     Screen.ship-mode EventLogPanel,
     Screen.ship-mode ChatLogPanel {
-        border: solid rgb(255,128,0) !important;
-        border-title-color: rgb(255,128,0) !important;
+        border: solid [[_MODES.ship.border]] !important;
+        border-title-color: [[_MODES.ship.border]] !important;
     }
 
     /* Combat mode overrides */
@@ -299,8 +299,8 @@ class NOVAApp(App):
     Screen.combat-mode SituationalPanel,
     Screen.combat-mode EventLogPanel,
     Screen.combat-mode ChatLogPanel {
-        border: solid rgb(200,55,35) !important;
-        border-title-color: rgb(200,55,35) !important;
+        border: solid [[_MODES.combat.border]] !important;
+        border-title-color: [[_MODES.combat.border]] !important;
     }
 
     /* On-foot (EVA) mode overrides */
@@ -311,8 +311,8 @@ class NOVAApp(App):
     Screen.on-foot-mode SituationalPanel,
     Screen.on-foot-mode EventLogPanel,
     Screen.on-foot-mode ChatLogPanel {
-        border: solid rgb(80,160,235) !important;
-        border-title-color: rgb(80,160,235) !important;
+        border: solid [[_MODES.on_foot.border]] !important;
+        border-title-color: [[_MODES.on_foot.border]] !important;
     }
 
     /* SRV mode overrides */
@@ -323,8 +323,8 @@ class NOVAApp(App):
     Screen.srv-mode SituationalPanel,
     Screen.srv-mode EventLogPanel,
     Screen.srv-mode ChatLogPanel {
-        border: solid rgb(45,115,185) !important;
-        border-title-color: rgb(45,115,185) !important;
+        border: solid [[_MODES.srv.border]] !important;
+        border-title-color: [[_MODES.srv.border]] !important;
     }
 
     /* Analysis mode overrides — same orange as ship mode */
@@ -335,8 +335,8 @@ class NOVAApp(App):
     Screen.analysis-mode SituationalPanel,
     Screen.analysis-mode EventLogPanel,
     Screen.analysis-mode ChatLogPanel {
-        border: solid rgb(255,128,0) !important;
-        border-title-color: rgb(255,128,0) !important;
+        border: solid [[_MODES.analysis.border]] !important;
+        border-title-color: [[_MODES.analysis.border]] !important;
     }
 
     /* Offline mode overrides */
@@ -347,12 +347,12 @@ class NOVAApp(App):
     Screen.offline-mode SituationalPanel,
     Screen.offline-mode EventLogPanel,
     Screen.offline-mode ChatLogPanel {
-        border: solid rgb(70,70,70) !important;
-        border-title-color: rgb(90,90,90) !important;
+        border: solid [[_MODES.offline.border]] !important;
+        border-title-color: [[_MODES.offline.h1]] !important;
     }
 
     Screen.alert-flash {
-        background: rgb(80, 0, 0);  /* deep combat red */
+        background: [[ALERT_FLASH_BG]];
     }
 
     /* High-G extreme warning flash */
@@ -363,14 +363,31 @@ class NOVAApp(App):
     Screen.high-g-flash SituationalPanel,
     Screen.high-g-flash EventLogPanel,
     Screen.high-g-flash ChatLogPanel {
-        border: solid rgb(220,100,0) !important;            /* P.HIGH_G_FLASH */
-        border-title-color: rgb(220,100,0) !important;
+        border: solid [[HIGH_G_FLASH]] !important;
+        border-title-color: [[HIGH_G_FLASH]] !important;
     }
 
     Screen.high-g-flash {
-        background: rgb(50, 20, 0);  /* deep amber warning */
+        background: [[HIGH_G_FLASH_BG]];
     }
-    """
+
+    /* Portrait layouts — Situational panel (with Bodies tab) fills the main area.
+       BodiesPanel widget is not mounted in portrait; bodies are shown as a tab. */
+    Screen.portrait SystemPanel { width: 1fr; }
+    Screen.portrait ShipPanel   { width: 2fr; }
+    Screen.portrait RoutePanel  { width: 1fr; max-height: 40; }
+    Screen.portrait #main-row   { width: 100%; height: 1fr; }
+    Screen.portrait #log-row    { width: 100%; }
+    Screen.portrait SituationalPanel { height: 1fr; width: 100%; }
+    Screen.portrait EventLogPanel    { height: 1fr; width: 2fr; }
+    Screen.portrait ChatLogPanel     { height: 1fr; width: 1fr; }
+
+    /* Portrait-half: ~68 rows (960 px tall terminal) */
+    Screen.portrait-half #log-row { height: 10; }
+
+    /* Portrait-full: ~137 rows (1920 px tall terminal) */
+    Screen.portrait-full #log-row { height: 14; }
+    """)
 
     TITLE        = "NOVA (Navigation, Operations, and Vessel Assistance)"
     CURSOR_BLINK = False
@@ -397,11 +414,18 @@ class NOVAApp(App):
         self._neutron_q  = neutron_q
         self._cfg        = cfg
         self._restart_evt = restart_evt
+        self._layout     = getattr(cfg, "layout", "landscape") if cfg else "landscape"
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
         self._prev_fingerprint: tuple = ()    # global state fingerprint — skip panel updates when unchanged
 
     def compose(self) -> ComposeResult:
+        if self._layout in ("portrait-half", "portrait-full"):
+            yield from self._compose_portrait()
+        else:
+            yield from self._compose_landscape()
+
+    def _compose_landscape(self) -> ComposeResult:
         with Horizontal(id="top-row"):
             yield SystemPanel()
             yield ShipPanel()
@@ -416,7 +440,28 @@ class NOVAApp(App):
                 yield ChatLogPanel()
         yield FooterBar()
 
+    def _compose_portrait(self) -> ComposeResult:
+        with Horizontal(id="top-row"):
+            yield SystemPanel()
+            yield ShipPanel()
+            yield RoutePanel()
+        with Vertical(id="main-row"):
+            yield SituationalPanel()
+            with Horizontal(id="log-row"):
+                yield EventLogPanel()
+                yield ChatLogPanel()
+        yield FooterBar()
+
     def on_mount(self) -> None:
+        # Apply layout CSS class (landscape = no class; portrait modes add shared + variant class)
+        if self._layout == "portrait-half":
+            self.screen.add_class("portrait")
+            self.screen.add_class("portrait-half")
+            self.query_one(SituationalPanel)._portrait = True
+        elif self._layout == "portrait-full":
+            self.screen.add_class("portrait")
+            self.screen.add_class("portrait-full")
+            self.query_one(SituationalPanel)._portrait = True
         # Refresh every 0.5s is plenty for ED data and saves massive CPU
         self.set_interval(0.5, self._refresh_all)
         # Force-hide the terminal cursor (Textual hides it in the driver, but
@@ -569,7 +614,10 @@ class NOVAApp(App):
         self.query_one(SystemPanel).update(snap)
         self.query_one(ShipPanel).update(snap)
         self.query_one(RoutePanel).update(snap)
-        self.query_one(BodiesPanel).update(snap)
+        try:
+            self.query_one(BodiesPanel).update(snap)
+        except Exception:
+            pass  # not mounted in portrait layouts
         self.query_one(SituationalPanel).update(snap)
         self.query_one(EventLogPanel).update(snap)
         self.query_one(ChatLogPanel).update(snap)
@@ -581,7 +629,9 @@ class NOVAApp(App):
     def on_settings_screen_saved(self, event: "SettingsScreen.Saved") -> None:
         """Apply live-reloadable settings from the overlay."""
         cfg = event.cfg
-        old_lang = self._cfg.tts_lang if self._cfg else "en"
+        old_lang   = self._cfg.tts_lang if self._cfg else "en"
+        old_theme  = getattr(self._cfg, "theme",  "default")   if self._cfg else "default"
+        old_layout = getattr(self._cfg, "layout", "landscape") if self._cfg else "landscape"
         self._cfg = cfg
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
@@ -596,6 +646,14 @@ class NOVAApp(App):
         if cfg.tts_lang != old_lang:
             from .. import tts as _tts_mod
             _tts_mod.clear_cache()
+            if self._restart_evt is not None:
+                self._restart_evt.set()
+            self.exit()
+        if cfg.theme != old_theme:
+            if self._restart_evt is not None:
+                self._restart_evt.set()
+            self.exit()
+        if cfg.layout != old_layout:
             if self._restart_evt is not None:
                 self._restart_evt.set()
             self.exit()

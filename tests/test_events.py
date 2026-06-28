@@ -283,44 +283,48 @@ def _make_body(**kw) -> BodyInfo:
 def test_body_vars_value_fss_uses_mapped_projection():
     """{value} for an FSS'd body must equal _ev_mapped (mapped projection), not base."""
     b = _make_body(fss_scanned=True, mass_em=5.0)
-    vars_ = _body_vars(b)
+    from ed_monitor.state import AppState
+    vars_ = _body_vars(b, AppState())
     assert vars_["value_raw"] == str(_ev_mapped(b))
 
 
 def test_body_vars_value_non_fss_uses_edsm():
     """{value} for a non-FSS'd body with EDSM data must use the EDSM value."""
     b = _make_body(fss_scanned=False, value=50_000, mass_em=0.0)
-    vars_ = _body_vars(b)
+    from ed_monitor.state import AppState
+    vars_ = _body_vars(b, AppState())
     assert vars_["value_raw"] == str(50_000)
 
 
 def test_body_vars_scoopable_is_boolean():
     """{is_scoopable} must be a proper bool; legacy alias {scoopable} also present."""
     scoopable_star = _make_body(star_type="G")
-    vars_s = _body_vars(scoopable_star)
+    from ed_monitor.state import AppState
+    vars_s = _body_vars(scoopable_star, AppState())
     assert vars_s["is_scoopable"] is True
     assert vars_s["scoopable"] is True   # backward-compat alias
 
     non_scoopable_star = _make_body(star_type="N")
-    vars_ns = _body_vars(non_scoopable_star)
+    vars_ns = _body_vars(non_scoopable_star, AppState())
     assert vars_ns["is_scoopable"] is False
     assert vars_ns["scoopable"] is False
 
     planet = _make_body(star_type="")
-    vars_p = _body_vars(planet)
+    vars_p = _body_vars(planet, AppState())
     assert vars_p["is_scoopable"] is False
     assert vars_p["scoopable"] is False
 
 
 def test_body_vars_terraformable_is_boolean():
     """{is_terraformable} must be a proper bool; legacy alias {terra} also present."""
+    from ed_monitor.state import AppState
     terraformable = _make_body(terraform=True)
-    vars_t = _body_vars(terraformable)
+    vars_t = _body_vars(terraformable, AppState())
     assert vars_t["is_terraformable"] is True
     assert vars_t["terra"] is True   # backward-compat alias
 
     not_terra = _make_body(terraform=False)
-    vars_nt = _body_vars(not_terra)
+    vars_nt = _body_vars(not_terra, AppState())
     assert vars_nt["is_terraformable"] is False
     assert vars_nt["terra"] is False
 

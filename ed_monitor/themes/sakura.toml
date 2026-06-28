@@ -1,0 +1,104 @@
+# NOVA Theme — Sakura Night
+# A soft pink-purple night theme inspired by cherry blossoms under moonlight.
+
+description = "Soft pink and violet tones on a deep night background."
+author = "NOVA"
+
+[colors]
+# ── Core accent colours ───────────────────────────────────────────────────────
+amber     = "rgb(220,140,180)"   # Soft rose — replaces ED orange
+amber_dim = "rgb(140,90,120)"    # Muted rose
+
+# ── HUD functional colours ────────────────────────────────────────────────────
+hud_green = "rgb(120,210,150)"   # Soft mint green
+hud_warn  = "rgb(220,200,120)"   # Pale gold
+hud_crit  = "rgb(210,80,100)"    # Soft crimson
+hud_cyan  = "rgb(140,200,220)"   # Icy blue
+
+# ── Data highlight colours ────────────────────────────────────────────────────
+gold      = "rgb(240,210,140)"   # Pale gold
+blue_sh   = "rgb(120,160,210)"   # Soft periwinkle
+purple    = "rgb(180,140,200)"   # Soft lavender
+analysis  = "rgb(160,190,230)"   # Light cornflower
+
+# ── Neutral greys ─────────────────────────────────────────────────────────────
+white        = "rgb(240,230,235)" # Warm white
+label        = "rgb(160,150,160)" # Warm grey
+label_light  = "rgb(180,170,180)" # Light warm grey
+label_dim    = "rgb(120,110,120)" # Dim warm grey
+dim          = "rgb(70,65,70)"    # Dark warm grey
+bg_dark      = "rgb(15,12,18)"    # Deep violet-black
+panel_border = "rgb(90,80,95)"    # Muted purple-grey
+
+# ── Semantic constants ────────────────────────────────────────────────────────
+row_alt      = "rgb(35,30,38)"    # Dark violet row
+high_g_crit  = "rgb(220,100,120)" # Rose red
+high_g_warn  = "rgb(220,180,100)" # Warm amber
+bio_dss      = "rgb(140,230,170)" # Soft mint
+high_g_flash = "rgb(220,160,120)" # Peach
+
+# ── Overlay / settings chrome ─────────────────────────────────────────────────
+overlay_bg        = "rgba(12,10,15,0.93)"
+overlay_box_bg    = "rgb(30,25,35)"
+overlay_box_border = "rgb(200,160,180)"
+settings_row_focus_bg = "rgb(50,40,55)"
+alert_flash_bg    = "rgb(80,20,30)"
+high_g_flash_bg   = "rgb(50,30,25)"
+
+# ── Pip colours (gameplay) ────────────────────────────────────────────────────
+pip_sys = "rgb(120,140,210)"
+pip_eng = "rgb(180,210,140)"
+pip_wep = "rgb(210,120,140)"
+
+# ── Misc UI colours ───────────────────────────────────────────────────────────
+cold_warn           = "rgb(180,210,240)"
+chat_twitch         = "rgb(180,140,220)"
+chat_youtube        = "rgb(220,120,140)"
+chat_squad          = "rgb(140,210,160)"
+flags_good          = "rgb(150,210,170)"
+populated_name      = "rgb(240,220,200)"
+bio_sample_1        = "rgb(220,210,130)"
+first_footfall      = "rgb(160,230,190)"
+first_footfall_value = "rgb(140,230,210)"
+overview_bio        = "rgb(180,160,130)"
+pp_merits           = "rgb(200,170,230)"
+galaxy_marker       = "rgb(140,210,160)"
+nav_light_port      = "rgb(220,100,120)"
+nav_light_starboard = "rgb(120,220,160)"
+
+# ── Mode palette system ───────────────────────────────────────────────────────
+
+[modes.ship]
+border = "rgb(220,140,180)"
+h1     = "rgb(220,140,180)"
+h2     = "rgb(190,110,150)"
+h3     = "rgb(150,80,120)"
+bg     = "rgb(45,25,35)"
+
+[modes.combat]
+border = "rgb(200,80,100)"
+h1     = "rgb(200,80,100)"
+h2     = "rgb(170,60,80)"
+h3     = "rgb(130,45,60)"
+bg     = "rgb(45,15,20)"
+
+[modes.on_foot]
+border = "rgb(160,180,230)"
+h1     = "rgb(160,180,230)"
+h2     = "rgb(130,150,200)"
+h3     = "rgb(100,120,170)"
+bg     = "rgb(20,25,45)"
+
+[modes.srv]
+border = "rgb(140,160,210)"
+h1     = "rgb(140,160,210)"
+h2     = "rgb(110,130,180)"
+h3     = "rgb(80,100,150)"
+bg     = "rgb(15,20,40)"
+
+[modes.offline]
+border = "rgb(80,70,85)"
+h1     = "rgb(100,90,105)"
+h2     = "rgb(80,70,85)"
+h3     = "rgb(65,55,70)"
+bg     = "rgb(20,18,22)"

@@ -228,7 +228,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40, mp: dict
                             _total_lo = sum(sorted(_pred_lo)[:_n])
                             _total_hi = sum(sorted(_pred_hi, reverse=True)[:_n])
                             bio_s = f"?~{_fmt_cr_compact(_total_lo)}–{_fmt_cr_compact(_total_hi)}"
-                            bio_c = "rgb(140,130,60)"
+                            bio_c = P.OVERVIEW_BIO
                         else:
                             bio_s = f"{b.bio_signals}×?"
                             bio_c = P.LABEL
@@ -304,7 +304,7 @@ def _render_overview(s: AppState, panel_h: int = 20, panel_w: int = 40, mp: dict
             rank_str = f" R{s.pp_rank}" if s.pp_rank > 0 else ""
             pp_txt.append(f"{s.pp_power}{rank_str}", style="white")
             if s.pp_total_merits > 0:
-                pp_txt.append(f"  ·  {_de(s.pp_total_merits)}", style="rgb(180,130,255)")
+                pp_txt.append(f"  ·  {_de(s.pp_total_merits)}", style=P.PP_MERITS)
                 if s.pp_session_merits > 0:
                     pp_txt.append(f" (+{_de(s.pp_session_merits)})", style=P.LABEL)
             activity_parts.append(pp_txt)

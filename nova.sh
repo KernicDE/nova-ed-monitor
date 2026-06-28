@@ -15,6 +15,7 @@ SCRIPT_SELF="$(realpath "$0")"
 PORTABLE_ROOT="$(cd "$(dirname "$SCRIPT_SELF")" && pwd)"
 VENV_DIR="$PORTABLE_ROOT/venv"
 VENV_PIP="$VENV_DIR/bin/pip"
+VENV_PYTHON="$VENV_DIR/bin/python"
 VENV_NOVA="$VENV_DIR/bin/nova"
 
 RED='\033[0;31m'
@@ -34,6 +35,11 @@ error()   { echo -e "${RED}  ${*}${NC}"; }
 # false apt-get matches on RPM-based systems.
 
 detect_pm() {
+    # Fedora Atomic / Bazzite / Silverblue use rpm-ostree, not dnf
+    if [ -f /run/ostree-booted ] && command -v rpm-ostree &>/dev/null; then
+        echo "rpm-ostree"
+        return
+    fi
     if [ -f /etc/os-release ]; then
         local _id _id_like
         _id=$(. /etc/os-release && echo "${ID:-}")
@@ -143,6 +149,11 @@ if ! PYTHON=$(find_python); then
                 sudo apt-get update -qq && sudo apt-get install -y python3 python3-venv ;;
         dnf)    info "Detected Fedora / RHEL — installing Python via dnf..."
                 sudo dnf install -y python3 ;;
+        rpm-ostree)
+                info "Detected Fedora Atomic / Bazzite — installing Python via rpm-ostree..."
+                sudo rpm-ostree install -y python3 python3-devel
+                warn "rpm-ostree changes may require a reboot to take effect."
+                warn "If NOVA fails to start, please reboot and try again." ;;
         brew)   info "Detected macOS / Homebrew — installing Python via brew..."
                 brew install python3 ;;
         *)      error "Cannot auto-install Python on this system."
@@ -172,6 +183,19 @@ exit(0 if os.path.exists(h) else 1)
 
     [ $has_sdl2 -eq 1 ] && [ $has_pydevel -eq 1 ] && return 0
 
+    # rpm-ostree systems (Bazzite, Silverblue, Kinoite) often cannot resolve
+    # devel packages automatically due to image-layer conflicts. Pre-built
+    # pygame wheels usually work without them, so we skip the attempt rather
+    # than aborting with an unsolvable depsolve error.
+    if [ "$_PM" = "rpm-ostree" ]; then
+        warn "Build dependencies (SDL2 / Python headers) appear to be missing."
+        warn "Fedora Atomic images frequently block automatic devel installs."
+        warn "NOVA will try to install using pre-built wheels first."
+        warn "If compilation fails, install manually and reboot:"
+        warn "  sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
+        return 0
+    fi
+
     warn "Missing build dependencies — installing..."
     case "$_PM" in
         pacman) sudo pacman -S --noconfirm --needed sdl2 freetype2 python ;;
@@ -179,6 +203,7 @@ exit(0 if os.path.exists(h) else 1)
         dnf)    sudo dnf install -y SDL2-devel freetype-devel python3-devel ;;
         brew)   brew install sdl2 freetype ;;
         *)      warn "Could not auto-install build deps. Install them manually:"
+                warn "  Fedora Atomic:  sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
                 warn "  Fedora/RHEL:    sudo dnf install SDL2-devel freetype-devel python3-devel"
                 warn "  Debian/Ubuntu:  sudo apt-get install libsdl2-dev libfreetype6-dev python3-dev"
                 warn "  Arch:           sudo pacman -S sdl2 freetype2 python" ;;
@@ -187,7 +212,47 @@ exit(0 if os.path.exists(h) else 1)
 
 ensure_build_deps
 
+# ── Warn about very new Python versions (no pygame wheels yet) ────────────────
+
+PY_MINOR=$($PYTHON -c "import sys; print(sys.version_info.minor)" 2>/dev/null || echo 0)
+if [ "${PY_MINOR:-0}" -ge 14 ]; then
+    warn "Python 3.$PY_MINOR detected — pygame may not have a pre-built wheel yet."
+    warn "If installation fails, use Python 3.11–3.13 or install SDL2 build deps."
+    echo ""
+fi
+
 # ── Bootstrap: create portable layout + install NOVA on first run ─────────────
+
+_install_nova() {
+    local _url="$1"
+    local _upgrade="${2:-}"
+    local _args=()
+    [ -n "$_upgrade" ] && _args+=(--upgrade)
+    if ! "$VENV_PIP" install "${_args[@]}" "$_url" 2>&1; then
+        error ""
+        error "NOVA installation failed."
+        error ""
+        error "The most common cause is that 'pygame' has no pre-built wheel"
+        error "for this Python version and must be compiled from source."
+        if [ "$_PM" = "rpm-ostree" ]; then
+            error ""
+            error "Fedora Atomic / Bazzite blocks automatic devel packages."
+            error "You have two options:"
+            error ""
+            error "  1) Use Python 3.11–3.13 (pre-built pygame wheels exist)."
+            error "  2) Install build deps manually, then reboot:"
+            error "     sudo rpm-ostree install SDL2-devel freetype-devel python3-devel"
+            error "     reboot"
+        else
+            error ""
+            error "Try installing the build dependencies manually:"
+            error "  Fedora/RHEL:  sudo dnf install SDL2-devel freetype-devel python3-devel"
+            error "  Debian/Ubuntu:sudo apt-get install libsdl2-dev libfreetype6-dev python3-dev"
+            error "  Arch:         sudo pacman -S sdl2 freetype2 python"
+        fi
+        return 1
+    fi
+}
 
 if [ ! -d "$VENV_DIR" ]; then
     info "First run — setting up NOVA in $PORTABLE_ROOT ..."
@@ -196,7 +261,7 @@ if [ ! -d "$VENV_DIR" ]; then
     $PYTHON -m venv "$VENV_DIR"
     info "Installing NOVA (this takes a minute)..."
     "$VENV_PIP" install --quiet --upgrade pip
-    "$VENV_PIP" install "$NOVA_URL"
+    _install_nova "$NOVA_URL" || exit 1
     success "NOVA installed successfully!"
     echo ""
 else
@@ -219,7 +284,8 @@ except Exception:
 
     if [ -n "$latest_ver" ] && [ "$installed_ver" != "$latest_ver" ]; then
         info "Update available: $installed_ver → $latest_ver — updating..."
-        "$VENV_PIP" install --quiet --upgrade "$NOVA_URL"
+        "$VENV_PIP" install --quiet --upgrade pip 2>/dev/null || true
+        _install_nova "$NOVA_URL" "--upgrade" || exit 1
         success "NOVA updated to $latest_ver."
         echo ""
     else
@@ -233,5 +299,15 @@ fi
 info "Starting NOVA..."
 echo ""
 
+# Pop any KKP stack entries the parent shell (fish 4.x) may have left active.
+# Fish pushes flags=31 while reading input; if it doesn't pop before exec'ing
+# this script, Kitty keeps sending KKP-formatted sequences until Textual's own
+# push takes effect.  Eight pops clear all realistic stack depths; extras are
+# no-ops on an empty stack.
+printf '\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u\033[<u'
+
 export NOVA_PORTABLE_ROOT="$PORTABLE_ROOT"
-exec "$VENV_NOVA"
+# Launch via 'python -m ed_monitor' so that sys.argv[0] ends with __main__.py.
+# This ensures the in-process restart (after settings changes) correctly
+# re-execs as 'python -m ed_monitor' instead of landing in a Python REPL.
+exec "$VENV_PYTHON" -m ed_monitor

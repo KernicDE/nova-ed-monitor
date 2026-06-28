@@ -362,16 +362,16 @@ class _Panel(Widget):
 class SystemPanel(_Panel):
     BORDER_TITLE = "◈ Position"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     SystemPanel {
-        border: solid rgb(0,175,185);         /* P.HUD_CYAN */
-        border-title-color: rgb(0,175,185);   /* P.HUD_CYAN */
+        border: solid [[HUD_CYAN]];
+        border-title-color: [[HUD_CYAN]];
         border-title-style: bold;
         height: auto;
         min-height: 11;
         width: 1fr;
     }
-    """
+    """)
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -560,16 +560,16 @@ class SystemPanel(_Panel):
 class ShipPanel(_Panel):
     BORDER_TITLE = "◈ Ship"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     ShipPanel {
-        border: solid rgb(210,115,0);         /* P.AMBER */
-        border-title-color: rgb(210,115,0);   /* P.AMBER */
+        border: solid [[AMBER]];
+        border-title-color: [[AMBER]];
         border-title-style: bold;
         height: auto;
         min-height: 11;
         width: 2fr;
     }
-    """
+    """)
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -673,12 +673,12 @@ class ShipPanel(_Panel):
             parts.append(gauges)
 
             pip_txt = Text(justify="center")
-            pip_txt.append("SYS ", style="bold rgb(60,100,200)")
-            pip_txt.append_text(_pip_bar(s.pips_sys, "rgb(60,100,200)"))
-            pip_txt.append("  ENG ", style="bold rgb(160,200,60)")
-            pip_txt.append_text(_pip_bar(s.pips_eng, "rgb(160,200,60)"))
-            pip_txt.append("  WEP ", style="bold rgb(200,60,60)")
-            pip_txt.append_text(_pip_bar(s.pips_wep, "rgb(200,60,60)"))
+            pip_txt.append("SYS ", style=f"bold {P.PIP_SYS}")
+            pip_txt.append_text(_pip_bar(s.pips_sys, P.PIP_SYS))
+            pip_txt.append("  ENG ", style=f"bold {P.PIP_ENG}")
+            pip_txt.append_text(_pip_bar(s.pips_eng, P.PIP_ENG))
+            pip_txt.append("  WEP ", style=f"bold {P.PIP_WEP}")
+            pip_txt.append_text(_pip_bar(s.pips_wep, P.PIP_WEP))
             parts.append(Align.center(pip_txt))
 
         parts.append(Text(""))  # spacer
@@ -765,7 +765,7 @@ class ShipPanel(_Panel):
         warns = []
         if s.low_health_suit: warns.append(("⚠ LOW HEALTH", P.HUD_CRIT))
         if s.low_oxygen:      warns.append(("⚠ LOW O2",     P.HUD_CRIT))
-        if s.suit_cold:       warns.append(("❄ COLD",        "rgb(120,180,255)"))
+        if s.suit_cold:       warns.append(("❄ COLD",        P.COLD_WARN))
         if s.suit_hot:        warns.append(("🔥 HOT",         P.HUD_WARN))
         for i, (label, col) in enumerate(warns):
             if i: warns_txt.append("   ")
@@ -907,16 +907,16 @@ def _strip_economy_label(s: str) -> str:
 class RoutePanel(_Panel):
     BORDER_TITLE = "◈ Target"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     RoutePanel {
-        border: solid rgb(210,115,0);         /* P.AMBER */
-        border-title-color: rgb(210,115,0);   /* P.AMBER */
+        border: solid [[AMBER]];
+        border-title-color: [[AMBER]];
         border-title-style: bold;
         height: auto;
         min-height: 11;
         width: 1fr;
     }
-    """
+    """)
 
     def update(self, snap: AppState) -> None:
         self._snap = snap
@@ -1211,7 +1211,7 @@ class RoutePanel(_Panel):
             row("Bio", bio_str, bio_col)
             if body.bio_genuses:
                 for g in body.bio_genuses[:4]:
-                    t.append(f"  · {g}\n", style="rgb(0,160,60)")
+                    t.append(f"  · {g}\n", style=P.HUD_GREEN)
 
         if body.geo_signals > 0:
             row("Geo", f"{body.geo_signals} signals", P.PURPLE)
@@ -1273,7 +1273,7 @@ class RoutePanel(_Panel):
                 row("Bio", bio_str, bio_col)
                 if body.bio_genuses:
                     for g in body.bio_genuses[:4]:
-                        t.append(f"  · {g}\n", style="rgb(0,160,60)")
+                        t.append(f"  · {g}\n", style=P.HUD_GREEN)
 
             if body.geo_signals > 0:
                 row("Geo", f"{body.geo_signals} signals", P.PURPLE)
@@ -1325,13 +1325,13 @@ class RoutePanel(_Panel):
 class BodiesPanel(_Panel):
     BORDER_TITLE = "◈ Scanned Bodies"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     BodiesPanel {
-        border: solid rgb(0,175,185);         /* P.HUD_CYAN */
-        border-title-color: rgb(0,175,185);   /* P.HUD_CYAN */
+        border: solid [[HUD_CYAN]];
+        border-title-color: [[HUD_CYAN]];
         border-title-style: bold;
     }
-    """
+    """)
 
     _scroll: int = 0
     # Sort cache: avoid re-sorting bodies every 500 ms when nothing has changed
@@ -1368,7 +1368,7 @@ class BodiesPanel(_Panel):
 
         _mp = P.mp(s.ui_mode)
         tbl = _data_table(_mp["h2"])
-        tbl.add_column("Body", style="white", width=11, no_wrap=True)
+        tbl.add_column("Body", style="white", width=14, no_wrap=True)
         tbl.add_column("Type", width=8)
         tbl.add_column("Est Val", width=11, justify="right")
         tbl.add_column("Dist", width=11, justify="right")
@@ -1405,7 +1405,8 @@ class BodiesPanel(_Panel):
                 # a multi-char alpha prefix (like "AB") AND its root parent is NOT a star.
                 # e.g. "AB 4" → root_parent="AB 4" (not a star) → bucket 1
                 #      "AB 1 a" where AB 1 is a star → root_parent="AB 1" (IS a star) → bucket 0
-                if not b.star_type and parts[0].isalpha() and len(parts[0]) > 1:
+                if (not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+                        and parts[0].isupper()):
                     root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
                     bucket = 0 if root_parent in _star_short_names else 1
                 else:
@@ -1464,12 +1465,13 @@ class BodiesPanel(_Panel):
 
             # Hierarchical indentation:
             # Stars / primary bodies:         level 0 (no indent)
-            # Single-star planets:            level 1  (A 1, B 2, 1...)
-            # Single-star moons:              level 2+ (A 1 a, 1 a...)
-            # Barycentre planets:             level 0  (AB 4 — orbits the binary, not A)
-            # Barycentre planet moons:        level 1  (AB 4 a)
-            # Children of barycentre STARS:   like normal children (AB 1 a → level 2)
-            is_barycentric_prefix = not b.star_type and parts[0].isalpha() and len(parts[0]) > 1
+            # Planets:                        level 1
+            # Moons:                          level 2
+            # Barycentre planets:             level 0  (orbits the binary, not a single star)
+            # Barycentre planet moons:        level 1
+            # Children of barycentre STARS:   level 2 (normal moon)
+            is_barycentric_prefix = (not b.star_type and parts[0].isalpha()
+                                     and len(parts[0]) > 1 and parts[0].isupper())
             if is_barycentric_prefix:
                 root_parent = " ".join(parts[:2]) if len(parts) >= 2 else parts[0]
                 is_barycentre_body = root_parent not in _star_short_names
@@ -1477,12 +1479,10 @@ class BodiesPanel(_Panel):
                 is_barycentre_body = False
             if b.star_type:
                 level = 0
-            elif parts[0][0].isdigit():
-                level = len(parts)
             elif is_barycentre_body:
-                level = max(0, len(parts) - 2)
+                level = max(0, b.level - 1)
             else:
-                level = len(parts) - 1
+                level = b.level
 
             indent = " " * max(0, level)
             # High-G coloring: orange ≥1.5G, red-orange ≥3.0G (landable planets only)
@@ -1535,7 +1535,7 @@ class BodiesPanel(_Panel):
                 ("T" if b.terraform else " ") +
                 ("A" if atm_present else " ")
             )
-            flags_style = "bold rgb(130,200,130)" if flags != "───" else P.DIM
+            flags_style = f"bold {P.FLAGS_GOOD}" if flags != "───" else P.DIM
 
             tbl.add_row(
                 name,
@@ -1603,13 +1603,13 @@ def _render_log_lines(
 class EventLogPanel(_Panel):
     BORDER_TITLE = "◈ Event Log"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     EventLogPanel {
-        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
-        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
+        border: solid [[PANEL_BORDER]];
+        border-title-color: [[PANEL_BORDER]];
         border-title-style: bold;
     }
-    """
+    """)
 
     _scroll: int = 0
 
@@ -1692,13 +1692,13 @@ class EventLogPanel(_Panel):
 class ChatLogPanel(_Panel):
     BORDER_TITLE = "◈ Chat"
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = P.css("""
     ChatLogPanel {
-        border: solid rgb(90,90,90);         /* P.PANEL_BORDER */
-        border-title-color: rgb(90,90,90);   /* P.PANEL_BORDER */
+        border: solid [[PANEL_BORDER]];
+        border-title-color: [[PANEL_BORDER]];
         border-title-style: bold;
     }
-    """
+    """)
 
     _scroll: int = 0
 
@@ -1724,11 +1724,11 @@ class ChatLogPanel(_Panel):
 
     # Source tag → (3-char abbrev, color)
     _SRC_TAGS: dict[str, tuple[str, str]] = {
-        "[Twitch]":  ("TWI", "rgb(145,70,255)"),   # Twitch purple
-        "[YouTube]": ("YTL", "rgb(255,70,70)"),    # YouTube red
+        "[Twitch]":  ("TWI", P.CHAT_TWITCH),   # Twitch purple
+        "[YouTube]": ("YTL", P.CHAT_YOUTUBE),    # YouTube red
         "[Wing]":    ("WNG", P.HUD_CYAN),    # Cyan
         "[Local]":   ("LCL", P.LABEL_LIGHT),  # Grey
-        "[Sqn]":     ("SQN", "rgb(0,200,100)"),    # Green
+        "[Sqn]":     ("SQN", P.CHAT_SQUAD),    # Green
         "[System]":  ("SYS", P.HUD_WARN),    # Amber
         "[Friend]":  ("FRD", P.BLUE_SH),   # Blue
     }

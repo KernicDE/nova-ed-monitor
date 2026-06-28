@@ -57,9 +57,9 @@ lines = ["Commander {commander} online."]
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 [FSDJump]
-lines = ["Ankunft in {system}. Sprung {dist_ly}.{suffix}"]
+lines = ["Ankunft in {system}. Sprung über {dist_ly}.{suffix}"]
 [FSDJump_Home]
-lines = ["Welcome home, Commander."]
+lines = ["Willkommen zu Hause, Commander."]
 
 
 [NavRoute]
@@ -96,7 +96,7 @@ lines = ["Von {station} abgedockt."]
 lines = ["Abgedockt."]
 
 [DockingGranted]
-lines = ["Andockgenehmigung erteilt. Bitte zu Pad {pad} navigieren."]
+lines = ["Andockgenehmigung erteilt. Bitte zu Dock {pad} navigieren."]
 
 [DockingDenied]
 lines = ["Andockgenehmigung verweigert. Grund: {reason}."]
@@ -164,7 +164,7 @@ lines = ["Interdiktion erfolgreich: {victim}."]
 lines = ["Interdiktion fehlgeschlagen."]
 
 [Scanned]
-lines = ["Warnung: {scan_type}-Scan erkannt!"]
+lines = ["Warnung: {scan_type} Scan erkannt!"]
 
 [HeatWarning]
 lines = ["Warnung: Hitze kritisch!"]
@@ -208,10 +208,10 @@ lines = ["Biologisch: {species}. Neue Spezies!"]
 lines = ["Bioprobe {count} von 3: {species}."]
 
 [ScanOrganic_Analyse]
-lines = ["Bio abgeschlossen: {species}. Wert: {val_str}.{ff_suffix}"]
+lines = ['Bio abgeschlossen: {species}. Wert: {val_str}.WHEN {first_footfall_flag} IS TRUE THEN " Erster-Fuß-Bonus angewendet.";']
 
 [ScanOrganic_Analyse_BodyLeft]
-lines = ["Weiter scannen. {body_left} {bio_word} noch auf diesem Körper."]
+lines = ["Weitere Biosignale auf diesem Körper: {body_left}."]
 
 [ScanOrganic_Analyse_SystemMore]
 lines = ["Weitere Biosignale: {parts_str}."]
@@ -343,3 +343,56 @@ lines = ["Zu nah an {species}-Probe. Bitte Abstand vergrößern."]
 [System_EDSM_Unknown]
 # No variables.
 lines = ["System bei EDSM unbekannt."]
+
+[units]
+light_year = "Lichtjahr"
+light_years = "Lichtjahre"
+light_second = "Lichtsekunde"
+light_seconds = "Lichtsekunden"
+thousand_light_seconds = "tausend Lichtsekunden"
+billion = "Milliarden"
+million = "Millionen"
+thousand = "tausend"
+uninhabited = "unbewohnt"
+credits = "Credits"
+percent = "Prozent"
+tonnes = "Tonnen"
+minutes = "Minuten"
+hours = "Stunden"
+days = "Tage"
+Kelvin = "Kelvin"
+kilometres = "Kilometer"
+earth_masses = "Erdmassen"
+G = "G"
+astronomical_units = "astronomische Einheiten"
+degrees = "Grad"
+metres = "Meter"
+scoopable = "tankbar"
+not_scoopable = "nicht tankbar"
+jump = "Sprung"
+jumps = "Sprünge"
+remaining = "verbleiben"
+Pop = "Bevölkerung"
+bio = "Bio-Signal"
+bios = "Bio-Signale"
+is = "ist"
+are = "sind"
+landable = "Landbar"
+undiscovered = "Unentdeckt"
+first_footfall = "Erster Fuß"
+ringed = "Geringelt"
+tidal_lock = "Gebundene Rotation"
+complete = "abgeschlossen"
+star = "Stern"
+first_footfall_bonus = "Erster-Fuß-Bonus angewendet."
+earthlike = "erdähnlich"
+water_world = "Wasserwelt"
+ammonia_world = "Ammoniawelt"
+terraformable = "terraformierbar"
+bio_body = "Bio-Körper"
+bio_bodies = "Bio-Körper"
+neutron_star = "Neutronenstern"
+neutron_stars = "Neutronensterne"
+black_hole = "Schwarzes Loch"
+black_holes = "Schwarze Löcher"
+nothing_notable = "nichts Besonderes"

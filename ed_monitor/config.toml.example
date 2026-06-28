@@ -20,6 +20,16 @@
 # journal_dir = /path/to/Saved Games/Frontier Developments/Elite Dangerous
 
 
+# ── Appearance ────────────────────────────────────────────────────────────────
+# UI colour theme.  Themes are TOML files in config/themes/.
+# Built-in: default, sakura
+# Custom: copy default.toml, rename it, and edit the colours.
+# Changing the theme requires a restart.
+# Default: default
+#
+# theme = default
+
+
 # ── TTS ───────────────────────────────────────────────────────────────────────
 # Rate adjustment for edge-tts speech synthesis.
 # Format: +N% to speed up, -N% to slow down, +0% for default system speed.

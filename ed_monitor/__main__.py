@@ -10,6 +10,69 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 
+
+def _patch_kitty_keyboard_protocol() -> None:
+    # Fish 4.x pushes KKP flags=31 (DISAMBIGUATE | REPORT_EVENT_TYPES |
+    # REPORT_ALTERNATE_KEYS | REPORT_ALL_KEYS | REPORT_ASSOCIATED_TEXT).
+    # Textual then pushes flags=25 (DISAMBIGUATE | REPORT_ALL_KEYS |
+    # REPORT_ASSOCIATED_TEXT) on top, making flags=25 active while NOVA runs.
+    #
+    # Two-layer fix:
+    #
+    # 1. Normalise incoming sequences in _sequence_to_key_events: strip `:\d+`
+    #    sub-params left by REPORT_EVENT_TYPES (e.g. `\x1b[1;129:1C` →
+    #    `\x1b[1;129C`).  This handles any residual flags=31 sequences during
+    #    the brief window before Textual's own push takes effect.
+    #
+    # 2. Downgrade Textual's own KKP push to flags=1 (DISAMBIGUATE only) by
+    #    zeroing KITTY_REPORT_ALL_KEYS and KITTY_REPORT_ASSOCIATED_TEXT in
+    #    linux_driver before start_application_mode() computes KITTY_PROTOCOL_FLAG.
+    #    With flags=1: cursor keys arrive as `\x1b[C` / `\x1b[1;NC` (classic
+    #    xterm format), no Num Lock modifier complications, no 3-field character
+    #    sequences — the simplest format that Textual handles perfectly.
+    #
+    # The stack-clear in main() (just before NOVAApp.run()) also pops any
+    # leftover fish push via __stderr__ so the terminal starts clean.
+    try:
+        import re as _re
+        import textual._xterm_parser as _xterm_parser
+        from textual._ansi_sequences import ANSI_SEQUENCES_KEYS, IGNORE_SEQUENCE
+
+        _strip_subparam = _re.compile(r":\d+")
+
+        def _normalize(seq: str) -> str:
+            return _strip_subparam.sub("", seq)   # drop :N event-type sub-params
+
+        _orig_stke = _xterm_parser.XTermParser._sequence_to_key_events
+
+        def _patched_stke(self, sequence: str, alt: bool = False,
+                          _orig=_orig_stke, _norm=_normalize):
+            return _orig(self, _norm(sequence), alt)
+
+        _xterm_parser.XTermParser._sequence_to_key_events = _patched_stke
+
+        for _seq in ("\x1b[p", "\x1b[>0p", "\x1b[>p"):
+            ANSI_SEQUENCES_KEYS.setdefault(_seq, IGNORE_SEQUENCE)
+
+    except Exception:
+        pass
+
+    # Downgrade Textual's KKP push from flags=25 to flags=1 (DISAMBIGUATE only).
+    # REPORT_ALL_KEYS (bit 3) adds Num Lock into cursor-key modifier bytes;
+    # REPORT_ASSOCIATED_TEXT (bit 4) produces 3-field character sequences.
+    # Both interact poorly with fish's flags=31 stack and produce sequences that
+    # cause \x1b[I (FOCUSIN) misparses in certain Kitty+fish combinations.
+    # With flags=1, all keys arrive in the classic xterm format Textual knows.
+    try:
+        import textual.drivers.linux_driver as _ld
+        _ld.KITTY_REPORT_ALL_KEYS = 0
+        _ld.KITTY_REPORT_ASSOCIATED_TEXT = 0
+    except Exception:
+        pass
+
+
+_patch_kitty_keyboard_protocol()
+
 _wlog = logging.getLogger("nova.watchdog")
 
 
@@ -31,6 +94,9 @@ def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
 from . import bindings, config, config_watcher, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
+from .ui import palette as _palette
+_palette.ensure_theme_files()
+_palette.apply_theme(config.load().theme)
 from .ui.app import NOVAApp
 
 def _db_path() -> Path:
@@ -211,6 +277,9 @@ def main() -> None:
                 tts.clear_cache()
                 voicelines.reload_all()
                 restart_evt.set()
+            # Theme changes require a restart (CSS is evaluated at class load time)
+            if getattr(cfg, "theme", "default") != new_cfg.theme:
+                restart_evt.set()
             events.set_tts_lang(new_cfg.tts_lang)
             events.set_voices(new_cfg.tts_voices)
             with vol_lock:
@@ -233,14 +302,24 @@ def main() -> None:
         _on_voicelines_changed,
     )
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run()
+    # Pop any KKP stack entries fish may have left active (fish pushes flags=31
+    # when reading interactive input and may not pop before exec).  Sent to
+    # __stderr__ — the same fd Textual uses — so Kitty processes the pops
+    # before start_application_mode() pushes its own flags.
+    sys.__stderr__.write("\x1b[<u" * 8)
+    sys.__stderr__.flush()
+
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
 
     if restart_evt.is_set():
-        logging.getLogger("nova").info("Restarting NOVA after language change")
+        logging.getLogger("nova").info("Restarting NOVA after settings change")
         if sys.argv[0].endswith("__main__.py"):
             os.execv(sys.executable, [sys.executable, "-m", "ed_monitor"])
         else:
-            os.execv(sys.executable, sys.argv)
+            # Entry-point launch: exec the script directly so the OS shebang runs it.
+            # os.execv(sys.executable, sys.argv) would pass argv[0] as the process
+            # name with no script argument, landing Python in interactive mode.
+            os.execv(sys.argv[0], sys.argv)
 
 
 if __name__ == "__main__":

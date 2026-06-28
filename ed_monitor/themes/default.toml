@@ -1,0 +1,110 @@
+# NOVA Theme — Default
+# This is the built-in Elite Dangerous HUD colour palette.
+# All UI colours must be defined here. No hardcoded rgb() values in panel/app
+# code except for gameplay-specific mappings (star classes, pip colours, etc.).
+
+description = "The classic Elite Dangerous orange-cyan HUD palette."
+author = "NOVA"
+
+[colors]
+# ── Core accent colours ───────────────────────────────────────────────────────
+amber     = "rgb(210,115,0)"   # Data highlight — fuel state, cargo icons, non-mode UI
+amber_dim = "rgb(120,68,0)"    # Muted amber — footer labels, inactive accents
+
+# ── HUD functional colours ────────────────────────────────────────────────────
+hud_green = "rgb(0,170,60)"    # Positive / success / scoopable / bio present
+hud_warn  = "rgb(195,150,0)"   # Warning / caution states
+hud_crit  = "rgb(185,40,40)"   # Critical / error / overheating (not combat mode)
+hud_cyan  = "rgb(0,175,185)"   # Info / analysis data / on-foot gravity / position
+
+# ── Data highlight colours ────────────────────────────────────────────────────
+gold      = "rgb(230,185,0)"   # First discovery / mapping / notable value
+blue_sh   = "rgb(50,130,210)"  # Shield / friend / clean legal
+purple    = "rgb(140,100,165)" # Geo signals / galaxy POIs
+analysis  = "rgb(90,160,230)"  # Analysis mode data highlights
+
+# ── Neutral greys ─────────────────────────────────────────────────────────────
+white        = "white"            # Primary text
+label        = "rgb(145,145,145)" # Secondary text / labels
+label_light  = "rgb(160,160,160)" # Muted primary text / inactive buttons
+label_dim    = "rgb(100,100,100)" # Timestamps / footer hints / tertiary text
+dim          = "rgb(60,60,60)"    # Disabled / faint / no-data
+bg_dark      = "rgb(18,18,18)"    # App background
+panel_border = "rgb(90,90,90)"    # Default border for logs / secondary panels
+
+# ── Semantic constants ────────────────────────────────────────────────────────
+row_alt      = "rgb(38,38,38)"    # Alternating table row background
+high_g_crit  = "rgb(220,60,0)"    # ≥3.0 G gravity warnings
+high_g_warn  = "rgb(220,140,0)"   # ≥1.5 G gravity warnings
+bio_dss      = "rgb(0,220,80)"    # Bio "needs DSS" highlight
+high_g_flash = "rgb(220,100,0)"   # High-G warning flash border
+
+# ── Overlay / settings chrome ─────────────────────────────────────────────────
+overlay_bg        = "rgba(10,10,10,0.93)"
+overlay_box_bg    = "rgb(28,28,28)"
+overlay_box_border = "rgb(195,160,55)"
+settings_row_focus_bg = "rgb(45,45,45)"
+alert_flash_bg    = "rgb(80,0,0)"
+high_g_flash_bg   = "rgb(50,20,0)"
+
+# ── Pip colours (gameplay) ────────────────────────────────────────────────────
+pip_sys = "rgb(60,100,200)"
+pip_eng = "rgb(160,200,60)"
+pip_wep = "rgb(200,60,60)"
+
+# ── Misc UI colours ───────────────────────────────────────────────────────────
+cold_warn           = "rgb(120,180,255)"
+chat_twitch         = "rgb(145,70,255)"
+chat_youtube        = "rgb(255,70,70)"
+chat_squad          = "rgb(0,200,100)"
+flags_good          = "rgb(130,200,130)"
+populated_name      = "rgb(255,235,180)"
+bio_sample_1        = "rgb(210,210,0)"
+first_footfall      = "rgb(80,240,160)"
+first_footfall_value = "rgb(0,255,180)"
+overview_bio        = "rgb(140,130,60)"
+pp_merits           = "rgb(180,130,255)"
+galaxy_marker       = "rgb(0,200,80)"
+nav_light_port      = "rgb(255,60,60)"
+nav_light_starboard = "rgb(0,255,100)"
+
+# ── Mode palette system ───────────────────────────────────────────────────────
+# Each mode has: border (panels), h1 (section headers), h2 (table column headers),
+# h3 (kv labels / inline dividers), bg (section header background tint).
+# ui_mode values: "ship" | "combat" | "on_foot" | "srv" | "offline"
+# "analysis" maps to "ship" (same orange — analysis is still in ship).
+
+[modes.ship]
+border = "rgb(255,128,0)"
+h1     = "rgb(255,128,0)"
+h2     = "rgb(200,95,0)"
+h3     = "rgb(140,65,0)"
+bg     = "rgb(50,22,0)"
+
+[modes.combat]
+border = "rgb(200,55,35)"
+h1     = "rgb(200,55,35)"
+h2     = "rgb(155,40,25)"
+h3     = "rgb(105,28,18)"
+bg     = "rgb(45,12,8)"
+
+[modes.on_foot]
+border = "rgb(80,160,235)"
+h1     = "rgb(80,160,235)"
+h2     = "rgb(55,120,195)"
+h3     = "rgb(38,85,145)"
+bg     = "rgb(10,28,58)"
+
+[modes.srv]
+border = "rgb(45,115,185)"
+h1     = "rgb(45,115,185)"
+h2     = "rgb(34,88,148)"
+h3     = "rgb(24,62,108)"
+bg     = "rgb(8,20,46)"
+
+[modes.offline]
+border = "rgb(70,70,70)"
+h1     = "rgb(90,90,90)"
+h2     = "rgb(70,70,70)"
+h3     = "rgb(55,55,55)"
+bg     = "rgb(22,22,22)"

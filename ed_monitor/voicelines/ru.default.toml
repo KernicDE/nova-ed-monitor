@@ -53,7 +53,7 @@ lines = ["Командир {commander} в сети."]
 [FSDJump]
 lines = ["Прибыли в {system}. Прыжок {dist_ly}.{suffix}"]
 [FSDJump_Home]
-lines = ["Welcome home, Commander."]
+lines = ["Добро пожаловать домой, командир."]
 
 
 [NavRoute]
@@ -198,10 +198,10 @@ lines = ["Биологическое: {species}. Новый вид!"]
 lines = ["Биопроба {count} из 3: {species}."]
 
 [ScanOrganic_Analyse]
-lines = ["Биоисследование завершено: {species}. Ценность: {val_str}.{ff_suffix}"]
+lines = ['Биоисследование завершено: {species}. Ценность: {val_str}.WHEN {first_footfall_flag} IS TRUE THEN " Бонус первого следа применён.";']
 
 [ScanOrganic_Analyse_BodyLeft]
-lines = ["На этом теле ещё {body_left} {bio_word}."]
+lines = ["На этом теле осталось {body_left} биосигналов."]
 
 [ScanOrganic_Analyse_SystemMore]
 lines = ["Дополнительные биосигналы: {parts_str}."]
@@ -323,3 +323,69 @@ lines = ["Слишком близко к образцу {species}. Отойди�
 [System_EDSM_Unknown]
 # No variables.
 lines = ["Система неизвестна в EDSM."]
+
+[units]
+light_year = "световой год"
+light_years = "световых лет"
+light_second = "световая секунда"
+light_seconds = "световых секунд"
+thousand_light_seconds = "тысяча световых секунд"
+billion = "миллиардов"
+million = "миллионов"
+thousand = "тысяч"
+uninhabited = "необитаемая"
+credits = "кредитов"
+percent = "процентов"
+tonnes = "тонн"
+minutes = "минут"
+hours = "часов"
+days = "дней"
+Kelvin = "Кельвин"
+kilometres = "километров"
+earth_masses = "масс Земли"
+G = "G"
+astronomical_units = "астрономических единиц"
+degrees = "градусов"
+metres = "метров"
+scoopable = "заправляемая"
+not_scoopable = "не заправляемая"
+jump = "прыжок"
+jumps = "прыжков"
+remaining = "осталось"
+Pop = "Население"
+bio = "биосигнал"
+bios = "биосигналов"
+is = "есть"
+are = "есть"
+landable = "Пригодна для посадки"
+undiscovered = "Неоткрытая"
+first_footfall = "Первый след"
+ringed = "С кольцами"
+tidal_lock = "Приливная блокировка"
+complete = "завершено"
+star = "Звезда"
+first_footfall_bonus = "Бонус первого следа применён."
+earthlike = "похожая на Землю"
+water_world = "водный мир"
+ammonia_world = "аммиачный мир"
+terraformable = "терраформируемая"
+bio_body = "биотело"
+bio_bodies = "биотел"
+neutron_star = "нейтронная звезда"
+neutron_stars = "нейтронных звёзд"
+black_hole = "чёрная дыра"
+black_holes = "чёрных дыр"
+nothing_notable = "ничего примечательного"
+
+light_years_one = "световой год"
+light_years_few = "световых года"
+light_years_many = "световых лет"
+light_seconds_one = "световая секунда"
+light_seconds_few = "световые секунды"
+light_seconds_many = "световых секунд"
+jumps_one = "прыжок"
+jumps_few = "прыжка"
+jumps_many = "прыжков"
+bios_one = "биосигнал"
+bios_few = "биосигнала"
+bios_many = "биосигналов"

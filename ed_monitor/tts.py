@@ -261,6 +261,7 @@ def _play(text: str, voice: str, rate: str, volume: int, cacheable: bool = True)
         result = subprocess.run(
             [sys.executable, "-m", "edge_tts", "--voice", voice, "--rate", rate, "--text", text, "--write-media", tmp],
             capture_output=True,
+            stdin=subprocess.DEVNULL,
             timeout=30,
         )
         # Some edge-tts versions return rc=1 on non-fatal warnings but still write the file.
@@ -303,12 +304,15 @@ def _play_audio(path: str, volume: int) -> None:
         try:
             import pygame
             pygame.mixer.init()
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(volume / 100.0)
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.05)
-            pygame.mixer.music.unload()  # release file handle (required on Windows)
+            try:
+                pygame.mixer.music.load(path)
+                pygame.mixer.music.set_volume(volume / 100.0)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    time.sleep(0.05)
+                pygame.mixer.music.unload()  # release file handle (required on Windows)
+            finally:
+                pygame.mixer.quit()
             return
         except Exception as e:
             _audio_logger.warning(f"pygame playback failed: {e}")
@@ -324,7 +328,7 @@ def _play_audio(path: str, volume: int) -> None:
                 f"while pygame.mixer.music.get_busy(): time.sleep(0.05)"
             )
             result = subprocess.run([sys.executable, "-c", py_script], timeout=60,
-                                    capture_output=True, text=True)
+                                    capture_output=True, stdin=subprocess.DEVNULL, text=True)
             if result.returncode == 0:
                 return
             _audio_logger.warning(f"pygame subprocess failed (rc={result.returncode})")
@@ -333,7 +337,7 @@ def _play_audio(path: str, volume: int) -> None:
 
         # Fallback 2: Windows Media Player
         try:
-            result = subprocess.run(["wmplayer", path], timeout=60, capture_output=True)
+            result = subprocess.run(["wmplayer", path], timeout=60, capture_output=True, stdin=subprocess.DEVNULL)
             if result.returncode == 0:
                 return
             _audio_logger.warning(f"wmplayer failed (rc={result.returncode})")
@@ -356,7 +360,7 @@ def _play_audio(path: str, volume: int) -> None:
             )
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", ps_script],
-                timeout=60, capture_output=True, text=True
+                timeout=60, capture_output=True, stdin=subprocess.DEVNULL, text=True
             )
             if result.returncode == 0:
                 return
@@ -375,6 +379,7 @@ def _play_audio(path: str, volume: int) -> None:
             r = subprocess.run(
                 ["mpg123", "-o", "pulse", "--quiet", "-f", factor, path],
                 timeout=60,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             return r.returncode == 0
@@ -386,6 +391,7 @@ def _play_audio(path: str, volume: int) -> None:
             r = subprocess.run(
                 ["mpg123", "--quiet", "-f", factor, path],
                 timeout=60,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             return r.returncode == 0
@@ -398,6 +404,7 @@ def _play_audio(path: str, volume: int) -> None:
                 ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
                  "-volume", str(volume), path],
                 timeout=60,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             return r.returncode == 0
@@ -409,6 +416,7 @@ def _play_audio(path: str, volume: int) -> None:
             r = subprocess.run(
                 ["afplay", "-v", f"{volume / 100.0:.3f}", path],
                 timeout=60,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             return r.returncode == 0
@@ -420,23 +428,30 @@ def _play_audio(path: str, volume: int) -> None:
             script = (
                 "import pygame, sys, time\n"
                 "pygame.mixer.init()\n"
-                "pygame.mixer.music.load(sys.argv[1])\n"
-                f"pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
-                "pygame.mixer.music.play()\n"
-                "while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+                "try:\n"
+                "    pygame.mixer.music.load(sys.argv[1])\n"
+                f"    pygame.mixer.music.set_volume({volume / 100.0:.3f})\n"
+                "    pygame.mixer.music.play()\n"
+                "    while pygame.mixer.music.get_busy(): time.sleep(0.05)\n"
+                "finally:\n"
+                "    pygame.mixer.quit()\n"
             )
             r = subprocess.run(
                 ["python3", "-c", script, path],
                 timeout=60,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             return r.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False
 
+    # Prefer plain mpg123 (lets the system pick ALSA/PipeWire/Pulse)
+    # over explicit -o pulse, because on PipeWire systems the ALSA
+    # route is often more reliable when multiple apps compete.
     _backends = [
-        ("mpg123_pulse", _try_mpg123_pulse),
         ("mpg123",       _try_mpg123),
+        ("mpg123_pulse", _try_mpg123_pulse),
         ("ffplay",       _try_ffplay),
         ("afplay",       _try_afplay),
         ("pygame_sys",   _try_pygame_sys),

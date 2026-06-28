@@ -203,7 +203,7 @@ def _render_bio(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rendera
             tbl.add_column("Value",    width=14)
 
             for sc in scans:
-                samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: "rgb(210,210,0)"}.get(sc.samples, P.LABEL)
+                samples_col = {3: P.HUD_GREEN, 2: P.HUD_WARN, 1: P.BIO_SAMPLE_1}.get(sc.samples, P.LABEL)
                 if sc.first_footfall:
                     species_str = f"✦ {sc.species_localised}"
                 elif sc.first_discovered:
@@ -221,7 +221,7 @@ def _render_bio(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rendera
                     value_str = "?"
 
                 name_style = (
-                    f"bold rgb(80,240,160)" if sc.first_footfall
+                    f"bold {P.FIRST_FOOTFALL}" if sc.first_footfall
                     else (f"bold {P.GOLD}" if sc.first_discovered
                     else (f"{P.DIM} strike" if sc.complete else "white"))
                 )
@@ -240,7 +240,7 @@ def _render_bio(s: AppState, scroll: int = 0, mp: dict | None = None) -> Rendera
                     travel_str, travel_col = "No position", P.LABEL
 
                 if sc.value > 0 and sc.first_footfall:
-                    val_style = "bold rgb(0,255,180)"  # bright teal — first footfall bonus
+                    val_style = f"bold {P.FIRST_FOOTFALL_VALUE}"  # bright teal — first footfall bonus
                 elif sc.value > 0:
                     val_style = f"bold {P.GOLD}"
                 else:
