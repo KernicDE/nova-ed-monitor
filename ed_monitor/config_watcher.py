@@ -53,11 +53,12 @@ def spawn(
     cfg_dir: Path,
     on_config_changed: Callable[[], None],
     on_voicelines_changed: Callable[[], None],
+    on_personality_changed: Callable[[], None] | None = None,
 ) -> threading.Thread:
     """Start the watcher daemon thread and return it."""
     t = threading.Thread(
         target=_monitor,
-        args=(cfg_dir, on_config_changed, on_voicelines_changed),
+        args=(cfg_dir, on_config_changed, on_voicelines_changed, on_personality_changed or (lambda: None)),
         name="nova-config-watcher",
         daemon=True,
     )
@@ -69,9 +70,11 @@ def _monitor(
     cfg_dir: Path,
     on_config_changed: Callable[[], None],
     on_voicelines_changed: Callable[[], None],
+    on_personality_changed: Callable[[], None],
 ) -> None:
-    config_path   = cfg_dir / "config.toml"
-    voiceline_dir = cfg_dir / "voicelines"
+    config_path      = cfg_dir / "config.toml"
+    voiceline_dir     = cfg_dir / "voicelines"
+    personality_dir   = cfg_dir / "personality"
     changed       = threading.Event()
 
     # Try watchdog first, fall back to polling
@@ -87,6 +90,8 @@ def _monitor(
                 if p.name == "config.toml" and p.parent == cfg_dir:
                     return True
                 if p.parent == voiceline_dir and p.suffix == ".toml":
+                    return True
+                if p.parent == personality_dir and p.suffix == ".toml":
                     return True
                 return False
 
@@ -111,11 +116,11 @@ def _monitor(
             if _in_quiet_window():
                 _log.debug("Quiet window active — suppressing reload")
                 continue
-            _dispatch(on_config_changed, on_voicelines_changed)
+            _dispatch(on_config_changed, on_voicelines_changed, on_personality_changed)
 
     except Exception as exc:
         _log.warning("Config watcher: watchdog failed (%s) — polling every %.0fs", exc, _POLL_INTERVAL)
-        _poll(config_path, voiceline_dir, on_config_changed, on_voicelines_changed)
+        _poll(config_path, voiceline_dir, personality_dir, on_config_changed, on_voicelines_changed, on_personality_changed)
 
 
 def _get_mtime(path: Path) -> float:
@@ -125,28 +130,37 @@ def _get_mtime(path: Path) -> float:
         return 0.0
 
 
-def _max_voiceline_mtime(voiceline_dir: Path) -> float:
+def _max_toml_mtime(a_dir: Path) -> float:
     try:
         return max(
-            (_get_mtime(p) for p in voiceline_dir.glob("*.toml")),
+            (_get_mtime(p) for p in a_dir.glob("*.toml")),
             default=0.0,
         )
     except OSError:
         return 0.0
 
 
+# Kept as an alias for readability at call sites (voicelines/personality
+# directories are watched the same way).
+_max_voiceline_mtime = _max_toml_mtime
+
+
 def _poll(
     config_path: Path,
     voiceline_dir: Path,
+    personality_dir: Path,
     on_config_changed: Callable[[], None],
     on_voicelines_changed: Callable[[], None],
+    on_personality_changed: Callable[[], None],
 ) -> None:
-    last_config_mtime    = _get_mtime(config_path)
-    last_voiceline_mtime = _max_voiceline_mtime(voiceline_dir)
+    last_config_mtime      = _get_mtime(config_path)
+    last_voiceline_mtime   = _max_toml_mtime(voiceline_dir)
+    last_personality_mtime = _max_toml_mtime(personality_dir)
     while True:
         time.sleep(_POLL_INTERVAL)
-        cur_config    = _get_mtime(config_path)
-        cur_voiceline = _max_voiceline_mtime(voiceline_dir)
+        cur_config      = _get_mtime(config_path)
+        cur_voiceline   = _max_toml_mtime(voiceline_dir)
+        cur_personality = _max_toml_mtime(personality_dir)
         if cur_config != last_config_mtime:
             last_config_mtime = cur_config
             if _in_quiet_window():
@@ -165,13 +179,23 @@ def _poll(
                     on_voicelines_changed()
                 except Exception:
                     _log.exception("Voiceline reload callback failed")
+        if cur_personality != last_personality_mtime:
+            last_personality_mtime = cur_personality
+            if _in_quiet_window():
+                _log.debug("Quiet window active — suppressing personality reload")
+            else:
+                try:
+                    on_personality_changed()
+                except Exception:
+                    _log.exception("Personality reload callback failed")
 
 
 def _dispatch(
     on_config_changed: Callable[[], None],
     on_voicelines_changed: Callable[[], None],
+    on_personality_changed: Callable[[], None],
 ) -> None:
-    """Called after a watchdog event — call both reload callbacks."""
+    """Called after a watchdog event — call all reload callbacks."""
     try:
         on_config_changed()
     except Exception:
@@ -180,3 +204,7 @@ def _dispatch(
         on_voicelines_changed()
     except Exception:
         _log.exception("Voiceline reload callback failed")
+    try:
+        on_personality_changed()
+    except Exception:
+        _log.exception("Personality reload callback failed")

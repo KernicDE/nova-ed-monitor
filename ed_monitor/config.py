@@ -45,6 +45,13 @@ class Config:
     home_system:              str  = ""      # empty = disabled; triggers special voiceline on arrival
     theme:                    str  = "default" # UI colour theme (config/themes/<name>.toml)
     layout:                   str  = "landscape" # UI layout: landscape | portrait-half | portrait-full
+    voice_engine:             str  = "static"  # static | kimi | claude — AI-generated voice lines
+    ai_voice_timeout_s:       float = 12.0     # subprocess timeout for kimi -p / claude -p
+    ai_voice_burst_window_s:  float = 2.5      # debounce window grouping rapid-fire events (e.g. FSS scans)
+    personality_name:         str  = "default" # config/personality/<name>.toml (or built-in)
+    ambient_commentary_enabled: bool = False   # periodic unprompted situational remarks (requires voice_engine != static)
+    ambient_interval_min_s:   int  = 180       # lower bound of randomised ambient commentary interval
+    ambient_interval_max_s:   int  = 360       # upper bound of randomised ambient commentary interval
 
 
 def _notify_self_write() -> None:
@@ -139,6 +146,34 @@ DEFAULT_CONFIG = """\
 # tts_chat    = true
 # tts_twitch  = true
 # tts_youtube = true
+
+# ── AI-Generated Voice ─────────────────────────────────────────────────────────
+# Replace static/templated voicelines with text generated on-the-fly by an
+# external CLI. Requires the chosen CLI to be installed and on PATH.
+# static = current template-based voicelines (default, no external dependency)
+# kimi   = runs `kimi -p "<prompt>"`
+# claude = runs `claude -p "<prompt>"`
+# voice_engine = static
+
+# Subprocess timeout (seconds) for the AI voice CLI. On timeout/failure NOVA
+# falls back to the normal static voiceline for that event.
+# ai_voice_timeout_s = 12.0
+
+# Rapid-fire events (e.g. FSS scanning many bodies in a row) are grouped into
+# a single AI call within this window (seconds) instead of one call per event.
+# ai_voice_burst_window_s = 2.5
+
+# Personality file shaping the AI's tone (config/personality/<name>.toml).
+# A reference copy of the built-in default is written to
+# config/personality/default/default.default.toml on every launch.
+# personality_name = default
+
+# ── Ambient Commentary ─────────────────────────────────────────────────────────
+# NOVA occasionally remarks on the current situation unprompted, once every
+# random interval between the min/max below. Requires voice_engine != static.
+# ambient_commentary_enabled = false
+# ambient_interval_min_s = 180
+# ambient_interval_max_s = 360
 """
 
 
@@ -207,6 +242,13 @@ def load() -> Config:
     home_system              = ""
     theme                    = "default"
     layout                   = "landscape"
+    voice_engine             = "static"
+    ai_voice_timeout_s        = 12.0
+    ai_voice_burst_window_s   = 2.5
+    personality_name          = "default"
+    ambient_commentary_enabled = False
+    ambient_interval_min_s    = 180
+    ambient_interval_max_s    = 360
     try:
         text = config_path.read_text(encoding="utf-8")
         for line in text.splitlines():
@@ -302,12 +344,43 @@ def load() -> Config:
                     case "layout":
                         if v in {"landscape", "portrait-half", "portrait-full"}:
                             layout = v
+                    case "voice_engine":
+                        if v in {"static", "kimi", "claude"}:
+                            voice_engine = v
+                    case "ai_voice_timeout_s":
+                        try:
+                            ai_voice_timeout_s = max(1.0, float(v))
+                        except ValueError:
+                            pass
+                    case "ai_voice_burst_window_s":
+                        try:
+                            ai_voice_burst_window_s = max(0.0, float(v))
+                        except ValueError:
+                            pass
+                    case "personality_name":
+                        if v:
+                            personality_name = v
+                    case "ambient_commentary_enabled":
+                        ambient_commentary_enabled = v.lower() in ("true", "1", "yes")
+                    case "ambient_interval_min_s":
+                        try:
+                            ambient_interval_min_s = max(30, int(v))
+                        except ValueError:
+                            pass
+                    case "ambient_interval_max_s":
+                        try:
+                            ambient_interval_max_s = max(30, int(v))
+                        except ValueError:
+                            pass
                     case _ if k.startswith("tts_voice_"):
                         lang = k[len("tts_voice_"):]
                         if lang and v:
                             tts_voices[lang] = v
     except OSError:
         pass
+
+    if ambient_interval_min_s > ambient_interval_max_s:
+        ambient_interval_min_s, ambient_interval_max_s = ambient_interval_max_s, ambient_interval_min_s
 
     if journal_dir is None:
         journal_dir = discover_journal() or Path(".")
@@ -336,6 +409,13 @@ def load() -> Config:
         home_system=home_system,
         theme=theme,
         layout=layout,
+        voice_engine=voice_engine,
+        ai_voice_timeout_s=ai_voice_timeout_s,
+        ai_voice_burst_window_s=ai_voice_burst_window_s,
+        personality_name=personality_name,
+        ambient_commentary_enabled=ambient_commentary_enabled,
+        ambient_interval_min_s=ambient_interval_min_s,
+        ambient_interval_max_s=ambient_interval_max_s,
     )
 
 
@@ -483,6 +563,21 @@ def save(cfg: "Config", path: "Path | None" = None) -> None:
         lines.append(f"theme = {cfg.theme}\n")
     if cfg.layout != "landscape":
         lines.append(f"layout = {cfg.layout}\n")
+
+    if cfg.voice_engine != "static":
+        lines.append(f"voice_engine = {cfg.voice_engine}\n")
+    if cfg.ai_voice_timeout_s != 12.0:
+        lines.append(f"ai_voice_timeout_s = {cfg.ai_voice_timeout_s}\n")
+    if cfg.ai_voice_burst_window_s != 2.5:
+        lines.append(f"ai_voice_burst_window_s = {cfg.ai_voice_burst_window_s}\n")
+    if cfg.personality_name != "default":
+        lines.append(f"personality_name = {cfg.personality_name}\n")
+    if cfg.ambient_commentary_enabled:
+        lines.append("ambient_commentary_enabled = true\n")
+    if cfg.ambient_interval_min_s != 180:
+        lines.append(f"ambient_interval_min_s = {cfg.ambient_interval_min_s}\n")
+    if cfg.ambient_interval_max_s != 360:
+        lines.append(f"ambient_interval_max_s = {cfg.ambient_interval_max_s}\n")
 
     try:
         path.write_text("".join(lines), encoding="utf-8")

@@ -46,6 +46,9 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 - Live TTS via **edge-tts** with random variants per event and full template engine (includes, conditionals, AND/OR). 7 built-in languages.
 - **Multi-language chat detection** for Twitch / YouTube / in-game chat — each message voiced in its detected language.
 - Hot-reloadable voiceline files (`en.toml`, `de.toml`, …) with `add` / `replace` / `replace = []` semantics.
+- Optional **AI-generated voice lines** — swap the static template system for on-the-fly text from `kimi -p` or `claude -p` (opt-in, `voice_engine` setting). Falls back to the static line if the CLI is missing, slow, or errors out. Rapid event bursts (e.g. FSS scans) are grouped into a single AI call.
+- Optional **personality file** shapes the AI's tone (`config/personality/default.toml`), mirroring the voiceline override pattern.
+- Optional **ambient commentary** — NOVA occasionally remarks on your situation unprompted, every 180–360 s (random, togglable), when AI voice is enabled.
 
 ### Exploration
 - Bio-scan assistant: sample distances, compass bearings, scan completion, first-footfall bonus detection.
@@ -88,7 +91,7 @@ The config file is created automatically on first launch. Press **`s`** inside N
 | System install — Linux | `~/.config/nova/config.toml` |
 | System install — Windows | `%USERPROFILE%\.config\nova\config.toml` |
 
-See **[docs/Settings.md](docs/Settings.md)** for every key.
+See **[docs/Settings.md](docs/Settings.md)** for every key, including AI-generated voice, personality, and ambient commentary.
 
 ---
 

@@ -403,6 +403,7 @@ class NOVAApp(App):
         neutron_q: queue.Queue | None = None,
         cfg: "object | None" = None,
         restart_evt: threading.Event | None = None,
+        cfg_holder: list | None = None,
     ) -> None:
         super().__init__()
         self._state      = state
@@ -414,6 +415,7 @@ class NOVAApp(App):
         self._neutron_q  = neutron_q
         self._cfg        = cfg
         self._restart_evt = restart_evt
+        self._cfg_holder  = cfg_holder   # shared [Config] cell read by background threads (e.g. ambient)
         self._layout     = getattr(cfg, "layout", "landscape") if cfg else "landscape"
         self._focused_panel = 0  # 0=none, 1=System, 2=Ship, 3=Route, 4=Bodies, 5=Events, 6=Chat
         self._prev_css: dict[str, bool] = {}  # last applied CSS class states — skip set_class when unchanged
@@ -633,9 +635,14 @@ class NOVAApp(App):
         old_theme  = getattr(self._cfg, "theme",  "default")   if self._cfg else "default"
         old_layout = getattr(self._cfg, "layout", "landscape") if self._cfg else "landscape"
         self._cfg = cfg
+        if self._cfg_holder is not None:
+            self._cfg_holder[0] = cfg
         from .. import events as _ev
         _ev.set_tts_lang(cfg.tts_lang)
         _ev.set_voices(cfg.tts_voices)
+        _ev.set_voice_engine(cfg.voice_engine)
+        from .. import ai_voice as _ai_voice
+        _ai_voice.configure(cfg)
         with self._vol_lock:
             self._volume[0] = cfg.default_volume
         with self._lock:
@@ -643,6 +650,8 @@ class NOVAApp(App):
             self._state.notable_value_threshold = cfg.notable_value_threshold
         from .. import voicelines as _vl
         _vl.reload_all()
+        from .. import personality as _personality
+        _personality.reload_all()
         if cfg.tts_lang != old_lang:
             from .. import tts as _tts_mod
             _tts_mod.clear_cache()

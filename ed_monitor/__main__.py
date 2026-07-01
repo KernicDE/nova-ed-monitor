@@ -91,7 +91,7 @@ def _spawn_guarded(target, args: tuple, name: str) -> threading.Thread:
     t.start()
     return t
 
-from . import bindings, config, config_watcher, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, screenshots, spansh, status, tts, twitch, voicelines, youtube
+from . import ai_voice, ambient, bindings, config, config_watcher, db, debug_log, edsm, edsm_dumps, events, journal, neutron, overlay, personality, screenshots, spansh, status, tts, twitch, voicelines, youtube
 from .state import MAX_EVENTS, AppState, EventCategory, LogEvent
 from .tts import TtsMsg
 from .ui import palette as _palette
@@ -139,8 +139,11 @@ def main() -> None:
     events.set_voices(cfg.tts_voices)
     events.set_tts_lang(cfg.tts_lang)
     events.set_chat_lang(cfg.chat_lang)
+    events.set_voice_engine(cfg.voice_engine)
     voicelines.ensure_user_files()   # copy built-ins to config dir if missing
     voicelines._load(cfg.tts_lang)   # pre-warm cache
+    ai_voice.configure(cfg)
+    personality.ensure_user_files()  # copy built-in personality to config dir if missing
 
     # Validate user voiceline file — warn on parse error without crashing
     _vl_error = voicelines.validate_user_file(cfg.tts_lang)
@@ -267,6 +270,19 @@ def main() -> None:
     # Screenshot processing thread
     _spawn_guarded(screenshots.monitor, (state, lock, cfg), "nova-screenshots")
 
+    # cfg_holder: shared mutable cell so background threads (ambient) always
+    # see the latest Config after a hot-reload/Settings-save, without a restart.
+    cfg_holder = [cfg]
+
+    # AI voice generation thread (no-op passthrough if voice_engine == static)
+    _spawn_guarded(ai_voice.worker, (cfg, tts_q, stop_evt), "nova-ai-voice")
+
+    # Ambient commentary thread (no-op if ambient_commentary_enabled is False
+    # or voice_engine == static — checked inside the loop)
+    _spawn_guarded(ambient.monitor,
+                   (state, lock, tts_q, lambda: cfg_holder[0], stop_evt),
+                   "nova-ambient")
+
     restart_evt = threading.Event()
 
     def _on_config_changed():
@@ -282,6 +298,9 @@ def main() -> None:
                 restart_evt.set()
             events.set_tts_lang(new_cfg.tts_lang)
             events.set_voices(new_cfg.tts_voices)
+            events.set_voice_engine(new_cfg.voice_engine)
+            ai_voice.configure(new_cfg)
+            cfg_holder[0] = new_cfg
             with vol_lock:
                 volume[0] = new_cfg.default_volume
             with lock:
@@ -296,10 +315,17 @@ def main() -> None:
         except Exception as exc:
             logging.getLogger("nova").warning("Voiceline hot-reload failed: %s", exc)
 
+    def _on_personality_changed():
+        try:
+            personality.reload_all()
+        except Exception as exc:
+            logging.getLogger("nova").warning("Personality hot-reload failed: %s", exc)
+
     config_watcher.spawn(
         config.config_dir(),
         _on_config_changed,
         _on_voicelines_changed,
+        _on_personality_changed,
     )
 
     # Pop any KKP stack entries fish may have left active (fish pushes flags=31
@@ -309,7 +335,7 @@ def main() -> None:
     sys.__stderr__.write("\x1b[<u" * 8)
     sys.__stderr__.flush()
 
-    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt).run(mouse=False)
+    NOVAApp(state, lock, volume, vol_lock, tts_q, stop_evt, neutron_q, cfg, restart_evt, cfg_holder).run(mouse=False)
 
     if restart_evt.is_set():
         logging.getLogger("nova").info("Restarting NOVA after settings change")
