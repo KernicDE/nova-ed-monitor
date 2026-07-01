@@ -88,6 +88,51 @@
 # default_volume = 50
 
 
+# ── AI-Generated Voice ─────────────────────────────────────────────────────────
+# Replace the static/templated voicelines above with text generated on the fly
+# by an external CLI. Requires the chosen CLI installed and on PATH.
+#   static = current template-based voicelines (default, no external dependency)
+#   kimi   = runs `kimi -p "<prompt>"`
+#   claude = runs `claude -p "<prompt>"`
+# On any failure (missing binary, timeout, error, empty output) NOVA falls
+# back to the normal static voiceline for that event — you are never left
+# silent because of a flaky AI backend. Live-reloadable, no restart needed.
+# Default: static
+#
+# voice_engine = static
+
+# Subprocess timeout (seconds) for the AI voice CLI.
+# Default: 12.0
+#
+# ai_voice_timeout_s = 12.0
+
+# Rapid-fire events (e.g. FSS scanning many bodies in a row) are grouped into
+# a single AI call within this window (seconds) instead of one call per event.
+# Default: 2.5
+#
+# ai_voice_burst_window_s = 2.5
+
+# Personality file shaping the AI's tone — see config/personality/README.md.
+# A reference copy of the built-in default is written to
+# config/personality/default/default.default.toml on every launch.
+# Default: default
+#
+# personality_name = default
+
+
+# ── Ambient Commentary ─────────────────────────────────────────────────────────
+# NOVA occasionally remarks on the current situation unprompted, once every
+# random interval between the min/max below. Requires voice_engine != static
+# (there is no static-voiceline equivalent for "commentary with no trigger").
+# If the AI call fails, NOVA simply stays quiet for that cycle.
+# Toggleable live via the Settings overlay or here — no restart needed.
+# Default: false
+#
+# ambient_commentary_enabled = false
+# ambient_interval_min_s = 180
+# ambient_interval_max_s = 360
+
+
 # ── Integrations ──────────────────────────────────────────────────────────────
 # Twitch channel to monitor. Chat messages are shown in the Chat panel and
 # announced via TTS. Leave commented to disable Twitch integration.

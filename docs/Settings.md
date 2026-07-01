@@ -307,6 +307,78 @@ Lines whose variable evaluates to empty/zero are skipped automatically.
 
 ---
 
+## AI-Generated Voice
+
+```toml
+# static = current template-based voicelines (default, no external dependency)
+# kimi   = runs `kimi -p "<prompt>"`
+# claude = runs `claude -p "<prompt>"`
+# voice_engine = static
+
+# Subprocess timeout (seconds). On timeout/failure NOVA falls back to the
+# normal static voiceline for that event — you are never left silent.
+# ai_voice_timeout_s = 12.0
+
+# Rapid-fire events (e.g. FSS scanning many bodies in a row) are grouped
+# into a single AI call within this window (seconds) instead of one call
+# per event.
+# ai_voice_burst_window_s = 2.5
+
+# Personality file shaping the AI's tone — see "Personality" below.
+# personality_name = default
+```
+
+Switch `voice_engine` to `kimi` or `claude` (in `config.toml` or the Settings overlay) to have NOVA generate its lines on the fly instead of picking from the built-in template pool. The chosen CLI (`kimi` or `claude`) must be installed and reachable on `PATH`.
+
+**Default is `static`** — if you never touch this setting, NOVA behaves exactly as before: no AI subprocess is ever invoked, and voicelines come entirely from the template system described below.
+
+When an AI CLI call fails for any reason — the binary is missing, it times out, it exits with an error, or it returns empty output — NOVA transparently falls back to the same static voiceline it would have spoken anyway. AI generation is purely additive.
+
+**FSS scan grouping:** scanning a system with many notable bodies would otherwise trigger one AI call per body. Instead, NOVA collects these events for `ai_voice_burst_window_s` seconds and asks the AI for one combined remark covering everything found in that window.
+
+---
+
+## Personality
+
+```toml
+# personality_name = default
+```
+
+NOVA's AI-generated lines (see above) are shaped by a personality file describing tone, traits, and speech style. Like voicelines, a reference copy of the built-in default is written to your config directory on every launch:
+
+| Purpose | Portable path | System install path (Linux) |
+|---------|---------------|-----------------------------|
+| Reference (read-only) | `<script folder>/config/personality/default/` | `~/.config/nova/personality/default/` |
+| User overrides | `<script folder>/config/personality/` | `~/.config/nova/personality/` |
+
+To customise NOVA's personality, create `config/personality/default.toml` (or `<name>.toml` and set `personality_name = <name>`):
+
+```toml
+name         = "NOVA"
+tone         = "Short free-text description of overall tone."
+traits       = ["trait one", "trait two"]
+speech_style = "How lines should be phrased for TTS."
+style_notes  = "Any additional guidance for the AI generator."
+```
+
+Fields you omit fall back to the built-in default. Changes hot-reload within ~2 seconds, same as voicelines. This file only affects AI-generated speech (`voice_engine = kimi` or `claude`) — the static voiceline system ignores it entirely.
+
+---
+
+## Ambient Commentary
+
+```toml
+# ambient_commentary_enabled = false
+# ambient_interval_min_s = 180
+# ambient_interval_max_s = 360
+```
+
+When enabled, NOVA occasionally makes a brief, unprompted remark about your current situation — roughly once every random interval between `ambient_interval_min_s` and `ambient_interval_max_s` seconds. Requires `voice_engine` to be set to `kimi` or `claude`; it has no effect while `voice_engine = static` since there is no static-voiceline equivalent for "commentary with no specific trigger". If the AI call fails, NOVA simply stays quiet for that cycle rather than speaking a canned line.
+
+Toggle it live from the Settings overlay (**Ambient Commentary**) or in `config.toml` — no restart needed either way.
+
+---
+
 ## Voiceline Customisation
 
 On first launch NOVA copies the built-in voiceline files to a **reference folder** in your config directory. Do not edit those — they are overwritten on every launch.

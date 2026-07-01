@@ -141,3 +141,76 @@ class TestConfigSave:
         path = tmp_path / "config.toml"
         save(cfg, path)
         assert "situational_panels" not in path.read_text()
+
+
+class TestAiVoiceConfig:
+    def test_save_omits_ai_voice_keys_at_defaults(self, tmp_path):
+        cfg = _dummy_cfg()
+        path = tmp_path / "config.toml"
+        save(cfg, path)
+        text = path.read_text()
+        assert "voice_engine" not in text
+        assert "ambient_commentary_enabled" not in text
+        assert "personality_name" not in text
+
+    def test_save_roundtrips_voice_engine(self, tmp_path):
+        cfg = _dummy_cfg(voice_engine="claude")
+        path = tmp_path / "config.toml"
+        save(cfg, path)
+        assert "voice_engine = claude" in path.read_text()
+
+    def test_save_roundtrips_ambient_enabled(self, tmp_path):
+        cfg = _dummy_cfg(ambient_commentary_enabled=True)
+        path = tmp_path / "config.toml"
+        save(cfg, path)
+        assert "ambient_commentary_enabled = true" in path.read_text()
+
+    def test_load_roundtrips_voice_engine(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("voice_engine = kimi\n")
+        cfg = load()
+        assert cfg.voice_engine == "kimi"
+
+    def test_load_rejects_invalid_voice_engine(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("voice_engine = not-a-real-engine\n")
+        cfg = load()
+        assert cfg.voice_engine == "static"
+
+    def test_load_roundtrips_ambient_settings(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text(
+            "ambient_commentary_enabled = true\n"
+            "ambient_interval_min_s = 90\n"
+            "ambient_interval_max_s = 200\n"
+        )
+        cfg = load()
+        assert cfg.ambient_commentary_enabled is True
+        assert cfg.ambient_interval_min_s == 90
+        assert cfg.ambient_interval_max_s == 200
+
+    def test_load_swaps_inverted_ambient_interval(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text(
+            "ambient_interval_min_s = 300\n"
+            "ambient_interval_max_s = 100\n"
+        )
+        cfg = load()
+        assert cfg.ambient_interval_min_s == 100
+        assert cfg.ambient_interval_max_s == 300
+
+    def test_load_roundtrips_personality_name(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ed_monitor.config.config_dir", lambda: tmp_path)
+        path = tmp_path / "config.toml"
+        path.write_text("personality_name = grumpy\n")
+        cfg = load()
+        assert cfg.personality_name == "grumpy"
+
+    def test_default_voice_engine_is_static(self):
+        cfg = _dummy_cfg()
+        assert cfg.voice_engine == "static"
+        assert cfg.ambient_commentary_enabled is False

@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### New Features
+
+- **AI-generated voice lines** — new `voice_engine` setting (`static` | `kimi` |
+  `claude`, default `static`). When set to `kimi` or `claude`, NOVA generates
+  its spoken lines on the fly via `kimi -p`/`claude -p` instead of picking from
+  the built-in template pool, falling back to the static line on any CLI
+  failure/timeout. Rapid-fire events (e.g. FSS scanning many bodies) are
+  grouped into a single AI call via a debounce window (`ai_voice_burst_window_s`).
+  New module `ed_monitor/ai_voice.py`.
+- **Personality configuration** — `config/personality/<name>.toml` shapes the
+  tone of AI-generated lines (mirrors the voicelines override + reference-copy
+  pattern). New module `ed_monitor/personality.py`, `personality_name` setting.
+- **Ambient commentary** — optional periodic, unprompted situational remark
+  every 180–360 s (randomised), togglable via `ambient_commentary_enabled`.
+  Requires `voice_engine != static`. New module `ed_monitor/ambient.py`.
+- New Settings overlay rows: **Voice Engine** and **Ambient Commentary**.
+
+---
+
 ## v2.19.2 — 2026-06-07
 
 ### Changes

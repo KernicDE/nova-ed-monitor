@@ -278,6 +278,9 @@ class SettingsScreen(Screen):
             TextRow("fuel_warn",     "Fuel Warning % (0=off)",   str(cfg.fuel_warning_percent)),
             TextRow("home_system",   "Home System",              cfg.home_system),
             ToggleRow("carrier",     "Fleet Carrier Lookup",     cfg.carrier_lookup),
+            # ── AI Voice ─────────────────────────────────────────────────────
+            SelectRow("voice_engine", "Voice Engine",            cfg.voice_engine, ["static", "kimi", "claude"]),
+            ToggleRow("ambient",     "Ambient Commentary",       cfg.ambient_commentary_enabled),
             # ── Situational Panels ────────────────────────────────────────────
             *self._panel_rows,
         ]
@@ -502,6 +505,8 @@ class SettingsScreen(Screen):
                         cfg.theme = row.value
                     case "layout":
                         cfg.layout = row.value
+                    case "voice_engine":
+                        cfg.voice_engine = row.value
             elif isinstance(row, TextRow):
                 match row.key:
                     case "notable":
@@ -530,6 +535,8 @@ class SettingsScreen(Screen):
                         cfg.tts_twitch = row.value
                     case "tts_youtube":
                         cfg.tts_youtube = row.value
+                    case "ambient":
+                        cfg.ambient_commentary_enabled = row.value
 
         # Compile situational panel order from panel rows
         _mode_from_key = {f"panel_{mode}": mode for mode, _ in [

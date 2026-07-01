@@ -16,6 +16,7 @@ from .state import (
 )
 from .tts import TtsMsg
 from . import voicelines as _vl
+from . import ai_voice as _ai_voice
 from .materials_catalog import lookup_fuzzy as _mat_lookup
 
 
@@ -859,6 +860,23 @@ _PT_WORDS = frozenset({
 _TTS_LANG:  str = "en"
 _CHAT_LANG: str = ""   # fallback for chat TTS; empty = rely on auto-detection only
 
+_VOICE_ENGINE: str = "static"   # static | kimi | claude
+
+# Event keys prone to rapid-fire bursts (e.g. FSS scanning many bodies in a
+# system) — grouped into a single AI call instead of one call per event when
+# voice_engine != static. Jumps/docking/alerts stay immediate (not listed).
+_GROUPABLE_KEYS = {"Scan_Notable", "Scan_Detailed"}
+
+
+def set_voice_engine(engine: str) -> None:
+    """Set the active voice engine (static | kimi | claude)."""
+    global _VOICE_ENGINE
+    _VOICE_ENGINE = engine
+
+
+def get_voice_engine() -> str:
+    return _VOICE_ENGINE
+
 
 def set_voices(voices: dict[str, str]) -> None:
     """Override default TTS voices from config."""
@@ -951,8 +969,25 @@ def _say(
     if _vl.is_muted(key, lang=_TTS_LANG):
         return
     text = _vl.pick(key, lang=_TTS_LANG, **kwargs) or fallback
-    if text:
+    if not text:
+        return
+
+    if _VOICE_ENGINE == "static":
         _speak(tts_q, text, priority, cacheable=cacheable)
+        return
+
+    # AI-generated path: static text becomes the fallback used only if the
+    # AI CLI fails/times out/returns nothing.
+    context = {k: v for k, v in kwargs.items() if isinstance(v, (str, int, float, bool))}
+    _ai_voice.submit(_ai_voice.AiVoiceRequest(
+        prompt_intent=key.replace("_", " "),
+        context=context,
+        fallback_text=text,
+        priority=priority,
+        cacheable=False,
+        groupable=key in _GROUPABLE_KEYS,
+        group_key="system_scan",
+    ))
 
 
 def _speak_chat(tts_q: queue.Queue, user: str, msg: str, source: str = "") -> None:
