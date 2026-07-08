@@ -862,6 +862,14 @@ _CHAT_LANG: str = ""   # fallback for chat TTS; empty = rely on auto-detection o
 
 _VOICE_ENGINE: str = "static"   # static | kimi | claude
 
+# Set at the top of handle() from its `live` parameter. AI generation is
+# skipped entirely during backlog replay (live=False) — otherwise every
+# historical journal event would trigger a real kimi/claude subprocess call
+# whose output is silently discarded (the caller passes a throwaway queue
+# during backlog), wasting time/API quota and risking the AI reply reaching
+# the real TTS queue if that assumption is ever violated.
+_LIVE: bool = True
+
 # Event keys prone to rapid-fire bursts (e.g. FSS scanning many bodies in a
 # system) — grouped into a single AI call instead of one call per event when
 # voice_engine != static. Jumps/docking/alerts stay immediate (not listed).
@@ -972,7 +980,9 @@ def _say(
     if not text:
         return
 
-    if _VOICE_ENGINE == "static":
+    if _VOICE_ENGINE == "static" or not _LIVE:
+        # Backlog replay (live=False) always uses the plain static text —
+        # never routes through the AI CLI. See _LIVE comment above.
         _speak(tts_q, text, priority, cacheable=cacheable)
         return
 
@@ -1616,6 +1626,8 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
     # _loc — assumes ev.get(...) works, so validate once at the boundary and
     # drop non-dict payloads silently. Also require an "event" string so the
     # match cascade below has something to compare against.
+    global _LIVE
+    _LIVE = live
     if not isinstance(ev, dict):
         return None
     event = _s(ev, "event")

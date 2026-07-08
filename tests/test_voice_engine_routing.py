@@ -56,6 +56,39 @@ def test_groupable_key_sets_groupable_flag(monkeypatch):
     assert submitted[-1].groupable is True
 
 
+def test_backlog_replay_never_routes_through_ai_voice(monkeypatch):
+    """Regression test: handle(..., live=False) — used for journal backlog
+    catch-up on startup — must never trigger an AI subprocess call, even
+    when voice_engine != static. Historical events are spoken (if at all)
+    via the plain static text into whatever (normally throwaway/silent)
+    queue the backlog processor passed in."""
+    submitted = []
+    monkeypatch.setattr(ai_voice, "submit", lambda req: submitted.append(req))
+
+    tts_q: "queue.Queue" = queue.Queue()
+    events.set_voice_engine("claude")
+
+    # handle() sets the module-level _LIVE flag from its `live` parameter;
+    # simulate a backlog call directly against _say() the way handle() would
+    # see it after live=False has been applied.
+    events._LIVE = False
+    try:
+        events._say(tts_q, "NoSuchKeyForTest", False, fallback="Old backlog event.")
+    finally:
+        events._LIVE = True
+
+    assert submitted == []
+    msg = tts_q.get_nowait()
+    assert "Old backlog event." in msg.text
+
+
+def test_handle_sets_live_flag_from_parameter():
+    events.handle({"event": "Music"}, __import__("ed_monitor.state", fromlist=["AppState"]).AppState(), queue.Queue(), live=False)
+    assert events._LIVE is False
+    events.handle({"event": "Music"}, __import__("ed_monitor.state", fromlist=["AppState"]).AppState(), queue.Queue(), live=True)
+    assert events._LIVE is True
+
+
 def test_muted_key_produces_no_request_in_either_engine(monkeypatch):
     import ed_monitor.voicelines as vl
 

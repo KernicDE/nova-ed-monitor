@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.20.1 — 2026-07-08
+
+### Bug Fixes
+
+- **AI voice fired during journal backlog replay** — on every NOVA startup,
+  historical journal events (backlog catch-up + full-file state rebuild scan)
+  are replayed through a throwaway "silent" queue so they rebuild state
+  without being spoken — this has always been the design for the static
+  voiceline path. The new AI-generated voice path (`voice_engine = kimi` /
+  `claude`, added in 2.20.0) ignored this signal entirely, submitting a real
+  `kimi -p`/`claude -p` subprocess call for *every* replayed event on *every*
+  launch — causing API rate-limiting (`429`) and old events being read aloud
+  well after the events actually happened. `events.handle()`'s existing
+  `live` parameter is now propagated to a module-level flag that `_say()`
+  checks before routing to the AI path; when `live=False` (backlog/init
+  replay) it always falls back to the plain static text into whichever
+  (silent, discarded) queue the caller passed, exactly matching the
+  pre-existing static-voiceline behaviour.
+- **AI voice ignored the configured language** — the prompt sent to
+  `kimi -p`/`claude -p` never told the model which language to respond in,
+  so generated lines randomly drifted between English and the configured
+  `tts_lang` (e.g. German) from one line to the next while the TTS voice
+  itself stayed fixed. The prompt now explicitly instructs the model to
+  respond only in the configured language.
+
+---
+
 ## v2.20.0 — 2026-07-01
 
 ### New Features

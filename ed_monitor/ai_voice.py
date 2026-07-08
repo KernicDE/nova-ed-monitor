@@ -131,8 +131,19 @@ def _flush_burst(key: str) -> None:
 
 # ── Prompt construction ──────────────────────────────────────────────────────
 
+_LANGUAGE_NAMES = {
+    "en": "English", "de": "German", "fr": "French", "it": "Italian",
+    "es": "Spanish", "pt": "Portuguese", "ru": "Russian",
+}
+
+
 def _build_prompt(request: AiVoiceRequest) -> str:
     from . import personality as _personality
+    from . import events as _ev
+
+    lang_code = _ev.get_tts_lang()
+    lang_name = _LANGUAGE_NAMES.get(lang_code, "English")
+
     parts = [_personality.get_prompt_fragment(_PERSONALITY_NAME)]
     parts.append(f"\nSituation: {request.prompt_intent}")
     if request.context:
@@ -142,7 +153,9 @@ def _build_prompt(request: AiVoiceRequest) -> str:
     if request.fallback_text:
         parts.append(f"Reference line for context (do not repeat verbatim): {request.fallback_text}")
     parts.append(
-        "\nRespond with a single short spoken line only — no formatting, no quotes, "
+        f"\nRespond ONLY in {lang_name} ({lang_code}) — every word, no exceptions, "
+        "even if the situation details above are in English. "
+        "Respond with a single short spoken line only — no formatting, no quotes, "
         "no explanations. Just the line NOVA would say out loud."
     )
     return "\n".join(p for p in parts if p)

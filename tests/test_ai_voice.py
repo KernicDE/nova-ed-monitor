@@ -9,6 +9,7 @@ import time
 import pytest
 
 import ed_monitor.ai_voice as ai_voice
+import ed_monitor.events as events
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +32,9 @@ def reset_state(monkeypatch, tmp_path):
             ai_voice._ai_q.get_nowait()
         except queue.Empty:
             break
+    events.set_tts_lang("en")
     yield
+    events.set_tts_lang("en")
 
 
 class _FakeCfg:
@@ -90,6 +93,31 @@ class TestGenerateFallback:
         monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Result())
         result = ai_voice._generate("claude", "hello", 2.0)
         assert result == "Hull at 80 percent. Stay sharp."
+
+
+class TestBuildPromptLanguage:
+    """Regression test for the language-mixing bug: the AI CLI must be told
+    explicitly which language to respond in, otherwise it drifts between
+    English (matching the English prompt/context) and the configured
+    tts_lang depending on the model's mood."""
+
+    def test_prompt_instructs_configured_language(self):
+        events.set_tts_lang("de")
+        req = ai_voice.AiVoiceRequest(prompt_intent="FSDJump", fallback_text="Jump complete.")
+        prompt = ai_voice._build_prompt(req)
+        assert "German (de)" in prompt
+
+    def test_prompt_defaults_to_english(self):
+        events.set_tts_lang("en")
+        req = ai_voice.AiVoiceRequest(prompt_intent="FSDJump", fallback_text="Jump complete.")
+        prompt = ai_voice._build_prompt(req)
+        assert "English (en)" in prompt
+
+    def test_prompt_uses_language_name_for_each_supported_code(self):
+        for code, name in ai_voice._LANGUAGE_NAMES.items():
+            events.set_tts_lang(code)
+            prompt = ai_voice._build_prompt(ai_voice.AiVoiceRequest(prompt_intent="x"))
+            assert f"{name} ({code})" in prompt
 
 
 class TestSanitizeOutput:
