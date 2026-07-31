@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.20.4 — 2026-07-31
+
+### Bug Fixes
+
+- **Material trades were not reflected live** — trading at a material
+  trader fires `MaterialTrade` journal events, which NOVA did not handle
+  at all, so the assets panel kept stale counts until the next login.
+  `Paid` is now subtracted (floored at 0) and `Received` added (clamped
+  to the catalogue cap), bumping `materials_version` so the panel
+  re-renders immediately.
+
+---
+
 ## v2.20.3 — 2026-07-31
 
 ### Bug Fixes

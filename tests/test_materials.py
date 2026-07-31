@@ -45,6 +45,36 @@ def test_real_journal_internal_names_resolve():
     assert lookup_fuzzy("encryptioncodes").name == "Tagged Encryption Codes"
 
 
+def test_material_trade_moves_counts():
+    """Trading at a material trader must update counts live: Paid is
+    subtracted, Received is added (clamped to cap)."""
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_collected("adaptiveencryptors", 100), state, q)
+    handle({"event": "MaterialTrade",
+            "Paid":     {"Material": "adaptiveencryptors", "Category": "Encoded", "Quantity": 22},
+            "Received": {"Material": "symmetrickeys", "Category": "Encoded", "Quantity": 198}},
+           state, q)
+    assert state.materials_enc["Adaptive Encryptors Capture"] == 78
+    # Open Symmetric Keys is G3 (cap 200) — 198 fits
+    assert state.materials_enc["Open Symmetric Keys"] == 198
+    assert state.materials_version == 2
+
+
+def test_material_trade_received_clamped_to_cap():
+    state = AppState()
+    q: queue.Queue = queue.Queue()
+    handle(_collected("scandatabanks", 150), state, q)
+    handle({"event": "MaterialTrade",
+            "Paid":     {"Material": "bulkscandata", "Category": "Encoded", "Quantity": 30},
+            "Received": {"Material": "scandatabanks", "Category": "Encoded", "Quantity": 100}},
+           state, q)
+    # Classified Scan Databanks is G3 (cap 200)
+    assert state.materials_enc["Classified Scan Databanks"] == 200
+    # Paid material was never owned — floors at 0
+    assert state.materials_enc["Anomalous Bulk Scan Data"] == 0
+
+
 def test_material_collected_unknown_material_not_clamped():
     state = AppState()
     q: queue.Queue = queue.Queue()

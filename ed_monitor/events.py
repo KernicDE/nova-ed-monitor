@@ -2961,6 +2961,29 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.materials_version += 1
             return None
 
+        case "MaterialTrade":
+            # Material trader exchange: Paid is removed, Received is added.
+            def _trade_delta(entry, sign: int) -> None:
+                if not isinstance(entry, dict):
+                    return
+                tcat = _s(entry, "Category").lower()
+                tname = _s(entry, "Material")
+                tloc  = _s(entry, "Material_Localised") or tname
+                qty   = _u(entry, "Quantity")
+                tinfo = _mat_lookup(tname) or _mat_lookup(tloc)
+                tkey  = tinfo.name if tinfo else tloc
+                tdict = (state.materials_raw if "raw" in tcat else
+                         state.materials_mfg if "manufactured" in tcat else
+                         state.materials_enc if "encoded" in tcat else None)
+                if tdict is None or not tkey:
+                    return
+                new = tdict.get(tkey, 0) + sign * qty
+                tdict[tkey] = min(max(0, new), tinfo.cap) if tinfo else max(0, new)
+            _trade_delta(ev.get("Paid"), -1)
+            _trade_delta(ev.get("Received"), +1)
+            state.materials_version += 1
+            return None
+
         # ── Engineers ────────────────────────────────────────────────────────
 
         case "EngineerProgress":
