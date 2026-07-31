@@ -711,7 +711,7 @@ def _init_scan(
                 "MissionAccepted", "MissionCompleted", "MissionFailed",
                 "MissionAbandoned", "MissionRedirected",
                 "EngineerProgress", "Materials",
-                "MaterialCollected", "MaterialDiscarded",
+                "MaterialCollected", "MaterialDiscarded", "MaterialTrade",
             ):
                 with lock:
                     handle(effective, state, silent_q, live=False)

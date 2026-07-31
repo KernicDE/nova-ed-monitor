@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.20.5 — 2026-07-31
+
+### Bug Fixes
+
+- **Material trades were lost on NOVA restart** — `_init_scan` (the state
+  rebuild that replays the journal region already processed before a
+  restart) uses an event whitelist, and `MaterialTrade` was missing from
+  it. After every NOVA restart, all trades from the already-processed
+  journal region were dropped, so the assets panel showed wrong counts
+  until the next game login. `MaterialTrade` is now replayed there too.
+
+---
+
 ## v2.20.4 — 2026-07-31
 
 ### Bug Fixes

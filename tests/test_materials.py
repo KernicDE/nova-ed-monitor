@@ -1,9 +1,15 @@
 """Tests for material tracking (Materials / MaterialCollected / MaterialDiscarded)."""
 from __future__ import annotations
 
+import json
 import queue
+import tempfile
+import threading
+from pathlib import Path
 
+from ed_monitor.db import Database
 from ed_monitor.events import handle
+from ed_monitor.journal import _init_scan
 from ed_monitor.state import AppState
 from ed_monitor.materials_catalog import lookup_fuzzy
 
@@ -101,3 +107,32 @@ def test_materials_event_replaces_and_bumps_version():
            state, q)
     assert state.materials_enc == {"Atypical Encryption Archives": 93}
     assert state.materials_version == 1
+
+
+def test_init_scan_replays_material_trade(tmp_path):
+    """_init_scan (state rebuild after NOVA restart within a game session)
+    must replay MaterialTrade events — otherwise traded materials are wrong
+    after every restart."""
+    journal = tmp_path / "Journal.2026-01-01T000000.01.log"
+    events = [
+        {"event": "Materials", "Raw": [], "Manufactured": [],
+         "Encoded": [{"Name": "adaptiveencryptors", "Count": 100}]},
+        {"event": "MaterialTrade",
+         "Paid":     {"Material": "adaptiveencryptors", "Category": "Encoded", "Quantity": 22},
+         "Received": {"Material": "symmetrickeys", "Category": "Encoded", "Quantity": 198}},
+    ]
+    journal.write_text("\n".join(json.dumps(e) for e in events) + "\n")
+
+    state = AppState()
+    lock = threading.RLock()
+    db = Database(Path(tempfile.mktemp(suffix=".db")))
+    try:
+        _init_scan(journal, state, lock, tmp_path, db)
+    finally:
+        # _init_scan replays with live=False, which flips the module-level
+        # _LIVE flag — restore it so other tests are not polluted.
+        import ed_monitor.events as _events
+        _events._LIVE = True
+
+    assert state.materials_enc["Adaptive Encryptors Capture"] == 78
+    assert state.materials_enc["Open Symmetric Keys"] == 198
