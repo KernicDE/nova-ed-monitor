@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.20.3 — 2026-07-31
+
+### Bug Fixes
+
+- **Material catalogue lookup failed for several real journal names** —
+  the internal names the game client actually writes (`encryptionarchives`,
+  `adaptiveencryptors`, `encryptedfiles`, `encryptioncodes`) were missing
+  from the journal-name mapping (wrong guesses were listed instead), so
+  `lookup_fuzzy()` fell back to the localised name. Affected materials
+  (e.g. Atypical Encryption Archives, Adaptive Encryptors Capture) appeared
+  as untracked extra rows with the 100 fallback cap and were never clamped
+  — e.g. `132/100` despite a real cap of 150. The mapping now contains the
+  verified internal names (plus `symmetrickeys` / `embeddedfirmware`
+  aliases); old keys are kept as aliases.
+
+---
+
 ## v2.20.2 — 2026-07-31
 
 ### Bug Fixes

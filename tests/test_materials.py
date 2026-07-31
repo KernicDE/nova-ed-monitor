@@ -34,6 +34,17 @@ def test_material_collected_clamps_to_cap():
     assert state.materials_version == 2
 
 
+def test_real_journal_internal_names_resolve():
+    """Internal names as written by the game client (verified against live
+    journals) must resolve to catalogue entries — otherwise counts land in
+    unclamped localised fallback rows."""
+    assert lookup_fuzzy("encryptionarchives") is not None
+    assert lookup_fuzzy("encryptionarchives").name == "Atypical Encryption Archives"
+    assert lookup_fuzzy("adaptiveencryptors").name == "Adaptive Encryptors Capture"
+    assert lookup_fuzzy("encryptedfiles").name == "Unusual Encrypted Files"
+    assert lookup_fuzzy("encryptioncodes").name == "Tagged Encryption Codes"
+
+
 def test_material_collected_unknown_material_not_clamped():
     state = AppState()
     q: queue.Queue = queue.Queue()

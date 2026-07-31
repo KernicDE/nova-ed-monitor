@@ -315,10 +315,15 @@ _JOURNAL_NAME_TO_CATALOG: dict[str, str] = {
     "shieldpatternanalysis": "Aberrant Shield Pattern Analysis",
     "peculiarshieldfrequencydata": "Peculiar Shield Frequency Data",
     "unusualencryptedfiles": "Unusual Encrypted Files",
+    "encryptedfiles": "Unusual Encrypted Files",
     "taggedencryptioncodes": "Tagged Encryption Codes",
+    "encryptioncodes": "Tagged Encryption Codes",
     "opensymmetrickeys": "Open Symmetric Keys",
+    "symmetrickeys": "Open Symmetric Keys",
     "atypicalencryptionarchives": "Atypical Encryption Archives",
+    "encryptionarchives": "Atypical Encryption Archives",
     "adaptiveencryptorscapture": "Adaptive Encryptors Capture",
+    "adaptiveencryptors": "Adaptive Encryptors Capture",
     "bulkscandata": "Anomalous Bulk Scan Data",
     "scanarchives": "Unidentified Scan Archives",
     "scandatabanks": "Classified Scan Databanks",
@@ -329,6 +334,7 @@ _JOURNAL_NAME_TO_CATALOG: dict[str, str] = {
     "industrialfirmware": "Cracked Industrial Firmware",
     "securityfirmwarepatch": "Security Firmware Patch",
     "modifiedembeddedfirmware": "Modified Embedded Firmware",
+    "embeddedfirmware": "Modified Embedded Firmware",
 }
 
 
