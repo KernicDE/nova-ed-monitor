@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.20.2 — 2026-07-31
+
+### Bug Fixes
+
+- **Assets panel did not update while in the SRV** — material counts changed
+  via `MaterialCollected` journal events (e.g. scanning data points in the
+  SRV), but the situational panel's change-detection key only compared the
+  *lengths* of the material dicts. Collecting more of an already-owned
+  material never changed the key, so the panel stayed stale until some other
+  state change (like docking back in the ship) forced a re-render. Materials
+  state now carries a `materials_version` counter that is bumped on every
+  mutation (`Materials`, `MaterialCollected`, `MaterialDiscarded`, and
+  `Materials.json` snapshots); the assets panel keys off that counter, and
+  the UI snapshot now clones the materials dicts.
+- **Material counts could exceed the per-material cap** (e.g. `132/100`) —
+  the journal reports the full `MaterialCollected` amount even when the game
+  silently discards everything above the material's cap (no discard event is
+  emitted). NOVA now clamps collected amounts to the catalogue cap.
+
+---
+
 ## v2.20.1 — 2026-07-08
 
 ### Bug Fixes

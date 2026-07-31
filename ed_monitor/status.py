@@ -681,6 +681,7 @@ def _apply_materials(path: Path, state: AppState, lock: threading.RLock) -> None
         state.materials_raw = _parse(data.get("Raw"), RAW_MATERIALS)
         state.materials_mfg = _parse(data.get("Manufactured"), MANUFACTURED_MATERIALS)
         state.materials_enc = _parse(data.get("Encoded"), ENCODED_MATERIALS)
+        state.materials_version += 1
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float, radius: float) -> float:

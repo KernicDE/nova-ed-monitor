@@ -350,6 +350,9 @@ class AppState:
     materials_enc: dict = field(default_factory=dict)
     # Material counts are always keyed by English catalogue name
     # (language-independent because lookup_fuzzy maps internal journal names)
+    # Bumped on every materials mutation so the assets panel re-renders even
+    # when only counts change (dict lengths alone are not a reliable key).
+    materials_version: int = 0
 
 
     # Missions

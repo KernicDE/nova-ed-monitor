@@ -500,6 +500,9 @@ class NOVAApp(App):
             snap.nearest_populated_stations = list(self._state.nearest_populated_stations)
             snap.current_system_stations = list(self._state.current_system_stations)
             snap.route_next_stations = list(self._state.route_next_stations)
+            snap.materials_raw  = dict(self._state.materials_raw)
+            snap.materials_mfg  = dict(self._state.materials_mfg)
+            snap.materials_enc  = dict(self._state.materials_enc)
         return snap
 
     # Back-compat: external callers may still refer to ._snapshot().

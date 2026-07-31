@@ -318,8 +318,7 @@ class SituationalPanel(_Panel):
         elif mode == "assets":
             mode_key = (
                 snap.credits, snap.cargo, len(snap.stored_ships),
-                len(snap.cargo_items),
-                len(snap.materials_raw), len(snap.materials_mfg), len(snap.materials_enc),
+                len(snap.cargo_items), snap.materials_version,
                 len(snap.backpack), len(snap.ship_locker),
             )
         elif mode == "stats":

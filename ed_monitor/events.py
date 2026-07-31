@@ -2927,6 +2927,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             state.materials_raw = _mat_dict(ev.get("Raw"))
             state.materials_mfg = _mat_dict(ev.get("Manufactured"))
             state.materials_enc = _mat_dict(ev.get("Encoded"))
+            state.materials_version += 1
             return None
 
         case "MaterialCollected":
@@ -2936,9 +2937,15 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             cnt  = _u(ev, "Count")
             info = _mat_lookup(name) or _mat_lookup(loc)
             key  = info.name if info else loc
-            if "raw"           in cat: state.materials_raw[key] = state.materials_raw.get(key, 0) + cnt
-            elif "manufactured" in cat: state.materials_mfg[key] = state.materials_mfg.get(key, 0) + cnt
-            elif "encoded"      in cat: state.materials_enc[key] = state.materials_enc.get(key, 0) + cnt
+            # The journal reports the full collected amount even when the game
+            # silently discards everything above the per-material cap — clamp.
+            def _mat_add(d: dict) -> None:
+                new = d.get(key, 0) + cnt
+                d[key] = min(new, info.cap) if info else new
+            if "raw"           in cat: _mat_add(state.materials_raw)
+            elif "manufactured" in cat: _mat_add(state.materials_mfg)
+            elif "encoded"      in cat: _mat_add(state.materials_enc)
+            state.materials_version += 1
             return None
 
         case "MaterialDiscarded":
@@ -2951,6 +2958,7 @@ def handle(ev: dict, state: AppState, tts_q: queue.Queue, live: bool = True) -> 
             if "raw"           in cat: state.materials_raw[key] = max(0, state.materials_raw.get(key, 0) - cnt)
             elif "manufactured" in cat: state.materials_mfg[key] = max(0, state.materials_mfg.get(key, 0) - cnt)
             elif "encoded"      in cat: state.materials_enc[key] = max(0, state.materials_enc.get(key, 0) - cnt)
+            state.materials_version += 1
             return None
 
         # ── Engineers ────────────────────────────────────────────────────────
