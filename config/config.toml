@@ -1,0 +1,104 @@
+# NOVA — Navigation, Operations, and Vessel Assistance
+# All settings are optional. The journal directory is auto-detected.
+# Remove the leading '#' from a line to activate that setting.
+
+# Journal directory (leave commented to auto-detect):
+# journal_dir = /path/to/Saved Games/Frontier Developments/Elite Dangerous
+
+# Twitch integration — leave commented to disable:
+# twitch_channel = yourchannel
+
+# YouTube live chat — leave commented to disable:
+# youtube_channel = @yourchannel
+
+# TTS voice rate adjustment (e.g. +10%, -5%, +0%):
+# tts_rate = +10%
+
+# Language for NOVA's own voiceovers (en, de, fr, it, es, pt, ru):
+# tts_lang = en
+# Voiceline files: config/voicelines/{lang}.toml (relative to install dir)
+# Copy from ed_monitor/voicelines/{lang}.toml to customise individual event lines.
+
+# Fallback language for chat TTS (in-game, Twitch, YouTube).
+# Auto-detection is used first; this applies when detection returns English.
+# Set to your squad's language if messages are often short or ambiguous (e.g. de).
+# chat_lang = de
+
+# TTS voices per language (edge-tts voice names):
+# tts_voice_en = en-GB-SoniaNeural
+# tts_voice_de = de-DE-KatjaNeural
+# tts_voice_fr = fr-FR-DeniseNeural
+# tts_voice_it = it-IT-ElsaNeural
+# tts_voice_es = es-ES-ElviraNeural
+# tts_voice_pt = pt-PT-RaquelNeural
+# tts_voice_ru = ru-RU-SvetlanaNeural
+
+# ── Stream Overlay ────────────────────────────────────────────────────────────
+# Individual .txt files are written to the overlay directory for use in OBS/Streamlabs.
+# Each file contains one piece of information (e.g. system.txt, ship_name.txt).
+# Files: commander, ship_name, ship_type, ship_ident, system, position, station,
+#        approach_body, route_destination, route_next, jumps_left, hull, fuel,
+#        fuel_max, fuel_reservoir, cargo, heat, shields, status, supercruise,
+#        docked, landed, power, power_state, allegiance, economy, security,
+#        government, population, nearest_inhabited, heading, altitude, coordinates
+# overlay_dir = config/overlay
+
+# ── Audio ─────────────────────────────────────────────────────────────────────
+# Default TTS/audio volume at startup (0–100):
+# default_volume = 50
+
+# ── Notable Bodies ────────────────────────────────────────────────────────────
+# Minimum body value (Cr) to appear in the Notable Bodies list in the Overview.
+# Bodies with bio signals, ELW/Water/Ammonia types, and terraform candidates
+# are always included regardless of this threshold.
+# notable_value_threshold = 500000
+
+# ── Fleet Carriers ─────────────────────────────────────────────────────────────
+# Enable Spansh API lookup for fleet carriers in current system (max 1 req/5 min):
+# carrier_lookup = false
+
+# ── Debug Logging ─────────────────────────────────────────────────────────────
+# Write a full debug log to logs/nova-debug.log (overwritten each run).
+# Enable when you need to diagnose a problem and send the log to the developer.
+# debug_log = false
+
+# ── Situational Panels ────────────────────────────────────────────────────────
+# Define visibility and order of SITUATION panel tabs (space-separated).
+# Panels not listed here will not appear in NOVA and auto mode won't switch to them.
+# Available: OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
+# situational_panels = OVR BIO MAP MIS ENG BGS COL ROU NTR AST STS
+
+# ── Chat TTS ─────────────────────────────────────────────────────────────────
+# Disable TTS for chat messages at startup (messages are still shown in the UI).
+# Can be toggled at runtime: g = all chat, t = Twitch only, y = YouTube only, p = all.
+# tts_chat    = true
+# tts_twitch  = true
+# tts_youtube = true
+
+# ── AI-Generated Voice ─────────────────────────────────────────────────────────
+# Replace static/templated voicelines with text generated on-the-fly by an
+# external CLI. Requires the chosen CLI to be installed and on PATH.
+# static = current template-based voicelines (default, no external dependency)
+# kimi   = runs `kimi -p "<prompt>"`
+# claude = runs `claude -p "<prompt>"`
+# voice_engine = static
+
+# Subprocess timeout (seconds) for the AI voice CLI. On timeout/failure NOVA
+# falls back to the normal static voiceline for that event.
+# ai_voice_timeout_s = 12.0
+
+# Rapid-fire events (e.g. FSS scanning many bodies in a row) are grouped into
+# a single AI call within this window (seconds) instead of one call per event.
+# ai_voice_burst_window_s = 2.5
+
+# Personality file shaping the AI's tone (config/personality/<name>.toml).
+# A reference copy of the built-in default is written to
+# config/personality/default/default.default.toml on every launch.
+# personality_name = default
+
+# ── Ambient Commentary ─────────────────────────────────────────────────────────
+# NOVA occasionally remarks on the current situation unprompted, once every
+# random interval between the min/max below. Requires voice_engine != static.
+# ambient_commentary_enabled = false
+# ambient_interval_min_s = 180
+# ambient_interval_max_s = 360

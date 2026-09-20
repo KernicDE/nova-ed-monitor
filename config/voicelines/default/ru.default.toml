@@ -1,0 +1,391 @@
+# NOVA Voicelines — Русский (built-in default)
+# ─────────────────────────────────────────────
+# THIS FILE IS REPLACED ON EVERY NOVA UPDATE — do not edit it directly.
+#
+# To customise voicelines, create:
+#   ~/.config/nova/voicelines/ru.toml
+#
+# User file format  (add or replace lines per event):
+#
+#   [EventKey]
+#   add     = ["Extra variant 1.", "Extra variant 2."]
+#   # OR
+#   replace = ["Only this.", "Or this."]
+#
+#   add     — appends your lines to the built-in pool (more random variety)
+#   replace — uses only your lines for this event (overrides the default)
+#   replace = []  — silences the event completely
+#
+# Variables in {curly_braces} are filled at runtime; see en.default.toml for full docs.
+#
+# Shared variable groups available in many events:
+#
+#   Ship:   {commander} {ship} {ship_type} {ship_name} {ship_ident}
+#           {hull} {hull_raw} {fuel} {fuel_raw} {fuel_max_raw}
+#           {jump_range} {jump_range_raw}
+#
+#   System: {system} {allegiance} {economy} {security} {government}
+#           {population} {population_raw} {faction}
+#
+#   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
+#           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
+#           {dist_ls} {dist_ls_raw} {value} {value_raw}
+#           {is_terraformable} (True/False) {landable} {bio_count} {geo_count}
+#           {first_disc} {first_footfall_flag}
+#
+#   Bio scan: {genus} {sample_count} {samples_left} {min_dist} {min_dist_raw}
+#             {bio_value} {bio_value_raw} {body_bio_total} {body_bio_complete}
+#             {body_bio_remaining_count} {body_bio_remaining_species}
+#
+#   Bio system: {bio_system_remaining_count} {bio_system_remaining_bodies}
+#               {bio_system_complete_count} {bio_system_done}
+#               {bio_system_total_value} {bio_system_total_value_raw}
+
+[Nova_Startup]
+lines = ["NOVA активна."]
+
+[Shutdown]
+lines = ["Системы отключаются. До свидания, Командир."]
+
+[LoadGame]
+lines = ["Командир {commander} в сети."]
+
+[FSDJump]
+lines = ["Прибыли в {system}. Прыжок {dist_ly}.{suffix}"]
+[FSDJump_Home]
+lines = ["Добро пожаловать домой, командир."]
+
+
+[NavRoute]
+lines = ["Маршрут проложен. Назначение: {dest}. {hops} {hops_word}."]
+
+[NavRouteClear]
+lines = ["Маршрут очищен."]
+
+[NavRouteArrived]
+lines = ["Цель достигнута."]
+
+[SupercruiseEntry]
+lines = ["Сверхкруиз активирован."]
+
+[SupercruiseExit]
+lines = ["Сверхкруиз деактивирован вблизи {body}."]
+
+[SupercruiseExit_nobdy]
+lines = ["Сверхкруиз деактивирован."]
+
+[StartJump_Hyperspace]
+lines = ["Гиперпространственный прыжок активирован."]
+
+[StartJump_Supercruise]
+lines = ["Сверхкруиз активирован."]
+
+[Docked]
+lines = ["Пришвартованы к {station}."]
+
+[Undocked]
+lines = ["Отстыкованы от {station}."]
+
+[Undocked_nostation]
+lines = ["Отстыкованы."]
+
+[DockingGranted]
+lines = ["Запрос на стыковку одобрен. Следуйте на площадку {pad}."]
+
+[DockingDenied]
+lines = ["Запрос на стыковку отклонён. Причина: {reason}."]
+
+[DockingCancelled]
+lines = ["Стыковка прервана."]
+
+[Touchdown]
+lines = ["Посадка."]
+
+[Liftoff]
+lines = ["Взлёт."]
+
+[FirstFootfall]
+lines = ["Первый шаг на этом мире!"]
+
+[UnderAttack]
+lines = ["Внимание! Под атакой!"]
+
+[UnderAttack_target]
+lines = ["Внимание! Под атакой! Атакующий: {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\";."]
+
+[ShieldDown]
+lines = ["Внимание! Щиты отключены!"]
+
+[ShieldUp]
+lines = ["Щиты восстановлены."]
+
+[HullDamage_Critical]
+lines = ["Критическое состояние! Корпус на {pct} процентах!"]
+
+[HullDamage_Warning]
+lines = ["Повреждение корпуса: {pct} процентов."]
+
+[Died]
+lines = ["{msg}"]
+
+[Bounty]
+lines = ["Награда: {reward}."]
+
+[Bounty_target]
+lines = ["Награда: {reward}. Цель: {victim}."]
+
+[FactionKillBond]
+lines = ["Боевое соглашение: {reward}."]
+
+[Interdicted_Submitted]
+lines = ["Перехват принят."]
+
+[Interdicted_Submitted_name]
+lines = ["Капитуляция перед перехватом {interdictor}."]
+
+[Interdicted_Escaped]
+lines = ["Перехват преодолён!"]
+
+[Interdicted_Escaped_name]
+lines = ["Перехват {interdictor} преодолён!"]
+
+[Interdiction_Success]
+lines = ["Перехват успешен: {victim}."]
+
+[Interdiction_Failed]
+lines = ["Перехват провалился."]
+
+[Scanned]
+lines = ["Внимание: обнаружено сканирование {scan_type}!"]
+
+[HeatWarning]
+lines = ["Внимание: критический нагрев!"]
+
+[HyperdictInterdict]
+lines = ["Перехват таргоидов! Гиперпривод прерван!"]
+
+[FSSDiscoveryScan]
+lines = ["Сканирование завершено. Обнаружено {total} тел."]
+
+[FSSAllBodiesFound]
+lines = ["Сканирование системы завершено. Все сигналы учтены в {system}."]
+
+[FSSSignalDiscovered]
+lines = ["Обнаружен сигнал: {sig}!"]
+
+[Scan_Undiscovered]
+lines = ["Неоткрытая система."]
+
+[Scan_Notable]
+lines = ["Примечательно: {body_short}. {detail}"]
+
+[Scan_Detailed]
+lines = ["Сканирование: {body_short}. {detail}"]
+
+[SAAScanComplete]
+lines = ["Нанесено на карту: {body_short}.{sig_txt}{eff_txt}"]
+
+[CodexEntry]
+lines = ["Кодекс: {name}."]
+
+[ScanOrganic_Log]
+lines = ["Биологическое: {species}."]
+
+[ScanOrganic_Log_NewSpecies]
+lines = ["Биологическое: {species}. Новый вид!"]
+
+[ScanOrganic_Sample]
+lines = ["Биопроба {count} из 3: {species}."]
+
+[ScanOrganic_Analyse]
+lines = ['Биоисследование завершено: {species}. Ценность: {val_str}.WHEN {first_footfall_flag} IS TRUE THEN " Бонус первого следа применён.";']
+
+[ScanOrganic_Analyse_BodyLeft]
+lines = ["На этом теле осталось {body_left} биосигналов."]
+
+[ScanOrganic_Analyse_SystemMore]
+lines = ["Дополнительные биосигналы: {parts_str}."]
+
+[ScanOrganic_Analyse_SystemDone]
+lines = ["Все биосигналы в этой системе собраны."]
+
+[MissionAccepted]
+lines = ["Миссия принята: {name}."]
+
+[MissionCompleted]
+lines = ["Миссия выполнена: {name}. Вознаграждение: {reward}."]
+
+[MissionFailed]
+lines = ["Миссия провалена: {name}."]
+
+[MarketSell]
+lines = ["Продано: {count}x {commodity} за {total}."]
+
+[MarketSell_profit]
+lines = ["Продано: {count}x {commodity} за {total}. Прибыль: {profit}."]
+
+[EngineerUnlocked]
+lines = ["Инженер разблокирован: {engineer}!"]
+
+[EngineerRank]
+lines = ["Инженер {engineer}: ранг {rank}."]
+
+[FuelScoop_Full]
+lines = ["Бак полон."]
+[LowFuel]
+lines = ["Внимание: мало топлива."]
+
+
+[EjectCargo]
+lines = ["Груз выброшен: {cargo}."]
+
+[Repair]
+lines = ["Ремонт завершён: {item}."]
+
+[RepairAll]
+lines = ["Полный ремонт завершён."]
+
+[Resurrect]
+lines = ["Возрождены на станции."]
+
+[LandingGear_Deployed]
+lines = ["Шасси выпущено."]
+
+[LandingGear_Retracted]
+lines = ["Шасси убрано."]
+
+[CargoScoop_Deployed]
+lines = ["Грузовой захват развёрнут."]
+
+[CargoScoop_Retracted]
+lines = ["Грузовой захват убран."]
+
+[Hardpoints_Deployed]
+lines = ["Точки подвески развёрнуты."]
+
+[Hardpoints_Retracted]
+lines = ["Точки подвески убраны."]
+
+[Lights_On]
+lines = ["Огни включены."]
+
+[Lights_Off]
+lines = ["Огни выключены."]
+
+[NightVision_On]
+lines = ["Ночное видение активировано."]
+
+[NightVision_Off]
+lines = ["Ночное видение деактивировано."]
+
+[FlightAssist_Off]
+lines = ["Помощь в пилотировании отключена."]
+
+[FlightAssist_On]
+lines = ["Помощь в пилотировании активирована."]
+
+[SilentRunning_On]
+lines = ["Тихий ход активирован."]
+
+[SilentRunning_Off]
+lines = ["Тихий ход деактивирован."]
+
+[AnalysisMode]
+lines = ["Режим анализа."]
+
+[CombatMode]
+lines = ["Боевой режим."]
+
+[SRV_Deployed]
+lines = ["С Р В развёрнут."]
+
+[SRV_Secured]
+lines = ["С Р В закреплён."]
+
+[SRV_Boarded]
+lines = ["С Р В занят."]
+
+[SRV_Exited]
+lines = ["С Р В покинут."]
+
+[MassLocked]
+lines = ["Массовая блокировка."]
+
+[MassLockReleased]
+lines = ["Массовая блокировка снята."]
+
+[BioReady]
+lines = ["{species} готов. Можно сканировать следующий образец."]
+
+[BioTooClose]
+lines = ["Слишком близко к образцу {species}. Отойдите перед сканированием."]
+
+[System_EDSM_Unknown]
+# No variables.
+lines = ["Система неизвестна в EDSM."]
+
+[units]
+light_year = "световой год"
+light_years = "световых лет"
+light_second = "световая секунда"
+light_seconds = "световых секунд"
+thousand_light_seconds = "тысяча световых секунд"
+billion = "миллиардов"
+million = "миллионов"
+thousand = "тысяч"
+uninhabited = "необитаемая"
+credits = "кредитов"
+percent = "процентов"
+tonnes = "тонн"
+minutes = "минут"
+hours = "часов"
+days = "дней"
+Kelvin = "Кельвин"
+kilometres = "километров"
+earth_masses = "масс Земли"
+G = "G"
+astronomical_units = "астрономических единиц"
+degrees = "градусов"
+metres = "метров"
+scoopable = "заправляемая"
+not_scoopable = "не заправляемая"
+jump = "прыжок"
+jumps = "прыжков"
+remaining = "осталось"
+Pop = "Население"
+bio = "биосигнал"
+bios = "биосигналов"
+is = "есть"
+are = "есть"
+landable = "Пригодна для посадки"
+undiscovered = "Неоткрытая"
+first_footfall = "Первый след"
+ringed = "С кольцами"
+tidal_lock = "Приливная блокировка"
+complete = "завершено"
+star = "Звезда"
+first_footfall_bonus = "Бонус первого следа применён."
+earthlike = "похожая на Землю"
+water_world = "водный мир"
+ammonia_world = "аммиачный мир"
+terraformable = "терраформируемая"
+bio_body = "биотело"
+bio_bodies = "биотел"
+neutron_star = "нейтронная звезда"
+neutron_stars = "нейтронных звёзд"
+black_hole = "чёрная дыра"
+black_holes = "чёрных дыр"
+nothing_notable = "ничего примечательного"
+
+light_years_one = "световой год"
+light_years_few = "световых года"
+light_years_many = "световых лет"
+light_seconds_one = "световая секунда"
+light_seconds_few = "световые секунды"
+light_seconds_many = "световых секунд"
+jumps_one = "прыжок"
+jumps_few = "прыжка"
+jumps_many = "прыжков"
+bios_one = "биосигнал"
+bios_few = "биосигнала"
+bios_many = "биосигналов"

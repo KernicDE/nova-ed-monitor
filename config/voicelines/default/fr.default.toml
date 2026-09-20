@@ -1,0 +1,378 @@
+# NOVA Voicelines — Français (built-in default)
+# ─────────────────────────────────────────────
+# THIS FILE IS REPLACED ON EVERY NOVA UPDATE — do not edit it directly.
+#
+# To customise voicelines, create:
+#   ~/.config/nova/voicelines/fr.toml
+#
+# User file format  (add or replace lines per event):
+#
+#   [EventKey]
+#   add     = ["Extra variant 1.", "Extra variant 2."]
+#   # OR
+#   replace = ["Only this.", "Or this."]
+#
+#   add     — appends your lines to the built-in pool (more random variety)
+#   replace — uses only your lines for this event (overrides the default)
+#   replace = []  — silences the event completely
+#
+# Variables in {curly_braces} are filled at runtime; see en.default.toml for full docs.
+#
+# Shared variable groups available in many events:
+#
+#   Ship:   {commander} {ship} {ship_type} {ship_name} {ship_ident}
+#           {hull} {hull_raw} {fuel} {fuel_raw} {fuel_max_raw}
+#           {jump_range} {jump_range_raw}
+#
+#   System: {system} {allegiance} {economy} {security} {government}
+#           {population} {population_raw} {faction}
+#
+#   Body:   {body_type} {atmosphere} {volcanism} {gravity} {gravity_raw}
+#           {temp} {temp_raw} {radius} {radius_raw} {mass} {mass_raw}
+#           {dist_ls} {dist_ls_raw} {value} {value_raw}
+#           {is_terraformable} (True/False) {landable} {bio_count} {geo_count}
+#           {first_disc} {first_footfall_flag}
+#
+#   Bio scan: {genus} {sample_count} {samples_left} {min_dist} {min_dist_raw}
+#             {bio_value} {bio_value_raw} {body_bio_total} {body_bio_complete}
+#             {body_bio_remaining_count} {body_bio_remaining_species}
+#
+#   Bio system: {bio_system_remaining_count} {bio_system_remaining_bodies}
+#               {bio_system_complete_count} {bio_system_done}
+#               {bio_system_total_value} {bio_system_total_value_raw}
+
+[Nova_Startup]
+lines = ["NOVA active."]
+
+[Shutdown]
+lines = ["Arrêt des systèmes. Au revoir, Commandant."]
+
+[LoadGame]
+lines = ["Commandant {commander} en ligne."]
+
+[FSDJump]
+lines = ["Arrivée dans {system}. Saut de {dist_ly}.{suffix}"]
+[FSDJump_Home]
+lines = ["Bienvenue chez vous, Commandant."]
+
+
+[NavRoute]
+lines = ["Route établie. Destination : {dest}. {hops} {hops_word}."]
+
+[NavRouteClear]
+lines = ["Route effacée."]
+
+[NavRouteArrived]
+lines = ["Destination atteinte."]
+
+[SupercruiseEntry]
+lines = ["Supercruise engagé."]
+
+[SupercruiseExit]
+lines = ["Supercruise désengagé près de {body}."]
+
+[SupercruiseExit_nobdy]
+lines = ["Supercruise désengagé."]
+
+[StartJump_Hyperspace]
+lines = ["Saut hyperspatial engagé."]
+
+[StartJump_Supercruise]
+lines = ["Supercruise engagé."]
+
+[Docked]
+lines = ["Amarré à {station}."]
+
+[Undocked]
+lines = ["Désamarré de {station}."]
+
+[Undocked_nostation]
+lines = ["Désamarré."]
+
+[DockingGranted]
+lines = ["Demande d'amarrage accordée. Dirigez-vous vers le pad {pad}."]
+
+[DockingDenied]
+lines = ["Demande d'amarrage refusée. Raison : {reason}."]
+
+[DockingCancelled]
+lines = ["Amarrage annulé."]
+
+[Touchdown]
+lines = ["Atterrissage."]
+
+[Liftoff]
+lines = ["Décollage."]
+
+[FirstFootfall]
+lines = ["Premier pas sur ce monde !"]
+
+[UnderAttack]
+lines = ["Attention ! Sous le feu !"]
+
+[UnderAttack_target]
+lines = ["Attention ! Sous le feu de {attacker}WHEN {ship_type} IS TRUE THEN \" ({ship_type})\"; !"]
+
+[ShieldDown]
+lines = ["Attention ! Boucliers hors ligne !"]
+
+[ShieldUp]
+lines = ["Boucliers rétablis."]
+
+[HullDamage_Critical]
+lines = ["Critique ! Coque à {pct} pourcent !"]
+
+[HullDamage_Warning]
+lines = ["Dommages à la coque : {pct} pourcent."]
+
+[Died]
+lines = ["{msg}"]
+
+[Bounty]
+lines = ["Prime : {reward}."]
+
+[Bounty_target]
+lines = ["Prime : {reward}. Cible : {victim}."]
+
+[FactionKillBond]
+lines = ["Lien de combat : {reward}."]
+
+[Interdicted_Submitted]
+lines = ["Interdiction subie."]
+
+[Interdicted_Submitted_name]
+lines = ["Soumission à l'interdiction de {interdictor}."]
+
+[Interdicted_Escaped]
+lines = ["Interdiction échappée !"]
+
+[Interdicted_Escaped_name]
+lines = ["Interdiction de {interdictor} échappée !"]
+
+[Interdiction_Success]
+lines = ["Interdiction réussie : {victim}."]
+
+[Interdiction_Failed]
+lines = ["Interdiction échouée."]
+
+[Scanned]
+lines = ["Attention : scan {scan_type} détecté !"]
+
+[HeatWarning]
+lines = ["Attention : chaleur critique !"]
+
+[HyperdictInterdict]
+lines = ["Interdiction Thargoid ! Hyperpropulseur interrompu !"]
+
+[FSSDiscoveryScan]
+lines = ["Scan terminé. {total} corps détectés."]
+
+[FSSAllBodiesFound]
+lines = ["Scan du système terminé. Tous les signaux comptabilisés dans {system}."]
+
+[FSSSignalDiscovered]
+lines = ["Signal détecté : {sig} !"]
+
+[Scan_Undiscovered]
+lines = ["Système non découvert."]
+
+[Scan_Notable]
+lines = ["Notable : {body_short}. {detail}"]
+
+[Scan_Detailed]
+lines = ["Scan : {body_short}. {detail}"]
+
+[SAAScanComplete]
+lines = ["Cartographié : {body_short}.{sig_txt}{eff_txt}"]
+
+[CodexEntry]
+lines = ["Codex : {name}."]
+
+[ScanOrganic_Log]
+lines = ["Biologique : {species}."]
+
+[ScanOrganic_Log_NewSpecies]
+lines = ["Biologique : {species}. Nouvelle espèce !"]
+
+[ScanOrganic_Sample]
+lines = ["Échantillon bio {count} sur 3 : {species}."]
+
+[ScanOrganic_Analyse]
+lines = ['Bio terminé : {species}. Valeur : {val_str}.WHEN {first_footfall_flag} IS TRUE THEN " Bonus premier pas appliqué.";']
+
+[ScanOrganic_Analyse_BodyLeft]
+lines = ["Encore {body_left} signaux biologiques sur ce corps."]
+
+[ScanOrganic_Analyse_SystemMore]
+lines = ["Plus de signaux bio : {parts_str}."]
+
+[ScanOrganic_Analyse_SystemDone]
+lines = ["Tous les signaux bio de ce système sont complets."]
+
+[MissionAccepted]
+lines = ["Mission acceptée : {name}."]
+
+[MissionCompleted]
+lines = ["Mission accomplie : {name}. Récompense : {reward}."]
+
+[MissionFailed]
+lines = ["Mission échouée : {name}."]
+
+[MarketSell]
+lines = ["Vendu : {count}x {commodity} pour {total}."]
+
+[MarketSell_profit]
+lines = ["Vendu : {count}x {commodity} pour {total}. Bénéfice : {profit}."]
+
+[EngineerUnlocked]
+lines = ["Ingénieur débloqué : {engineer} !"]
+
+[EngineerRank]
+lines = ["Ingénieur {engineer} : rang {rank}."]
+
+[FuelScoop_Full]
+lines = ["Réservoir plein."]
+[LowFuel]
+lines = ["Attention: carburant faible."]
+
+
+[EjectCargo]
+lines = ["Cargaison éjectée : {cargo}."]
+
+[Repair]
+lines = ["Réparation terminée : {item}."]
+
+[RepairAll]
+lines = ["Réparation complète terminée."]
+
+[Resurrect]
+lines = ["Réapparu à la station."]
+
+[LandingGear_Deployed]
+lines = ["Train d'atterrissage déployé."]
+
+[LandingGear_Retracted]
+lines = ["Train d'atterrissage rétracté."]
+
+[CargoScoop_Deployed]
+lines = ["Collecteur de cargaison déployé."]
+
+[CargoScoop_Retracted]
+lines = ["Collecteur de cargaison rétracté."]
+
+[Hardpoints_Deployed]
+lines = ["Hardpoints déployés."]
+
+[Hardpoints_Retracted]
+lines = ["Hardpoints rétractés."]
+
+[Lights_On]
+lines = ["Lumières allumées."]
+
+[Lights_Off]
+lines = ["Lumières éteintes."]
+
+[NightVision_On]
+lines = ["Vision nocturne activée."]
+
+[NightVision_Off]
+lines = ["Vision nocturne désactivée."]
+
+[FlightAssist_Off]
+lines = ["Assistance de vol désactivée."]
+
+[FlightAssist_On]
+lines = ["Assistance de vol activée."]
+
+[SilentRunning_On]
+lines = ["Silence radio activé."]
+
+[SilentRunning_Off]
+lines = ["Silence radio désactivé."]
+
+[AnalysisMode]
+lines = ["Mode analyse."]
+
+[CombatMode]
+lines = ["Mode combat."]
+
+[SRV_Deployed]
+lines = ["S R V déployé."]
+
+[SRV_Secured]
+lines = ["S R V sécurisé."]
+
+[SRV_Boarded]
+lines = ["S R V embarqué."]
+
+[SRV_Exited]
+lines = ["S R V quitté."]
+
+[MassLocked]
+lines = ["Verrouillage de masse."]
+
+[MassLockReleased]
+lines = ["Verrouillage de masse libéré."]
+
+[BioReady]
+lines = ["{species} prêt. Vous pouvez scanner le prochain échantillon."]
+
+[BioTooClose]
+lines = ["Trop proche de l'échantillon {species}. Éloignez-vous avant de scanner."]
+
+[System_EDSM_Unknown]
+# No variables.
+lines = ["Système inconnu dans EDSM."]
+
+[units]
+light_year = "année-lumière"
+light_years = "années-lumière"
+light_second = "seconde-lumière"
+light_seconds = "secondes-lumière"
+thousand_light_seconds = "mille secondes-lumière"
+billion = "milliards"
+million = "millions"
+thousand = "mille"
+uninhabited = "inhabitée"
+credits = "crédits"
+percent = "pour cent"
+tonnes = "tonnes"
+minutes = "minutes"
+hours = "heures"
+days = "jours"
+Kelvin = "Kelvin"
+kilometres = "kilomètres"
+earth_masses = "masses terrestres"
+G = "G"
+astronomical_units = "unités astronomiques"
+degrees = "degrés"
+metres = "mètres"
+scoopable = "ravitailable"
+not_scoopable = "non ravitailable"
+jump = "saut"
+jumps = "sauts"
+remaining = "restant"
+Pop = "Pop"
+bio = "signal bio"
+bios = "signaux bio"
+is = "est"
+are = "sont"
+landable = "Atterrissable"
+undiscovered = "Non découvert"
+first_footfall = "Premier pas"
+ringed = "Anneaux"
+tidal_lock = "Rotation synchrone"
+complete = "terminé"
+star = "Étoile"
+first_footfall_bonus = "Bonus premier pas appliqué."
+earthlike = "terrelike"
+water_world = "monde d'eau"
+ammonia_world = "monde d'ammoniac"
+terraformable = "terraformable"
+bio_body = "corps bio"
+bio_bodies = "corps bio"
+neutron_star = "étoile à neutrons"
+neutron_stars = "étoiles à neutrons"
+black_hole = "trou noir"
+black_holes = "trous noirs"
+nothing_notable = "rien de notable"

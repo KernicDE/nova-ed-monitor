@@ -47,3 +47,36 @@ Thumbs.db
 # Environment variables
 .env
 .env.*
+
+# Secrets / lokale Konfiguration
+!.env.example
+!.env.sample
+*.env.local
+config.env
+!config.env.example
+.secrets
+.env.secrets
+*.secret
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.htpasswd
+credentials.json
+service-account*.json
+
+# Claude Code / KI-Tooling (Session-Dumps enthalten oft Klartext-Zugangsdaten)
+.superpowers/
+
+# OS / Editor
+*@SynoEAStream
+*@SynoResource
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+.pytest_cache/
