@@ -37,6 +37,7 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 | **[Installation & Update](docs/Installation.md)** | Launcher scripts, pip install, data paths, uninstall, troubleshooting. |
 | **[Settings](docs/Settings.md)** | Every `config.toml` key, voiceline customisation, template engine, stream overlay. |
 | **[Usage Guide](docs/Usage.md)** | Keyboard shortcuts, every panel explained, bio/neutron/high-G workflows, stats. |
+| **[Voice Variables](docs/VoiceVariables.md)** | Variables available in voiceline templates. |
 
 ---
 
@@ -63,7 +64,7 @@ Full installation options (pip, wheel, standalone Linux binary, clone) are in **
 - Galaxy map (Braille, with route waypoints) — system / regional / galactic zoom.
 
 ### Terminal UI
-- 14-mode **Situational** panel, auto-switching by context (`a` to lock). Mission panel groups by destination with cargo totals, type badges, reward column, wing/influence markers, and massacre kill-stack bars with per-threshold milestones.
+- Multi-mode **Situational** panel (12 modes plus auto), auto-switching by context (`a` to lock). Mission panel groups by destination with cargo totals, type badges, reward column, wing/influence markers, and massacre kill-stack bars with per-threshold milestones.
 - In-app **Settings overlay** (`s` key) — every key, live-applied.
 - **Custom themes** — TOML-based colour theming with two built-in palettes (Default, Sakura Night) and full user customisation.
 - Hot-reload for `config.toml` and voiceline files within ~2 s.
@@ -103,6 +104,7 @@ See **[docs/Settings.md](docs/Settings.md)** for every key, including AI-generat
 | `s` | Open Settings overlay |
 | `?` | Help & About screen |
 | `Tab` / `Shift+Tab` | Cycle focused panel forward/backward (1→6) |
+| `0`–`6` | Focus panel directly (`0` clears focus) |
 | `a` | Toggle auto-switching |
 | `↑` / `↓` / `k` / `j` | Scroll situational panel (`MAP`: cycle sub-view) |
 | `←` / `→` | Cycle situational panel modes |
